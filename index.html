@@ -112,6 +112,30 @@
         return bits.join(' · ');
       }
     }
+    ,
+    {
+      id: 'woodpile', name: 'Woodpile', blurb: 'Wooden block puzzle', path: 'games/woodpile/',
+      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" fill="#6b4423"/>' +
+        '<g transform="translate(8 8)">' + (function () {
+          var on = { 0: 1, 1: 1, 2: 1, 9: 1, 11: 1, 20: 1, 24: 1, 25: 1, 30: 1, 31: 1, 32: 1, 33: 1, 34: 1, 38: 1, 42: 1, 43: 1, 44: 1, 52: 1, 60: 1, 61: 1, 70: 1, 72: 1, 73: 1, 80: 1 };
+          var h = '';
+          for (var i = 0; i < 81; i++) {
+            var r = Math.floor(i / 9), c = i % 9, alt = (Math.floor(r / 3) + Math.floor(c / 3)) % 2;
+            h += '<rect x="' + c * 9.3 + '" y="' + r * 9.3 + '" width="9.3" height="9.3" fill="' + (alt ? '#e6d2ad' : '#f4e7cf') + '"/>';
+            if (on[i]) h += '<rect x="' + (c * 9.3 + 0.8) + '" y="' + (r * 9.3 + 0.8) + '" width="7.7" height="7.7" rx="1.4" fill="#c98b4f" stroke="#7a4a1f" stroke-width=".7"/>';
+          }
+          return h;
+        })() + '</g></svg>',
+      status: function () {
+        var s = readLS('woodpile.stats'), m = readLS('woodpile.meta');
+        if (!s && !m) return 'New! Drag, drop and clear';
+        var bits = [];
+        if (s && s.best) bits.push('Best ' + String(s.best).replace(/\B(?=(\d{3})+(?!\d))/g, ','));
+        if (m && m.level) bits.push('Level ' + m.level);
+        if (m && m.daily && m.daily[todayNum()] != null) bits.push('daily done');
+        return bits.join(' \u00b7 ') || 'Drag, drop and clear';
+      }
+    }
   ];
   var byId = {};
   GAMES.forEach(function (g) { byId[g.id] = g; });
@@ -167,7 +191,7 @@
     GAMES.forEach(function (g) { all.appendChild(tile(g)); });
     var soon = document.createElement('div');
     soon.className = 'gtile soon';
-    soon.innerHTML = '<b>More games on the way</b><small>Blocks, jigsaws and more.</small>';
+    soon.innerHTML = '<b>More games on the way</b><small>Jigsaws, cubes and screws.</small>';
     all.appendChild(soon);
   }
 
