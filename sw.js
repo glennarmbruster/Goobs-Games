@@ -1,0 +1,72 @@
+/* Goobs-Games service worker: keeps the menu and every game on the phone for offline play.
+   Each part has its own version and its own cache. To publish an update, bump ONLY the
+   version of the part that changed; unchanged parts are not downloaded again. */
+const VERSIONS = {
+  shell: '1.0.0',     // menu, manifest, icons, /shared (ads, themes, storage)
+  zoodoku: '1.5.0'
+};
+const GROUPS = {
+  shell: [
+    './', 'index.html', 'manifest.json',
+    'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png',
+    'shared/goobs.js', 'shared/goobs.css', 'shared/ads.js', 'shared/animals.svg'
+  ],
+  zoodoku: ['games/zoodoku/', 'games/zoodoku/index.html']
+};
+const PREFIX = 'goobs-';
+const cacheName = (g) => PREFIX + g + '-' + VERSIONS[g];
+const CURRENT = Object.keys(GROUPS).map(cacheName);
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(Promise.all(Object.keys(GROUPS).map(async (g) => {
+    const cache = await caches.open(cacheName(g));
+    const missing = [];
+    for (const url of GROUPS[g]) if (!(await cache.match(url))) missing.push(url);
+    // cache: 'reload' skips the browser's HTTP cache so updated files are fetched fresh
+    if (missing.length) await cache.addAll(missing.map((u) => new Request(u, { cache: 'reload' })));
+  })));
+  // no skipWaiting: the page shows "Update available" and the player chooses when to reload
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys()
+      .then((keys) => Promise.all(keys.filter((k) => k.startsWith(PREFIX) && !CURRENT.includes(k)).map((k) => caches.delete(k))))
+      .then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data === 'SKIP_WAITING') self.skipWaiting();
+  if (event.data === 'VERSION' && event.source) event.source.postMessage({ versions: VERSIONS });
+});
+
+async function fromCache(req) {
+  for (const name of CURRENT) {
+    const cache = await caches.open(name);
+    const hit = await cache.match(req, { ignoreSearch: true });
+    if (hit) return hit;
+  }
+  return null;
+}
+
+self.addEventListener('fetch', (event) => {
+  const req = event.request;
+  if (req.method !== 'GET') return;
+  const url = new URL(req.url);
+  if (url.origin !== self.location.origin) return;
+  event.respondWith((async () => {
+    let hit = await fromCache(req);
+    if (!hit && url.pathname.endsWith('/')) hit = await fromCache(new Request(url.href + 'index.html'));
+    if (hit) return hit;
+    try {
+      return await fetch(req);
+    } catch (e) {
+      if (req.mode === 'navigate') {
+        const home = await fromCache(new Request(new URL('./index.html', self.registration.scope).href));
+        if (home) return home;
+      }
+      throw e;
+    }
+  })());
+});
