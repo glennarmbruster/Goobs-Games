@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#b3322a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Goobs-Games">
+<meta name="description" content="A little arcade of offline puzzle games.">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="stylesheet" href="shared/goobs.css">
+<script src="shared/goobs.js"></script>
+<title>Goobs-Games</title>
+<style>
+.menu { gap: 14px; align-items: stretch; }
+.menu .top { align-items: center; }
+.logo { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.logo svg { width: 42px; height: 42px; flex: none; }
+.logo h1 { margin: 0; font-size: 27px; font-weight: 800; color: var(--title); text-shadow: 0 2px 0 var(--title-shadow); white-space: nowrap; }
+.section h2 { margin: 6px 2px 8px; font-size: 18px; font-weight: 800; color: var(--muted); letter-spacing: .3px; }
+.continue {
+  width: 100%; display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 16px;
+  border: 2px solid var(--wood); background: var(--barn); color: #fff; box-shadow: 0 4px 0 var(--wood); text-align: left;
+}
+.continue:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--wood); }
+.continue .art { width: 58px; height: 58px; border-radius: 12px; overflow: hidden; flex: none; background: #fff; }
+.continue .art svg { width: 100%; height: 100%; display: block; }
+.continue b { display: block; font-size: 21px; }
+.continue small { display: block; font-size: 15px; font-weight: 700; opacity: .9; }
+.continue .play { margin-left: auto; font-size: 17px; font-weight: 800; background: rgba(255,255,255,.2); border-radius: 12px; padding: 8px 12px; }
+.grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.gtile {
+  position: relative; display: flex; flex-direction: column; border-radius: 18px; overflow: hidden; padding: 0; text-align: left;
+  border: 2px solid var(--wood); background: var(--surface); color: var(--ink); box-shadow: 0 4px 0 var(--wood);
+}
+.gtile:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--wood); }
+.gtile .art { aspect-ratio: 1 / 1; width: 100%; }
+.gtile .art svg { width: 100%; height: 100%; display: block; }
+.gtile .info { padding: 8px 10px 10px; }
+.gtile b { display: block; font-size: 19px; }
+.gtile small { display: block; font-size: 14px; font-weight: 700; color: var(--muted); line-height: 1.25; }
+.gtile .star {
+  position: absolute; top: 8px; right: 8px; width: 44px; height: 44px; border-radius: 50%; border: 2px solid rgba(0,0,0,.25);
+  background: rgba(255,255,255,.88); display: grid; place-items: center; font-size: 24px; line-height: 1; color: #b9a58b; padding: 0;
+}
+.gtile .star.on { color: #e0a800; background: #fff8dc; }
+.soon { border-style: dashed; box-shadow: none; opacity: .75; align-items: center; justify-content: center; text-align: center; min-height: 180px; padding: 14px; }
+.soon b { font-size: 17px; }
+:root[data-theme="dark"] .continue, :root[data-theme="dark"] .gtile { border-color: #5a4838; }
+:root[data-theme="blue"] .continue, :root[data-theme="blue"] .gtile { border-color: #34588c; }
+.foot { text-align: center; color: var(--muted); font-size: 13px; margin: 8px 0 4px; }
+</style>
+</head>
+<body>
+<div class="app menu">
+  <div class="top">
+    <div class="logo">
+      <svg viewBox="0 0 100 100" aria-hidden="true"><use href="shared/animals.svg#goobs-logo"/></svg>
+      <h1>Goobs-Games</h1>
+    </div>
+    <div class="topbtns">
+      <button class="iconbtn" id="btnSettings" aria-label="Settings"><svg viewBox="0 0 24 24"><use href="shared/animals.svg#i-gear"/></svg></button>
+    </div>
+  </div>
+
+  <div class="section" id="secContinue"></div>
+  <div class="section" id="secFavs"></div>
+  <div class="section"><h2>All games</h2><div class="grid" id="gridAll"></div></div>
+  <div class="foot" id="foot">Goobs-Games</div>
+</div>
+
+<!-- Settings -->
+<div class="overlay" id="ovSettings">
+  <div class="sheet" role="dialog" aria-label="Settings">
+    <h2>Settings</h2>
+    <div class="sheetbody">
+      <div class="themelabel">Theme (all games)</div>
+      <div class="themes" id="themes"></div>
+      <label class="row"><div>Old-time ads<small>Joke vintage ads between rounds in every game. Each game sets how often in its own settings.</small></div>
+        <span class="switch"><input type="checkbox" id="setAds"><span></span></span></label>
+      <div class="version" id="version">Goobs-Games</div>
+    </div>
+    <div class="actions"><button class="btn red" id="btnCloseSettings">Done</button></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  function $(id) { return document.getElementById(id); }
+  function readLS(k) { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } }
+  function todayNum() { var d = new Date(); return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); }
+
+  // ---------- the games ----------
+  var GAMES = [
+    {
+      id: 'zoodoku', name: 'Zoodoku', blurb: 'Farm-animal logic puzzle', path: 'games/zoodoku/',
+      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="zsky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8ecdf0"/><stop offset="1" stop-color="#e3f3fb"/></linearGradient></defs>' +
+        '<rect width="100" height="100" fill="url(#zsky)"/><circle cx="80" cy="18" r="9" fill="#ffd95a"/>' +
+        '<path d="M-5 76 Q25 60 58 69 Q84 77 105 65 L105 105 L-5 105Z" fill="#8cc063"/>' +
+        '<use href="shared/animals.svg#barn" x="10" y="17" width="60" height="60"/><use href="shared/animals.svg#a-cow" x="51" y="48" width="46" height="46"/></svg>',
+      status: function () {
+        var m = readLS('zoodoku.meta');
+        if (!m || !m.level) return 'Start at Level 1';
+        var bits = ['Level ' + m.level];
+        if (m.daily && m.daily[todayNum()]) bits.push('daily done');
+        else bits.push('daily waiting');
+        return bits.join(' · ');
+      }
+    }
+  ];
+  var byId = {};
+  GAMES.forEach(function (g) { byId[g.id] = g; });
+
+  function open(g) { location.href = g.path; }
+
+  function tile(g) {
+    var fav = Goobs.favs().indexOf(g.id) >= 0;
+    var b = document.createElement('button');
+    b.className = 'gtile';
+    b.innerHTML = '<div class="art">' + g.art + '</div><div class="info"><b>' + g.name + '</b><small>' + g.status() + '</small></div>' +
+      '<span class="star' + (fav ? ' on' : '') + '" role="button" aria-label="' + (fav ? 'Remove from' : 'Add to') + ' favorites">' + (fav ? '★' : '☆') + '</span>';
+    b.addEventListener('click', function (e) {
+      if (e.target.closest('.star')) { Goobs.toggleFav(g.id); render(); return; }
+      open(g);
+    });
+    return b;
+  }
+
+  function render() {
+    // pick up where you left off
+    var recent = Goobs.recent().filter(function (id) { return byId[id]; });
+    var sc = $('secContinue');
+    sc.innerHTML = '';
+    if (recent.length) {
+      var g = byId[recent[0]];
+      sc.innerHTML = '<h2>Keep playing</h2>';
+      var b = document.createElement('button');
+      b.className = 'continue';
+      b.innerHTML = '<span class="art">' + g.art + '</span><span><b>' + g.name + '</b><small>' + g.status() + '</small></span><span class="play">Play</span>';
+      b.addEventListener('click', function () { open(g); });
+      sc.appendChild(b);
+      if (recent.length > 1) {
+        var h = document.createElement('h2'); h.textContent = 'Recently played'; sc.appendChild(h);
+        var gr = document.createElement('div'); gr.className = 'grid';
+        recent.slice(1, 5).forEach(function (id) { gr.appendChild(tile(byId[id])); });
+        sc.appendChild(gr);
+      }
+    }
+    // favorites
+    var favs = Goobs.favs().filter(function (id) { return byId[id]; });
+    var sf = $('secFavs');
+    sf.innerHTML = '';
+    if (favs.length) {
+      sf.innerHTML = '<h2>Favorites</h2>';
+      var fg = document.createElement('div'); fg.className = 'grid';
+      favs.forEach(function (id) { fg.appendChild(tile(byId[id])); });
+      sf.appendChild(fg);
+    }
+    // all games + what's coming
+    var all = $('gridAll');
+    all.innerHTML = '';
+    GAMES.forEach(function (g) { all.appendChild(tile(g)); });
+    var soon = document.createElement('div');
+    soon.className = 'gtile soon';
+    soon.innerHTML = '<b>More games on the way</b><small>Blocks, jigsaws and more.</small>';
+    all.appendChild(soon);
+  }
+
+  // ---------- settings ----------
+  Goobs.themePicker($('themes'));
+  $('setAds').checked = Goobs.adsOn();
+  $('setAds').addEventListener('change', function () { Goobs.setAds(this.checked); });
+  $('btnSettings').addEventListener('click', function () { $('ovSettings').classList.add('show'); });
+  $('btnCloseSettings').addEventListener('click', function () { $('ovSettings').classList.remove('show'); });
+  $('ovSettings').addEventListener('click', function (e) { if (e.target === this) this.classList.remove('show'); });
+
+  render();
+  // coming back with the Back button (page restored from memory): refresh progress lines
+  window.addEventListener('pageshow', render);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) render(); });
+
+  Goobs.initUpdates({
+    onVersions: function (v) {
+      var parts = ['Goobs-Games ' + (v.shell || '?')];
+      GAMES.forEach(function (g) { if (v[g.id]) parts.push(g.name + ' ' + v[g.id]); });
+      $('version').textContent = parts.join(' · ');
+      $('foot').textContent = parts[0];
+    }
+  });
+})();
+</script>
+</body>
+</html>
