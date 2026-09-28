@@ -14,6 +14,27 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../../icons/icon-192.png">
 <link rel="stylesheet" href="../../shared/goobs.css">
 <script src="../../shared/goobs.js"></script>
+<script>
+/* if Mine Meadow can't open, say so on screen (never a blank page) and offer a fresh start */
+(function () {
+  var shown = false;
+  function fail(msg) {
+    if (shown || window.__mmReady) return; shown = true;
+    function put() {
+      var d = document.createElement('div');
+      d.style.cssText = 'position:fixed;inset:0;z-index:99;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;background:#eef7e6;color:#1b1f33;font:600 16px -apple-system,system-ui,sans-serif;text-align:center';
+      d.innerHTML = '<b style="font-size:21px">Mine Meadow didn\u2019t open</b><div style="max-width:320px;opacity:.75;font-size:13px">' + String(msg).replace(/[<>&]/g, '') + '</div>';
+      function btn(t, bg, go) { var b = document.createElement('button'); b.textContent = t; b.style.cssText = 'font:800 17px -apple-system,system-ui,sans-serif;padding:13px 24px;border-radius:14px;border:0;color:#fff;background:' + bg; b.onclick = go; d.appendChild(b); }
+      btn('Start fresh', '#5a54f0', function () { try { localStorage.removeItem('mines.game'); localStorage.removeItem('mines.meta'); } catch (e) { /* ignore */ } location.reload(); });
+      btn('All games', '#6b7080', function () { location.href = '../../'; });
+      document.body.appendChild(d);
+    }
+    if (document.body) put(); else document.addEventListener('DOMContentLoaded', put);
+  }
+  window.addEventListener('error', function (e) { fail((e.message || 'Something went wrong') + (e.lineno ? ' (line ' + e.lineno + ')' : '')); });
+  setTimeout(function () { if (!window.__mmReady) fail('It took too long to start.'); }, 6000);
+})();
+</script>
 <title>Mine Meadow</title>
 <style>
 /* Mine Meadow styles (themes, UI kit and ad cards come from /shared/goobs.css) */
@@ -382,6 +403,8 @@ var MMSound = (function () {
   function load() {
     var r = store.get('game', null);
     if (!r || !MM.LEVELS[r.level] || r.over || !r.started || !Array.isArray(r.state)) return false;
+    var L = MM.LEVELS[r.level], size = L.w * L.h;
+    if (r.w !== L.w || r.h !== L.h || r.state.length !== size || !Array.isArray(r.mine) || r.mine.length !== size || !Array.isArray(r.num) || r.num.length !== size || typeof r.ms !== 'number') { store.del('game'); return false; }
     g = r; meta.level = g.level; return true;
   }
   function tick() {
@@ -446,14 +469,22 @@ var MMSound = (function () {
 
   // ================= drawing =================
   var cv, cx, dpr = 1, cell = 30, VW = 0, VH = 0, view = { s: 1, x: 0, y: 0 };
+  var fitKey = '', fitTries = 0;
   function fit() {
     if (!g || !cv) return;
     var wrap = $('stagewrap').getBoundingClientRect(), maxW = wrap.width - 4, maxH = wrap.height;
+    // the page can report no size for a moment while it opens (seen on iPhone): wait for real room
+    if (!(maxW > 40 && maxH > 40)) { if (fitTries++ < 120) requestAnimationFrame(fit); return; }
+    fitTries = 0;
+    var d = Math.min(3, window.devicePixelRatio || 1), key = Math.round(maxW) + 'x' + Math.round(maxH) + ':' + g.w + 'x' + g.h + '@' + d;
+    if (key === fitKey) { clampView(); draw(); return; }
+    fitKey = key;
     // as big as fits across; a tall board (Expert) scrolls up and down with a drag
     cell = Math.max(12, Math.floor(Math.min(maxW / g.w, 46, Math.max(maxH / g.h, 22))));
-    VW = Math.min(maxW, cell * g.w); VH = Math.min(maxH, cell * g.h);
+    VW = Math.max(40, Math.min(maxW, cell * g.w)); VH = Math.max(40, Math.min(maxH, cell * g.h));
     var st = $('stage'); st.style.width = VW + 'px'; st.style.height = VH + 'px';
-    dpr = Math.min(3, window.devicePixelRatio || 1);
+    dpr = d;
+    while (dpr > 1 && VW * VH * dpr * dpr > 4e6) dpr -= 0.5; // keep the canvas well inside iPhone limits
     cv.width = Math.round(VW * dpr); cv.height = Math.round(VH * dpr);
     clampView(); draw();
   }
@@ -678,16 +709,20 @@ var MMSound = (function () {
     $('setAds').addEventListener('change', function () { Goobs.setAds(this.checked); syncAds(); });
     $('adLess').addEventListener('click', function () { settings.adEvery = Math.max(1, settings.adEvery - 1); saveSettings(); syncAds(); });
     $('adMore').addEventListener('click', function () { settings.adEvery = Math.min(10, settings.adEvery + 1); saveSettings(); syncAds(); });
-    if (window.ResizeObserver) new ResizeObserver(fit).observe($('stagewrap'));
-    window.addEventListener('resize', fit);
+    var fitQ = 0, refit = function () { if (fitQ) return; fitQ = requestAnimationFrame(function () { fitQ = 0; fit(); }); };
+    if (window.ResizeObserver) new ResizeObserver(refit).observe($('stagewrap'));
+    window.addEventListener('resize', refit);
+    window.addEventListener('orientationchange', function () { setTimeout(refit, 300); });
     document.addEventListener('visibilitychange', function () { tick(); if (document.hidden) save(); });
     window.addEventListener('pagehide', function () { tick(); save(); });
     syncSound(); syncAds();
-    if (!load()) newGame(meta.level); else { fit(); renderAll(); }
+    try { if (!load()) newGame(meta.level); else { fit(); renderAll(); } }
+    catch (e) { store.del('game'); g = null; newGame('beginner'); } // a bad save never keeps the game from opening
     if (!meta.seen) openHelp();
     lastTick = performance.now();
     Goobs.markPlayed('mines');
     Goobs.initUpdates({ beforeReload: function () { tick(); save(); }, onVersions: function (v) { $('version').textContent = 'Mine Meadow ' + (v.mines || '?') + ' · Goobs-Games ' + (v.shell || '?'); } });
+    window.__mmReady = true;
   }
 
   // hook for automated tests

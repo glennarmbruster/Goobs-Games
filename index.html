@@ -500,6 +500,23 @@
         var m = readLS('bricks.meta');
         return m && m.best ? 'Best ' + m.best.toLocaleString() + (m.maxLevel > 1 ? ' \u00b7 level ' + m.maxLevel : '') : 'Bounce, break, catch';
       }
+    },
+    {
+      id: 'topple', name: 'Topple Fair', blurb: 'Knock it all down', path: 'games/topple/',
+      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="tfsky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5fb8f5"/><stop offset="1" stop-color="#d9f1ff"/></linearGradient></defs>' +
+        '<rect width="100" height="100" fill="url(#tfsky)"/><rect y="66" width="100" height="34" fill="#6cc24a"/><rect y="74" width="100" height="6" fill="#79cc55"/><rect y="86" width="100" height="6" fill="#79cc55"/>' +
+        '<ellipse cx="50" cy="90" rx="20" ry="4" fill="#f1d399"/><rect x="46" y="66" width="8" height="24" fill="#f5f0e0"/><rect x="16" y="60" width="68" height="7" rx="1.5" fill="#3a5bd9"/><rect x="16" y="66" width="68" height="2.4" fill="#ffc53d"/>' +
+        (function () {
+          var h = '', cols = ['#e8354a', '#3a86ff', '#ffc53d'], rows = [[4, 0], [3, 7], [2, 14], [1, 21]];
+          rows.forEach(function (r, ri) { for (var i = 0; i < r[0]; i++) { var x = 50 - r[0] * 7 + i * 14, y = 45 - ri * 15, c = cols[(ri + i) % 3]; h += '<rect x="' + (x + 1) + '" y="' + y + '" width="12" height="15" rx="1.5" fill="' + c + '"/><rect x="' + (x + 1) + '" y="' + y + '" width="12" height="2.2" fill="#e9edf5"/><rect x="' + (x + 1) + '" y="' + (y + 12.8) + '" width="12" height="2.2" fill="#e9edf5"/><circle cx="' + (x + 7) + '" cy="' + (y + 7.5) + '" r="2.2" fill="#fff" opacity=".85"/>'; } });
+          return h;
+        })() + '<circle cx="80" cy="30" r="7" fill="#ffc53d" stroke="#e0772a" stroke-width="1.6"/><path d="M66 38 L74 34" stroke="#fff" stroke-width="2" stroke-dasharray="2 2.5" stroke-linecap="round"/></svg>',
+      status: function () {
+        var m = readLS('topple.meta');
+        if (!m || !m.open || m.open <= 1) return 'Knock it all down';
+        var st = 0; for (var k in (m.stars || {})) st += m.stars[k];
+        return 'Level ' + m.open + ' of 60 \u00b7 ' + st + ' \u2605';
+      }
     }
   ];
   var byId = {};
