@@ -474,6 +474,20 @@
         var bits = []; if (s.beginner && s.beginner.best) bits.push('Beginner ' + f(s.beginner.best)); if (s.expert && s.expert.best) bits.push('Expert ' + f(s.expert.best)); else if (s.intermediate && s.intermediate.best) bits.push('Middle ' + f(s.intermediate.best));
         return bits.join(' \u00b7 ') || 'Dig safely, flag the mines';
       }
+    },
+    {
+      id: 'bubbles', name: 'Fizz Pop', blurb: 'Aim, match three, pop', path: 'games/bubbles/',
+      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><radialGradient id="fpt" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#fff" stop-opacity=".85"/><stop offset=".3" stop-color="#fff" stop-opacity="0"/></radialGradient></defs><rect width="100" height="100" fill="#1e2a5a"/>' + (function () {
+          var h = '', rows = ['ff4d6d ffd23f ffd23f 3a86ff 2ec27e', '9b5de5 ff4d6d 3a86ff 3a86ff', 'ff9f1c ff9f1c 2ec27e ff4d6d 9b5de5'];
+          rows.forEach(function (r, y) { r.split(' ').forEach(function (c, x) { var cx = 12 + x * 19 + (y % 2 ? 9.5 : 0), cy = 12 + y * 16.5; h += '<circle cx="' + cx + '" cy="' + cy + '" r="9.3" fill="#' + c + '"/><circle cx="' + cx + '" cy="' + cy + '" r="9.3" fill="url(#fpt)"/>'; }); });
+          return h;
+        })() + '<path d="M50 84 L63 62" stroke="#fff" stroke-width="2.5" stroke-dasharray="3 4" stroke-linecap="round"/><path d="M34 100 a16 16 0 0 1 32 0z" fill="#3b4a8f"/><circle cx="50" cy="86" r="9.3" fill="#3a86ff"/><circle cx="50" cy="86" r="9.3" fill="url(#fpt)"/></svg>',
+      status: function () {
+        var m = readLS('bubbles.meta');
+        if (!m) return 'Aim, match three, pop';
+        var stars = 0; if (m.stars) Object.keys(m.stars).forEach(function (k) { stars += m.stars[k]; });
+        return 'Level ' + Math.min(100, m.open || 1) + (stars ? ' \u00b7 ' + stars + ' \u2605' : '');
+      }
     }
   ];
   var byId = {};
