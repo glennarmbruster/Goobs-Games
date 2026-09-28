@@ -3,7 +3,7 @@
    version of the part that changed; unchanged parts are not downloaded again. */
 const VERSIONS = {
   shell: '2.1.0',     // menu, manifest, icons, /shared (ads, themes, storage)
-  zoodoku: '1.6.0',
+  zoodoku: '1.7.0',
   woodpile: '1.1.0',
   patchwork: '2.0.0',
   cubecorral: '3.0.0',

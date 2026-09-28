@@ -161,6 +161,17 @@
 .xpreview div { aspect-ratio: 1 / 1; display: grid; place-items: center; border-radius: 13%; }
 .xpreview svg { width: 84%; height: 84%; }
 .xpreview svg.a { width: 66%; height: 66%; }
+/* a free animal that starts in place: a gold ring, can't be moved */
+.cell.given::after { content: ""; position: absolute; inset: 7%; border-radius: 22%; box-shadow: 0 0 0 2.5px #ffc53d, 0 0 10px rgba(255,197,61,.7); pointer-events: none; }
+.msg.gift { color: var(--ink); background: color-mix(in srgb, #ffc53d 22%, var(--surface)); border-radius: 14px; padding: 8px 12px; box-sizing: border-box; }
+.lv.skip { background: var(--surface-2); color: var(--muted); }
+.startinput { display: block; width: 100%; box-sizing: border-box; margin: 6px 0 12px; font-size: 30px; font-weight: 800; text-align: center; padding: 10px;
+  border-radius: 14px; border: 2px solid var(--line-strong); background: var(--surface-2); color: var(--ink); font-variant-numeric: tabular-nums; }
+.startinput:focus { outline: none; border-color: var(--accent); }
+.btn.small { width: auto; min-height: 38px; padding: 0 16px; font-size: 15px; flex: none; }
+.lvtag { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 8px; font-size: 11px; font-weight: 800; letter-spacing: .3px; vertical-align: 3px;
+  background: color-mix(in srgb, var(--bad) 16%, var(--surface)); color: var(--bad); }
+.lvtag.gift { background: color-mix(in srgb, #ffc53d 30%, var(--surface)); color: #8a5a00; }
 </style>
 </head>
 <body>
@@ -299,7 +310,7 @@
     <div class="sheetbody">
       <div class="themelabel">Theme</div>
       <div class="themes" id="themes"></div>
-      <label class="row"><div>Hearts<small>5 hearts per puzzle. A wrong animal costs one. Starts with the next puzzle.</small></div>
+      <label class="row"><div>Hearts<small>3 hearts per puzzle. A wrong animal costs one. Starts with the next puzzle.</small></div>
         <span class="switch"><input type="checkbox" id="setHearts"><span></span></span></label>
       <label class="row"><div>Auto-&times;<small>Placing an animal crosses out its row, column, color and neighbors.</small></div>
         <span class="switch"><input type="checkbox" id="setAutoX"><span></span></span></label>
@@ -315,6 +326,8 @@
         <span class="switch"><input type="checkbox" id="setAds"><span></span></span></label>
       <div class="row" id="rowAdEvery"><div>Show an ad every<small>Counted in finished puzzles.</small></div>
         <div class="stepper"><button id="adLess" aria-label="Fewer">&minus;</button><b id="adEvery">3</b><button id="adMore" aria-label="More">+</button></div></div>
+      <div class="row" id="rowStart"><div>Starting level<small>Jump to any level, once on this phone (for example, where you are in another app).</small></div>
+        <button class="btn small" id="btnPickStart">Pick&hellip;</button></div>
       <div class="linkrow">
         <button class="btn" id="btnHelp">How to play</button>
         <button class="btn" id="btnResetStats">Reset stats</button>
@@ -369,7 +382,8 @@
         <li><b>Tap</b> a square to mark it &times; (no animal here). Tap again to clear it.</li>
         <li><b>Double-tap</b> to put an animal there. Double-tap it again to take it away.</li>
         <li><b>Drag</b> your finger across squares to mark lots of &times; at once.</li>
-        <li>With hearts on, a wrong animal costs a heart and leaves a red &times; so you remember. Out of hearts? Watch a quick ad to keep going.</li>
+        <li>With hearts on (3 per puzzle), a wrong animal costs a heart and leaves a red &times; so you remember. Out of hearts? Watch a quick ad to keep going.</li>
+        <li>Some levels are <b>Tricky</b>. Some have a color that's just one square &mdash; that animal is easy to spot. Every 20&ndash;30 levels you get a <b>free animal</b> already in place.</li>
         <li>Finish a level and the next one is waiting. Each level has its own animal: squirrels, dogs, cats and penguins take turns. Level numbers are the same puzzle on every phone.</li>
         <li><b>Daily</b> (top right) is a new 11&times;11 every day with a surprise animal, the same for everyone.</li>
         <li>Stuck? <b>Hint</b> explains the next step and can do it for you.</li>
@@ -380,6 +394,16 @@
 </div>
 
 <!-- Win / lose / confirm card -->
+<!-- One-time starting level -->
+<div class="overlay center" id="ovStart">
+  <div class="card" role="dialog" aria-label="Starting level">
+    <h2>Pick your starting level</h2>
+    <p>Already far along in Zoodoku somewhere else? Start from any level. You can do this <b>once</b> on this phone.</p>
+    <input class="startinput" id="startLevel" type="number" inputmode="numeric" pattern="[0-9]*" min="1" max="99999" aria-label="Starting level">
+    <div class="actions"><button class="btn red" id="btnStartGo">Start at level 1</button><button class="btn" id="btnStartKeep">Keep level 1</button></div>
+  </div>
+</div>
+
 <div class="overlay center" id="ovEnd">
   <div class="card" role="dialog">
     <div class="parade" id="parade"></div>
@@ -651,13 +675,13 @@ var ZooEngine = (function () {
   }
 
   // Grow pens outward from each animal's cell with uneven speeds for varied sizes
-  function growRegions(n, sol, rand) {
+  function growRegions(n, sol, rand, frozen) {
     var g = geom(n), N = n * n, reg = new Int8Array(N).fill(-1), left = N - n;
     var w = [];
     for (var r = 0; r < n; r++) {
       reg[r * n + sol[r]] = r;
       var x = rand();
-      w.push(0.5 + x * 1.5);
+      w.push(r === frozen ? 0 : 0.5 + x * 1.5); // a frozen area never grows: it stays one square
     }
     var orth = function (c) {
       var r0 = (c / n) | 0, q = c % n, o = [];
@@ -681,7 +705,7 @@ var ZooEngine = (function () {
       for (r = 0; r < n; r++) { var v = front[r].length ? w[r] : 0; ws.push(v); tot += v; }
       var pick = rand() * tot, rr = 0;
       while (rr < n - 1 && (pick -= ws[rr]) > 0) rr++;
-      while (!front[rr].length) rr = (rr + 1) % n;
+      while (!front[rr].length || rr === frozen) rr = (rr + 1) % n;
       var cell = front[rr][Math.floor(rand() * front[rr].length)];
       reg[cell] = rr; left--;
     }
@@ -726,7 +750,8 @@ var ZooEngine = (function () {
     var minSize = opts.minSize || 2, maxSize = opts.maxSize || Math.round(n * 2.2);
     for (var attempt = 0; attempt < maxAttempts; attempt++) {
       var sol = randomSolution(n, rand);
-      var regions = growRegions(n, sol, rand);
+      var frozen = opts.single ? Math.floor(rand() * n) : -1;
+      var regions = growRegions(n, sol, rand, frozen);
       var sizes = new Array(n).fill(0);
       regions.forEach(function (g) { sizes[g]++; });
       var tiny = sizes.filter(function (z) { return z < minSize; }).length;
@@ -743,7 +768,7 @@ var ZooEngine = (function () {
         var others = o.map(function (x) { return regions[x]; }).filter(function (g) { return g !== regions[c]; });
         if (!others.length) continue;
         var to = others[Math.floor(rand() * others.length)], from = regions[c];
-        if (sizes[from] <= minSize || sizes[to] >= maxSize) continue;
+        if (sizes[from] <= minSize || sizes[to] >= maxSize || to === frozen) continue;
         if (!regionConnected(n, regions, from, c)) continue;
         regions[c] = to;
         var sc = progressScore(n, regions);
@@ -755,6 +780,7 @@ var ZooEngine = (function () {
         for (var i = 0; i < n; i++) if (res.solution[i] !== sol[i]) { res = null; break; }
         if (!res) continue;
         if (opts.minLevel && res.maxLevel < opts.minLevel) continue;
+        if (opts.minHard && (res.counts[3] + res.counts[4]) < opts.minHard) continue;
         return { n: n, seed: seed, regions: regions, solution: sol, maxLevel: res.maxLevel,
           counts: res.counts, steps: res.steps, attempts: attempt + 1 };
       }
@@ -763,10 +789,12 @@ var ZooEngine = (function () {
   }
 
   // ---------- levels ----------
-  /* LEVEL SCHEME 1. Level N is the same puzzle on every device.
-     Do not change levelSize, levelSeed or the generator without bumping LEVEL_SCHEME:
-     doing so changes which puzzle each level number produces. */
-  var LEVEL_SCHEME = 2;
+  /* Level N is the same puzzle on every device.
+     Do not change levelSize, levelSeed, levelKind, giftLevel or the generator without bumping LEVEL_SCHEME:
+     doing so changes which puzzle each level number produces.
+     LEVEL_SCHEME 3 (2026-09-28): some levels are harder, some have a one-square color, and every 20-30 levels
+     one animal starts in place. */
+  var LEVEL_SCHEME = 3;
   // Sizes repeat every 5 levels: 7, 8, 9, 8, 10 (a 10x10 every 5th level)
   var LEVEL_CYCLE = [7, 8, 9, 8, 10];
   function levelSize(L) { return LEVEL_CYCLE[(L - 1) % LEVEL_CYCLE.length]; }
@@ -779,11 +807,30 @@ var ZooEngine = (function () {
   function levelSeed(L, attempt) {
     return mix32(mix32(L * 0x9E3779B1 + LEVEL_SCHEME * 0x85EBCA77) + (attempt || 0) * 0xC2B2AE3D);
   }
+  // 'hard' (about 1 in 4 after level 5): needs the trickier steps (group squeezes / "would wipe out" more than once)
+  // 'single' (about 1 in 8): one color is a single square, so one animal is obvious. Otherwise 'normal'.
+  function levelKind(L) {
+    if (L <= 5) return 'normal';
+    var h = mix32((L * 0x2C1B3C6D) ^ 0xF1A5C0DE) % 100;
+    return h < 24 ? 'hard' : h < 37 ? 'single' : 'normal';
+  }
+  // Levels that start with one animal already placed: roughly every 20-30 levels
+  function giftLevel(L) {
+    var g = 20 + mix32(0x61F7) % 11;
+    while (g < L) g += 20 + mix32((g * 0x9E3779B1) ^ 0x61F7) % 11;
+    return g === L;
+  }
   function generateLevel(L) {
-    var n = levelSize(L);
+    var n = levelSize(L), kind = levelKind(L), opts = {};
+    if (kind === 'single') opts = { single: true, minLevel: 2 };
     for (var k = 0; k < 50; k++) {
-      var p = generate(n, levelSeed(L, k));
-      if (p) { p.level = L; p.scheme = LEVEL_SCHEME; return p; }
+      if (kind === 'hard') opts = k < 30 ? { minLevel: n >= 8 ? 4 : 3, minHard: n >= 9 ? 3 : 2, maxAttempts: 120 } : { minLevel: 3, maxAttempts: 200 };
+      var p = generate(n, levelSeed(L, k), opts);
+      if (p) {
+        p.level = L; p.scheme = LEVEL_SCHEME; p.kind = kind;
+        if (giftLevel(L)) { var r = mix32(L ^ 0x5EED61F7) % n; p.given = r * n + p.solution[r]; }
+        return p;
+      }
     }
     return null;
   }
@@ -805,7 +852,7 @@ var ZooEngine = (function () {
 
   return {
     generateDaily: generateDaily, DAILY_SCHEME: DAILY_SCHEME, DAILY_SIZE: DAILY_SIZE,
-    levelSize: levelSize, levelSeed: levelSeed, generateLevel: generateLevel, mix32: mix32, LEVEL_SCHEME: LEVEL_SCHEME,
+    levelSize: levelSize, levelSeed: levelSeed, generateLevel: generateLevel, levelKind: levelKind, giftLevel: giftLevel, mix32: mix32, LEVEL_SCHEME: LEVEL_SCHEME,
     rng: rng, generate: generate, solveLogic: solveLogic, countSolutions: countSolutions,
     makeCtx: makeCtx, newState: newState, cloneState: cloneState, place: place,
     nextDeduction: nextDeduction, applyDeduction: applyDeduction, geom: geom, FAMNAME: FAMNAME
@@ -967,7 +1014,7 @@ var ZooSound = (function () {
   var LEVEL_NAMES = { 7: 'Easy', 8: 'Medium', 9: 'Hard', 10: 'Expert', 11: 'Daily' };
   var PRACTICE_SIZES = [7, 8, 9, 10];
   var STAT_SIZES = [7, 8, 9, 10, 11];
-  var MAX_HEARTS = 5;
+  var MAX_HEARTS = 3;
   var DOUBLE_TAP_MS = 350;
   var UNDO_LIMIT = 300;
   var ANIMALS = ['cow', 'pig', 'sheep', 'horse', 'hen', 'rooster', 'duck', 'goat', 'dog', 'turkey', 'rabbit']; // old set: only shuffled so colors stay stable
@@ -1017,7 +1064,7 @@ var ZooSound = (function () {
   STAT_SIZES.forEach(function (n) { if (!stats.by[n]) stats.by[n] = blankStats().by[n]; });
   ['dLast', 'dStreak', 'dBest'].forEach(function (k) { if (typeof stats[k] !== 'number') stats[k] = 0; });
   var meta = store.get('meta', null) || {};
-  var metaDefaults = { finished: 0, lastAdAt: 0, deck: [], lastCard: -1, seenHelp: false, level: 1, mode: 'level', practiceSize: 7, replay: 0, levelBest: {}, plays: {}, daily: {} };
+  var metaDefaults = { startPicked: false, startAsked: false, startFrom: 0, finished: 0, lastAdAt: 0, deck: [], lastCard: -1, seenHelp: false, level: 1, mode: 'level', practiceSize: 7, replay: 0, levelBest: {}, plays: {}, daily: {} };
   for (var mk in metaDefaults) if (meta[mk] === undefined) meta[mk] = metaDefaults[mk];
   function saveMeta() { store.set('meta', meta); }
 
@@ -1188,10 +1235,11 @@ var ZooSound = (function () {
     };
     if (saved) {
       for (var i = 0; i < n * n; i++) g.marks[i] = +saved.marks.charAt(i) || 0;
-      g.heartsOn = !!saved.heartsOn; g.hearts = saved.hearts; g.elapsed = saved.elapsed || 0;
+      g.heartsOn = !!saved.heartsOn; g.hearts = Math.min(MAX_HEARTS, saved.hearts); g.elapsed = saved.elapsed || 0;
       g.hints = saved.hints || 0; g.mistakes = saved.mistakes || 0; g.refills = saved.refills || 0; g.undo = saved.undo || [];
       if (g.heartsOn && g.hearts <= 0) g.over = true;
     }
+    if (p.given != null) g.marks[p.given] = ANIMAL; // a free animal, already in the right spot, that can't be moved
     return g;
   }
 
@@ -1219,6 +1267,8 @@ var ZooSound = (function () {
     saveGame();
     tickReset();
     if (g.over) setTimeout(function () { if (game === g && g.over) lose(); }, 300);
+    if (g.p.given != null && !g.won) setMessage('<div>A <b>free animal</b> to get you going! It\u2019s already in the right spot.</div>', 'gift');
+    else defaultMessage();
     if (g.mode === 'level') gen.prefetch('L' + (g.level + 1));
     renderDailyChip();
   }
@@ -1336,6 +1386,7 @@ var ZooSound = (function () {
         var an = game.penAnimal[game.p.regions[c]];
         key = 'A' + an; html = svgUse('an', 'a-' + an);
         if (settings.highlight && a.conflict[c]) { cls += ' conflict'; key += 'c'; }
+        if (c === game.p.given) { cls += ' given'; key += 'g'; }
         if (c === justPlaced) cls += ' placed';
       } else if (m === XWRONG) {
         key = 'W'; html = svgUse('xm', 'xmark'); cls += ' wx';
@@ -1378,6 +1429,8 @@ var ZooSound = (function () {
     else { t = 'Practice ' + game.n + '\u00d7' + game.n; sub = LEVEL_NAMES[game.n] + ' \u00b7 random puzzle'; }
     var an = game.penAnimal[0], names = { squirrel: 'Squirrels', dog: 'Dogs', cat: 'Cats', penguin: 'Penguins' };
     $('lvlTitle').innerHTML = '<svg class="lvan" viewBox="0 0 100 100"><use href="#a-' + an + '"/></svg>' + t;
+    var tag = (game.mode === 'level' || game.mode === 'replay') ? (game.p.given != null ? 'Free animal' : game.p.kind === 'hard' ? 'Tricky' : '') : '';
+    if (tag) $('lvlTitle').innerHTML += '<span class="lvtag' + (game.p.given != null ? ' gift' : '') + '">' + tag + '</span>';
     $('lvlSub').textContent = sub + ' \u00b7 ' + (names[an] || '');
   }
 
@@ -1388,8 +1441,9 @@ var ZooSound = (function () {
   }
 
   // ================= moves & undo =================
+  function isGiven(c) { return game.p.given === c; }
   function setMark(c, v, act) {
-    if (game.marks[c] === v) return false;
+    if (game.marks[c] === v || isGiven(c)) return false;
     act.push(c, game.marks[c]);
     game.marks[c] = v;
     return true;
@@ -1415,6 +1469,7 @@ var ZooSound = (function () {
   // place or remove the pen's animal. prev = what the cell held before the first tap of the double-tap
   function toggleAnimal(c, prev) {
     var act;
+    if (isGiven(c)) { game.marks[c] = ANIMAL; render(); return; }
     if (prev === ANIMAL) { act = [c, ANIMAL]; game.marks[c] = EMPTY; pushUndo(act); S.undo(); afterMove(); return; }
     if (game.heartsOn && !isCorrect(c)) { wrongPlacement(c); return; }
     if (!isCorrect(c)) game.mistakes++;
@@ -1714,8 +1769,8 @@ var ZooSound = (function () {
     S.lose();
     parade();
     showCard('Out of hearts', Goobs.adsOn()
-      ? 'The animals got loose! Watch a quick ad to get 5 more hearts and keep your board.'
-      : 'The animals got loose! Keep going with 5 more hearts, or start over.', [
+      ? 'The animals got loose! Watch a quick ad to get ' + MAX_HEARTS + ' more hearts and keep your board.'
+      : 'The animals got loose! Keep going with ' + MAX_HEARTS + ' more hearts, or start over.', [
       { label: Goobs.adsOn() ? 'Continue (quick ad)' : 'Continue', red: true, go: continueGame },
       { label: 'Start this puzzle over', go: restartSame }
     ]);
@@ -1753,6 +1808,37 @@ var ZooSound = (function () {
     GoobsAds.show({ onShow: function () { S.ding(); }, onStep: function () { S.sign(); } }, function () { tickReset(); if (done) done(); });
   }
 
+  // ================= one-time starting level (per phone) =================
+  function openStartPicker() {
+    var inp = $('startLevel');
+    inp.value = meta.level;
+    syncStartButton();
+    $('ovStart').classList.add('show');
+  }
+  function startValue() { var v = parseInt($('startLevel').value, 10); return isNaN(v) ? 0 : Math.max(1, Math.min(99999, v)); }
+  function syncStartButton() {
+    var v = startValue();
+    $('btnStartGo').textContent = v ? 'Start at level ' + v : 'Type a level';
+    $('btnStartGo').disabled = !v;
+    $('btnStartKeep').textContent = 'Keep level ' + meta.level;
+  }
+  function pickStart() {
+    var v = startValue();
+    if (!v) return;
+    $('ovStart').classList.remove('show');
+    meta.startPicked = true; meta.startAsked = true; meta.startFrom = v; meta.level = v;
+    if (meta.mode === 'replay') meta.mode = 'level';
+    saveMeta();
+    store.del('game.level');
+    syncStartRow();
+    openLevel();
+  }
+  function syncStartRow() {
+    var row = $('rowStart');
+    if (!row) return;
+    if (meta.startPicked) row.innerHTML = '<div>Starting level<small>You started this phone at level ' + meta.startFrom + '.</small></div>';
+  }
+
   // ================= levels sheet =================
   var levelsPage = 0;
   function renderLevels() {
@@ -1767,7 +1853,7 @@ var ZooSound = (function () {
     h += '<div class="lvgrid">';
     var from = (levelsPage - 1) * 100 + 1, to = Math.min(levelsPage * 100, maxShown);
     for (var L = from; L <= to; L++) {
-      var n = E.levelSize(L), cls = L < cur ? 'done' : L === cur ? 'cur' : 'lock';
+      var n = E.levelSize(L), cls = L < cur ? (L < meta.startFrom && !meta.levelBest[L] ? 'skip' : 'done') : L === cur ? 'cur' : 'lock';
       var small = L < cur && meta.levelBest[L] ? fmtTime(meta.levelBest[L]) : n + '\u00d7' + n;
       h += '<button class="lv ' + cls + '" data-level="' + L + '"' + (L > cur ? ' disabled' : '') + '>' + L + '<small>' + small + '</small></button>';
     }
@@ -1802,7 +1888,7 @@ var ZooSound = (function () {
     var perfect = 0;
     STAT_SIZES.forEach(function (n) { perfect += stats.by[n].perfect; });
     var h = '<div class="tiles">' +
-      '<div class="tile"><b>' + (meta.level - 1) + '</b><span>Levels done</span></div>' +
+      '<div class="tile"><b>' + (meta.level - 1) + '</b><span>' + (meta.startFrom > 1 ? 'Level reached' : 'Levels done') + '</span></div>' +
       '<div class="tile"><b>' + Object.keys(meta.daily).length + '</b><span>Dailies done</span></div>' +
       '<div class="tile"><b>' + (stats.dLast === dayNum() || stats.dLast === prevDayNum(dayNum()) ? stats.dStreak : 0) + '</b><span>Daily streak</span></div>' +
       '<div class="tile"><b>' + perfect + '</b><span>Perfect</span></div></div>' +
@@ -1965,7 +2051,7 @@ var ZooSound = (function () {
     $('btnHelp').addEventListener('click', function () { $('ovSettings').classList.remove('show'); $('ovHelp').classList.add('show'); });
     $('btnCloseHelp').addEventListener('click', function () {
       $('ovHelp').classList.remove('show'); tickReset();
-      if (!meta.seenHelp) { meta.seenHelp = true; saveMeta(); }
+      if (!meta.seenHelp) { meta.seenHelp = true; saveMeta(); if (!meta.startPicked && !meta.startAsked) openStartPicker(); }
     });
     $('btnResetStats').addEventListener('click', function () {
       $('ovSettings').classList.remove('show');
@@ -2001,7 +2087,14 @@ var ZooSound = (function () {
     else if (meta.mode === 'replay' && meta.replay && meta.replay < meta.level) openReplay(meta.replay);
     else if (meta.mode === 'daily' && (store.get('game.daily', null) || {}).p && store.get('game.daily', null).p.day === dayNum()) openDaily();
     else openLevel();
+    $('startLevel').addEventListener('input', syncStartButton);
+    $('startLevel').addEventListener('keydown', function (e) { if (e.key === 'Enter') pickStart(); });
+    $('btnStartGo').addEventListener('click', pickStart);
+    $('btnStartKeep').addEventListener('click', function () { $('ovStart').classList.remove('show'); meta.startAsked = true; saveMeta(); tickReset(); });
+    if ($('btnPickStart')) $('btnPickStart').addEventListener('click', function () { $('ovSettings').classList.remove('show'); openStartPicker(); });
+    syncStartRow();
     if (!meta.seenHelp) $('ovHelp').classList.add('show');
+    else if (!meta.startPicked && !meta.startAsked) openStartPicker();
     renderDailyChip();
     setTimeout(function () { gen.prefetch('D' + dayNum()); }, 4000);   // today's daily, built in the background
     Goobs.markPlayed('zoodoku');
@@ -2014,7 +2107,7 @@ var ZooSound = (function () {
   // hook for automated tests
   window.__zoo = {
     get game() { return game; }, tap: tap, E: E, showAd: showAd, meta: function () { return meta; }, stats: function () { return stats; },
-    openReplay: openReplay, openLevel: openLevel, openPractice: openPractice, openDaily: openDaily, dayNum: dayNum, settings: settings
+    openReplay: openReplay, openLevel: openLevel, openStartPicker: openStartPicker, openPractice: openPractice, openDaily: openDaily, dayNum: dayNum, settings: settings
   };
 
   init();
