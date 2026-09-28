@@ -43,6 +43,19 @@
 .cardicon svg { border-radius: 16px; }
 @media (max-width: 385px) { .brand h1 { font-size: 21px; } }
 .toolbar .tool span { white-space: nowrap; }
+/* the matching box */
+.tray { display: none; flex: none; align-items: center; justify-content: center; gap: 6px; width: 100%; padding: 6px; border-radius: 16px;
+  background: linear-gradient(#b87a45, #9a6232); box-shadow: inset 0 2px 6px rgba(0,0,0,.35), 0 2px 0 rgba(255,255,255,.35); }
+.tray.show { display: flex; }
+.tray .slot { flex: none; border-radius: 8px; background: rgba(0,0,0,.22); box-shadow: inset 0 1px 3px rgba(0,0,0,.35); display: grid; place-items: center; }
+.tray .slot.tile { background: #fbf7ef; box-shadow: 3px 3px 0 #1b7457, 0 0 0 1px rgba(120,105,80,.35); overflow: hidden; }
+.tray .slot.tile canvas { display: block; }
+.tray .slot.in { animation: trayin .25s ease-out; }
+.tray .slot.out { animation: trayout .26s ease-in forwards; }
+.tray .slot.locked { background: rgba(0,0,0,.12); border: 2px dashed rgba(255,255,255,.4); box-shadow: none; }
+.tray .slot.locked span { color: rgba(255,255,255,.75); font-weight: 900; font-size: 22px; }
+@keyframes trayin { from { transform: translateY(-30px) scale(.7); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes trayout { 0% { transform: scale(1); } 40% { transform: scale(1.15); background: #ffe79a; } 100% { transform: scale(.3); opacity: 0; } }
 .zoomhint { position: absolute; right: 10px; top: 10px; background: rgba(20,24,36,.6); color: #fff; font-weight: 800; font-size: 12px; padding: 5px 9px; border-radius: 12px; pointer-events: none; display: none; }
 .zoomhint.show { display: block; }
 /* sideways: the board takes the left, the numbers and buttons stack on the right */
@@ -50,11 +63,13 @@
   .app { max-width: none; display: grid; grid-template-columns: 1fr 132px; grid-template-rows: auto 1fr; gap: 6px 10px; align-items: stretch;
     padding: calc(env(safe-area-inset-top, 0px) + 4px) calc(env(safe-area-inset-right, 0px) + 10px) calc(env(safe-area-inset-bottom, 0px) + 6px) calc(env(safe-area-inset-left, 0px) + 10px); }
   .top { grid-column: 1; grid-row: 1; min-height: 40px; }
+  .app { grid-template-rows: auto 1fr auto; }
   .stagewrap { grid-column: 1; grid-row: 2; width: 100%; margin: 0; }
+  .tray { grid-column: 1; grid-row: 3; padding: 4px; }
   .info { grid-column: 2; grid-row: 1; flex-direction: column; align-items: stretch; gap: 2px; min-height: 0; }
   .info > div { text-align: left !important; display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
   .info .ttl, .info .mid { font-size: 15px; }
-  .toolbar { grid-column: 2; grid-row: 2; flex-direction: column; justify-content: flex-end; }
+  .toolbar { grid-column: 2; grid-row: 2 / span 2; flex-direction: column; justify-content: flex-end; }
   .toolbar .tool { flex: 1; min-height: 0; max-height: 58px; flex-direction: row; gap: 6px; font-size: 14px; }
 }
 </style>
@@ -104,6 +119,8 @@
     </div>
   </div>
 
+  <div class="tray" id="tray" aria-label="The matching box"></div>
+
   <div class="toolbar">
     <button class="tool" id="btnHint"><svg viewBox="0 0 24 24"><use href="#i-bulb"/></svg><span>Hint</span></button>
     <button class="tool" id="btnUndo"><svg viewBox="0 0 24 24"><use href="#i-undo"/></svg><span>Undo</span></button>
@@ -129,6 +146,8 @@
     <div class="sheetbody">
       <div class="themelabel">Theme (all games)</div>
       <div class="themes" id="themes"></div>
+      <label class="row"><div>Matching box<small>Tap a free tile to put it in the box (4 spaces); two that match clear. Off: tap two matching tiles on the board. Starts with your next game.</small></div>
+        <span class="switch"><input type="checkbox" id="setBox"><span></span></span></label>
       <label class="row"><div>Shade blocked tiles<small>Tiles that can’t be taken yet look a little darker.</small></div>
         <span class="switch"><input type="checkbox" id="setDim"><span></span></span></label>
       <label class="row"><div>Corner numbers<small>Small numbers and letters in the corner of each tile, to read them quickly.</small></div>
@@ -391,10 +410,62 @@ var MJ = (function () {
     if ((p[0] === a && p[1] === b) || (p[0] === b && p[1] === a)) g.plan.shift(); else g.plan = null;
   }
 
+  // ---------- the matching box (Glenn, 2026-09-28) ----------
+  // Tap a free tile and it goes into the box (4 spaces; 6 after watching an ad). When its match is already in the
+  // box, the two clear. Tiles in the box are off the board, so the tiles they covered can be taken.
+  function startBox(g) { g.boxMode = true; g.box = []; g.cap = 4; g.hist = []; g.bigBox = false; return g; }
+  function boxMatch(g, i) { for (var k = 0; k < g.box.length; k++) if (matches(g.faces[g.box[k]], g.faces[i])) return k; return -1; }
+  function tilesLeft(g) { return left(g) + (g.box ? g.box.length : 0); }
+  function toBox(g, i) {
+    if (!free(g, i)) return { t: 'blocked' };
+    var k = boxMatch(g, i);
+    if (k >= 0) {
+      var a = g.box.splice(k, 1)[0]; g.on[i] = false;
+      g.hist.push({ t: 'pair', a: a, b: i, k: k }); taken(g, a, i);
+      if (tilesLeft(g) === 0) g.done = true;
+      return { t: 'pair', a: a, b: i };
+    }
+    if (g.box.length >= g.cap) return { t: 'full' };
+    g.on[i] = false; g.box.push(i); g.hist.push({ t: 'box', i: i });
+    return { t: 'box', i: i };
+  }
+  function undoBox(g) {
+    var h = g.hist.pop(); if (!h) return null;
+    if (h.t === 'box') { g.box.splice(g.box.lastIndexOf(h.i), 1); g.on[h.i] = true; }
+    else { g.on[h.b] = true; g.box.splice(Math.min(h.k, g.box.length), 0, h.a); }
+    g.done = false;
+    return h;
+  }
+  // free tiles on the board that match something in the box
+  function boxHits(g) { var out = []; for (var i = 0; i < g.on.length; i++) if (g.on[i] && free(g, i) && boxMatch(g, i) >= 0) out.push(i); return out; }
+  // stuck: the box is full and nothing free matches it (or nothing is free at all)
+  function boxStuck(g) {
+    if (g.done) return false;
+    if (boxHits(g).length) return false;
+    if (g.box.length < g.cap) { for (var i = 0; i < g.on.length; i++) if (g.on[i] && free(g, i)) return false; }
+    return true;
+  }
+  // a hint with the box: a free tile that matches the box, else a free pair (from a way to clear the board when the
+  // box is empty), else the free tile that uncovers the most
+  function boxHint(g) {
+    var hits = boxHits(g); if (hits.length) return [hits[0]];
+    if (!g.box.length) { var saved = g.plan; var h = hint(g); if (h) return h; g.plan = saved; }
+    var ms = moves(g); if (ms.length && g.box.length <= g.cap - 2) return ms[0];
+    return null;
+  }
+  // shuffle the board's tiles among the board's places (the box stays as it is)
+  function shuffleBoard(g, seed) {
+    var R = rng(seed), idx = [], faces = [];
+    g.on.forEach(function (v, i) { if (v) { idx.push(i); faces.push(g.faces[i]); } });
+    shuffle(faces, R); idx.forEach(function (i, j) { g.faces[i] = faces[j]; });
+    g.shuffles++; g.plan = null;
+  }
+
   return {
     LAYOUTS: LAYOUTS, BY_ID: BY_ID, FACES: FACES, FLOWERS: FLOWERS, SEASONS: SEASONS, matches: matches, group: group,
     deal: deal, reshuffle: reshuffle, free: free, canMatch: canMatch, remove: remove, undo: undo, left: left, moves: moves, hint: hint,
-    solve: solve, isFree: isFree, allPairs: allPairs
+    solve: solve, isFree: isFree, allPairs: allPairs,
+    startBox: startBox, toBox: toBox, undoBox: undoBox, boxHits: boxHits, boxStuck: boxStuck, boxHint: boxHint, tilesLeft: tilesLeft, shuffleBoard: shuffleBoard
   };
 })();
 if (typeof module !== 'undefined') module.exports = MJ;
@@ -458,7 +529,7 @@ var TTSound = (function () {
 
   // ================= storage =================
   var store = Goobs.store('mahjong');
-  var settings = { sound: false, adEvery: 3, dim: false, idx: true };
+  var settings = { sound: false, adEvery: 3, dim: false, idx: true, box: true };
   (function () {
     var s = store.get('settings', {}) || {};
     for (var k in settings) if (typeof s[k] === typeof settings[k]) settings[k] = s[k];
@@ -488,6 +559,7 @@ var TTSound = (function () {
   function L() { return MJ.BY_ID[g.layout]; }
   function newGame(layout) {
     g = MJ.deal(layout || meta.layout, newSeed());
+    if (settings.box) MJ.startBox(g);
     meta.layout = g.layout; saveMeta();
     sel = -1; hintPair = null; fading = []; counted = false; view = { s: 1, x: 0, y: 0 };
     saveGame(); layoutBoard(); renderAll();
@@ -496,11 +568,12 @@ var TTSound = (function () {
   function loadGame() {
     var r = store.get('game', null);
     if (!r || !MJ.BY_ID[r.layout] || !Array.isArray(r.on) || r.on.length !== MJ.BY_ID[r.layout].slots.length || r.done) return false;
-    g = r; sel = -1; counted = g.removed.length > 0; return true;
+    g = r; sel = -1; counted = started(); return true;
   }
+  function started() { return !!(g && (g.removed.length || (g.hist && g.hist.length))); }
   function tick() { // the clock runs while the board is showing
     var now = performance.now();
-    if (g && !g.done && !sheetOpen() && !document.hidden && g.removed.length) g.ms += Math.min(1000, now - lastTick);
+    if (g && !g.done && !sheetOpen() && !document.hidden && started()) g.ms += Math.min(1000, now - lastTick);
     lastTick = now;
   }
   setInterval(function () { tick(); renderClock(); }, 250);
@@ -708,6 +781,7 @@ var TTSound = (function () {
     var i = hit((lx - view.x) / view.s, (ly - view.y) / view.s);
     if (i < 0) { if (sel >= 0) { sel = -1; draw(); } return; }
     if (!MJ.free(g, i)) { shakeI = i; shakeT = performance.now(); S.bad(); toast('That tile is blocked: it needs a free side and nothing on top.'); return; }
+    if (g.boxMode) { boxTap(i); return; }
     if (sel === i) { sel = -1; draw(); return; }
     if (sel >= 0 && MJ.canMatch(g, sel, i)) {
       var a = sel; sel = -1; take(a, i); return;
@@ -727,22 +801,78 @@ var TTSound = (function () {
     if (g.done) { setTimeout(won, 400); return; }
     if (!MJ.moves(g).length) setTimeout(stuck, 400);
   }
+  // ---------- the matching box ----------
+  function boxTap(i) {
+    if (!started()) lastTick = performance.now();
+    var r = MJ.toBox(g, i), now = performance.now();
+    if (r.t === 'full') { shakeI = i; shakeT = now; S.bad(); toast('The box is full: take a tile that matches one in the box.'); return; }
+    hintPair = null;
+    if (!counted) { counted = true; stats[g.layout].played++; saveStats(); }
+    fading.push({ i: i, t: now });
+    if (r.t === 'box') { S.pick(); renderTray(r.i); }
+    else {
+      stats.pairs++; saveStats(); S.match(g.hist.length);
+      var el = $('tray').querySelector('[data-i="' + r.a + '"]');
+      if (el) el.classList.add('out');
+      setTimeout(function () { renderTray(); }, 260);
+    }
+    saveGame(); renderInfo(); draw();
+    if (g.done) { setTimeout(won, 450); return; }
+    if (MJ.boxStuck(g)) setTimeout(boxFull, 450);
+  }
+  function boxFull() {
+    if (!g || g.done || !MJ.boxStuck(g)) return;
+    S.stuck();
+    var b = [];
+    if (!g.bigBox) b.push({ label: 'Watch an ad: 2 more spaces', red: true, go: function () { showAd(function () { g.cap = 6; g.bigBox = true; saveGame(); renderTray(); renderInfo(); toast('The box holds 6 now.'); }); } });
+    b.push({ label: 'Undo', red: !!g.bigBox, go: undo }, { label: 'Shuffle the board', go: shuffle }, { label: 'New game', go: function () { openNew(); } });
+    showCard('The box is full', 'None of the free tiles match a tile in the box.' + (g.bigBox ? ' Undo a few moves, shuffle the board, or start again.' : ' Watch an ad to make the box hold 6, undo a few moves, or shuffle the board.'), b);
+  }
+  var trayCache = {};
+  function trayTile(face, w, h) {
+    var key = face + w + 'x' + h + (settings.idx ? 'i' : '');
+    if (trayCache[key]) return trayCache[key];
+    var c = document.createElement('canvas'), d = Math.min(3, window.devicePixelRatio || 1); c.width = Math.round(w * d); c.height = Math.round(h * d);
+    drawFace(c.getContext('2d'), face, c.width, c.height);
+    trayCache[key] = c; return c;
+  }
+  function renderTray(newI) {
+    var box = $('tray');
+    box.classList.toggle('show', !!(g && g.boxMode));
+    if (!g || !g.boxMode) return;
+    var w = Math.min(48, Math.floor((box.getBoundingClientRect().width - 12 - 5 * 6) / 6) || 44), h = Math.round(w * 1.32), html = '';
+    box.innerHTML = '';
+    for (var k = 0; k < 6; k++) {
+      var slot = document.createElement('div');
+      slot.style.width = w + 'px'; slot.style.height = h + 'px';
+      if (k >= g.cap) { slot.className = 'slot locked'; slot.innerHTML = '<span>+</span>'; slot.title = 'Watch an ad when the box is full'; }
+      else if (k < g.box.length) {
+        var i = g.box[k]; slot.className = 'slot tile' + (i === newI ? ' in' : ''); slot.dataset.i = i;
+        var c = trayTile(g.faces[i], w, h); c.style.width = w + 'px'; c.style.height = h + 'px'; slot.appendChild(c);
+      } else slot.className = 'slot';
+      box.appendChild(slot);
+    }
+  }
+
   var toastT = 0;
   function toast(t) { var el = $('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(function () { el.classList.remove('show'); }, 1800); }
 
   // ================= tools =================
   function hint() {
     if (!g || g.done) return;
-    var h = MJ.hint(g);
-    if (!h) { stuck(); return; }
+    var h = g.boxMode ? MJ.boxHint(g) : MJ.hint(g);
+    if (!h) { if (g.boxMode) { if (MJ.boxStuck(g)) boxFull(); else toast('No pair to show: put a tile in the box and see.'); } else stuck(); return; }
     g.hints++; hintPair = h; hintT = performance.now() + 2200; sel = -1; S.hint(); saveGame(); draw();
   }
   function undo() {
-    if (!g || !g.removed.length) return;
+    if (!g) return;
+    if (g.boxMode) { if (!MJ.undoBox(g)) return; sel = -1; hintPair = null; S.undo(); saveGame(); renderInfo(); renderTray(); draw(); return; }
+    if (!g.removed.length) return;
     MJ.undo(g); sel = -1; hintPair = null; S.undo(); saveGame(); renderInfo(); draw();
   }
   function shuffle() {
     if (!g || g.done) return;
+    if (g.boxMode) { MJ.shuffleBoard(g, newSeed()); sel = -1; hintPair = null; S.shuffle(); saveGame(); renderInfo(); draw(); toast('Shuffled the board.'); if (MJ.boxStuck(g)) setTimeout(boxFull, 500); return; }
     var ok = MJ.reshuffle(g, newSeed());
     sel = -1; hintPair = null; S.shuffle(); saveGame(); renderInfo(); draw();
     if (!ok) toast('A shuffle can’t help: tiles are stacked on their match. Undo a few moves.');
@@ -815,23 +945,23 @@ var TTSound = (function () {
   // ================= info =================
   function renderInfo() {
     if (!g) return;
-    var n = MJ.left(g), pairs = MJ.moves(g).length;
+    var n = MJ.tilesLeft(g), mid = g.boxMode ? '<div class="lbl">Box</div><div class="mid">' + g.box.length + '<span class="of"> / ' + g.cap + '</span></div>' : '<div class="lbl">Pairs free</div><div class="mid">' + MJ.moves(g).length + '</div>';
     $('info').innerHTML = '<div><div class="lbl">' + MJ.BY_ID[g.layout].name + '</div><div class="ttl">' + n + ' left</div></div>' +
-      '<div style="text-align:center"><div class="lbl">Pairs free</div><div class="mid">' + pairs + '</div></div>' +
+      '<div style="text-align:center">' + mid + '</div>' +
       '<div class="right"><div class="lbl">Time</div><div class="mid" id="clock">' + clock(g.ms) + '</div></div>';
-    $('btnUndo').disabled = !g.removed.length;
+    $('btnUndo').disabled = !(g.boxMode ? g.hist.length : g.removed.length);
   }
   function renderClock() { var el = $('clock'); if (el && g) el.textContent = clock(g.ms); }
-  function renderAll() { renderInfo(); draw(); }
+  function renderAll() { renderInfo(); renderTray(); draw(); }
 
   // ================= sheets =================
   function openHelp() {
     $('helpTitle').textContent = 'How to play Tile Temple';
     $('helpList').innerHTML = [
-      'Clear the board by taking the tiles off <b>in matching pairs</b>. Tap one tile, then its match.',
+      'Clear the board by taking the tiles off <b>in matching pairs</b>. <b>The box</b> (under the board, on at first): tap a free tile and it goes into the box; when its match goes in too, the pair clears. The box holds 4 tiles. If it fills up with no match to take, you can watch an ad to make it hold 6 (once a game). Tiles in the box are off the board, so whatever they were blocking is free. With the box off (Settings), tap one tile and then its match on the board.',
       'A tile can be taken only if it’s <b>free</b>: nothing on top of it, and nothing touching it on its <b>left or right</b> (one open side is enough).',
       'Matches are the same tile: the same number of dots, bamboo or characters (萬), the same wind (東 E, 南 S, 西 W, 北 N) or the same dragon (中 red, 發 green, the blue frame). <b>Any flower</b> matches any flower and <b>any season</b> any season (sprout, sun, leaf, snowflake).',
-      'Stuck? <b>Hint</b> lights up a pair (one that keeps the board clearable when it can tell). <b>Undo</b> takes back a pair. <b>Shuffle</b> mixes the tiles that are left, placed so they can still be cleared.',
+      'Stuck? <b>Hint</b> lights up a tile that matches the box, or a pair (one that keeps the board clearable when it can tell). <b>Undo</b> takes back a pair. <b>Shuffle</b> mixes the tiles that are left on the board (without the box, placed so they can still be cleared).',
       'Tiles small? <b>Pinch</b> to zoom in and drag to look around; pinch back out to see it all. Every board is dealt so it <b>can be cleared</b>. Your time counts from your first pair. <b>New game</b> lets you pick one of five layouts: Turtle, Pyramid, Fortress, Bridge and Quick (72 tiles).',
       'Settings: small <b>corner numbers</b> to read tiles quickly (on), and <b>shade blocked tiles</b> if you want to see what can move.'
     ].map(function (x) { return '<li>' + x + '</li>'; }).join('');
@@ -877,13 +1007,15 @@ var TTSound = (function () {
     $('ovHelp').addEventListener('click', function (e) { if (e.target === this) closeHelp(); });
     $('btnSound').addEventListener('click', function () { settings.sound = !settings.sound; saveSettings(); syncSound(); S.ding(); });
     $('setSound').addEventListener('change', function () { settings.sound = this.checked; saveSettings(); syncSound(); S.ding(); });
-    $('setDim').checked = settings.dim; $('setIdx').checked = settings.idx;
+    $('setDim').checked = settings.dim; $('setIdx').checked = settings.idx; $('setBox').checked = settings.box;
+    $('setBox').addEventListener('change', function () { settings.box = this.checked; saveSettings(); toast(settings.box ? 'The box is on from your next game.' : 'The box is off from your next game.'); });
+    $('tray').addEventListener('click', function (e) { if (e.target.closest('.locked')) toast('When the box is full and nothing matches, you can watch an ad for these 2 spaces.'); });
     $('setDim').addEventListener('change', function () { settings.dim = this.checked; saveSettings(); draw(); });
-    $('setIdx').addEventListener('change', function () { settings.idx = this.checked; saveSettings(); faceCache = {}; draw(); });
+    $('setIdx').addEventListener('change', function () { settings.idx = this.checked; saveSettings(); faceCache = {}; trayCache = {}; draw(); renderTray(); });
     $('setAds').addEventListener('change', function () { Goobs.setAds(this.checked); syncAds(); });
     $('adLess').addEventListener('click', function () { settings.adEvery = Math.max(1, settings.adEvery - 1); saveSettings(); syncAds(); });
     $('adMore').addEventListener('click', function () { settings.adEvery = Math.min(10, settings.adEvery + 1); saveSettings(); syncAds(); });
-    if (window.ResizeObserver) new ResizeObserver(layoutBoard).observe($('stage'));
+    if (window.ResizeObserver) { new ResizeObserver(layoutBoard).observe($('stage')); new ResizeObserver(function () { renderTray(); }).observe($('tray')); }
     window.addEventListener('resize', layoutBoard);
     document.addEventListener('visibilitychange', function () { tick(); if (document.hidden) saveGame(); });
     window.addEventListener('pagehide', function () { tick(); saveGame(); });
