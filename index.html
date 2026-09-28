@@ -136,6 +136,48 @@
         return bits.join(' \u00b7 ') || 'Drag, drop and clear';
       }
     }
+
+    ,
+    {
+      id: 'patchwork', name: 'Patchwork', blurb: 'Picture puzzle, even your own photos', path: 'games/patchwork/',
+      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" fill="#6b4423"/>' +
+        '<g stroke="#fbf3e3" stroke-width="1.6">' +
+        '<rect x="7" y="7" width="28" height="28" rx="3" fill="#8ecdf0"/><rect x="36" y="7" width="28" height="28" rx="3" fill="#b3322a"/><rect x="65" y="7" width="28" height="28" rx="3" fill="#f2d27a"/>' +
+        '<rect x="7" y="36" width="28" height="28" rx="3" fill="#6aa84f"/><rect x="36" y="36" width="28" height="28" rx="3" fill="#f28cb1"/><rect x="65" y="40" width="28" height="28" rx="3" fill="#5f9ed1" transform="rotate(8 79 54)"/>' +
+        '<rect x="7" y="65" width="28" height="28" rx="3" fill="#f0842a"/><rect x="36" y="65" width="28" height="28" rx="3" fill="#8cc063"/><rect x="65" y="72" width="28" height="22" rx="3" fill="none" stroke-dasharray="4 3"/></g>' +
+        '<circle cx="21" cy="19" r="6" fill="#ffe066"/><path d="M41 30 L50 14 L59 30Z" fill="#fbf3e3"/><circle cx="50" cy="50" r="7" fill="#fff" opacity=".85"/></svg>',
+      status: function () {
+        var m = readLS('patchwork.meta');
+        if (!m) return 'New! Picture puzzles';
+        var bits = ['Level ' + (m.level || 1)];
+        if (m.daily && m.daily[todayNum()] != null) bits.push('daily done');
+        return bits.join(' · ');
+      }
+    }
+    ,
+    {
+      id: 'cubecorral', name: 'Cube Corral', blurb: 'Knock off the colored cubes', path: 'games/cubecorral/',
+      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" fill="#cfe9f8"/><path d="M-5 78 L50 100 L105 78 L105 105 L-5 105Z" fill="#8cc063"/>' + (function () {
+          var h = '', S = 13, pal = ['#d93a2b', '#f7c531', '#3b82d6', '#4fa645', '#f3f0e8', '#f0842a'];
+          var cubes = [[0,0,0,0],[1,0,0,1],[2,0,0,2],[0,1,0,3],[1,1,0,4],[2,1,0,0],[0,2,0,1],[1,2,0,5],[2,2,0,3],[0,0,1,2],[1,0,1,0],[0,1,1,5],[0,0,2,4]];
+          cubes.sort(function (a, b) { return (a[0] + a[1]) - (b[0] + b[1]) || a[2] - b[2]; });
+          function poly(pts, fill, k) { return '<path d="M' + pts.join(' L') + 'Z" fill="' + fill + '" stroke="#3a2616" stroke-width="1.3" stroke-linejoin="round"' + (k ? ' style="filter:brightness(' + k + ')"' : '') + '/>'; }
+          cubes.forEach(function (c) {
+            var x = 50 + (c[0] - c[1]) * S, y = 45 + (c[0] + c[1]) * S / 2 - c[2] * S, col = pal[c[3]];
+            h += poly([[x - S, y], [x, y + S / 2], [x, y + 1.5 * S], [x - S, y + S]], col, .8) +
+              poly([[x + S, y], [x, y + S / 2], [x, y + 1.5 * S], [x + S, y + S]], col, .62) +
+              poly([[x, y - S / 2], [x + S, y], [x, y + S / 2], [x - S, y]], col);
+          });
+          return h;
+        })() + '<circle cx="82" cy="22" r="5" fill="#f7c531" stroke="#3a2616" stroke-width="1.4"/><circle cx="72" cy="34" r="4" fill="#d93a2b" stroke="#3a2616" stroke-width="1.4"/></svg>',
+      status: function () {
+        var m = readLS('cubecorral.meta');
+        if (!m) return 'New! Tap, blast and clear';
+        var bits = ['Level ' + (m.level || 1)];
+        if (m.daily && m.daily[todayNum()] != null) bits.push('daily done');
+        return bits.join(' · ');
+      }
+    }
   ];
   var byId = {};
   GAMES.forEach(function (g) { byId[g.id] = g; });
@@ -191,7 +233,7 @@
     GAMES.forEach(function (g) { all.appendChild(tile(g)); });
     var soon = document.createElement('div');
     soon.className = 'gtile soon';
-    soon.innerHTML = '<b>More games on the way</b><small>Jigsaws, cubes and screws.</small>';
+    soon.innerHTML = '<b>More games on the way</b><small>Screws are next.</small>';
     all.appendChild(soon);
   }
 

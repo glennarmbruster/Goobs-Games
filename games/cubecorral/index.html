@@ -1,0 +1,1393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#b3322a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Goobs-Games">
+<link rel="manifest" href="../../manifest.json">
+<link rel="apple-touch-icon" href="../../icons/icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="../../icons/icon-192.png">
+<link rel="stylesheet" href="../../shared/goobs.css">
+<script src="../../shared/goobs.js"></script>
+<title>Cube Corral</title>
+<style>
+/* Cube Corral styles (themes, UI kit and ad cards come from /shared/goobs.css) */
+:root { --cc-stage: #fdf6e3; --cc-slot: rgba(90,58,34,.12); --cc-slot-line: rgba(90,58,34,.45); }
+:root[data-theme="dark"] { --cc-stage: #2a231d; --cc-slot: rgba(255,255,255,.06); --cc-slot-line: rgba(255,240,220,.35); }
+:root[data-theme="blue"] { --cc-stage: #182c4c; --cc-slot: rgba(255,255,255,.06); --cc-slot-line: rgba(200,220,255,.4); }
+html, body { height: 100%; overflow: hidden; }
+.app { height: 100%; min-height: 0; }
+
+.homebtn { background: none; border: 0; padding: 4px 4px 4px 0; display: flex; align-items: center; gap: 3px; color: inherit; }
+.homebtn .chev { font-size: 38px; line-height: 1; font-weight: 800; color: var(--title); margin: -6px 0 0 -2px; }
+.homebtn:active { opacity: .6; }
+.brand h1 { font-size: 22px; white-space: nowrap; }
+@media (max-width: 385px) { .brand h1 { font-size: 20px; } }
+
+.modes { width: 100%; display: flex; gap: 6px; flex: none; }
+.modes button {
+  position: relative; flex: 1; height: 44px; border-radius: 12px; border: 2px solid var(--wood); background: var(--hay-light);
+  color: var(--btn-ink); font-weight: 800; font-size: 16px; box-shadow: 0 3px 0 var(--wood); padding: 0;
+}
+.modes button.on { background: var(--barn); color: #fff; }
+.modes button:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--wood); }
+.modes .dot { position: absolute; top: 5px; right: 7px; width: 11px; height: 11px; border-radius: 50%; background: var(--gold); border: 2px solid #fff; display: none; }
+.modes .dot.show { display: block; }
+:root[data-theme="dark"] .modes button { border-color: #5a4838; }
+:root[data-theme="blue"] .modes button { border-color: #34588c; }
+
+.info { width: 100%; min-height: 44px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 4px; flex: none; }
+.info .lbl { font-size: 13px; font-weight: 800; color: var(--muted); letter-spacing: .5px; text-transform: uppercase; }
+.info .ttl { font-size: 20px; font-weight: 800; line-height: 1.1; white-space: nowrap; }
+.info .right { text-align: right; }
+.info .mid { font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.info .bar { width: 110px; height: 10px; border-radius: 5px; background: var(--line); margin-top: 4px; overflow: hidden; border: 1.5px solid var(--wood); margin-left: auto; }
+.info .bar i { display: block; height: 100%; background: var(--ok); transition: width .3s; }
+
+.stage { position: relative; width: 100%; flex: 1; min-height: 180px; border-radius: 16px; background: var(--cc-stage); border: 2px solid var(--line); overflow: hidden; }
+.stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
+.turnhint {
+  position: absolute; left: 50%; top: 8px; transform: translateX(-50%); display: flex; align-items: center; gap: 6px; pointer-events: none;
+  background: rgba(0,0,0,.55); color: #fff; font-weight: 800; font-size: 14px; padding: 5px 12px; border-radius: 20px; transition: opacity .6s;
+}
+.turnhint svg { width: 20px; height: 20px; }
+.turnhint.hide { opacity: 0; }
+.cheer { position: absolute; left: 0; right: 0; top: 38%; text-align: center; font-size: 34px; font-weight: 900; color: #fff; text-shadow: 0 3px 0 #7a3d10, 0 0 14px rgba(0,0,0,.35); pointer-events: none; opacity: 0; }
+.cheer.show { animation: cheer 1.4s ease-out forwards; }
+@keyframes cheer { 0% { opacity: 0; transform: scale(.6); } 20% { opacity: 1; transform: scale(1.1); } 70% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1) translateY(-20px); } }
+
+/* blasters */
+.blaster {
+  position: relative; width: 100%; height: 100%; border-radius: 12px; border: 3px solid rgba(0,0,0,.45);
+  display: grid; place-items: center; box-shadow: inset 0 3px 0 rgba(255,255,255,.35), inset 0 -4px 0 rgba(0,0,0,.2), 0 2px 0 rgba(0,0,0,.25);
+}
+.blaster::before { /* the barrel */
+  content: ""; position: absolute; left: 50%; top: -9px; width: 34%; height: 11px; transform: translateX(-50%);
+  background: inherit; border: 3px solid rgba(0,0,0,.45); border-bottom: 0; border-radius: 6px 6px 0 0; filter: brightness(.85);
+}
+.blaster b { font-size: 22px; font-weight: 900; color: #fff; text-shadow: 0 0 3px rgba(0,0,0,.9), 0 1px 0 rgba(0,0,0,.9); font-variant-numeric: tabular-nums; }
+.blaster.light b { color: #2b2118; text-shadow: 0 0 3px rgba(255,255,255,.9); }
+.blaster.fire { animation: recoil .12s ease-out; }
+@keyframes recoil { 0% { transform: translateY(0); } 40% { transform: translateY(4px) scale(.96); } 100% { transform: translateY(0); } }
+.blaster .zz { position: absolute; right: -6px; top: -12px; background: #fff; color: #3a2616; border: 2px solid #3a2616; border-radius: 10px; font-size: 12px; font-weight: 900; padding: 0 5px; display: none; }
+.blaster.wait { filter: saturate(.55) brightness(.9); }
+.blaster.wait .zz { display: block; animation: zz 1.2s ease-in-out infinite alternate; }
+@keyframes zz { 0% { transform: translateY(0); } 100% { transform: translateY(-4px); } }
+.blaster.pop { animation: pop .25s ease-out; }
+@keyframes pop { 0% { transform: scale(.5) translateY(30px); opacity: .3; } 100% { transform: scale(1) translateY(0); opacity: 1; } }
+
+.slots { width: 100%; display: flex; gap: 6px; flex: none; justify-content: center; padding-top: 10px; }
+.slot { flex: 1; max-width: 70px; height: 58px; border-radius: 12px; border: 2px dashed var(--cc-slot-line); background: var(--cc-slot); position: relative; }
+.slot.extra { border-color: var(--gold); }
+.slots.full .slot { animation: warn .35s; }
+@keyframes warn { 0%, 100% { transform: none; } 30% { transform: translateX(-4px); } 60% { transform: translateX(4px); } }
+
+.lanes { width: 100%; display: flex; gap: 10px; flex: none; padding-top: 12px; }
+.lane { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 7px; background: none; border: 0; padding: 0; min-width: 0; }
+.lane .front { width: 74px; height: 66px; }
+.lane .front.none { border: 2px dashed var(--cc-slot-line); border-radius: 12px; }
+.lane:active .front .blaster { transform: translateY(2px); }
+.lane .queue { display: flex; gap: 4px; height: 24px; align-items: center; }
+.lane .queue i { display: block; width: 20px; height: 20px; border-radius: 5px; border: 2px solid rgba(0,0,0,.4); }
+.lane .queue i:nth-child(2) { opacity: .75; }
+.lane .queue i:nth-child(3) { opacity: .5; }
+.lane .queue small { font-size: 13px; font-weight: 800; color: var(--muted); }
+
+.toolbar { display: flex; gap: 8px; width: 100%; flex: none; }
+.tool {
+  flex: 1; height: 52px; border-radius: 14px; border: 2px solid var(--wood); background: var(--hay); color: var(--btn-ink);
+  box-shadow: 0 4px 0 var(--wood); display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 1px; padding: 0; font-weight: 800; font-size: 14px;
+}
+.tool svg { width: 22px; height: 22px; }
+.tool.red { background: var(--barn); color: #fff; }
+.tool:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--wood); }
+
+.helplist { margin: 6px 0 0; padding-left: 24px; font-size: 17px; line-height: 1.45; }
+.helplist li { margin-bottom: 6px; }
+.cardicon { display: flex; justify-content: center; margin-bottom: 4px; }
+.cardicon svg { width: 64px; height: 64px; }
+.tiles2 { display: flex; gap: 8px; margin: 4px 0 12px; }
+.tile2 { flex: 1; background: var(--surface); border: 2px solid var(--wood); border-radius: 14px; text-align: center; padding: 8px 4px; }
+.tile2 b { display: block; font-size: 26px; color: var(--title); }
+.tile2 span { font-size: 13px; font-weight: 700; color: var(--muted); }
+:root[data-theme="dark"] .tile2 { border-color: #5a4838; }
+:root[data-theme="blue"] .tile2 { border-color: #34588c; }
+.lvgrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.lv {
+  position: relative; aspect-ratio: 1 / 1; border-radius: 12px; border: 2px solid var(--wood); background: var(--surface); color: var(--ink);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0; font-weight: 800; font-size: 20px; line-height: 1.1;
+  box-shadow: 0 3px 0 var(--wood);
+}
+.lv small { font-size: 10.5px; font-weight: 700; color: var(--muted); }
+.lv.done { background: #cfe8c0; color: #24421a; }
+.lv.done small { color: #3e6a2c; }
+.lv.done::after { content: "\2713"; position: absolute; top: 2px; right: 6px; font-size: 13px; color: #2f7a22; }
+.lv.cur { background: var(--barn); color: #fff; }
+.lv.cur small { color: #ffe3dc; }
+.lv.lock { opacity: .4; box-shadow: none; }
+:root[data-theme="dark"] .lv.done, :root[data-theme="blue"] .lv.done { background: #2f5a2a; color: #e3f5da; }
+:root[data-theme="dark"] .lv.done small, :root[data-theme="blue"] .lv.done small { color: #b9dcae; }
+.lvnext { font-size: 17px; margin: 0 0 10px; color: var(--muted); font-weight: 700; }
+.pages { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.pages button { min-height: 40px; padding: 0 12px; border-radius: 10px; border: 2px solid var(--wood); background: var(--surface); color: var(--ink); font-weight: 800; font-size: 15px; }
+.pages button.on { background: var(--barn); color: #fff; }
+</style>
+</head>
+<body>
+<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="cc-logo" viewBox="0 0 100 100"><g stroke="#3a2616" stroke-width="3.5" stroke-linejoin="round">
+<path d="M50 12 L84 28 L50 44 L16 28Z" fill="#f7c531"/><path d="M16 28 L50 44 L50 86 L16 70Z" fill="#d93a2b"/><path d="M84 28 L50 44 L50 86 L84 70Z" fill="#3b82d6"/>
+<path d="M33 20 L67 36 M67 20 L33 36" stroke-width="2" opacity=".5"/><path d="M33 36 L33 78 M16 49 L50 65" stroke-width="2" opacity=".45"/><path d="M67 36 L67 78 M84 49 L50 65" stroke-width="2" opacity=".45"/></g></symbol>
+<symbol id="i-sound-on" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor" fill-opacity=".15"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19.3 5.7a9 9 0 0 1 0 12.6"/></g></symbol>
+<symbol id="i-sound-off" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor" fill-opacity=".15"/><path d="M16.5 9.5l5 5M21.5 9.5l-5 5"/></g></symbol>
+<symbol id="i-stats" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3"/></g></symbol>
+<symbol id="i-gear" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></g></symbol>
+<symbol id="i-new" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 3v5h-5"/></g></symbol>
+<symbol id="i-help" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.3a2.6 2.6 0 0 1 5 .9c0 1.8-2.5 2.2-2.5 3.9M12 17.3v.2"/></g></symbol>
+<symbol id="i-turn" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 4 0 0 0 16 0"/><path d="M20 12a8 4 0 0 0-14.5-2.3"/><path d="M5 5.5l.5 4.2 4-1"/></g></symbol>
+</defs></svg>
+
+<div class="app">
+  <div class="top">
+    <button class="brand homebtn" id="btnHome" aria-label="Back to all games">
+      <span class="chev" aria-hidden="true">&#8249;</span>
+      <svg viewBox="0 0 100 100" aria-hidden="true"><use href="#cc-logo"/></svg>
+      <h1>Cube Corral</h1>
+    </button>
+    <div class="topbtns">
+      <button class="iconbtn" id="btnSound" aria-label="Sound"><svg viewBox="0 0 24 24"><use href="#i-sound-off"/></svg></button>
+      <button class="iconbtn" id="btnStats" aria-label="Stats"><svg viewBox="0 0 24 24"><use href="#i-stats"/></svg></button>
+      <button class="iconbtn" id="btnSettings" aria-label="Settings"><svg viewBox="0 0 24 24"><use href="#i-gear"/></svg></button>
+    </div>
+  </div>
+
+  <div class="modes" id="modes">
+    <button data-mode="level" id="modeLevel">Levels</button>
+    <button data-mode="daily">Daily<i class="dot"></i></button>
+  </div>
+
+  <div class="info" id="info"></div>
+
+  <div class="stage" id="stage">
+    <canvas id="cv"></canvas>
+    <div class="turnhint" id="turnHint"><svg viewBox="0 0 24 24"><use href="#i-turn"/></svg> Drag to turn it</div>
+    <div class="cheer" id="cheer"></div>
+  </div>
+
+  <div class="slots" id="slots"></div>
+  <div class="lanes" id="lanes"></div>
+
+  <div class="toolbar">
+    <button class="tool" id="btnHelp"><svg viewBox="0 0 24 24"><use href="#i-help"/></svg><span>How to</span></button>
+    <button class="tool" id="btnView"><svg viewBox="0 0 24 24"><use href="#i-turn"/></svg><span>Front view</span></button>
+    <button class="tool red" id="btnNew"><svg viewBox="0 0 24 24"><use href="#i-new"/></svg><span id="newLabel">Restart</span></button>
+  </div>
+</div>
+
+<!-- Settings -->
+<div class="overlay" id="ovSettings">
+  <div class="sheet" role="dialog" aria-label="Settings">
+    <h2>Settings</h2>
+    <div class="sheetbody">
+      <div class="themelabel">Theme (all games)</div>
+      <div class="themes" id="themes"></div>
+      <label class="row"><div>Sound<small>Pops, clunks and cheers.</small></div>
+        <span class="switch"><input type="checkbox" id="setSound"><span></span></span></label>
+      <label class="row"><div>Old-time ads<small>Joke ads between levels. This switch is shared by all Goobs-Games.</small></div>
+        <span class="switch"><input type="checkbox" id="setAds"><span></span></span></label>
+      <div class="row" id="rowAdEvery"><div>Show an ad every<small>Counted in finished levels.</small></div>
+        <div class="stepper"><button id="adLess" aria-label="Fewer">&minus;</button><b id="adEvery">3</b><button id="adMore" aria-label="More">+</button></div></div>
+      <div class="version" id="version">Cube Corral</div>
+    </div>
+    <div class="actions"><button class="btn red" id="btnCloseSettings">Done</button></div>
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="overlay" id="ovStats">
+  <div class="sheet" role="dialog" aria-label="Stats">
+    <h2>Your corral record</h2>
+    <div class="sheetbody" id="statsBody"></div>
+    <div class="actions"><button class="btn red" id="btnCloseStats">Done</button></div>
+  </div>
+</div>
+
+<!-- Levels -->
+<div class="overlay" id="ovLevels">
+  <div class="sheet" role="dialog" aria-label="Levels">
+    <h2>Levels</h2>
+    <div class="sheetbody" id="levelsBody"></div>
+    <div class="actions"><button class="btn red" id="btnCloseLevels">Done</button></div>
+  </div>
+</div>
+
+<!-- How to play -->
+<div class="overlay" id="ovHelp">
+  <div class="sheet" role="dialog" aria-label="How to play">
+    <h2>How to play</h2>
+    <div class="sheetbody">
+      <ol class="helplist">
+        <li><b>Tap</b> the front blaster in any of the 3 lines. It moves up into a <b>slot</b>.</li>
+        <li>Blasters shoot cubes of <b>their own color</b> that they can see from the <b>front</b> (the yellow edge). One shot knocks off one cube.</li>
+        <li>The number is how many shots it has left. When it runs out, it leaves and the slot opens up.</li>
+        <li>If none of its color can be hit, it <b>waits</b> in its slot (you&rsquo;ll see <b>zzz</b>). Knock off the cubes in front to uncover more.</li>
+        <li>When all 5 slots are full and nobody can shoot, the corral&rsquo;s <b>jammed</b>. Watch a quick ad for an extra slot, or try again.</li>
+        <li><b>Drag</b> the sculpture to turn it and look around. Bigger ones have <b>surprise colors inside</b>.</li>
+      </ol>
+    </div>
+    <div class="actions"><button class="btn red" id="btnCloseHelp">Let's play</button></div>
+  </div>
+</div>
+
+<!-- Cards -->
+<div class="overlay center" id="ovEnd">
+  <div class="card" role="dialog">
+    <div class="cardicon" id="cardIcon"></div>
+    <h2 id="endTitle"></h2>
+    <p id="endText"></p>
+    <div class="actions" id="endActions"></div>
+  </div>
+</div>
+
+<script>
+/* Cube Corral sculptures: farm things described with simple shapes (boxes, balls, cylinders, roofs),
+   turned into cubes at any size. Coordinates are "design units": x = left/right, y = up, z = front/back. */
+var CCModels = (function () {
+  'use strict';
+  // Colors used by blasters and cubes. Keep them easy to tell apart.
+  var COLORS = [null,
+    { name: 'Red', hex: '#d93a2b' }, { name: 'White', hex: '#f3f0e8' }, { name: 'Black', hex: '#36302c' },
+    { name: 'Pink', hex: '#f49ab4' }, { name: 'Yellow', hex: '#f7c531' }, { name: 'Green', hex: '#4fa645' },
+    { name: 'Brown', hex: '#8a5a2e' }, { name: 'Blue', hex: '#3b82d6' }, { name: 'Orange', hex: '#f0842a' },
+    { name: 'Gray', hex: '#9aa3ad' }, { name: 'Tan', hex: '#e2c089' }, { name: 'Purple', hex: '#8d5bd3' }];
+  var C = {}; COLORS.forEach(function (c, i) { if (c) C[c.name.toLowerCase()] = i; });
+
+  // Primitive tests at a design-space point
+  function inside(p, x, y, z) {
+    switch (p[0]) {
+      case 'box': return x >= p[1] && x < p[4] && y >= p[2] && y < p[5] && z >= p[3] && z < p[6];
+      case 'ell': { var a = (x - p[1]) / p[4], b = (y - p[2]) / p[5], c = (z - p[3]) / p[6]; return a * a + b * b + c * c <= 1; }
+      case 'cyl': { var dx = x - p[1], dz = z - p[2]; return y >= p[4] && y < p[5] && dx * dx + dz * dz <= p[3] * p[3]; } // vertical
+      case 'cylz': { var ex = x - p[1], ey = y - p[2]; return z >= p[4] && z < p[5] && ex * ex + ey * ey <= p[3] * p[3]; } // along z
+      case 'cylx': { var fy = y - p[1], fz = z - p[2]; return x >= p[4] && x < p[5] && fy * fy + fz * fz <= p[3] * p[3]; } // along x
+      case 'gable': return z >= p[5] && z < p[6] && y >= p[2] && y < p[2] + p[4] * (1 - Math.abs(x - p[1]) / p[3]); // roof ridge along z
+      case 'cone': { var r = p[3] + (p[6] - p[3]) * (y - p[4]) / (p[5] - p[4]), gx = x - p[1], gz = z - p[2]; return y >= p[4] && y < p[5] && gx * gx + gz * gz <= r * r; } // [cx,cz,r0,y0,y1,r1]
+    }
+    return false;
+  }
+  // ops: [prim..., color]  put color;  ['paint', onColor, prim, color] recolor only that color;  color 0 carves
+  function voxelize(def, res) {
+    var sx = Math.max(2, Math.round(def.size[0] * res)), sy = Math.max(2, Math.round(def.size[1] * res)), sz = Math.max(2, Math.round(def.size[2] * res));
+    var kx = def.size[0] / sx, ky = def.size[1] / sy, kz = def.size[2] / sz;
+    var vox = new Uint8Array(sx * sy * sz);
+    for (var y = 0; y < sy; y++) for (var z = 0; z < sz; z++) for (var x = 0; x < sx; x++) {
+      var px = (x + .5) * kx, py = (y + .5) * ky, pz = (z + .5) * kz, v = 0;
+      for (var o = 0; o < def.ops.length; o++) {
+        var op = def.ops[o];
+        if (op[0] === 'paint') { if (v === op[1] && inside(op[2], px, py, pz)) v = op[3]; }
+        else if (inside(op, px, py, pz)) v = op[op.length - 1];
+      }
+      vox[(y * sz + z) * sx + x] = v;
+    }
+    return { sx: sx, sy: sy, sz: sz, vox: vox };
+  }
+
+  // ---------- the models (R = seeded random for small touches like cow spots) ----------
+  var MODELS = {
+    cow: { name: 'Cow', make: function (R) {
+      var ops = [
+        ['box', 0, 0, 0, 13, 1, 7, C.green],
+        ['box', 2.6, 1, 1.4, 4.2, 4.2, 3, C.white], ['box', 2.6, 1, 4, 4.2, 4.2, 5.6, C.white],
+        ['box', 8, 1, 1.4, 9.6, 4.2, 3, C.white], ['box', 8, 1, 4, 9.6, 4.2, 5.6, C.white],
+        ['box', 2, 4, 1.3, 10.4, 8, 5.7, C.white],
+        ['ell', 6.4, 4, 3.5, 1.4, .8, 1.1, C.pink],
+        ['box', 10, 5.4, 2.1, 12.4, 9, 4.9, C.white], ['box', 12, 5.2, 2.1, 13, 7, 4.9, C.pink],
+        ['box', 10.4, 9, 1.7, 11.2, 10, 2.6, C.tan], ['box', 10.4, 9, 4.4, 11.2, 10, 5.3, C.tan],
+        ['box', 11.6, 7.6, 1.9, 12.6, 8.6, 2.8, C.black], ['box', 11.6, 7.6, 4.2, 12.6, 8.6, 5.1, C.black],
+        ['box', 1.2, 5.6, 3.1, 2, 8, 3.9, C.white], ['box', 1.2, 4.6, 3.1, 2, 5.6, 3.9, C.black],
+        ['paint', C.white, ['box', 0, 1, 0, 13, 1.9, 7], C.black]
+      ];
+      for (var i = 0; i < 4; i++) ops.push(['paint', C.white, ['ell', R.r(2.5, 9.5), R.r(5, 7.5), R.pick([1.3, 5.7]), R.r(1, 1.8), R.r(.9, 1.4), 1.2], C.black]);
+      return { size: [13, 10, 7], ops: ops };
+    } },
+    barn: { name: 'Barn', make: function (R) {
+      var roof = R.pick([C.gray, C.black, C.brown]), wall = R.chance(.8) ? C.red : C.blue;
+      return { size: [12, 12.5, 10], ops: [
+        ['box', 0, 0, 0, 12, 1, 10, C.green],
+        ['box', 1.5, 1, 1.5, 10.5, 7, 8.5, wall],
+        ['gable', 6, 7, 5.6, 5, 1.2, 8.8, roof],
+        ['gable', 6, 7, 4.4, 3.8, 1.2, 8.8, wall],
+        ['box', 1.5, 1, 1.2, 2.3, 7, 8.8, C.white], ['box', 9.7, 1, 1.2, 10.5, 7, 8.8, C.white],
+        ['box', 4.2, 1, 1.1, 7.8, 5.6, 1.6, C.white], ['box', 4.9, 1.6, 1.0, 7.1, 5, 1.6, wall],
+        ['box', 5.1, 7.6, 1.1, 6.9, 9.2, 1.6, C.yellow],
+        ['box', 0, 1, 0, 1.2, 2.2, 10, C.tan], ['box', 10.8, 1, 0, 12, 1.8, 3, C.tan]
+      ] };
+    } },
+    pig: { name: 'Pig', make: function (R) {
+      return { size: [13, 9, 7.5], ops: [
+        ['box', 0, 0, 0, 13, 1, 7.5, C.green],
+        ['ell', R.r(3, 9), .8, R.r(2.5, 5), 3.2, .6, 2.2, C.brown],
+        ['box', 3, 1, 1.6, 4.4, 3.4, 3, C.pink], ['box', 3, 1, 4.5, 4.4, 3.4, 5.9, C.pink],
+        ['box', 8.2, 1, 1.6, 9.6, 3.4, 3, C.pink], ['box', 8.2, 1, 4.5, 9.6, 3.4, 5.9, C.pink],
+        ['ell', 6.2, 5, 3.75, 4.6, 2.6, 2.6, C.pink],
+        ['ell', 10.6, 5.6, 3.75, 1.9, 1.9, 1.9, C.pink],
+        ['box', 11.8, 4.6, 2.8, 12.9, 6.2, 4.7, C.red],
+        ['box', 12.3, 5, 3, 13, 5.8, 3.4, C.black], ['box', 12.3, 5, 4.1, 13, 5.8, 4.5, C.black],
+        ['box', 11.2, 6.4, 2.4, 12, 7.2, 3.1, C.black], ['box', 11.2, 6.4, 4.4, 12, 7.2, 5.1, C.black],
+        ['box', 9.6, 7.2, 2.2, 10.8, 8.6, 3.2, C.pink], ['box', 9.6, 7.2, 4.3, 10.8, 8.6, 5.3, C.pink],
+        ['box', .9, 5.4, 3.4, 1.8, 7, 4.1, C.pink],
+        ['paint', C.pink, ['box', 0, 1, 0, 13, 1.7, 7.5], C.black]
+      ] };
+    } },
+    tractor: { name: 'Tractor', make: function (R) {
+      var body = R.pick([C.green, C.red, C.blue]);
+      return { size: [14, 10.5, 9], ops: [
+        ['cylz', 4, 3.3, 3.3, 0, 2, C.black], ['cylz', 4, 3.3, 3.3, 7, 9, C.black],
+        ['cylz', 4, 3.3, 1.3, 0, .8, C.yellow], ['cylz', 4, 3.3, 1.3, 8.2, 9, C.yellow],
+        ['cylz', 11.2, 2, 2, .8, 2.4, C.black], ['cylz', 11.2, 2, 2, 6.6, 8.2, C.black],
+        ['cylz', 11.2, 2, .8, .8, 1.3, C.yellow], ['cylz', 11.2, 2, .8, 7.7, 8.2, C.yellow],
+        ['box', 3, 2.6, 2.3, 13.4, 5.6, 6.7, body],
+        ['box', 13.4, 2.8, 2.8, 14, 5.2, 6.2, C.gray],
+        ['box', 1.8, 5.6, 2.2, 6.4, 10, 6.8, body],
+        ['box', 2.4, 6.4, 2, 5.8, 9.2, 7, C.blue],
+        ['box', 1.4, 10, 1.8, 6.8, 10.5, 7.2, C.white],
+        ['cyl', 10.6, 4.5, .6, 5.6, 9.2, C.gray],
+        ['paint', body, ['box', 6.4, 4.4, 2, 13.4, 5, 7], C.yellow]
+      ] };
+    } },
+    hen: { name: 'Hen', make: function (R) {
+      return { size: [11, 11, 8], ops: [
+        ['ell', 5.5, 1.2, 4, 5.5, 1.6, 4, C.brown],
+        ['ell', 5.5, 2.4, 4, 4.2, .8, 3, C.tan],
+        ['ell', 5, 5.2, 4, 3.6, 2.8, 2.6, C.white],
+        ['ell', 1.8, 6.4, 4, 1.4, 1.8, 1.6, C.white],
+        ['ell', 7.8, 8, 4, 1.9, 2, 1.8, C.white],
+        ['box', 7.2, 9.6, 3.5, 9, 11, 4.5, C.red],
+        ['box', 9.4, 7.4, 3.4, 10.8, 8.2, 4.6, C.yellow],
+        ['box', 9, 6.2, 3.6, 9.8, 7.4, 4.4, C.red],
+        ['box', 8.8, 8.4, 2.3, 9.4, 9, 2.8, C.black], ['box', 8.8, 8.4, 5.2, 9.4, 9, 5.7, C.black],
+        ['paint', C.white, ['ell', 5, 5, 1.4, 2.2, 1.6, .8], C.tan], ['paint', C.white, ['ell', 5, 5, 6.6, 2.2, 1.6, .8], C.tan]
+      ] };
+    } },
+    tree: { name: 'Apple tree', make: function (R) {
+      var ops = [
+        ['box', 0, 0, 0, 11, 1, 11, C.green],
+        ['cyl', 5.5, 5.5, 1.1, 1, 6, C.brown],
+        ['ell', 5.5, 8.8, 5.5, 4.6, 3.6, 4.6, C.green]
+      ];
+      for (var i = 0; i < 9; i++) {
+        var a = R.r(0, 6.28), h = R.r(7.2, 11);
+        ops.push(['paint', C.green, ['ell', 5.5 + Math.cos(a) * 4.4, h, 5.5 + Math.sin(a) * 4.4, .9, .9, .9], C.red]);
+      }
+      for (i = 0; i < 3; i++) { var ax = R.r(.5, 9.5), az = R.pick([R.r(.5, 2.5), R.r(8.5, 9.5)]); ops.push(['box', ax, 1, az, ax + 1, 1.9, az + 1, C.red]); }
+      ops.push(['ell', R.r(2, 3), 1.2, R.r(7, 9), .8, .5, .8, C.red]);
+      return { size: [11, 12.5, 11], ops: ops };
+    } },
+    sheep: { name: 'Sheep', make: function (R) {
+      var ops = [['box', 0, 0, 0, 12, 1, 8, C.green],
+        ['box', 3, 1, 2, 4.2, 3.4, 3.2, C.black], ['box', 3, 1, 4.8, 4.2, 3.4, 6, C.black],
+        ['box', 7.8, 1, 2, 9, 3.4, 3.2, C.black], ['box', 7.8, 1, 4.8, 9, 3.4, 6, C.black],
+        ['ell', 6, 5.4, 4, 4.4, 2.6, 2.9, C.white]];
+      for (var i = 0; i < 7; i++) ops.push(['ell', R.r(2.6, 9.2), R.r(5.6, 7.6), R.r(2, 6), 1.5, 1.4, 1.5, C.white]);
+      ops.push(['ell', 10.4, 6.4, 4, 1.5, 1.8, 1.4, C.black]);
+      ops.push(['box', 9.6, 6.8, 2, 10.4, 7.6, 2.8, C.black], ['box', 9.6, 6.8, 5.2, 10.4, 7.6, 6, C.black]);
+      ops.push(['ell', 9.4, 8.2, 4, 1.2, .8, 1.2, C.white]);
+      ops.push(['box', 11.3, 6.6, 3.1, 12, 7.2, 3.6, C.white], ['box', 11.3, 6.6, 4.4, 12, 7.2, 4.9, C.white]);
+      return { size: [12, 9.5, 8], ops: ops };
+    } },
+    pumpkin: { name: 'Pumpkin', make: function (R) {
+      var ops = [['box', 0, 0, 0, 12, 1.4, 12, C.tan], ['ell', 6, 5, 6, 5.4, 3.8, 5.4, C.orange]];
+      for (var i = 0; i < 8; i++) {
+        var a = i * Math.PI / 4;
+        ops.push(['paint', C.orange, ['box', 6 + Math.cos(a) * 5.6 - .35, 1.4, 6 + Math.sin(a) * 5.6 - .35, 6 + Math.cos(a) * 5.6 + .35, 9, 6 + Math.sin(a) * 5.6 + .35], C.yellow]);
+      }
+      ops.push(['cyl', 6, 6, .8, 8.6, 10.6, C.green], ['box', 6, 9.8, 5.6, 8.2, 10.4, 6.4, C.green]);
+      ops.push(['ell', R.r(1.5, 3), 1.9, R.r(9, 10.5), 1.4, .6, 1, C.green], ['ell', R.r(9, 10.5), 1.9, R.r(1.5, 3), 1.2, .6, 1.2, C.green]);
+      return { size: [12, 11, 12], ops: ops };
+    } },
+    house: { name: 'Farmhouse', make: function (R) {
+      var roof = R.pick([C.blue, C.red, C.gray]);
+      return { size: [13, 12.5, 10], ops: [
+        ['box', 0, 0, 0, 13, 1, 10, C.green],
+        ['box', 1.5, 1, 2, 11.5, 7, 8, C.white],
+        ['gable', 6.5, 7, 6, 4.6, 1.4, 8.6, roof],
+        ['gable', 6.5, 7, 5, 3.8, 2, 8, C.white],
+        ['box', 9, 8, 4, 10.2, 12.5, 5.2, C.red],
+        ['box', 5.6, 1, 1.6, 7.4, 4.6, 2, C.brown],
+        ['box', 2.4, 3.4, 1.6, 4.4, 5.6, 2, C.yellow], ['box', 8.6, 3.4, 1.6, 10.6, 5.6, 2, C.yellow],
+        ['box', 5.8, 7.8, 1.6, 7.2, 9.2, 2, C.yellow],
+        ['box', 1, 1, 0, 12, 1.6, 1.2, C.brown]
+      ] };
+    } },
+    duck: { name: 'Duck', make: function (R) {
+      return { size: [12, 8.5, 9], ops: [
+        ['box', 0, 0, 0, 12, 1.2, 9, C.blue],
+        ['ell', 5.5, 2.4, 4.5, 4.2, 2, 3, C.yellow],
+        ['ell', 1.8, 3.4, 4.5, 1.4, 1.4, 1.4, C.yellow],
+        ['ell', 8.6, 6, 4.5, 1.9, 1.9, 1.7, C.yellow],
+        ['box', 10.2, 5.2, 3.8, 11.8, 6, 5.2, C.orange],
+        ['box', 9.2, 6.6, 3, 9.8, 7.2, 3.5, C.black], ['box', 9.2, 6.6, 5.5, 9.8, 7.2, 6, C.black],
+        ['paint', C.yellow, ['ell', 5, 3, 1.4, 2.4, 1, .7], C.orange], ['paint', C.yellow, ['ell', 5, 3, 7.6, 2.4, 1, .7], C.orange],
+        ['box', .3, 1.2, 7.2, 1.1, 4.6, 8, C.green], ['box', 1.4, 1.2, 7.8, 2.1, 3.8, 8.6, C.green], ['box', 10.4, 1.2, .4, 11.2, 4, 1.2, C.green]
+      ] };
+    } },
+    horse: { name: 'Horse', make: function (R) {
+      var coat = R.pick([C.brown, C.tan, C.gray]);
+      return { size: [13, 12, 7], ops: [
+        ['box', 0, 0, 0, 13, 1, 7, C.green],
+        ['box', 2.6, 1, 1.4, 3.8, 5, 2.6, coat], ['box', 2.6, 1, 4.4, 3.8, 5, 5.6, coat],
+        ['box', 8.6, 1, 1.4, 9.8, 5, 2.6, coat], ['box', 8.6, 1, 4.4, 9.8, 5, 5.6, coat],
+        ['paint', coat, ['box', 0, 1, 0, 13, 1.8, 7], C.black],
+        ['box', 2, 5, 1.4, 10.6, 8.2, 5.6, coat],
+        ['box', 9, 7, 2.3, 11, 11, 4.7, coat],
+        ['box', 10.4, 9.2, 2.3, 13, 11, 4.7, coat],
+        ['box', 12.2, 9.4, 2.2, 13, 10.2, 4.8, C.black],
+        ['paint', coat, ['box', 12, 10.3, 3.2, 13, 11, 3.8], C.white],
+        ['box', 8.6, 8.2, 3.1, 9.4, 11.8, 3.9, C.black],
+        ['box', 9.4, 11, 2.5, 10.2, 12, 3.1, C.black], ['box', 9.4, 11, 3.9, 10.2, 12, 4.5, C.black],
+        ['box', .8, 4.2, 3, 2, 8, 4, C.black],
+        ['box', 10.8, 10, 1.8, 11.6, 10.6, 2.3, C.black], ['box', 10.8, 10, 4.7, 11.6, 10.6, 5.2, C.black]
+      ] };
+    } },
+    windmill: { name: 'Windmill', make: function (R) {
+      var cap = R.pick([C.red, C.blue, C.brown]);
+      return { size: [13, 17, 9], ops: [
+        ['box', 0, 0, 0, 13, 1, 9, C.green],
+        ['cone', 6.5, 5, 3.4, 1, 10, 2.3, C.gray],
+        ['box', 5.8, 1, 1.4, 7.2, 3.4, 2.4, C.brown],
+        ['box', 5.8, 5, 1.6, 7.2, 6.4, 2.4, C.yellow],
+        ['cone', 6.5, 5, 2.9, 10, 13, .5, cap],
+        ['box', 6, 9.5, .9, 7, 10.5, 3.2, C.black],
+        ['box', 6.2, 3.6, .4, 6.8, 16.4, .9, C.white],
+        ['box', .6, 9.7, .4, 12.4, 10.3, .9, C.white],
+        ['box', 4.6, 12, .4, 6.2, 16, .9, C.white], ['box', 6.8, 4, .4, 8.4, 8, .9, C.white],
+        ['box', 1, 10.3, .4, 5, 11.9, .9, C.white], ['box', 8, 8.1, .4, 12, 9.7, .9, C.white]
+      ] };
+    } }
+  };
+
+  // Hidden colors: cubes inside get other colors in thin bands, like a jawbreaker (peel the outside to find them).
+  // bands = { from: depth where bands start, pattern: [colors by depth] }. Depth 0 = on the outside.
+  function layer(m, bands) {
+    if (!bands || !bands.pattern || !bands.pattern.length) return;
+    var sx = m.sx, sy = m.sy, sz = m.sz, n = sx * sy * sz, depth = new Int16Array(n), q = [], i, x, y, z;
+    for (i = 0; i < n; i++) depth[i] = -1;
+    for (i = 0; i < n; i++) {
+      if (!m.vox[i]) continue;
+      x = i % sx; z = Math.floor(i / sx) % sz; y = Math.floor(i / (sx * sz));
+      var open = x === 0 || x === sx - 1 || z === 0 || z === sz - 1 || y === sy - 1 ||
+        !m.vox[i - 1] || !m.vox[i + 1] || !m.vox[i - sx] || !m.vox[i + sx] || !m.vox[i + sx * sz] || (y > 0 && !m.vox[i - sx * sz]);
+      if (open) { depth[i] = 0; q.push(i); }
+    }
+    for (var h = 0; h < q.length; h++) {
+      i = q[h]; x = i % sx; z = Math.floor(i / sx) % sz; y = Math.floor(i / (sx * sz));
+      var nbs = [x > 0 ? i - 1 : -1, x < sx - 1 ? i + 1 : -1, z > 0 ? i - sx : -1, z < sz - 1 ? i + sx : -1, y > 0 ? i - sx * sz : -1, y < sy - 1 ? i + sx * sz : -1];
+      for (var k = 0; k < 6; k++) { var j = nbs[k]; if (j >= 0 && m.vox[j] && depth[j] < 0) { depth[j] = depth[i] + 1; q.push(j); } }
+    }
+    for (i = 0; i < n; i++) {
+      if (!m.vox[i] || depth[i] < bands.from) continue;
+      m.vox[i] = bands.pattern[(depth[i] - bands.from) % bands.pattern.length];
+    }
+  }
+  function surfaceColors(m) { var s = {}; for (var i = 0; i < m.vox.length; i++) if (m.vox[i]) s[m.vox[i]] = 1; return s; }
+
+  var ORDER = ['cow', 'barn', 'pig', 'tractor', 'hen', 'tree', 'sheep', 'pumpkin', 'house', 'duck', 'horse', 'windmill'];
+  // inner: 0 none, 1 a hidden core, 2 two hidden colors in bands, 3 three hidden colors in bands
+  function build(id, res, rand, inner) {
+    var R = {
+      r: function (a, b) { return a + rand() * (b - a); },
+      pick: function (arr) { return arr[Math.floor(rand() * arr.length)]; },
+      chance: function (p) { return rand() < p; }
+    };
+    var def = MODELS[id].make(R), m = voxelize(def, res);
+    m.id = id; m.name = MODELS[id].name;
+    if (inner) {
+      var used = surfaceColors(m), spare = [];
+      for (var c = 1; c < COLORS.length; c++) if (!used[c]) spare.push(c);
+      for (var s = spare.length - 1; s > 0; s--) { var t = Math.floor(rand() * (s + 1)), tmp = spare[s]; spare[s] = spare[t]; spare[t] = tmp; }
+      // 1: one solid hidden core; 2: two colors in alternating bands; 3: three colors in bands
+      var pat = inner === 1 ? [spare[0]] : inner === 2 ? [spare[0], spare[1]] : [spare[0], spare[1], spare[0], spare[2]];
+      layer(m, { from: inner === 1 ? 2 : 1, pattern: pat });
+    }
+    return m;
+  }
+  return { COLORS: COLORS, C: C, ORDER: ORDER, MODELS: MODELS, build: build, layer: layer };
+})();
+if (typeof module !== 'undefined') module.exports = CCModels;
+</script>
+<script>
+/* Cube Corral game logic (no DOM).
+   A sculpture of colored cubes. Blasters wait in 3 lines; tap the front one of a line and it moves into
+   one of 5 slots, then shoots cubes of its own color that it can see from the front (nothing in front of
+   them), one per shot, until its shots run out.
+   (The first version let blasters hit any cube with an open side; bots showed even random tapping always won.)
+   A blaster with nothing of its color showing waits in its slot. All slots full and nobody can shoot = stuck.
+   Every level is built by a "designer" that plays it while building it, so every level can be won. */
+var CC = (function () {
+  'use strict';
+  var M = (typeof CCModels !== 'undefined') ? CCModels : require('./models.js');
+  var SLOTS = 5, LANES = 3, MAX_EXTRA = 2;
+  var RULE = 'front'; // 'front': a cube can be hit when nothing is in front of it (z = 0 is the side facing the blasters)
+
+  function mix32(x) {
+    x = x >>> 0;
+    x = Math.imul(x ^ (x >>> 16), 0x7feb352d) >>> 0;
+    x = Math.imul(x ^ (x >>> 15), 0x846ca68b) >>> 0;
+    return (x ^ (x >>> 16)) >>> 0;
+  }
+  function rng(seed) {
+    var a = seed >>> 0;
+    return function () {
+      a = (a + 0x6D2B79F5) | 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  // ---------- sculpture state ----------
+  // st: { sx, sy, sz, vox (colors), exp (1 = has an open side), left: {color: count}, total, lanes, slots }
+  function nb(st, i, out) {
+    var sx = st.sx, sz = st.sz, x = i % sx, z = Math.floor(i / sx) % sz, y = Math.floor(i / (sx * sz)), k = 0;
+    out[k++] = x > 0 ? i - 1 : -1; out[k++] = x < sx - 1 ? i + 1 : -1;
+    out[k++] = z > 0 ? i - sx : -1; out[k++] = z < sz - 1 ? i + sx : -1;
+    out[k++] = y > 0 ? i - sx * sz : -2; // below the bottom is the ground: not open
+    out[k++] = y < st.sy - 1 ? i + sx * sz : -1;
+    return out;
+  }
+  var NB = [0, 0, 0, 0, 0, 0];
+  function isOpen(st, i) {
+    if (RULE === 'front') {
+      for (var j = i - st.sx; j >= 0 && Math.floor(j / st.sx) % st.sz < Math.floor(i / st.sx) % st.sz; j -= st.sx) if (st.vox[j]) return false;
+      return true;
+    }
+    nb(st, i, NB);
+    for (var k = 0; k < 6; k++) { var j = NB[k]; if (j === -1 || (j >= 0 && !st.vox[j])) return true; }
+    return false;
+  }
+  function makeState(model) {
+    var st = { sx: model.sx, sy: model.sy, sz: model.sz, vox: new Uint8Array(model.vox), exp: new Uint8Array(model.vox.length), left: {}, total: 0 };
+    for (var i = 0; i < st.vox.length; i++) {
+      var c = st.vox[i];
+      if (!c) continue;
+      st.left[c] = (st.left[c] || 0) + 1; st.total++;
+      st.exp[i] = isOpen(st, i) ? 1 : 0;
+    }
+    return st;
+  }
+  function removeCube(st, i) {
+    var c = st.vox[i];
+    st.vox[i] = 0; st.exp[i] = 0; st.left[c]--; st.total--;
+    if (RULE === 'front') { // the next cube behind it (same row) is now in the open
+      var z = Math.floor(i / st.sx) % st.sz;
+      for (var j = i + st.sx, zz = z + 1; zz < st.sz; j += st.sx, zz++) if (st.vox[j]) { st.exp[j] = 1; break; }
+      return;
+    }
+    nb(st, i, NB);
+    for (var k = 0; k < 6; k++) { var j = NB[k]; if (j >= 0 && st.vox[j]) st.exp[j] = 1; }
+  }
+  // Which cube a blaster of color c shoots next: the most exposed one (corners and edges first, so the
+  // sculpture wears down evenly), then the highest, then the farthest out. It doesn't depend on how the
+  // sculpture is turned, so the game plays the same on every phone.
+  function openSides(st, i) {
+    nb(st, i, NB);
+    var k = 0;
+    for (var s = 0; s < 6; s++) { var j = NB[s]; if (j === -1 || (j >= 0 && !st.vox[j])) k++; }
+    return k;
+  }
+  function target(st, c) {
+    var best = -1, bk = -1, by = -1, bd = -1, sx = st.sx, sz = st.sz, hx = (sx - 1) / 2, hz = (sz - 1) / 2;
+    for (var i = st.vox.length - 1; i >= 0; i--) {
+      if (st.vox[i] !== c || !st.exp[i]) continue;
+      var k = openSides(st, i);
+      if (k < bk) continue;
+      var y = Math.floor(i / (sx * sz));
+      if (k === bk && y < by) continue;
+      var dx = i % sx - hx, dz = Math.floor(i / sx) % sz - hz, d = dx * dx + dz * dz;
+      if (k > bk || y > by || d > bd) { best = i; bk = k; by = y; bd = d; }
+    }
+    return best;
+  }
+  function openCount(st, c) { var n = 0; for (var i = 0; i < st.vox.length; i++) if (st.vox[i] === c && st.exp[i]) n++; return n; }
+
+  // ---------- play ----------
+  function freeSlot(st) { for (var s = 0; s < st.slots.length; s++) if (!st.slots[s]) return s; return -1; }
+  function tap(st, lane) {
+    var L = st.lanes[lane];
+    if (!L || !L.length) return -1;
+    var s = freeSlot(st);
+    if (s < 0) return -1;
+    st.slots[s] = L.shift();
+    st.taps = (st.taps || 0) + 1;
+    return s;
+  }
+  // One round: every blaster that can shoot fires once. Returns [{slot, i (cube), c, last}]
+  function step(st) {
+    var ev = [];
+    for (var s = 0; s < st.slots.length; s++) {
+      var b = st.slots[s];
+      if (!b) continue;
+      var t = target(st, b.c);
+      if (t < 0) continue;
+      removeCube(st, t);
+      b.n--;
+      var last = b.n <= 0;
+      ev.push({ slot: s, i: t, c: b.c, last: last });
+      if (last) st.slots[s] = null;
+    }
+    return ev;
+  }
+  function canFire(st) {
+    for (var s = 0; s < st.slots.length; s++) { var b = st.slots[s]; if (b && target(st, b.c) >= 0) return true; }
+    return false;
+  }
+  function won(st) { return st.total === 0; }
+  function stuck(st) { return st.total > 0 && freeSlot(st) < 0 && !canFire(st); }
+  function settle(st) { var n = 0; for (;;) { var ev = step(st); if (!ev.length) return n; n += ev.length; } }
+
+  // ---------- levels ----------
+  var LEVEL_SCHEME = 1;
+  function levelSpec(L) {
+    var id = M.ORDER[(L - 1) % M.ORDER.length], round = Math.floor((L - 1) / M.ORDER.length);
+    var res = Math.min(1.05, 0.64 + 0.02 * (L - 1)) + (L > 24 ? ((L * 7) % 5) * 0.02 : 0);
+    var t = L <= 3 ? 0 : L <= 8 ? 1 : L <= 20 ? 2 : 3; // difficulty tier
+    var design = [2, 2, 3, 3][t] + (t === 3 && L % 3 === 0 ? 1 : 0);
+    return { scheme: LEVEL_SCHEME, level: L, model: id, round: round, res: res, design: design,
+      decoy: [0, 0.35, 0.55, 0.65][t], partial: [0.7, 0.5, 0.4, 0.4][t],
+      amin: [6, 6, 6, 6][t], amax: [14, 18, 22, 26][t] + Math.min(6, Math.floor(L / 10)), inner: L <= 5 ? 0 : L <= 12 ? 1 : L <= 24 ? 2 : 3,
+      seed: mix32(Math.imul(L, 0x9E3779B1) ^ 0xC0BE5) };
+  }
+  function dailySeed(day) { return mix32(day ^ 0xDA1C0BE); }
+  function dailySpec(day) {
+    var s = dailySeed(day), R = rng(s);
+    return { model: M.ORDER[Math.floor(R() * M.ORDER.length)], res: 0.78 + R() * 0.16, design: 3, decoy: 0.55, partial: 0.4, amin: 6, amax: 22, inner: 3, seed: s };
+  }
+
+  // The designer plays the level while inventing its blasters, so the order it used always works.
+  function design(spec) {
+    var R = rng(spec.seed), res = spec.res, model;
+    for (var tries = 0; tries < 12; tries++) { // keep big sculptures to a sensible size
+      R = rng(spec.seed);
+      model = M.build(spec.model, res, R, spec.inner || 0);
+      var cubes = 0; for (var q = 0; q < model.vox.length; q++) if (model.vox[q]) cubes++;
+      if (cubes <= (spec.maxCubes || 650)) break;
+      res *= 0.93;
+    }
+    var st = makeState(model), seq = [], active = [];
+    st.slots = []; for (var s = 0; s < spec.design; s++) st.slots.push(null);
+    var claimed = {};
+    for (var guard = 0; st.total > 0 && guard < 5000; guard++) {
+      settle(st);
+      if (!st.total) break;
+      var filled = 0; claimed = {};
+      st.slots.forEach(function (b) { if (b) { filled++; claimed[b.c] = (claimed[b.c] || 0) + b.n; } });
+      var colors = Object.keys(st.left).map(Number).filter(function (c) { return st.left[c] - (claimed[c] || 0) > 0; });
+      var open = colors.filter(function (c) { return openCount(st, c) > 0; });
+      var shut = colors.filter(function (c) { return openCount(st, c) === 0; });
+      var c, n, want = spec.amin + Math.floor(R() * (spec.amax - spec.amin + 1));
+      if (shut.length && filled < spec.design - 1 && R() < spec.decoy) {
+        c = shut[Math.floor(R() * shut.length)];
+        n = Math.min(want, st.left[c] - (claimed[c] || 0));
+      } else {
+        // weight by how much of the color is showing
+        var tot = 0, w = open.map(function (cc) { var k = openCount(st, cc); tot += k; return k; }), x = R() * tot;
+        c = open[open.length - 1];
+        for (var k = 0; k < open.length; k++) { x -= w[k]; if (x < 0) { c = open[k]; break; } }
+        var cap = openCount(st, c);
+        // sometimes a blaster has more shots than there are cubes showing: it stops partway and waits
+        if (filled < spec.design - 1 && R() < (spec.partial || 0)) cap = st.left[c];
+        n = Math.min(want, cap, st.left[c] - (claimed[c] || 0));
+        var rest = st.left[c] - (claimed[c] || 0) - n;
+        if (rest > 0 && rest < 3 && n + rest <= cap) n += rest; // don't leave tiny leftovers
+      }
+      var b = { c: c, n: n };
+      seq.push({ c: c, n: n });
+      st.slots[freeSlot(st)] = b;
+    }
+    // deal the blasters into 3 lines, keeping the designer's order within each line
+    var lanes = [[], [], []], order = [];
+    seq.forEach(function (b) {
+      var ln;
+      if (R() < 0.55) { ln = 0; for (var q = 1; q < LANES; q++) if (lanes[q].length < lanes[ln].length) ln = q; }
+      else ln = Math.floor(R() * LANES);
+      lanes[ln].push(b); order.push(ln);
+    });
+    return { model: model, lanes: lanes, blasters: seq.length, order: order };
+  }
+  // ---------- playtest: a careful player looking two taps ahead ----------
+  function clone(st) {
+    return { sx: st.sx, sy: st.sy, sz: st.sz, vox: new Uint8Array(st.vox), exp: new Uint8Array(st.exp), left: Object.assign({}, st.left), total: st.total,
+      lanes: st.lanes.map(function (l) { return l.map(function (b) { return { c: b.c, n: b.n }; }); }),
+      slots: st.slots.map(function (b) { return b ? { c: b.c, n: b.n } : null; }) };
+  }
+  function fronts(st) { var f = []; for (var l = 0; l < LANES; l++) if (st.lanes[l].length) f.push(l); return f; }
+  function score(st, depth) {
+    if (won(st)) return 1e6;
+    if (stuck(st)) return -1e6;
+    var busy = 0; st.slots.forEach(function (b) { if (b) busy++; });
+    var base = -busy * 100 - st.total * 0.01, fr = fronts(st);
+    if (!depth || !fr.length || freeSlot(st) < 0) return base;
+    var best = -1e9;
+    fr.forEach(function (l) { var s = clone(st); tap(s, l); settle(s); best = Math.max(best, score(s, depth - 1)); });
+    return best;
+  }
+  function playtest(d, slots) {
+    var st = makeState(d.model);
+    st.lanes = d.lanes.map(function (l) { return l.map(function (b) { return { c: b.c, n: b.n }; }); });
+    st.slots = []; for (var s = 0; s < slots; s++) st.slots.push(null);
+    for (var g = 0; g < 3000; g++) {
+      settle(st);
+      if (won(st)) return true;
+      if (stuck(st)) return false;
+      var fr = fronts(st);
+      if (!fr.length || freeSlot(st) < 0) return false;
+      var pick = fr[0], best = -1e9;
+      fr.forEach(function (l) { var c = clone(st); tap(c, l); settle(c); var v = score(c, 1); if (v > best) { best = v; pick = l; } });
+      tap(st, pick);
+    }
+    return won(st);
+  }
+  // Build a level a careful player can win with the normal 5 slots: try a few shuffles, then go easier.
+  function build(spec) {
+    var s = Object.assign({}, spec), d = null;
+    for (var k = 0; k < 8; k++) {
+      if (k === 4) { s.decoy *= 0.6; s.design = Math.max(2, s.design - 1); }
+      s.seed = k ? mix32(spec.seed + Math.imul(k, 0x632BE5AB)) : spec.seed;
+      d = design(s);
+      if (playtest(d, SLOTS)) return d;
+    }
+    return d;
+  }
+  // A fresh playable state for a spec
+  function newGame(spec) {
+    var d = build(spec), st = makeState(d.model);
+    st.lanes = d.lanes.map(function (l) { return l.map(function (b) { return { c: b.c, n: b.n }; }); });
+    st.slots = []; for (var s = 0; s < SLOTS; s++) st.slots.push(null);
+    st.name = d.model.name; st.modelId = d.model.id; st.startTotal = st.total; st.blasters = d.blasters; st.extra = 0; st.taps = 0;
+    return st;
+  }
+  function addSlot(st) { if (st.extra >= MAX_EXTRA) return false; st.extra++; st.slots.push(null); return true; }
+
+  // save / load (the sculpture as a compact string)
+  function pack(st) {
+    var v = '';
+    for (var i = 0; i < st.vox.length; i++) v += st.vox[i].toString(16);
+    return { sx: st.sx, sy: st.sy, sz: st.sz, v: v, lanes: st.lanes, slots: st.slots, name: st.name, modelId: st.modelId,
+      startTotal: st.startTotal, blasters: st.blasters, extra: st.extra, taps: st.taps };
+  }
+  function unpack(p) {
+    var vox = new Uint8Array(p.v.length);
+    for (var i = 0; i < p.v.length; i++) vox[i] = parseInt(p.v[i], 16);
+    var st = makeState({ sx: p.sx, sy: p.sy, sz: p.sz, vox: vox });
+    st.lanes = p.lanes; st.slots = p.slots; st.name = p.name; st.modelId = p.modelId; st.startTotal = p.startTotal;
+    st.blasters = p.blasters; st.extra = p.extra || 0; st.taps = p.taps || 0;
+    return st;
+  }
+
+  return {
+    SLOTS: SLOTS, LANES: LANES, MAX_EXTRA: MAX_EXTRA, LEVEL_SCHEME: LEVEL_SCHEME, mix32: mix32, rng: rng,
+    makeState: makeState, target: target, openCount: openCount, tap: tap, step: step, canFire: canFire, won: won, stuck: stuck,
+    settle: settle, freeSlot: freeSlot, playtest: playtest, build: build, levelSpec: levelSpec, dailySeed: dailySeed, dailySpec: dailySpec, design: design,
+    newGame: newGame, addSlot: addSlot, pack: pack, unpack: unpack, isOpen: isOpen
+  };
+})();
+if (typeof module !== 'undefined') module.exports = CC;
+</script>
+<script>
+/* Cube Corral renderer: draws the cube sculpture on a 2D canvas (no 3D library needed).
+   Painter's method: cubes sorted back to front, only sides facing the camera and not covered are drawn.
+   Drag to turn the sculpture and look around; blasters always shoot at the front (z = 0) side. */
+var CCRender = (function () {
+  'use strict';
+  function rgb(hex) { var n = parseInt(hex.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; }
+  function css(c, k) { return 'rgb(' + Math.min(255, Math.round(c[0] * k)) + ',' + Math.min(255, Math.round(c[1] * k)) + ',' + Math.min(255, Math.round(c[2] * k)) + ')'; }
+  var FACES = [ // normal, 4 corners (unit cube offsets)
+    { n: [1, 0, 0], c: [[1, 0, 0], [1, 1, 0], [1, 1, 1], [1, 0, 1]], d: [1, 0, 0] },
+    { n: [-1, 0, 0], c: [[0, 0, 1], [0, 1, 1], [0, 1, 0], [0, 0, 0]], d: [-1, 0, 0] },
+    { n: [0, 1, 0], c: [[0, 1, 0], [0, 1, 1], [1, 1, 1], [1, 1, 0]], d: [0, 1, 0] },
+    { n: [0, -1, 0], c: [[0, 0, 0], [1, 0, 0], [1, 0, 1], [0, 0, 1]], d: [0, -1, 0] },
+    { n: [0, 0, 1], c: [[1, 0, 1], [1, 1, 1], [0, 1, 1], [0, 0, 1]], d: [0, 0, 1] },
+    { n: [0, 0, -1], c: [[0, 0, 0], [0, 1, 0], [1, 1, 0], [1, 0, 0]], d: [0, 0, -1] }
+  ];
+  var LIGHT = (function () { var v = [-0.45, 0.8, 0.55], m = Math.hypot(v[0], v[1], v[2]); return [v[0] / m, v[1] / m, v[2] / m]; })();
+
+  function create(canvas, colors) {
+    var ctx = canvas.getContext('2d'), st = null, W = 1, H = 1, dpr = 1;
+    var yaw = -0.42, pitch = 0.38, vyaw = 0, scale = 10, ox = 0, oy = 0;
+    var base = colors.map(function (c) { return c ? rgb(c.hex) : null; });
+    var held = {}, dying = [], shots = [], raf = 0, dragging = false, onFrame = null;
+    var bx, by, bz; // screen basis
+
+    function resize() {
+      dpr = Math.min(2, window.devicePixelRatio || 1);
+      var r = canvas.getBoundingClientRect();
+      W = Math.max(1, r.width); H = Math.max(1, r.height);
+      canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+      fit(); kick();
+    }
+    function fit() {
+      if (!st) return;
+      var R = 0.5 * Math.sqrt(st.sx * st.sx + st.sy * st.sy + st.sz * st.sz);
+      scale = Math.min(W / (2 * R) * 0.96, H / (2 * R) * 1.02, 40);
+      ox = W / 2; oy = H / 2 + scale * 0.2;
+    }
+    var tx, ty, tz; // view-space images of the world axes
+    function T(x, y, z) {
+      // yaw turns the sculpture; pitch tilts it so you see the top. z = 0 is the front (toward you).
+      var cy = Math.cos(yaw), sy = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch);
+      var a = x * cy + z * sy, depthAway = -x * sy + z * cy, toward = -depthAway;
+      return [a, y * cp - toward * sp, toward * cp + y * sp];
+    }
+    function basis() {
+      tx = T(1, 0, 0); ty = T(0, 1, 0); tz = T(0, 0, 1);
+      bx = [tx[0] * scale, -tx[1] * scale, tx[2]]; by = [ty[0] * scale, -ty[1] * scale, ty[2]]; bz = [tz[0] * scale, -tz[1] * scale, tz[2]];
+    }
+    function proj(x, y, z) {
+      var px = x - st.sx / 2, py = y - st.sy / 2, pz = z - st.sz / 2;
+      return [ox + px * bx[0] + py * by[0] + pz * bz[0], oy + px * bx[1] + py * by[1] + pz * bz[1], px * bx[2] + py * by[2] + pz * bz[2]];
+    }
+    function viewN(n) { return [n[0] * tx[0] + n[1] * ty[0] + n[2] * tz[0], n[0] * tx[1] + n[1] * ty[1] + n[2] * tz[1], n[0] * tx[2] + n[1] * ty[2] + n[2] * tz[2]]; }
+    function faceNormalZ(n) { return viewN(n)[2]; }
+    function faceLight(n) { var v = viewN(n); return 0.66 + 0.42 * Math.max(0, v[0] * LIGHT[0] + v[1] * LIGHT[1] + v[2] * LIGHT[2]); }
+    function cubeAt(x, y, z) {
+      if (x < 0 || y < 0 || z < 0 || x >= st.sx || y >= st.sy || z >= st.sz) return 0;
+      var i = (y * st.sz + z) * st.sx + x;
+      return st.vox[i] || held[i] || 0;
+    }
+    function drawQuad(pts, fill, stroke) {
+      ctx.beginPath();
+      ctx.moveTo(pts[0][0], pts[0][1]);
+      for (var k = 1; k < 4; k++) ctx.lineTo(pts[k][0], pts[k][1]);
+      ctx.closePath();
+      ctx.fillStyle = fill; ctx.fill();
+      ctx.strokeStyle = stroke; ctx.stroke();
+    }
+    function draw() {
+      raf = 0;
+      var now = performance.now();
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, W, H);
+      if (!st) return;
+      if (!dragging && Math.abs(vyaw) > 0.0005) { setYaw(yaw + vyaw); vyaw *= 0.92; }
+      basis();
+      var vis = FACES.map(function (f) { return faceNormalZ(f.n) > 1e-6; });
+      var shadeK = FACES.map(function (f) { return faceLight(f.n); });
+      // ground shadow + a stripe marking the front, where the blasters shoot from
+      var g = [proj(-0.6, 0, -0.9), proj(st.sx + 0.6, 0, -0.9), proj(st.sx + 0.6, 0, st.sz + 0.6), proj(-0.6, 0, st.sz + 0.6)];
+      drawQuad(g, 'rgba(0,0,0,.16)', 'rgba(0,0,0,0)');
+      var fr = [proj(-0.6, 0, -0.9), proj(st.sx + 0.6, 0, -0.9), proj(st.sx + 0.6, 0, -0.35), proj(-0.6, 0, -0.35)];
+      drawQuad(fr, 'rgba(247,201,72,.75)', 'rgba(0,0,0,0)');
+      // collect cubes
+      var list = [], sx = st.sx, sz = st.sz, i, x, y, z;
+      for (i = 0; i < st.vox.length; i++) {
+        var c = st.vox[i] || held[i];
+        if (!c) continue;
+        x = i % sx; z = Math.floor(i / sx) % sz; y = Math.floor(i / (sx * sz));
+        list.push([proj(x + .5, y + .5, z + .5)[2], i, c, x, y, z, 1]);
+      }
+      // popping cubes
+      dying = dying.filter(function (d) { return now - d.t < 280; });
+      dying.forEach(function (d) {
+        var k = (now - d.t) / 280;
+        list.push([proj(d.x + .5, d.y + .5, d.z + .5)[2] + 0.01, -1, d.c, d.x, d.y, d.z, 1 - k, k]);
+      });
+      list.sort(function (a, b) { return a[0] - b[0]; });
+      ctx.lineWidth = 1; ctx.lineJoin = 'round';
+      for (var n = 0; n < list.length; n++) {
+        var e = list[n], col = base[e[2]], s = e[6];
+        x = e[3]; y = e[4]; z = e[5];
+        for (var f = 0; f < 6; f++) {
+          if (!vis[f]) continue;
+          var F = FACES[f];
+          if (s === 1 && cubeAt(x + F.d[0], y + F.d[1], z + F.d[2])) continue;
+          var pts = [];
+          for (var q = 0; q < 4; q++) {
+            var cc = F.c[q];
+            if (s === 1) pts.push(proj(x + cc[0], y + cc[1], z + cc[2]));
+            else pts.push(proj(x + .5 + (cc[0] - .5) * s, y + .5 + (cc[1] - .5) * s + e[7] * .8, z + .5 + (cc[2] - .5) * s));
+          }
+          var k = shadeK[f] * (s < 1 ? 1.25 : 1);
+          drawQuad(pts, css(col, k), css(col, k * 0.72));
+        }
+      }
+      // corn kernels flying to their cubes
+      shots = shots.filter(function (sh) {
+        var t = (now - sh.t) / sh.dur;
+        if (t >= 1) { delete held[sh.i]; dying.push({ x: sh.x, y: sh.y, z: sh.z, c: sh.c, t: now }); return false; }
+        var p = proj(sh.x + .5, sh.y + .5, sh.z - 0.2), ex = p[0], ey = p[1];
+        var px = sh.fx + (ex - sh.fx) * t, py = sh.fy + (ey - sh.fy) * t - Math.sin(t * Math.PI) * 30;
+        ctx.beginPath(); ctx.arc(px, py, 4.5, 0, Math.PI * 2);
+        ctx.fillStyle = css(base[sh.c], 1.05); ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,.55)'; ctx.lineWidth = 1.5; ctx.stroke(); ctx.lineWidth = 1;
+        return true;
+      });
+      if (onFrame) onFrame();
+      if (shots.length || dying.length || Math.abs(vyaw) > 0.0005) kick();
+    }
+    function kick() { if (!raf) raf = requestAnimationFrame(draw); }
+    function setYaw(v) { yaw = Math.max(-1.25, Math.min(1.25, v)); }
+
+    // turning with a finger
+    var last = null;
+    canvas.addEventListener('pointerdown', function (e) {
+      dragging = true; vyaw = 0; last = [e.clientX, e.clientY, performance.now()];
+      try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+    });
+    canvas.addEventListener('pointermove', function (e) {
+      if (!dragging || !last) return;
+      var dx = e.clientX - last[0], dy = e.clientY - last[1];
+      setYaw(yaw + dx * 0.012); pitch = Math.max(0.02, Math.min(1.0, pitch + dy * 0.008));
+      vyaw = dx * 0.012;
+      last = [e.clientX, e.clientY, performance.now()];
+      kick();
+    });
+    function up() { dragging = false; last = null; kick(); }
+    canvas.addEventListener('pointerup', up);
+    canvas.addEventListener('pointercancel', up);
+
+    return {
+      setState: function (s) { st = s; held = {}; dying = []; shots = []; fit(); kick(); },
+      resize: resize,
+      redraw: kick,
+      reset: function () { yaw = -0.42; pitch = 0.38; vyaw = 0; kick(); },
+      // a shot from screen point (fx, fy) (canvas coords) to cube i of color c, taking dur ms
+      shoot: function (fx, fy, i, c, dur) {
+        var x = i % st.sx, z = Math.floor(i / st.sx) % st.sz, y = Math.floor(i / (st.sx * st.sz));
+        held[i] = c;
+        shots.push({ fx: fx, fy: fy, i: i, c: c, x: x, y: y, z: z, t: performance.now(), dur: dur || 260 });
+        kick();
+      },
+      busy: function () { return shots.length > 0; },
+      onFrame: function (cb) { onFrame = cb; }
+    };
+  }
+  return { create: create };
+})();
+</script>
+<script>
+/* Cube Corral sounds: synthesized with Web Audio (no audio files). */
+var CCSound = (function () {
+  'use strict';
+  var ac = null, master = null, on = false, lastPop = 0;
+  function ctx() {
+    if (!on) return null;
+    if (!ac) {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      try { ac = new AC(); } catch (e) { return null; }
+      master = ac.createGain(); master.gain.value = 0.5; master.connect(ac.destination);
+    }
+    if (ac.state === 'suspended') { try { ac.resume(); } catch (e) { /* ignore */ } }
+    return ac;
+  }
+  function tone(type, f0, f1, dur, gain, delay) {
+    var a = ctx(); if (!a) return;
+    var t = a.currentTime + (delay || 0), o = a.createOscillator(), g = a.createGain();
+    o.type = type; o.frequency.setValueAtTime(f0, t);
+    if (f1) o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(gain, t + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + 0.02);
+  }
+  function noise(freq, q, gain, len, delay) {
+    var a = ctx(); if (!a) return;
+    var t = a.currentTime + (delay || 0), n = Math.floor(a.sampleRate * len);
+    var buf = a.createBuffer(1, n, a.sampleRate), d = buf.getChannelData(0);
+    for (var i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 3);
+    var s = a.createBufferSource(); s.buffer = buf;
+    var bp = a.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = freq; bp.Q.value = q;
+    var g = a.createGain(); g.gain.value = gain;
+    s.connect(bp); bp.connect(g); g.connect(master); s.start(t);
+  }
+  return {
+    setEnabled: function (v) { on = !!v; if (on) ctx(); },
+    unlock: function () { if (on) ctx(); },
+    load: function () { if (on) { noise(500, 2, 0.7, 0.08); tone('square', 160, 90, 0.08, 0.08); } },
+    pop: function () {
+      if (!on) return;
+      var now = Date.now();
+      if (now - lastPop < 45) return; // many cubes at once: don't pile up sounds
+      lastPop = now;
+      tone('sine', 700 + Math.random() * 500, 1400, 0.06, 0.12); noise(2400, 5, 0.25, 0.03);
+    },
+    leave: function () { if (on) tone('triangle', 660, 990, 0.12, 0.15); },
+    nope: function () { if (on) tone('triangle', 200, 130, 0.15, 0.25); },
+    jam: function () { if (!on) return; [330, 262, 196].forEach(function (f, i) { tone('triangle', f, 0, 0.3, 0.3, i * 0.18); }); },
+    win: function () { if (!on) return; [523, 659, 784, 1047, 784, 1047, 1319].forEach(function (f, i) { tone('triangle', f, 0, i === 6 ? 0.7 : 0.2, 0.28, i * 0.1); }); },
+    ding: function () { if (on) { tone('sine', 1319, 0, 0.4, 0.25); tone('sine', 1568, 0, 0.5, 0.2, 0.12); } },
+    sign: function () { if (on) noise(900, 3, 0.4, 0.07); }
+  };
+})();
+</script>
+<script src="../../shared/ads.js"></script>
+<script>
+(function () {
+  'use strict';
+  var S = CCSound, COLORS = CCModels.COLORS, LIGHT = { 2: 1, 4: 1, 5: 1, 11: 1 }, TICK = 95;
+
+  // ================= storage =================
+  var store = Goobs.store('cubecorral');
+  var settings = { sound: false, adEvery: 3 };
+  (function () {
+    var s = store.get('settings', {}) || {};
+    for (var k in settings) if (typeof s[k] === typeof settings[k]) settings[k] = s[k];
+    settings.adEvery = Math.min(10, Math.max(1, settings.adEvery | 0));
+  })();
+  function saveSettings() { store.set('settings', settings); }
+  var meta = store.get('meta', null) || {};
+  var MD = { mode: 'level', level: 1, levelTries: {}, daily: {}, finished: 0, lastAdAt: 0, seenHelp: false, turned: false, replay: 0 };
+  for (var mk in MD) if (meta[mk] === undefined) meta[mk] = MD[mk];
+  function saveMeta() { store.set('meta', meta); }
+  var stats = store.get('stats', null) || {};
+  var SD = { cubes: 0, blasters: 0, jams: 0, slots: 0, dStreak: 0, dLast: 0, dBest: 0 };
+  for (var sk in SD) if (typeof stats[sk] !== 'number') stats[sk] = SD[sk];
+  function saveStats() { store.set('stats', stats); }
+
+  // ================= helpers =================
+  function $(id) { return document.getElementById(id); }
+  function fmt(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+  function dayNum(d) { d = d || new Date(); return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); }
+  function prevDay(day) { var d = new Date(Math.floor(day / 10000), Math.floor(day / 100) % 100 - 1, day % 100 - 1); return dayNum(d); }
+  function isOpen(id) { return $(id).classList.contains('show'); }
+  function icon(id) { return '<svg viewBox="0 0 100 100"><use href="#' + id + '"/></svg>'; }
+  function paused() { return isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || isOpen('ovLevels') || GoobsAds.isOpen() || document.hidden; }
+
+  // ================= game state =================
+  // game: { mode: level|replay|daily, level, day, p (packed sculpture + blasters), done, tries, popped, used }
+  var game = null, st = null, R3 = null;
+  function keyFor(mode) { return 'game.' + mode; }
+  var dirty = false;
+  function saveGame() { if (game && st && !game.done) { game.p = CC.pack(st); store.set(keyFor(game.mode), game); } dirty = false; }
+  function clearSaved(mode) { store.del(keyFor(mode)); }
+  function specFor(g) { return g.mode === 'daily' ? CC.dailySpec(g.day) : CC.levelSpec(g.level); }
+  function startLevel(L, restart, tries) {
+    var mode = L < meta.level ? 'replay' : 'level', saved = !restart && store.get(keyFor(mode), null);
+    if (saved && saved.level === L && saved.scheme === CC.LEVEL_SCHEME && !saved.done && saved.p) { game = saved; st = CC.unpack(saved.p); }
+    else {
+      game = { mode: mode, level: L, scheme: CC.LEVEL_SCHEME, done: false, tries: tries || 1, popped: 0, used: 0 };
+      st = CC.newGame(CC.levelSpec(L));
+    }
+    if (mode === 'replay') meta.replay = L;
+    begin();
+  }
+  function startDaily(restart, tries) {
+    var day = dayNum(), saved = !restart && store.get(keyFor('daily'), null);
+    if (saved && saved.day === day && !saved.done && saved.p) { game = saved; st = CC.unpack(saved.p); }
+    else {
+      game = { mode: 'daily', day: day, done: false, tries: tries || 1, popped: 0, used: 0 };
+      st = CC.newGame(CC.dailySpec(day));
+    }
+    begin();
+  }
+  function begin() {
+    meta.mode = game.mode === 'replay' ? 'level' : game.mode;
+    saveMeta();
+    jammedShown = false;
+    R3.setState(st); R3.reset();
+    renderAll();
+    saveGame();
+  }
+
+  // ================= rendering =================
+  function blasterHTML(b, cls) {
+    return '<div class="blaster' + (LIGHT[b.c] ? ' light' : '') + (cls ? ' ' + cls : '') + '" style="background:' + COLORS[b.c].hex + '" aria-label="' +
+      COLORS[b.c].name + ' blaster, ' + b.n + ' shots"><b>' + b.n + '</b><span class="zz">zzz</span></div>';
+  }
+  var slotEls = [];
+  function renderSlots(fired, popped) {
+    var box = $('slots');
+    if (slotEls.length !== st.slots.length) {
+      box.innerHTML = ''; slotEls = [];
+      for (var i = 0; i < st.slots.length; i++) {
+        var d = document.createElement('div');
+        d.className = 'slot' + (i >= CC.SLOTS ? ' extra' : '');
+        box.appendChild(d); slotEls.push(d);
+      }
+    }
+    st.slots.forEach(function (b, s) {
+      var el = slotEls[s];
+      if (!b) { if (el.innerHTML) el.innerHTML = ''; return; }
+      var cls = CC.target(st, b.c) < 0 ? 'wait' : '';
+      if (fired && fired[s]) cls += ' fire';
+      if (popped === s) cls += ' pop';
+      el.innerHTML = blasterHTML(b, cls);
+    });
+  }
+  function renderLanes() {
+    var box = $('lanes');
+    if (!box.children.length) {
+      for (var l = 0; l < CC.LANES; l++) {
+        var btn = document.createElement('button');
+        btn.className = 'lane'; btn.dataset.lane = l;
+        btn.innerHTML = '<div class="front"></div><div class="queue"></div>';
+        box.appendChild(btn);
+      }
+    }
+    for (var k = 0; k < CC.LANES; k++) {
+      var L = st.lanes[k], el = box.children[k], front = el.querySelector('.front'), q = el.querySelector('.queue');
+      if (!L.length) { front.className = 'front none'; front.innerHTML = ''; q.innerHTML = ''; continue; }
+      front.className = 'front';
+      front.innerHTML = blasterHTML(L[0]);
+      var h = '';
+      for (var i = 1; i < Math.min(4, L.length); i++) h += '<i style="background:' + COLORS[L[i].c].hex + '"></i>';
+      if (L.length > 4) h += '<small>+' + (L.length - 4) + '</small>';
+      q.innerHTML = h;
+    }
+  }
+  function renderInfo() {
+    var left;
+    if (game.mode === 'daily') left = '<div class="lbl">Daily · ' + new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + '</div><div class="ttl">' + st.name + '</div>';
+    else left = '<div class="lbl">' + (game.mode === 'replay' ? 'Replay · ' : '') + 'Level ' + game.level + '</div><div class="ttl">' + st.name + '</div>';
+    $('info').innerHTML = '<div>' + left + '</div><div class="right"><div class="mid">' + fmt(st.total) + ' cubes left</div>' +
+      '<div class="bar"><i style="width:' + Math.round(100 * (1 - st.total / st.startTotal)) + '%"></i></div></div>';
+  }
+  function renderModes() {
+    var cur = game.mode === 'replay' ? 'level' : game.mode;
+    Array.prototype.forEach.call($('modes').children, function (b) { b.classList.toggle('on', b.dataset.mode === cur); });
+    $('modeLevel').textContent = 'Level ' + (game.mode === 'replay' ? game.level : meta.level);
+    document.querySelector('#modes .dot').classList.toggle('show', !meta.daily[dayNum()]);
+    $('newLabel').textContent = game.done && game.mode !== 'daily' ? 'Next level' : 'Restart';
+  }
+  function renderAll() { renderSlots(); renderLanes(); renderInfo(); renderModes(); }
+
+  // ================= playing =================
+  function tapLane(l) {
+    if (!game || game.done || paused()) return;
+    S.unlock();
+    if (!st.lanes[l].length) return;
+    var s = CC.tap(st, l);
+    if (s < 0) {
+      S.nope();
+      var box = $('slots'); box.classList.remove('full'); void box.offsetWidth; box.classList.add('full');
+      return;
+    }
+    game.used++; stats.blasters++;
+    S.load();
+    hideHint();
+    renderSlots(null, s); renderLanes();
+    dirty = true;
+  }
+  var jammedShown = false, lastSave = 0;
+  function tick() {
+    if (!game || !st || game.done || paused()) return;
+    var ev = CC.step(st);
+    if (ev.length) {
+      var cr = $('cv').getBoundingClientRect(), fired = {};
+      ev.forEach(function (e) {
+        var sr = slotEls[e.slot].getBoundingClientRect();
+        R3.shoot(sr.left + sr.width / 2 - cr.left, sr.top + 6 - cr.top, e.i, e.c, 300);
+        fired[e.slot] = 1;
+        if (e.last) S.leave();
+      });
+      game.popped += ev.length; stats.cubes += ev.length;
+      setTimeout(S.pop, 280);
+      renderSlots(fired); renderInfo();
+      dirty = true;
+      if (Date.now() - lastSave > 1500) { lastSave = Date.now(); saveGame(); saveStats(); }
+      return;
+    }
+    if (R3.busy()) return;
+    if (CC.won(st)) { win(); return; }
+    renderSlots();
+    if (CC.stuck(st) && !jammedShown) { jammedShown = true; setTimeout(jam, 350); }
+    if (dirty) saveGame();
+  }
+
+  // ================= end of a level =================
+  function showCard(iconId, title, html, buttons) {
+    $('cardIcon').innerHTML = iconId ? icon(iconId) : '';
+    $('endTitle').textContent = title;
+    $('endText').innerHTML = html;
+    var box = $('endActions');
+    box.innerHTML = '';
+    buttons.forEach(function (b) {
+      var el = document.createElement('button');
+      el.className = 'btn' + (b.red ? ' red' : '');
+      el.textContent = b.label;
+      el.addEventListener('click', function () { $('ovEnd').classList.remove('show'); b.go(); });
+      box.appendChild(el);
+    });
+    $('ovEnd').classList.add('show');
+  }
+  function finishRound() {
+    game.done = true;
+    clearSaved(game.mode);
+    meta.finished++;
+    saveMeta(); saveStats();
+  }
+  function jam() {
+    if (!game || game.done || !CC.stuck(st)) { jammedShown = false; return; }
+    S.jam(); stats.jams++; saveStats();
+    var b = [];
+    if (st.extra < CC.MAX_EXTRA) {
+      b.push({ label: Goobs.adsOn() ? 'Add a slot (quick ad)' : 'Add a slot', red: true, go: function () {
+        var go = function () { CC.addSlot(st); stats.slots++; jammedShown = false; renderSlots(); saveGame(); saveStats(); };
+        if (Goobs.adsOn()) showAd(go); else go();
+      } });
+    }
+    b.push({ label: 'Try again', red: !b.length, go: function () {
+      var g = game; finishRound();
+      between(function () { if (g.mode === 'daily') startDaily(true, g.tries + 1); else startLevel(g.level, true, g.tries + 1); });
+    } });
+    showCard('cc-logo', 'The corral’s jammed!', 'All ' + st.slots.length + ' slots are full and none of them can hit anything.' +
+      (st.extra < CC.MAX_EXTRA ? ' An extra slot might get things moving.' : ''), b);
+  }
+  function win() {
+    var g = game;
+    g.done = true;
+    S.win();
+    var c = $('cheer'); c.textContent = 'Corralled!'; c.classList.remove('show'); void c.offsetWidth; c.classList.add('show');
+    var extra = '';
+    if (g.mode === 'level' || g.mode === 'replay') {
+      if (!meta.levelTries[g.level] || g.tries < meta.levelTries[g.level]) meta.levelTries[g.level] = g.tries;
+      if (g.mode === 'level' && meta.level === g.level) meta.level = g.level + 1;
+    } else if (!meta.daily[g.day]) {
+      meta.daily[g.day] = g.tries;
+      stats.dStreak = stats.dLast === prevDay(g.day) ? stats.dStreak + 1 : 1;
+      stats.dLast = g.day;
+      if (stats.dStreak > stats.dBest) stats.dBest = stats.dStreak;
+      extra = '<br>Today’s daily is done' + (stats.dStreak > 1 ? ' · ' + stats.dStreak + ' days in a row' : '') + '.';
+    }
+    finishRound();
+    renderModes();
+    setTimeout(function () {
+      var btns = [];
+      if (g.mode === 'level') btns.push({ label: 'Next level: ' + meta.level, red: true, go: function () { between(function () { startLevel(meta.level, true); }); } });
+      else btns.push({ label: g.mode === 'daily' ? 'Play levels' : 'Back to level ' + meta.level, red: true, go: function () { between(function () { startLevel(meta.level); }); } });
+      btns.push({ label: 'Play it again', go: function () { between(function () { if (g.mode === 'daily') startDaily(true); else startLevel(g.level, true); }); } });
+      showCard('cc-logo', g.mode === 'daily' ? 'Daily done!' : 'Level ' + g.level + ' done!', 'You knocked off <b>' + fmt(st.startTotal) + ' cubes</b> with ' + st.blasters + ' blasters' +
+        (g.tries > 1 ? ' (try ' + g.tries + ')' : '') + '.' + extra, btns);
+    }, 1300);
+  }
+
+  // ================= ads =================
+  function showAd(done) { GoobsAds.show({ onShow: function () { S.ding(); }, onStep: function () { S.sign(); } }, done); }
+  function between(next) {
+    if (Goobs.adsOn() && meta.finished > 0 && meta.finished % settings.adEvery === 0 && meta.lastAdAt !== meta.finished) {
+      meta.lastAdAt = meta.finished; saveMeta();
+      next();
+      showAd(function () {});
+      return;
+    }
+    next();
+  }
+
+  // ================= sheets =================
+  function renderStats() {
+    $('statsBody').innerHTML =
+      '<div class="tiles2"><div class="tile2"><b>' + (meta.level - 1) + '</b><span>Levels done</span></div>' +
+      '<div class="tile2"><b>' + Object.keys(meta.daily).length + '</b><span>Dailies</span></div>' +
+      '<div class="tile2"><b>' + (stats.dLast === dayNum() || stats.dLast === prevDay(dayNum()) ? stats.dStreak : 0) + '</b><span>Daily streak</span></div></div>' +
+      '<div class="tiles2"><div class="tile2"><b>' + fmt(stats.cubes) + '</b><span>Cubes knocked off</span></div>' +
+      '<div class="tile2"><b>' + fmt(stats.blasters) + '</b><span>Blasters used</span></div>' +
+      '<div class="tile2"><b>' + stats.jams + '</b><span>Jams</span></div></div>' +
+      '<p class="version">' + stats.slots + ' extra slots used · best daily streak ' + stats.dBest + '</p>';
+  }
+  var levelsPage = 0;
+  function renderLevels() {
+    var cur = meta.level, maxShown = cur + 4, pages = Math.ceil(maxShown / 100);
+    if (!levelsPage || levelsPage > pages) levelsPage = Math.ceil(cur / 100);
+    var h = '<p class="lvnext">Next up: <b>Level ' + cur + '</b> · ' + CCModels.MODELS[CC.levelSpec(cur).model].name + '</p>';
+    if (pages > 1) {
+      h += '<div class="pages">';
+      for (var p = 1; p <= pages; p++) h += '<button data-page="' + p + '" class="' + (p === levelsPage ? 'on' : '') + '">' + ((p - 1) * 100 + 1) + '–' + p * 100 + '</button>';
+      h += '</div>';
+    }
+    h += '<div class="lvgrid">';
+    for (var L = (levelsPage - 1) * 100 + 1; L <= Math.min(levelsPage * 100, maxShown); L++) {
+      var cls = L < cur ? 'done' : L === cur ? 'cur' : 'lock';
+      h += '<button class="lv ' + cls + '" data-level="' + L + '"' + (L > cur ? ' disabled' : '') + '>' + L + '<small>' + CCModels.MODELS[CC.levelSpec(L).model].name + '</small></button>';
+    }
+    $('levelsBody').innerHTML = h + '</div>';
+  }
+
+  // ================= wiring =================
+  function hideHint() { if (!meta.turned) { meta.turned = true; saveMeta(); } $('turnHint').classList.add('hide'); }
+  function syncSound() {
+    $('btnSound').innerHTML = '<svg viewBox="0 0 24 24"><use href="#i-sound-' + (settings.sound ? 'on' : 'off') + '"/></svg>';
+    $('btnSound').classList.toggle('on', settings.sound);
+    $('setSound').checked = settings.sound;
+    S.setEnabled(settings.sound);
+  }
+  function syncAds() {
+    $('setAds').checked = Goobs.adsOn();
+    $('adEvery').textContent = settings.adEvery;
+    $('rowAdEvery').classList.toggle('off', !Goobs.adsOn());
+  }
+  function sheet(btn, ov, close, onOpen) {
+    if (btn) $(btn).addEventListener('click', function () { if (onOpen) onOpen(); $(ov).classList.add('show'); });
+    $(close).addEventListener('click', function () { $(ov).classList.remove('show'); });
+    $(ov).addEventListener('click', function (e) { if (e.target === this) this.classList.remove('show'); });
+  }
+  function init() {
+    Goobs.themePicker($('themes'));
+    R3 = CCRender.create($('cv'), COLORS);
+    $('cv').addEventListener('pointerdown', function () { S.unlock(); setTimeout(hideHint, 600); });
+    if (meta.turned) $('turnHint').classList.add('hide');
+    $('lanes').addEventListener('click', function (e) { var b = e.target.closest('.lane'); if (b) tapLane(+b.dataset.lane); });
+    ['pointerdown', 'touchend', 'click'].forEach(function (ev) { document.addEventListener(ev, function () { S.unlock(); }, { passive: true }); });
+    $('btnHome').addEventListener('click', function () { saveGame(); Goobs.home(); });
+    $('btnView').addEventListener('click', function () { R3.reset(); });
+    $('btnNew').addEventListener('click', function () {
+      if (game.done && game.mode !== 'daily') { between(function () { startLevel(meta.level); }); return; }
+      var go = function () { var t = game.tries + 1; if (game.mode === 'daily') startDaily(true, t); else startLevel(game.level, true, t); };
+      if (!game.used || game.done) { go(); return; }
+      showCard('cc-logo', 'Start over?', 'The sculpture and blasters go back to how this level starts.', [
+        { label: 'Start over', red: true, go: go }, { label: 'Keep playing', go: function () {} }]);
+    });
+    $('modes').addEventListener('click', function (e) {
+      var bt = e.target.closest('button');
+      if (!bt) return;
+      saveGame();
+      if (bt.dataset.mode === 'level') { levelsPage = 0; renderLevels(); $('ovLevels').classList.add('show'); }
+      else if (meta.daily[dayNum()] && !(store.get(keyFor('daily'), null) || {}).used) {
+        startDaily();
+        showCard('cc-logo', 'Today’s daily is done', 'You can play it again for fun. A new sculpture arrives at midnight.', [{ label: 'OK', red: true, go: function () {} }]);
+      } else startDaily();
+    });
+    $('levelsBody').addEventListener('click', function (e) {
+      var bt = e.target.closest('button');
+      if (!bt) return;
+      if (bt.dataset.page) { levelsPage = +bt.dataset.page; renderLevels(); return; }
+      if (bt.dataset.level) { $('ovLevels').classList.remove('show'); saveGame(); startLevel(+bt.dataset.level); }
+    });
+    sheet('btnSettings', 'ovSettings', 'btnCloseSettings');
+    sheet('btnStats', 'ovStats', 'btnCloseStats', renderStats);
+    sheet('btnHelp', 'ovHelp', 'btnCloseHelp');
+    sheet(null, 'ovLevels', 'btnCloseLevels');
+    $('btnCloseHelp').addEventListener('click', function () { if (!meta.seenHelp) { meta.seenHelp = true; saveMeta(); } });
+    $('btnSound').addEventListener('click', function () { settings.sound = !settings.sound; saveSettings(); syncSound(); S.ding(); });
+    $('setSound').addEventListener('change', function () { settings.sound = this.checked; saveSettings(); syncSound(); S.ding(); });
+    $('setAds').addEventListener('change', function () { Goobs.setAds(this.checked); syncAds(); });
+    $('adLess').addEventListener('click', function () { settings.adEvery = Math.max(1, settings.adEvery - 1); saveSettings(); syncAds(); });
+    $('adMore').addEventListener('click', function () { settings.adEvery = Math.min(10, settings.adEvery + 1); saveSettings(); syncAds(); });
+    window.addEventListener('resize', function () { R3.resize(); });
+    document.addEventListener('visibilitychange', function () { if (document.hidden) saveGame(); else if (game) { renderModes(); R3.resize(); } });
+    window.addEventListener('pagehide', saveGame);
+    syncSound(); syncAds();
+
+    var replay = store.get(keyFor('replay'), null);
+    if (meta.mode === 'daily') startDaily();
+    else startLevel(meta.replay && replay && replay.level === meta.replay && !replay.done ? meta.replay : meta.level);
+    R3.resize();
+    setInterval(tick, TICK);
+    if (!meta.seenHelp) $('ovHelp').classList.add('show');
+    Goobs.markPlayed('cubecorral');
+    Goobs.initUpdates({
+      beforeReload: saveGame,
+      onVersions: function (v) { $('version').textContent = 'Cube Corral ' + (v.cubecorral || '?') + ' · Goobs-Games ' + (v.shell || '?'); }
+    });
+  }
+
+  // hook for automated tests
+  window.__cc = { get game() { return game; }, get st() { return st; }, tap: tapLane, meta: function () { return meta; }, stats: function () { return stats; },
+    startLevel: startLevel, startDaily: startDaily };
+
+  init();
+})();
+</script>
+</body>
+</html>

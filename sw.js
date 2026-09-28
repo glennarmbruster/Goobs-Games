@@ -2,9 +2,11 @@
    Each part has its own version and its own cache. To publish an update, bump ONLY the
    version of the part that changed; unchanged parts are not downloaded again. */
 const VERSIONS = {
-  shell: '1.1.0',     // menu, manifest, icons, /shared (ads, themes, storage)
+  shell: '1.2.0',     // menu, manifest, icons, /shared (ads, themes, storage)
   zoodoku: '1.5.0',
-  woodpile: '1.0.0'
+  woodpile: '1.0.0',
+  patchwork: '1.0.0',
+  cubecorral: '1.0.0'
 };
 const GROUPS = {
   shell: [
@@ -13,7 +15,9 @@ const GROUPS = {
     'shared/goobs.js', 'shared/goobs.css', 'shared/ads.js', 'shared/animals.svg'
   ],
   zoodoku: ['games/zoodoku/', 'games/zoodoku/index.html'],
-  woodpile: ['games/woodpile/', 'games/woodpile/index.html']
+  woodpile: ['games/woodpile/', 'games/woodpile/index.html'],
+  patchwork: ['games/patchwork/', 'games/patchwork/index.html'],
+  cubecorral: ['games/cubecorral/', 'games/cubecorral/index.html']
 };
 const PREFIX = 'goobs-';
 const cacheName = (g) => PREFIX + g + '-' + VERSIONS[g];
