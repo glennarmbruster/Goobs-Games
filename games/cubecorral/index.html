@@ -1105,6 +1105,7 @@ var CCRender = (function () {
     function up() { dragging = false; last = null; kick(); }
     canvas.addEventListener('pointerup', up);
     canvas.addEventListener('pointercancel', up);
+    if (window.ResizeObserver) new ResizeObserver(function () { resize(); }).observe(canvas);
     canvas.addEventListener('webglcontextlost', function (e) { e.preventDefault(); });
     canvas.addEventListener('webglcontextrestored', function () { if (st) setState(st); });
 

@@ -6,9 +6,9 @@ const VERSIONS = {
   zoodoku: '1.7.0',
   woodpile: '1.1.0',
   patchwork: '2.0.0',
-  cubecorral: '3.0.0',
-  screwball: '2.0.0',
-  skeehop: '1.0.0',
+  cubecorral: '3.0.1',
+  screwball: '2.1.0',
+  skeehop: '1.0.1',
   three: '0.186.1'   // shared 3D library; bump only when three.js itself changes
 };
 const GROUPS = {

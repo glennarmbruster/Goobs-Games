@@ -76,12 +76,13 @@ html, body { height: 100%; overflow: hidden; }
 /* tray */
 .traywrap { width: 100%; display: flex; align-items: center; gap: 10px; flex: none; }
 .traylbl { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; }
-.tray { flex: 1; display: flex; gap: 6px; justify-content: space-between; background: var(--sb-tray); border-radius: 16px; padding: 7px 10px; box-shadow: var(--shadow-sm); border: 1px solid var(--line); }
+.tray { flex: 1; display: flex; gap: 14px; justify-content: center; background: var(--sb-tray); border-radius: 16px; padding: 7px 10px; box-shadow: var(--shadow-sm); border: 1px solid var(--line); }
 .tray.warn { animation: warn .35s; border-color: var(--bad); }
 @keyframes warn { 0%, 100% { transform: none; } 30% { transform: translateX(-4px); } 60% { transform: translateX(4px); } }
 .spot { width: 38px; height: 38px; border-radius: 50%; background: var(--surface-2); border: 2px dashed var(--sb-line); display: grid; place-items: center; }
 .spot .head { width: 28px; height: 28px; }
 .tray.full .spot { border-color: var(--bad); }
+.spot.extra { border-color: var(--gold); }
 
 #flyer { position: fixed; inset: 0; pointer-events: none; z-index: 14; }
 #flyer .head { position: absolute; left: 0; top: 0; width: 24px; height: 24px; transition: transform .34s cubic-bezier(.3,.7,.4,1); }
@@ -193,8 +194,8 @@ html, body { height: 100%; overflow: hidden; }
         <li>Only screws with <b>nothing in the way</b> straight out from the head come out. If a piece covers a screw, take that piece off first.</li>
         <li>A piece <b>falls off</b> when its last screw is out. The level is done when <b>every piece</b> is off.</li>
         <li>Each box holds <b>3 screws</b>. When it&rsquo;s full, the next box comes in.</li>
-        <li>No box for that color yet? The screw waits in the <b>tray</b> (5 spots) and hops into its box when one shows up.</li>
-        <li>Tray full and nothing fits a box = <b>stuck</b>. Tap <b>+ Box</b> (a quick ad) for a 4th or 5th box.</li>
+        <li>No box for that color yet? The screw waits in the <b>tray</b> (3 spots) and hops into its box when one shows up.</li>
+        <li>A <b>4th</b> screw with no box ends the level &mdash; or watch a quick ad to get another tray spot and keep going. <b>+ Box</b> (also a quick ad) adds a 4th or 5th box.</li>
         <li><b>Drag</b> to turn it all the way around and find screws on every side. <b>Pinch</b> with two fingers to zoom in. Peek through windows: there's furniture inside.</li>
       </ol>
     </div>
@@ -663,7 +664,7 @@ if (typeof module !== 'undefined') module.exports = SBObjects;
 var SB = (function () {
   'use strict';
   var O = (typeof SBObjects !== 'undefined') ? SBObjects : require('./objects.js');
-  var TRAY = 5, BOXES = 3, MAX_BOXES = 5, HOLES = 3;
+  var TRAY = 3, MAX_TRAY = 5, BOXES = 3, MAX_BOXES = 5, HOLES = 3; // Glenn: 3 waiting spots; a 4th stuck screw ends it or costs an ad
 
   function mix32(x) {
     x = x >>> 0;
@@ -694,7 +695,8 @@ var SB = (function () {
   // Screw colors (bright, easy to tell apart)
   var SCREWS = [
     { name: 'Red', hex: '#e53935' }, { name: 'Yellow', hex: '#fdd835' }, { name: 'Blue', hex: '#1e88e5' }, { name: 'Green', hex: '#43a047' },
-    { name: 'Purple', hex: '#8e24aa' }, { name: 'Orange', hex: '#fb8c00' }, { name: 'Pink', hex: '#f06292' }, { name: 'Teal', hex: '#00acc1' }];
+    { name: 'Purple', hex: '#8e24aa' }, { name: 'Orange', hex: '#fb8c00' }, { name: 'Pink', hex: '#f06292' }, { name: 'Teal', hex: '#00acc1' },
+    { name: 'White', hex: '#f5f5f5' }, { name: 'Black', hex: '#37404c' }, { name: 'Lime', hex: '#b5d334' }, { name: 'Brown', hex: '#8d5a3c' }];
 
   // ---------- geometry: rotation (same order as three.js Euler 'XYZ'), rays against pieces ----------
   function rotMat(r) {
@@ -934,7 +936,7 @@ var SB = (function () {
     var screws = [];
     o.parts.forEach(function (p, pid) { p.id = pid + 1; p.screws.forEach(function (s) { screws.push({ id: screws.length, plate: pid + 1, p: s.p, n: s.n, blk: s.blk.map(function (b) { return b + 1; }), c: 0 }); }); });
     var st = { parts: o.parts, plates: o.parts, screws: screws, name: o.name, out: new Uint8Array(screws.length), gone: new Uint8Array(o.parts.length + 1),
-      left: new Int16Array(o.parts.length + 1), boxes: [], queue: queue.slice(), qi: 0, tray: [], cap: BOXES, total: screws.length };
+      left: new Int16Array(o.parts.length + 1), boxes: [], queue: queue.slice(), qi: 0, tray: [], trayCap: TRAY, cap: BOXES, total: screws.length };
     screws.forEach(function (s, k) { st.left[s.plate]++; if (colors) s.c = colors[k]; });
     for (var b = 0; b < BOXES; b++) st.boxes.push(nextBox(st));
     return st;
@@ -948,13 +950,14 @@ var SB = (function () {
   function blocker(st, s) { for (var k = 0; k < s.blk.length; k++) if (!st.gone[s.blk[k]]) return s.blk[k]; return 0; }
   function freeScrews(st) { var f = []; for (var i = 0; i < st.screws.length; i++) { var s = st.screws[i]; if (isFree(st, s)) f.push(s); } return f; }
   function boxFor(st, c) { for (var b = 0; b < st.boxes.length; b++) if (st.boxes[b] && st.boxes[b].c === c && st.boxes[b].n < HOLES) return b; return -1; }
-  // Tap a screw. Returns null if it can't go. Otherwise { dest: 'box'|'tray', index, fell: [piece ids], events }
+  // Tap a screw. Returns null if it can't come out (covered). { overflow: true } if it has no box and the
+  // tray is full (the game is over unless you continue). Otherwise { dest: 'box'|'tray', index, fell: [piece ids], events }
   function pick(st, s) {
     if (st.out[s.id] || !isFree(st, s)) return null;
     var b = boxFor(st, s.c), res = { fell: [], events: [] };
     if (b >= 0) { st.boxes[b].n++; res.dest = 'box'; res.index = b; }
-    else if (st.tray.length < TRAY) { st.tray.push(s.c); res.dest = 'tray'; res.index = st.tray.length - 1; }
-    else return null;
+    else if (st.tray.length < st.trayCap) { st.tray.push(s.c); res.dest = 'tray'; res.index = st.tray.length - 1; }
+    else return { overflow: true };
     st.out[s.id] = 1; st.total--;
     if (--st.left[s.plate] === 0) { st.gone[s.plate] = 1; res.fell.push(s.plate); }
     settleBoxes(st, res.events);
@@ -983,11 +986,13 @@ var SB = (function () {
     settleBoxes(st, ev);
     return ev;
   }
+  // one more waiting spot in the tray (after an ad), up to 5
+  function addTraySpot(st) { if (st.trayCap >= MAX_TRAY) return false; st.trayCap++; return true; }
   function won(st) { return st.total === 0; }
   function stuck(st) {
     if (st.total === 0) return false;
     var free = freeScrews(st);
-    if (st.tray.length < TRAY && free.length) return false;
+    if (st.tray.length < st.trayCap && free.length) return false;
     for (var k = 0; k < free.length; k++) if (boxFor(st, free[k].c) >= 0) return false;
     return true;
   }
@@ -999,14 +1004,14 @@ var SB = (function () {
   function levelSpec(L) {
     var t = tier(L), round = Math.floor((L - 1) / O.ORDER.length);
     return { scheme: LEVEL_SCHEME, level: L, object: O.ORDER[(L - 1) % O.ORDER.length], detail: Math.min(2, (L <= 4 ? 0 : L <= 12 ? 1 : 2) + (round > 0 ? 1 : 0)),
-      target: Math.min(150, 15 + 4 * (L - 1)), colors: Math.min(8, [3, 6, 7, 8, 8][t]),
+      target: Math.min(180, 27 + 5 * (L - 1)), colors: [5, 7, 8, 10, 12][t],
       blur: [2, 8, 10, 12, 14][t], shuffle: [0, 4, 8, 10, 12][t], deep: [0, 0.8, 0.88, 0.93, 0.96][t], careless: [1, 0.45, 0.3, 0.2, 0.12][t],
       seed: mix32(Math.imul(L, 0x9E3779B1) ^ 0x5C4E3C) };
   }
   function dailySeed(day) { return mix32(day ^ 0xDA15C3F); }
   function dailySpec(day) {
     var s = dailySeed(day), R = rng(s);
-    return { object: O.ORDER[Math.floor(R() * O.ORDER.length)], detail: 1, target: 60, colors: 6, blur: 10, shuffle: 8, deep: 0.75, careless: 0.3, seed: s };
+    return { object: O.ORDER[Math.floor(R() * O.ORDER.length)], detail: 1, target: 75, colors: 8, blur: 10, shuffle: 8, deep: 0.75, careless: 0.3, seed: s };
   }
 
   // ---------- designer ----------
@@ -1031,7 +1036,7 @@ var SB = (function () {
     return order;
   }
   function colorize(n, order, spec, R) {
-    var pal = R.shuffle([0, 1, 2, 3, 4, 5, 6, 7]).slice(0, spec.colors);
+    var pal = R.shuffle([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]).slice(0, spec.colors);
     var ord = order.slice();
     for (var k = 0; k < ord.length; k++) {
       var j2 = Math.min(ord.length - 1, k + Math.floor(R.r(0, spec.blur + 1)));
@@ -1056,21 +1061,21 @@ var SB = (function () {
   // ---------- careful player (checks each level can be won) and careless player (checks it isn't too easy) ----------
   function clone(st) {
     return { parts: st.parts, plates: st.parts, screws: st.screws, out: new Uint8Array(st.out), gone: new Uint8Array(st.gone), left: new Int16Array(st.left),
-      boxes: st.boxes.map(function (b) { return b ? { c: b.c, n: b.n } : null; }), queue: st.queue, qi: st.qi, tray: st.tray.slice(), cap: st.cap, total: st.total };
+      boxes: st.boxes.map(function (b) { return b ? { c: b.c, n: b.n } : null; }), queue: st.queue, qi: st.qi, tray: st.tray.slice(), trayCap: st.trayCap, cap: st.cap, total: st.total };
   }
   function soonest(st, c) { for (var k = st.qi; k < st.queue.length; k++) if (st.queue[k] === c) return k - st.qi; return 99; }
   function value(st) {
     if (st.total === 0) return 1e6;
     var fit = 0, nfree = 0;
     for (var i = 0; i < st.screws.length; i++) { var s = st.screws[i]; if (isFree(st, s)) { nfree++; if (boxFor(st, s.c) >= 0) fit++; } }
-    if (!fit && (st.tray.length >= TRAY || !nfree)) return -1e6;
+    if (!fit && (st.tray.length >= st.trayCap || !nfree)) return -1e6;
     return -st.tray.length * 50 - st.total + fit * 3;
   }
   function planStep(st, depth) {
     var free = freeScrews(st), tried = [];
     free.forEach(function (s) {
       var c = clone(st), r = pick(c, s);
-      if (!r) return;
+      if (!r || r.overflow) return;
       var v = value(c);
       if (r.dest === 'tray') v -= soonest(st, s.c) * 2;
       tried.push({ s: s, v: v, c: c });
@@ -1102,11 +1107,12 @@ var SB = (function () {
     for (var k = 0; k < n; k++) {
       var st = fresh(o, queue, colors);
       for (var g = 0; g < 2000 && !won(st) && !stuck(st); g++) {
-        var free = freeScrews(st).filter(function (s) { return boxFor(st, s.c) >= 0 || st.tray.length < TRAY; });
+        var free = freeScrews(st).filter(function (s) { return boxFor(st, s.c) >= 0 || st.tray.length < st.trayCap; });
         if (!free.length) break;
         var fit = free.filter(function (s) { return boxFor(st, s.c) >= 0; });
         var pool = fit.length && (k % 2 === 0 || R() < 0.7) ? fit : free;
-        pick(st, pool[Math.floor(R() * pool.length)]);
+        var rr = pick(st, pool[Math.floor(R() * pool.length)]);
+        if (rr && rr.overflow) break;
       }
       if (won(st)) wins++;
     }
@@ -1151,14 +1157,14 @@ var SB = (function () {
   function replay(spec, moves) {
     var st = newGame(spec);
     (moves || []).forEach(function (m) {
-      if (m === -1) addBox(st); else { var s = st.screws[m]; if (s) pick(st, s); }
+      if (m === -1) addBox(st); else if (m === -2) addTraySpot(st); else { var s = st.screws[m]; if (s) pick(st, s); }
       st.moves.push(m);
     });
     return st;
   }
 
   return {
-    TRAY: TRAY, BOXES: BOXES, MAX_BOXES: MAX_BOXES, HOLES: HOLES, SCREWS: SCREWS, OBJECTS: O.OBJECTS, ORDER: O.ORDER,
+    TRAY: TRAY, MAX_TRAY: MAX_TRAY, addTraySpot: addTraySpot, BOXES: BOXES, MAX_BOXES: MAX_BOXES, HOLES: HOLES, SCREWS: SCREWS, OBJECTS: O.OBJECTS, ORDER: O.ORDER,
     LEVEL_SCHEME: LEVEL_SCHEME, mix32: mix32, rng: rng, tools: tools, levelSpec: levelSpec, dailySeed: dailySeed, dailySpec: dailySpec,
     design: design, newGame: newGame, replay: replay, fresh: fresh, pick: pick, addBox: addBox, isFree: isFree, blocker: blocker,
     freeScrews: freeScrews, boxFor: boxFor, won: won, stuck: stuck, playtest: playtest, planStep: planStep, clone: clone, carelessRate: carelessRate,
@@ -1411,12 +1417,16 @@ var SBRender = (function () {
     }
     canvas.addEventListener('pointerup', up);
     canvas.addEventListener('pointercancel', function (e) { delete pointers[e.pointerId]; dragging = false; down = null; pinch = null; });
+    // keep the 3D view matched to the canvas's real size (the page layout settles after the first draw on iPhone)
+    if (window.ResizeObserver) new ResizeObserver(function () { resize(); }).observe(canvas);
+    function checkSize() { var r = canvas.getBoundingClientRect(); if (Math.abs(r.width - W) > 0.5 || Math.abs(r.height - H) > 0.5) { resize(); place(); } }
     canvas.addEventListener('webglcontextlost', function (e) { e.preventDefault(); });
     canvas.addEventListener('webglcontextrestored', function () { if (st) setState(st); });
 
     // ---------- picking ----------
     var ray = new THREE.Raycaster();
     function screenOf(s) {
+      checkSize();
       var v = new THREE.Vector3(s.p[0] + s.n[0] * 0.06, s.p[1] + s.n[1] * 0.06, s.p[2] + s.n[2] * 0.06).project(camera);
       return [(v.x + 1) / 2 * W, (1 - v.y) / 2 * H];
     }
@@ -1432,6 +1442,7 @@ var SBRender = (function () {
     // the screw under a tap: a direct hit on a head, or the nearest head within a finger's width that isn't hidden
     function screwNear(x, y) {
       if (!st) return null;
+      checkSize(); place(); camera.updateMatrixWorld();
       ray.setFromCamera(new THREE.Vector2(x / W * 2 - 1, -(y / H) * 2 + 1), camera);
       var hits = ray.intersectObjects([heads].concat(visibleMeshes()), false).filter(function (h) { return h.object === heads || h.object.material.opacity > 0.5; });
       if (hits.length && hits[0].object === heads) { var s0 = st.screws[hits[0].instanceId]; if (s0 && !st.out[s0.id]) return s0; }
@@ -1604,9 +1615,9 @@ var SBSound = (function () {
   }
   function renderTray() {
     var h = '';
-    for (var i = 0; i < SB.TRAY; i++) h += '<div class="spot">' + (i < st.tray.length ? head(st.tray[i]) : '') + '</div>';
+    for (var i = 0; i < st.trayCap; i++) h += '<div class="spot' + (i >= SB.TRAY ? ' extra' : '') + '">' + (i < st.tray.length ? head(st.tray[i]) : '') + '</div>';
     $('tray').innerHTML = h;
-    $('tray').classList.toggle('full', st.tray.length >= SB.TRAY);
+    $('tray').classList.toggle('full', st.tray.length >= st.trayCap);
   }
   function renderInfo() {
     var name = st.name, left;
@@ -1660,8 +1671,8 @@ var SBSound = (function () {
     if (!SB.isFree(st, s)) { R3.wobble(s, SB.blocker(st, s)); S.nope(); return; }
     var k = SB.boxFor(st, s.c), destEl;
     if (k >= 0) destEl = document.querySelectorAll('.box[data-box="' + k + '"] .hole')[st.boxes[k].n];
-    else if (st.tray.length < SB.TRAY) destEl = $('tray').children[st.tray.length];
-    else { S.nope(); var t = $('tray'); t.classList.remove('warn'); void t.offsetWidth; t.classList.add('warn'); return; }
+    else if (st.tray.length < st.trayCap) destEl = $('tray').children[st.tray.length];
+    else { overflow(s); return; }
     var p = R3.screenOf(s), cr = $('cv').getBoundingClientRect();
     var r = SB.pick(st, s);
     if (!r) return;
@@ -1691,6 +1702,23 @@ var SBSound = (function () {
     if (game.done) return;
     if (SB.won(st)) { win(); return; }
     if (SB.stuck(st) && !jamShown) { jamShown = true; setTimeout(jam, 350); }
+  }
+  // A screw with no box and no room in the tray: that ends the level, unless you continue (a quick ad)
+  function overflow(s) {
+    S.nope(); stats.jams++; saveStats();
+    var t = $('tray'); t.classList.remove('warn'); void t.offsetWidth; t.classList.add('warn');
+    var b = [];
+    if (st.trayCap < SB.MAX_TRAY) b.push({ label: Goobs.adsOn() ? 'Continue (quick ad)' : 'Continue', red: true, go: function () {
+      var go = function () { if (SB.addTraySpot(st)) { game.moves.push(-2); stats.extra++; renderTray(); saveGame(); saveStats(); tapScrew(s); } };
+      if (Goobs.adsOn()) showAd(go); else go();
+    } });
+    else if (st.boxes.length < SB.MAX_BOXES) b.push({ label: Goobs.adsOn() ? '+ Box (quick ad)' : '+ Box', red: true, go: addBox });
+    b.push({ label: 'Try again', red: !b.length, go: function () {
+      var g = game; finishRound();
+      between(function () { if (g.mode === 'daily') startDaily(true, g.tries + 1); else startLevel(g.level, true, g.tries + 1); });
+    } });
+    showCard('sb-logo', 'No room left!', 'That ' + COLORS[s.c].name.toLowerCase() + ' screw has no box, and all ' + st.trayCap + ' tray spots are full.' +
+      (st.trayCap < SB.MAX_TRAY ? ' Continue to get one more tray spot.' : ''), b);
   }
   function addBox() {
     if (!game || game.done || st.boxes.length >= SB.MAX_BOXES) return;
@@ -1735,6 +1763,10 @@ var SBSound = (function () {
     S.stuck(); stats.jams++; saveStats();
     var b = [];
     if (st.boxes.length < SB.MAX_BOXES) b.push({ label: Goobs.adsOn() ? '+ Box (quick ad)' : '+ Box', red: true, go: addBox });
+    else if (st.trayCap < SB.MAX_TRAY) b.push({ label: Goobs.adsOn() ? '+ Tray spot (quick ad)' : '+ Tray spot', red: true, go: function () {
+      var go = function () { if (SB.addTraySpot(st)) { game.moves.push(-2); stats.extra++; jamShown = false; renderTray(); saveGame(); saveStats(); } };
+      if (Goobs.adsOn()) showAd(go); else go();
+    } });
     b.push({ label: 'Try again', red: !b.length, go: function () {
       var g = game; finishRound();
       between(function () { if (g.mode === 'daily') startDaily(true, g.tries + 1); else startLevel(g.level, true, g.tries + 1); });

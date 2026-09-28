@@ -525,6 +525,7 @@ var SHRender = (function () {
     var renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: false, powerPreference: 'high-performance' });
     renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
     // iOS can drop the 3D context after a long time in the background: rebuild the machine when it comes back
+    if (window.ResizeObserver) new ResizeObserver(function () { resize(); }).observe(canvas);
     canvas.addEventListener('webglcontextlost', function (e) { e.preventDefault(); });
     canvas.addEventListener('webglcontextrestored', function () { if (theme) build(theme); resize(); });
     var scene = new THREE.Scene();
@@ -880,7 +881,9 @@ var SHRender = (function () {
     }
     // finger x on screen -> lane x at the start line
     function laneXAt(clientX) {
-      var r = canvas.getBoundingClientRect(), a = project([-1, SH.RB, SH.START]), b = project([1, SH.RB, SH.START]);
+      var r = canvas.getBoundingClientRect();
+      if (Math.abs(r.width - W) > 0.5 || Math.abs(r.height - H) > 0.5) resize();
+      var a = project([-1, SH.RB, SH.START]), b = project([1, SH.RB, SH.START]);
       var t = ((clientX - r.left) - a[0]) / (b[0] - a[0]);
       return -1 + 2 * t;
     }
