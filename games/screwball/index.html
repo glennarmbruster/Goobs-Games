@@ -1,0 +1,1467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#b3322a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Goobs-Games">
+<link rel="manifest" href="../../manifest.json">
+<link rel="apple-touch-icon" href="../../icons/icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="../../icons/icon-192.png">
+<link rel="stylesheet" href="../../shared/goobs.css">
+<script src="../../shared/goobs.js"></script>
+<title>Screwball</title>
+<style>
+/* Screwball styles (themes, UI kit and ad cards come from /shared/goobs.css) */
+:root { --sb-stage: #fdf6e3; --sb-box: #fbf3e3; --sb-hole: rgba(58,38,22,.22); --sb-line: rgba(90,58,34,.45); --sb-tray: rgba(90,58,34,.1); }
+:root[data-theme="dark"] { --sb-stage: #2a231d; --sb-box: #3a3027; --sb-hole: rgba(0,0,0,.45); --sb-line: rgba(255,240,220,.35); --sb-tray: rgba(255,255,255,.06); }
+:root[data-theme="blue"] { --sb-stage: #182c4c; --sb-box: #22406b; --sb-hole: rgba(0,0,0,.45); --sb-line: rgba(200,220,255,.4); --sb-tray: rgba(255,255,255,.06); }
+html, body { height: 100%; overflow: hidden; }
+.app { height: 100%; min-height: 0; }
+
+.homebtn { background: none; border: 0; padding: 4px 4px 4px 0; display: flex; align-items: center; gap: 3px; color: inherit; }
+.homebtn .chev { font-size: 38px; line-height: 1; font-weight: 800; color: var(--title); margin: -6px 0 0 -2px; }
+.homebtn:active { opacity: .6; }
+.brand h1 { font-size: 24px; white-space: nowrap; }
+@media (max-width: 385px) { .brand h1 { font-size: 21px; } }
+
+.modes { width: 100%; display: flex; gap: 6px; flex: none; }
+.modes button {
+  position: relative; flex: 1; height: 44px; border-radius: 12px; border: 2px solid var(--wood); background: var(--hay-light);
+  color: var(--btn-ink); font-weight: 800; font-size: 16px; box-shadow: 0 3px 0 var(--wood); padding: 0;
+}
+.modes button.on { background: var(--barn); color: #fff; }
+.modes button:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--wood); }
+.modes .dot { position: absolute; top: 5px; right: 7px; width: 11px; height: 11px; border-radius: 50%; background: var(--gold); border: 2px solid #fff; display: none; }
+.modes .dot.show { display: block; }
+:root[data-theme="dark"] .modes button { border-color: #5a4838; }
+:root[data-theme="blue"] .modes button { border-color: #34588c; }
+
+.info { width: 100%; min-height: 40px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 4px; flex: none; }
+.info .lbl { font-size: 13px; font-weight: 800; color: var(--muted); letter-spacing: .5px; text-transform: uppercase; }
+.info .ttl { font-size: 20px; font-weight: 800; line-height: 1.1; white-space: nowrap; }
+.info .right { text-align: right; }
+.info .mid { font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.info .bar { width: 110px; height: 10px; border-radius: 5px; background: var(--line); margin-top: 4px; overflow: hidden; border: 1.5px solid var(--wood); margin-left: auto; }
+.info .bar i { display: block; height: 100%; background: var(--ok); transition: width .3s; }
+
+/* screw heads (boxes, tray, flying) */
+.head { width: 22px; height: 22px; border-radius: 50%; border: 2px solid rgba(30,20,10,.85); position: relative; box-shadow: inset -2px -3px 0 rgba(0,0,0,.18), inset 2px 2px 0 rgba(255,255,255,.35); }
+.head::before, .head::after { content: ""; position: absolute; left: 50%; top: 50%; background: rgba(30,20,10,.7); border-radius: 1px; }
+.head::before { width: 10px; height: 2.5px; transform: translate(-50%, -50%); }
+.head::after { width: 2.5px; height: 10px; transform: translate(-50%, -50%); }
+
+/* boxes */
+.boxes { width: 100%; display: flex; gap: 6px; flex: none; justify-content: center; }
+.box {
+  flex: 1 1 0; min-width: 0; max-width: 104px; height: 58px; border-radius: 12px; border: 3px solid rgba(30,20,10,.55); position: relative;
+  display: flex; align-items: center; justify-content: center; gap: 5px; box-shadow: inset 0 4px 0 rgba(255,255,255,.3), 0 3px 0 rgba(0,0,0,.2);
+}
+.box .hole { width: 22px; height: 22px; border-radius: 50%; background: rgba(0,0,0,.28); box-shadow: inset 0 2px 3px rgba(0,0,0,.4); display: grid; place-items: center; }
+.box .hole .head { width: 20px; height: 20px; }
+.box.empty { background: var(--sb-tray) !important; border: 2px dashed var(--sb-line); box-shadow: none; }
+.box.arrive { animation: arrive .35s ease-out; }
+@keyframes arrive { 0% { transform: translateY(-30px) scale(.8); opacity: 0; } 100% { transform: none; opacity: 1; } }
+.box .hole .head.pop { animation: hpop .3s ease-out; }
+@keyframes hpop { 0% { transform: scale(1.5); } 100% { transform: scale(1); } }
+.boxes.many .box { gap: 2px; border-width: 2px; }
+.boxes.many .box .hole { width: 16px; height: 16px; }
+.boxes.many .box .hole .head { width: 15px; height: 15px; }
+.boxes.many .box .hole .head::before { width: 7px; } .boxes.many .box .hole .head::after { height: 7px; }
+.addbox {
+  flex: none; width: 50px; height: 58px; border-radius: 12px; border: 2px dashed var(--gold); background: none; color: var(--ink); font-weight: 900; font-size: 15px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1; padding: 0;
+}
+.addbox small { font-size: 10px; background: var(--gold); color: #3a2616; border-radius: 5px; padding: 0 4px; margin-top: 2px; }
+.flydone { position: fixed; z-index: 15; pointer-events: none; animation: flydone .6s ease-in forwards; }
+@keyframes flydone { 0% { transform: none; opacity: 1; } 100% { transform: translateY(-60px) scale(.7); opacity: 0; } }
+
+.stage { position: relative; width: 100%; flex: 1; min-height: 200px; border-radius: 16px; background: var(--sb-stage); border: 2px solid var(--line); overflow: hidden; }
+.stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
+.turnhint {
+  position: absolute; left: 50%; top: 8px; transform: translateX(-50%); display: flex; align-items: center; gap: 6px; pointer-events: none;
+  background: rgba(0,0,0,.55); color: #fff; font-weight: 800; font-size: 14px; padding: 5px 12px; border-radius: 20px; transition: opacity .6s; white-space: nowrap;
+}
+.turnhint svg { width: 20px; height: 20px; }
+.turnhint.hide { opacity: 0; }
+.cheer { position: absolute; left: 0; right: 0; top: 38%; text-align: center; font-size: 34px; font-weight: 900; color: #fff; text-shadow: 0 3px 0 #7a3d10, 0 0 14px rgba(0,0,0,.35); pointer-events: none; opacity: 0; }
+.cheer.show { animation: cheer 1.4s ease-out forwards; }
+@keyframes cheer { 0% { opacity: 0; transform: scale(.6); } 20% { opacity: 1; transform: scale(1.1); } 70% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: translateY(-20px); } }
+
+/* tray */
+.traywrap { width: 100%; display: flex; align-items: center; gap: 8px; flex: none; }
+.traylbl { font-size: 13px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+.tray { flex: 1; display: flex; gap: 6px; justify-content: space-between; background: var(--sb-tray); border-radius: 14px; padding: 7px 10px; border: 2px solid var(--line); }
+.tray.warn { animation: warn .35s; border-color: var(--bad); }
+@keyframes warn { 0%, 100% { transform: none; } 30% { transform: translateX(-4px); } 60% { transform: translateX(4px); } }
+.spot { width: 38px; height: 38px; border-radius: 50%; border: 2px dashed var(--sb-line); display: grid; place-items: center; }
+.spot .head { width: 28px; height: 28px; }
+.tray.full .spot { border-color: var(--bad); }
+
+#flyer { position: fixed; inset: 0; pointer-events: none; z-index: 14; }
+#flyer .head { position: absolute; left: 0; top: 0; width: 24px; height: 24px; transition: transform .34s cubic-bezier(.3,.7,.4,1); }
+
+.toolbar { display: flex; gap: 8px; width: 100%; flex: none; }
+.tool {
+  flex: 1; height: 50px; border-radius: 14px; border: 2px solid var(--wood); background: var(--hay); color: var(--btn-ink);
+  box-shadow: 0 4px 0 var(--wood); display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 1px; padding: 0; font-weight: 800; font-size: 14px;
+}
+.tool svg { width: 22px; height: 22px; }
+.tool.red { background: var(--barn); color: #fff; }
+.tool:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--wood); }
+
+.helplist { margin: 6px 0 0; padding-left: 24px; font-size: 17px; line-height: 1.45; }
+.helplist li { margin-bottom: 6px; }
+.cardicon { display: flex; justify-content: center; margin-bottom: 4px; }
+.cardicon svg { width: 64px; height: 64px; }
+.tiles2 { display: flex; gap: 8px; margin: 4px 0 12px; }
+.tile2 { flex: 1; background: var(--surface); border: 2px solid var(--wood); border-radius: 14px; text-align: center; padding: 8px 4px; }
+.tile2 b { display: block; font-size: 26px; color: var(--title); }
+.tile2 span { font-size: 13px; font-weight: 700; color: var(--muted); }
+:root[data-theme="dark"] .tile2 { border-color: #5a4838; }
+:root[data-theme="blue"] .tile2 { border-color: #34588c; }
+.lvgrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.lv {
+  position: relative; aspect-ratio: 1 / 1; border-radius: 12px; border: 2px solid var(--wood); background: var(--surface); color: var(--ink);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0; font-weight: 800; font-size: 20px; line-height: 1.1;
+  box-shadow: 0 3px 0 var(--wood);
+}
+.lv small { font-size: 10px; font-weight: 700; color: var(--muted); text-align: center; }
+.lv.done { background: #cfe8c0; color: #24421a; }
+.lv.done small { color: #3e6a2c; }
+.lv.done::after { content: "\2713"; position: absolute; top: 2px; right: 6px; font-size: 13px; color: #2f7a22; }
+.lv.cur { background: var(--barn); color: #fff; }
+.lv.cur small { color: #ffe3dc; }
+.lv.lock { opacity: .4; box-shadow: none; }
+:root[data-theme="dark"] .lv.done, :root[data-theme="blue"] .lv.done { background: #2f5a2a; color: #e3f5da; }
+:root[data-theme="dark"] .lv.done small, :root[data-theme="blue"] .lv.done small { color: #b9dcae; }
+.lvnext { font-size: 17px; margin: 0 0 10px; color: var(--muted); font-weight: 700; }
+.pages { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.pages button { min-height: 40px; padding: 0 12px; border-radius: 10px; border: 2px solid var(--wood); background: var(--surface); color: var(--ink); font-weight: 800; font-size: 15px; }
+.pages button.on { background: var(--barn); color: #fff; }
+</style>
+</head>
+<body>
+<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="sb-logo" viewBox="0 0 100 100"><g stroke="#3a2616" stroke-width="4" stroke-linejoin="round" stroke-linecap="round">
+<rect x="10" y="30" width="80" height="40" rx="6" fill="#d8a868"/><path d="M18 42 H82 M18 58 H82" stroke-width="2" opacity=".35"/>
+<circle cx="28" cy="50" r="12" fill="#e53935"/><path d="M21 50 H35 M28 43 V57" stroke-width="3.5"/>
+<circle cx="72" cy="50" r="12" fill="#1e88e5"/><path d="M65 50 H79 M72 43 V57" stroke-width="3.5"/></g></symbol>
+<symbol id="i-sound-on" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor" fill-opacity=".15"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19.3 5.7a9 9 0 0 1 0 12.6"/></g></symbol>
+<symbol id="i-sound-off" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor" fill-opacity=".15"/><path d="M16.5 9.5l5 5M21.5 9.5l-5 5"/></g></symbol>
+<symbol id="i-stats" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3"/></g></symbol>
+<symbol id="i-gear" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></g></symbol>
+<symbol id="i-new" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 3v5h-5"/></g></symbol>
+<symbol id="i-help" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.3a2.6 2.6 0 0 1 5 .9c0 1.8-2.5 2.2-2.5 3.9M12 17.3v.2"/></g></symbol>
+<symbol id="i-turn" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 4 0 0 0 16 0"/><path d="M20 12a8 4 0 0 0-14.5-2.3"/><path d="M5 5.5l.5 4.2 4-1"/></g></symbol>
+</defs></svg>
+
+<div class="app">
+  <div class="top">
+    <button class="brand homebtn" id="btnHome" aria-label="Back to all games">
+      <span class="chev" aria-hidden="true">&#8249;</span>
+      <svg viewBox="0 0 100 100" aria-hidden="true"><use href="#sb-logo"/></svg>
+      <h1>Screwball</h1>
+    </button>
+    <div class="topbtns">
+      <button class="iconbtn" id="btnSound" aria-label="Sound"><svg viewBox="0 0 24 24"><use href="#i-sound-off"/></svg></button>
+      <button class="iconbtn" id="btnStats" aria-label="Stats"><svg viewBox="0 0 24 24"><use href="#i-stats"/></svg></button>
+      <button class="iconbtn" id="btnSettings" aria-label="Settings"><svg viewBox="0 0 24 24"><use href="#i-gear"/></svg></button>
+    </div>
+  </div>
+
+  <div class="modes" id="modes">
+    <button data-mode="level" id="modeLevel">Levels</button>
+    <button data-mode="daily">Daily<i class="dot"></i></button>
+  </div>
+
+  <div class="info" id="info"></div>
+  <div class="boxes" id="boxes"></div>
+
+  <div class="stage" id="stage">
+    <canvas id="cv"></canvas>
+    <div class="turnhint" id="turnHint"><svg viewBox="0 0 24 24"><use href="#i-turn"/></svg> Drag to turn it</div>
+    <div class="cheer" id="cheer"></div>
+  </div>
+
+  <div class="traywrap"><span class="traylbl">Tray</span><div class="tray" id="tray"></div></div>
+
+  <div class="toolbar">
+    <button class="tool" id="btnHelp"><svg viewBox="0 0 24 24"><use href="#i-help"/></svg><span>How to</span></button>
+    <button class="tool" id="btnView"><svg viewBox="0 0 24 24"><use href="#i-turn"/></svg><span>Front view</span></button>
+    <button class="tool red" id="btnNew"><svg viewBox="0 0 24 24"><use href="#i-new"/></svg><span id="newLabel">Restart</span></button>
+  </div>
+</div>
+<div id="flyer"></div>
+
+<!-- Settings -->
+<div class="overlay" id="ovSettings">
+  <div class="sheet" role="dialog" aria-label="Settings">
+    <h2>Settings</h2>
+    <div class="sheetbody">
+      <div class="themelabel">Theme (all games)</div>
+      <div class="themes" id="themes"></div>
+      <label class="row"><div>Sound<small>Squeaks, clinks and thuds.</small></div>
+        <span class="switch"><input type="checkbox" id="setSound"><span></span></span></label>
+      <label class="row"><div>Old-time ads<small>Joke ads between levels. This switch is shared by all Goobs-Games.</small></div>
+        <span class="switch"><input type="checkbox" id="setAds"><span></span></span></label>
+      <div class="row" id="rowAdEvery"><div>Show an ad every<small>Counted in finished levels.</small></div>
+        <div class="stepper"><button id="adLess" aria-label="Fewer">&minus;</button><b id="adEvery">3</b><button id="adMore" aria-label="More">+</button></div></div>
+      <div class="version" id="version">Screwball</div>
+    </div>
+    <div class="actions"><button class="btn red" id="btnCloseSettings">Done</button></div>
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="overlay" id="ovStats">
+  <div class="sheet" role="dialog" aria-label="Stats">
+    <h2>Your toolbox record</h2>
+    <div class="sheetbody" id="statsBody"></div>
+    <div class="actions"><button class="btn red" id="btnCloseStats">Done</button></div>
+  </div>
+</div>
+
+<!-- Levels -->
+<div class="overlay" id="ovLevels">
+  <div class="sheet" role="dialog" aria-label="Levels">
+    <h2>Levels</h2>
+    <div class="sheetbody" id="levelsBody"></div>
+    <div class="actions"><button class="btn red" id="btnCloseLevels">Done</button></div>
+  </div>
+</div>
+
+<!-- How to play -->
+<div class="overlay" id="ovHelp">
+  <div class="sheet" role="dialog" aria-label="How to play">
+    <h2>How to play</h2>
+    <div class="sheetbody">
+      <ol class="helplist">
+        <li><b>Tap a screw</b> to take it out. It flies into the <b>box of its color</b> at the top.</li>
+        <li>Only screws with <b>nothing in front of them</b> come out. If a board covers a screw, take that board off first.</li>
+        <li>A board <b>falls off</b> when its last screw is out.</li>
+        <li>Each box holds <b>3 screws</b>. When it&rsquo;s full, the next box comes in.</li>
+        <li>No box for that color yet? The screw waits in the <b>tray</b> (5 spots) and hops into its box when one shows up.</li>
+        <li>Tray full and nothing fits a box = <b>stuck</b>. Tap <b>+ Box</b> (a quick ad) for a 4th or 5th box.</li>
+        <li><b>Drag</b> to turn the object and find screws on the other sides. <b>Pinch</b> with two fingers to zoom in.</li>
+      </ol>
+    </div>
+    <div class="actions"><button class="btn red" id="btnCloseHelp">Let's play</button></div>
+  </div>
+</div>
+
+<!-- Cards -->
+<div class="overlay center" id="ovEnd">
+  <div class="card" role="dialog">
+    <div class="cardicon" id="cardIcon"></div>
+    <h2 id="endTitle"></h2>
+    <p id="endText"></p>
+    <div class="actions" id="endActions"></div>
+  </div>
+</div>
+
+<script>
+/* Screwball game logic (no DOM).
+   A farm object with boards (panels) held on by colored screws. Tap a screw that nothing covers and it flies
+   into the box of its color (3 boxes showing, 3 holes each; ads can add a 4th and 5th). No matching box: it
+   waits in a 5-spot tray. A board with no screws left falls off. Stuck = tray full and no free screw fits a box.
+   Grid cells: index i = (y * sz + z) * sx + x. The side facing you at the start is z = 0 ("front"). */
+var SB = (function () {
+  'use strict';
+  var TRAY = 5, BOXES = 3, MAX_BOXES = 5, HOLES = 3;
+  var DIRS = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]; // faces 0..5
+
+  function mix32(x) {
+    x = x >>> 0;
+    x = Math.imul(x ^ (x >>> 16), 0x7feb352d) >>> 0;
+    x = Math.imul(x ^ (x >>> 15), 0x846ca68b) >>> 0;
+    return (x ^ (x >>> 16)) >>> 0;
+  }
+  function rng(seed) {
+    var a = seed >>> 0;
+    return function () {
+      a = (a + 0x6D2B79F5) | 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function tools(rand) {
+    return {
+      r: function (a, b) { return a + rand() * (b - a); },
+      i: function (a, b) { return a + Math.floor(rand() * (b - a + 1)); },
+      pick: function (arr) { return arr[Math.floor(rand() * arr.length)]; },
+      chance: function (p) { return rand() < p; },
+      shuffle: function (arr) { arr = arr.slice(); for (var k = arr.length - 1; k > 0; k--) { var j = Math.floor(rand() * (k + 1)), t = arr[k]; arr[k] = arr[j]; arr[j] = t; } return arr; }
+    };
+  }
+
+  // Screw colors (bright, easy to tell apart)
+  var SCREWS = [
+    { name: 'Red', hex: '#e53935' }, { name: 'Yellow', hex: '#fdd835' }, { name: 'Blue', hex: '#1e88e5' }, { name: 'Green', hex: '#43a047' },
+    { name: 'Purple', hex: '#8e24aa' }, { name: 'Orange', hex: '#fb8c00' }, { name: 'Pink', hex: '#f06292' }, { name: 'Teal', hex: '#00acc1' }];
+  // Board colors (muted woods and paints)
+  var WOODS = ['#d8a868', '#c98b4f', '#b07a45', '#e6c48f', '#a8743f', '#d9d2c4', '#aeb6bd', '#8fae7a', '#c9867a', '#9fb8cf'];
+
+  // ---------- farm objects: a core (not removable) plus faces where boards get mounted ----------
+  // Each returns { w, h, d (core box), extra: [[x0,x1,y0,y1,z0,z1,hex]] (relative to core origin), core hex, faces, specials, name }
+  function gable(w, h, d, rh, hex, over) { // a stepped roof on top of a w x h x d box, ridge along z
+    var out = [];
+    for (var k = 0; k < rh; k++) {
+      var inset = Math.round(k * (w / 2) / rh);
+      if (w - 2 * inset <= 0) break;
+      out.push([inset, w - inset, h + k, h + k + 1, 0 - (over || 0), d + (over || 0), hex]);
+    }
+    return out;
+  }
+  var OBJECTS = {
+    crate: { name: 'Feed crate', make: function (R, big) {
+      var w = 5 + big, h = 5 + Math.floor(big / 2), d = 5 + big;
+      return { w: w, h: h, d: d, core: '#b07a45', extra: [], faces: [5, 0, 1, 4, 2], specials: [] };
+    } },
+    barn: { name: 'Barn', make: function (R, big) {
+      var w = 7 + big, h = 5 + Math.floor(big / 2), d = 6 + big;
+      return { w: w, h: h, d: d, core: R.pick(['#b3322a', '#a52a24', '#8e3b2e']), extra: gable(w, h, d, Math.ceil(w / 2), '#6f6a66'), faces: [5, 0, 1, 4], specials: [] };
+    } },
+    coop: { name: 'Chicken coop', make: function (R, big) {
+      var w = 6 + big, h = 4 + Math.floor(big / 2), d = 5 + Math.floor(big / 2);
+      var ex = gable(w, h, d, Math.ceil(w / 2), '#5b6e2e');
+      return { w: w, h: h, d: d, core: '#e6d3a3', extra: ex, faces: [5, 0, 1, 4], specials: [] };
+    } },
+    tractor: { name: 'Tractor', make: function (R, big) {
+      var w = 9 + big, h = 4, d = 5, cab = 4;
+      var body = R.pick(['#3f8f3a', '#c0392b', '#2e6fb5']);
+      return { w: w, h: h, d: d, core: body, extra: [[0, cab, h, h + 4, 0, d, body], [0, cab, h + 4, h + 5, -1, d + 1, '#e8e2d0']],
+        faces: [5, 4, 0], top: { a0: cab + 1, a1: w }, specials: [
+          { kind: 'wheel', face: 5, a: 2, b: 2, r: 2, layer: 2 }, { kind: 'wheel', face: 5, a: w - 2, b: 1, r: 1, layer: 2 },
+          { kind: 'wheel', face: 4, a: 2, b: 2, r: 2, layer: 2 }, { kind: 'wheel', face: 4, a: w - 2, b: 1, r: 1, layer: 2 }] };
+    } },
+    windmill: { name: 'Windmill', make: function (R, big) {
+      var w = 5, h = 11 + big, d = 5;
+      return { w: w, h: h, d: d, core: '#c9c2b4', extra: gable(w, h, d, 3, '#8e3b2e', 0), faces: [5, 0, 1, 4], specials: [
+        { kind: 'blades', face: 5, a: 2, b: h - 3, len: 4, layer: 2 }] };
+    } },
+    wagon: { name: 'Hay wagon', make: function (R, big) {
+      var w = 9 + big, h = 3, d = 5;
+      return { w: w, h: h, d: d, core: '#8a5a3a', extra: [[1, w - 1, h, h + 2, 1, d - 1, '#e2c089'], [2, w - 3, h + 2, h + 3, 1, d - 1, '#e8cb95']], faces: [5, 4, 0, 1], specials: [
+        { kind: 'wheel', face: 5, a: 2, b: 1, r: 1, layer: 2 }, { kind: 'wheel', face: 5, a: w - 3, b: 1, r: 1, layer: 2 },
+        { kind: 'wheel', face: 4, a: 2, b: 1, r: 1, layer: 2 }, { kind: 'wheel', face: 4, a: w - 3, b: 1, r: 1, layer: 2 }] };
+    } },
+    outhouse: { name: 'Outhouse', make: function (R, big) {
+      var w = 4 + Math.floor(big / 2), h = 7 + big, d = 4 + Math.floor(big / 2);
+      return { w: w, h: h, d: d, core: '#9c6b3f', extra: gable(w, h, d, 2, '#5a4a3a', 0), faces: [5, 0, 1, 4], specials: [] };
+    } },
+    hive: { name: 'Beehive', make: function (R, big) {
+      var w = 5 + big, h = 6 + big, d = 5 + big;
+      return { w: w, h: h, d: d, core: '#f2e6c4', extra: [[-1, w + 1, h, h + 1, -1, d + 1, '#c9a24a']], faces: [5, 0, 1, 4], specials: [] };
+    } }
+  };
+  var ORDER = ['crate', 'barn', 'tractor', 'coop', 'windmill', 'wagon', 'outhouse', 'hive'];
+  var M = 4; // room around the core for boards (layers 1..4)
+
+  // ---------- building the object ----------
+  function geometry(obj) {
+    var sx = obj.w + 2 * M, sz = obj.d + 2 * M, sy = obj.h + 10;
+    var ex = obj.extra;
+    for (var e = 0; e < ex.length; e++) sy = Math.max(sy, ex[e][3] + M + 1);
+    var n = sx * sy * sz;
+    var g = { sx: sx, sy: sy, sz: sz, own: new Int16Array(n), col: new Uint8Array(n), pal: [], ox: M, oz: M, w: obj.w, h: obj.h, d: obj.d };
+    for (var i = 0; i < n; i++) g.own[i] = -1;
+    function pal(hex) { var k = g.pal.indexOf(hex); if (k < 0) { g.pal.push(hex); k = g.pal.length - 1; } return k; }
+    g.palIndex = pal;
+    function fill(x0, x1, y0, y1, z0, z1, hex) {
+      var c = pal(hex);
+      for (var y = Math.max(0, y0); y < y1; y++) for (var z = z0; z < z1; z++) for (var x = x0; x < x1; x++) {
+        var k = idx(g, x + M, y, z + M);
+        if (k >= 0) { g.own[k] = 0; g.col[k] = c; }
+      }
+    }
+    fill(0, obj.w, 0, obj.h, 0, obj.d, obj.core);
+    ex.forEach(function (b) { fill(b[0], b[1], b[2], b[3], b[4], b[5], b[6]); });
+    // a slightly darker band at the bottom of the core for depth
+    return g;
+  }
+  function idx(g, x, y, z) {
+    if (x < 0 || y < 0 || z < 0 || x >= g.sx || y >= g.sy || z >= g.sz) return -1;
+    return (y * g.sz + z) * g.sx + x;
+  }
+  function xyz(g, i) { return [i % g.sx, Math.floor(i / (g.sx * g.sz)), Math.floor(i / g.sx) % g.sz]; }
+  // a mount face: cell for in-plane (a, b) at layer L (1 = touching the core)
+  function mount(g, face, top) {
+    var mt = mount0(g, face, top);
+    var map = {};
+    for (var L = 1; L <= M; L++) for (var b = -M; b < mt.B + M; b++) for (var a = -M; a < mt.A + M; a++) { var c = mt.cell(a, b, L); if (c >= 0) map[c] = [a, b]; }
+    mt.ab = function (c) { return map[c] || null; };
+    return mt;
+  }
+  function mount0(g, face, top) {
+    var w = g.w, h = g.h, d = g.d, o = M;
+    switch (face) {
+      case 5: return { face: 5, A: w, B: h, cell: function (a, b, L) { return idx(g, o + a, b, o - L); } };
+      case 4: return { face: 4, A: w, B: h, cell: function (a, b, L) { return idx(g, o + w - 1 - a, b, o + d - 1 + L); } };
+      case 1: return { face: 1, A: d, B: h, cell: function (a, b, L) { return idx(g, o - L, b, o + d - 1 - a); } };
+      case 0: return { face: 0, A: d, B: h, cell: function (a, b, L) { return idx(g, o + w - 1 + L, b, o + a); } };
+      case 2: return { face: 2, A: w, B: d, a0: top ? top.a0 : 0, a1: top ? top.a1 : w, cell: function (a, b, L) { return idx(g, o + a, h - 1 + L, o + b); } };
+    }
+  }
+
+  // Add boards (plates) to a mount, layer by layer. Returns nothing; pushes into plates.
+  function addPlate(g, plates, cells, hex, layer, face, screwCells) {
+    for (var k = 0; k < cells.length; k++) if (cells[k] < 0 || g.own[cells[k]] !== -1) return false;
+    var id = plates.length + 1, c = g.palIndex(hex);
+    cells.forEach(function (i) { g.own[i] = id; g.col[i] = c; });
+    plates.push({ id: id, cells: cells, hex: hex, layer: layer, face: face, screwCells: screwCells, special: !!addPlate.special });
+    return true;
+  }
+  function rectCells(mt, a0, a1, b0, b1, L) {
+    var out = [];
+    for (var b = b0; b < b1; b++) for (var a = a0; a < a1; a++) out.push(mt.cell(a, b, L));
+    return out;
+  }
+  function boards(g, plates, mt, R, layers, woods) {
+    var A0 = mt.a0 || 0, A1 = mt.a1 || mt.A, B = mt.B, horiz = R.chance(0.6);
+    var wood1 = R.pick(woods), wood2 = R.pick(woods), wood3 = R.pick(woods);
+    // layer 1: planks side by side
+    var along = horiz ? A1 - A0 : B, across = horiz ? B : A1 - A0;
+    for (var q = 0; q < across;) {
+      var wdt = Math.min(across - q, R.chance(0.75) ? 2 : 1);
+      for (var p = 0; p < along;) {
+        var len = Math.min(along - p, R.i(3, 6));
+        if (len >= 2 && R.chance(0.85)) {
+          var a0 = horiz ? A0 + p : A0 + q, a1 = horiz ? A0 + p + len : A0 + q + wdt, b0 = horiz ? q : p, b1 = horiz ? q + wdt : p + len;
+          var cells = rectCells(mt, a0, a1, b0, b1, 1), sc = [];
+          var mid = horiz ? b0 + Math.floor((b1 - b0) / 2) : a0 + Math.floor((a1 - a0) / 2);
+          // screws set in from the ends, so screws on neighboring planks are never side by side
+          var e0 = len >= 4 ? 1 : Math.floor(len / 2), e1 = len >= 4 ? len - 2 : Math.floor(len / 2);
+          if (horiz) { sc.push(mt.cell(a0 + e0, mid, 1)); sc.push(mt.cell(a0 + e1, mid, 1)); }
+          else { sc.push(mt.cell(mid, b0 + e0, 1)); sc.push(mt.cell(mid, b0 + e1, 1)); }
+          addPlate(g, plates, cells, R.chance(0.7) ? wood1 : wood2, 1, mt.face, sc);
+        }
+        p += len + (R.chance(0.3) ? 1 : 0);
+      }
+      q += wdt;
+    }
+    if (layers < 2) return;
+    // layer 2: braces laid across the planks right over lines of screws, so those screws are covered
+    var lines = {};
+    plates.forEach(function (p) {
+      if (p.face !== mt.face || p.layer !== 1) return;
+      p.screwCells.forEach(function (c) { var ab = mt.ab(c); if (ab) { var key = horiz ? ab[0] : ab[1]; lines[key] = (lines[key] || 0) + 1; } });
+    });
+    var keys = Object.keys(lines).map(Number).sort(function (x, y) { return lines[y] - lines[x] || x - y; });
+    var nb = Math.min(keys.length, R.i(2, 3)), used = {};
+    for (var k = 0; k < keys.length && nb > 0; k++) {
+      var pos = keys[k];
+      if (used[pos - 1] || used[pos + 1]) continue;
+      var span = horiz ? B : A1 - A0, len2 = Math.max(3, span - R.i(0, 1)), st2 = R.i(0, span - len2);
+      var c2, s2;
+      if (horiz) { c2 = rectCells(mt, pos, pos + 1, st2, st2 + len2, 2); s2 = [mt.cell(pos, st2, 2), mt.cell(pos, st2 + len2 - 1, 2)]; if (len2 >= 6) s2.push(mt.cell(pos, st2 + Math.floor(len2 / 2), 2)); }
+      else { c2 = rectCells(mt, A0 + st2, A0 + st2 + len2, pos, pos + 1, 2); s2 = [mt.cell(A0 + st2, pos, 2), mt.cell(A0 + st2 + len2 - 1, pos, 2)]; if (len2 >= 6) s2.push(mt.cell(A0 + st2 + Math.floor(len2 / 2), pos, 2)); }
+      if (addPlate(g, plates, c2, wood3, 2, mt.face, s2)) { used[pos] = 1; nb--; }
+    }
+    if (layers < 3) return;
+    // layer 3: small patches over some brace screws
+    var braceScrews = [];
+    plates.forEach(function (p) { if (p.face === mt.face && p.layer === 2 && !p.special) p.screwCells.forEach(function (c) { var ab = mt.ab(c); if (ab) braceScrews.push(ab); }); });
+    braceScrews = R.shuffle(braceScrews);
+    var np = Math.min(braceScrews.length, R.i(2, 3));
+    for (var j = 0; j < braceScrews.length && np > 0; j++) {
+      var bs = braceScrews[j], pa = Math.max(A0, Math.min(A1 - 2, bs[0] - R.i(0, 1))), pb = Math.max(0, Math.min(B - 2, bs[1] - R.i(0, 1)));
+      var c3 = rectCells(mt, pa, pa + 2, pb, pb + 2, 3);
+      var s3 = R.chance(0.6) ? [c3[0], c3[3]] : [c3[1], c3[2]];
+      if (addPlate(g, plates, c3, R.pick(['#d9d2c4', '#aeb6bd', '#e6c48f', '#9fb8cf']), 3, mt.face, s3)) np--;
+    }
+  }
+  function special(g, plates, sp, R) {
+    addPlate.special = true;
+    try { special0(g, plates, sp, R); } finally { addPlate.special = false; }
+  }
+  function special0(g, plates, sp, R) {
+    var mt = mount(g, sp.face), cells = [], sc = [];
+    if (sp.kind === 'wheel') {
+      for (var b = sp.b - sp.r; b <= sp.b + sp.r; b++) for (var a = sp.a - sp.r; a <= sp.a + sp.r; a++) {
+        var dd = (a - sp.a) * (a - sp.a) + (b - sp.b) * (b - sp.b);
+        if (dd <= sp.r * sp.r + sp.r && b >= 0) cells.push(mt.cell(a, b, sp.layer));
+      }
+      sc.push(mt.cell(sp.a, sp.b, sp.layer));
+      if (sp.r >= 2) { sc.push(mt.cell(sp.a - sp.r + 1, sp.b, sp.layer)); sc.push(mt.cell(sp.a + sp.r - 1, sp.b, sp.layer)); }
+      if (!addPlate(g, plates, cells, '#3b3b3b', sp.layer, sp.face, sc)) return;
+      // hub cap on top of the wheel
+      if (sp.r >= 2) addPlate(g, plates, [mt.cell(sp.a, sp.b, sp.layer + 1)], '#f2c230', sp.layer + 1, sp.face, [mt.cell(sp.a, sp.b, sp.layer + 1)]);
+    } else if (sp.kind === 'blades') {
+      var L = sp.layer, h1 = [], v1 = [];
+      for (var t = -sp.len; t <= sp.len; t++) { h1.push(mt.cell(sp.a + t, sp.b, L)); v1.push(mt.cell(sp.a, sp.b + t, L + 1)); }
+      addPlate(g, plates, h1, '#f3efe6', L, sp.face, [h1[0], h1[h1.length - 1]]);
+      addPlate(g, plates, v1, '#f3efe6', L + 1, sp.face, [v1[0], v1[v1.length - 1], mt.cell(sp.a, sp.b, L + 1)]);
+      addPlate(g, plates, [mt.cell(sp.a, sp.b, L + 2)], '#8e3b2e', L + 2, sp.face, [mt.cell(sp.a, sp.b, L + 2)]);
+    }
+  }
+
+  // ---------- screws ----------
+  // A screw on cell i facing out along face f is covered if any other cell further out along that line is filled.
+  function covered(g, i, f, own) {
+    var p = xyz(g, i), dv = DIRS[f], x = p[0], y = p[1], z = p[2];
+    for (;;) {
+      x += dv[0]; y += dv[1]; z += dv[2];
+      var k = idx(g, x, y, z);
+      if (k < 0) return -1;
+      if (g.own[k] !== -1 && g.own[k] !== own) return g.own[k];
+    }
+  }
+
+  // ---------- levels ----------
+  var LEVEL_SCHEME = 1;
+  function levelSpec(L) {
+    var t = L <= 3 ? 0 : L <= 8 ? 1 : L <= 20 ? 2 : 3;
+    return { scheme: LEVEL_SCHEME, level: L, object: ORDER[(L - 1) % ORDER.length], big: Math.min(2, Math.floor((L - 1) / 12)),
+      target: Math.min(60, 12 + Math.floor((L - 1) * 1.5)), colors: Math.min(8, [3, 4, 6, 7][t] + (L > 30 ? 1 : 0)),
+      layers: [1, 2, 3, 3][t], faces: [2, 3, 4, 5][t], blur: [2, 6, 14, 22][t], shuffle: [0, 3, 10, 16][t],
+      seed: mix32(Math.imul(L, 0x9E3779B1) ^ 0x5C4E3B) };
+  }
+  function dailySeed(day) { return mix32(day ^ 0xDA15C3E); }
+  function dailySpec(day) {
+    var s = dailySeed(day), R = rng(s);
+    return { object: ORDER[Math.floor(R() * ORDER.length)], big: 1, target: 36, colors: 5, layers: 3, faces: 4, blur: 12, shuffle: 8, seed: s };
+  }
+
+  // Make the object, boards and screws for a spec (no colors yet)
+  function makeObject(spec, R) {
+    var obj = OBJECTS[spec.object].make(R, spec.big);
+    var g = geometry(obj), plates = [];
+    var woods = R.shuffle(WOODS).slice(0, 4);
+    obj.specials.forEach(function (sp) { special(g, plates, sp, R); });
+    var faces = obj.faces.slice(0, spec.faces);
+    faces.forEach(function (f) { boards(g, plates, mount(g, f, f === 2 ? obj.top : null), R, spec.layers, woods); });
+    if (spec.faces >= 5 && obj.faces.indexOf(2) < 0 && obj.top) boards(g, plates, mount(g, 2, obj.top), R, Math.min(2, spec.layers), woods);
+    // screws: one per listed cell, on the board's outside face
+    var screws = [];
+    plates.forEach(function (p) {
+      var seen = {};
+      p.screwCells.forEach(function (c) {
+        if (c < 0 || seen[c] || g.own[c] !== p.id) return;
+        seen[c] = 1;
+        screws.push({ id: screws.length, cell: c, face: p.face, plate: p.id, c: 0 });
+      });
+    });
+    return { g: g, plates: plates, screws: screws, name: OBJECTS[spec.object].name };
+  }
+
+  // Play state from an object: which screws/plates are still there
+  function fresh(o, queue, colors) {
+    var st = { g: o.g, own: new Int16Array(o.g.own), plates: o.plates, screws: o.screws, name: o.name,
+      out: new Uint8Array(o.screws.length), left: {}, boxes: [], queue: queue.slice(), qi: 0, tray: [], cap: BOXES, total: o.screws.length };
+    o.plates.forEach(function (p) { st.left[p.id] = 0; });
+    o.screws.forEach(function (s, k) { st.left[s.plate]++; if (colors) s.c = colors[k]; });
+    for (var b = 0; b < BOXES; b++) st.boxes.push(nextBox(st));
+    return st;
+  }
+  function nextBox(st) { return st.qi < st.queue.length ? { c: st.queue[st.qi++], n: 0 } : null; }
+  function isFree(st, s) {
+    if (st.out[s.id]) return false;
+    var g = st.g, p = xyz(g, s.cell), dv = DIRS[s.face], x = p[0], y = p[1], z = p[2];
+    for (;;) {
+      x += dv[0]; y += dv[1]; z += dv[2];
+      var k = idx(g, x, y, z);
+      if (k < 0) return true;
+      if (st.own[k] !== -1 && st.own[k] !== s.plate) return false;
+    }
+  }
+  function blocker(st, s) {
+    var g = st.g, p = xyz(g, s.cell), dv = DIRS[s.face], x = p[0], y = p[1], z = p[2];
+    for (;;) {
+      x += dv[0]; y += dv[1]; z += dv[2];
+      var k = idx(g, x, y, z);
+      if (k < 0) return 0;
+      if (st.own[k] !== -1 && st.own[k] !== s.plate) return st.own[k];
+    }
+  }
+  function freeScrews(st) { var f = []; st.screws.forEach(function (s) { if (!st.out[s.id] && isFree(st, s)) f.push(s); }); return f; }
+  function boxFor(st, c) { for (var b = 0; b < st.boxes.length; b++) if (st.boxes[b] && st.boxes[b].c === c && st.boxes[b].n < HOLES) return b; return -1; }
+  // Tap a screw. Returns null if it can't go (covered, or tray full and no box). Otherwise
+  // { dest: 'box'|'tray', index, fell: [plate ids], events: [...] } where events describe box changes in order:
+  //   { t: 'done', box } a full box leaves;  { t: 'new', box, c } a new box arrives;  { t: 'pull', box, from } a tray screw moves in
+  function pick(st, s) {
+    if (st.out[s.id] || !isFree(st, s)) return null;
+    var b = boxFor(st, s.c), res = { fell: [], events: [] };
+    if (b >= 0) { st.boxes[b].n++; res.dest = 'box'; res.index = b; }
+    else if (st.tray.length < TRAY) { st.tray.push(s.c); res.dest = 'tray'; res.index = st.tray.length - 1; }
+    else return null;
+    st.out[s.id] = 1; st.total--;
+    if (--st.left[s.plate] === 0) { // the board falls off
+      var p = st.plates[s.plate - 1];
+      p.cells.forEach(function (i) { st.own[i] = -1; });
+      res.fell.push(p.id);
+    }
+    settleBoxes(st, res.events);
+    return res;
+  }
+  function settleBoxes(st, ev) {
+    for (var loop = 0; loop < 50; loop++) {
+      var changed = false;
+      for (var b = 0; b < st.boxes.length; b++) {
+        var bx = st.boxes[b];
+        if (bx && bx.n >= HOLES) { ev.push({ t: 'done', box: b, c: bx.c }); st.boxes[b] = nextBox(st); if (st.boxes[b]) ev.push({ t: 'new', box: b, c: st.boxes[b].c }); changed = true; }
+      }
+      // pull waiting tray screws into boxes of their color
+      for (var t = 0; t < st.tray.length; t++) {
+        var k = boxFor(st, st.tray[t]);
+        if (k >= 0) { st.boxes[k].n++; ev.push({ t: 'pull', box: k, from: t, c: st.tray[t] }); st.tray.splice(t, 1); t--; changed = true; }
+      }
+      if (!changed) break;
+    }
+  }
+  function addBox(st) {
+    if (st.boxes.length >= MAX_BOXES) return null;
+    st.cap++;
+    st.boxes.push(nextBox(st));
+    var ev = [];
+    if (st.boxes[st.boxes.length - 1]) ev.push({ t: 'new', box: st.boxes.length - 1, c: st.boxes[st.boxes.length - 1].c });
+    settleBoxes(st, ev);
+    return ev;
+  }
+  function won(st) { return st.total === 0; }
+  function stuck(st) {
+    if (st.total === 0) return false;
+    var free = freeScrews(st);
+    if (st.tray.length < TRAY && free.length) return false;
+    for (var k = 0; k < free.length; k++) if (boxFor(st, free[k].c) >= 0) return false;
+    return true;
+  }
+
+  // ---------- designer ----------
+  // 1) find an order that takes every screw out (ignoring colors); 2) color screws in threes along that order;
+  // 3) the box line follows the same order, then gets shuffled a bit. Played in that order, nothing ever waits.
+  function removalOrder(o, R) {
+    var st = fresh(o, [], null), order = [];
+    st.boxes = [];
+    for (var guard = 0; st.total > 0 && guard < 5000; guard++) {
+      var free = freeScrews(st);
+      if (!free.length) return null; // boards lock each other: rebuild
+      var s = R.pick(free);
+      st.out[s.id] = 1; st.total--; order.push(s.id);
+      if (--st.left[s.plate] === 0) st.plates[s.plate - 1].cells.forEach(function (i) { st.own[i] = -1; });
+    }
+    return order;
+  }
+  function trim(o, target, R) {
+    // get near the target by dropping whole sides (last-built sides first), then make it a multiple of 3
+    var n = o.screws.length, want = Math.max(9, Math.min(target, n - n % 3)), drop = {}, perPlate = {}, count = n;
+    o.screws.forEach(function (s) { (perPlate[s.plate] = perPlate[s.plate] || []).push(s.id); });
+    function dropPlate(pid) {
+      (perPlate[pid] || []).forEach(function (id) { drop[id] = 1; });
+      count -= (perPlate[pid] || []).length; perPlate[pid] = [];
+      o.plates[pid - 1].cells.forEach(function (i) { o.g.own[i] = -1; });
+      o.plates[pid - 1].gone = true;
+    }
+    var faces = [];
+    o.plates.forEach(function (p) { if (faces.indexOf(p.face) < 0) faces.push(p.face); });
+    for (var f = faces.length - 1; f > 0; f--) {
+      var fs = o.plates.filter(function (p) { return p.face === faces[f] && !p.gone; }), k = 0;
+      fs.forEach(function (p) { k += (perPlate[p.id] || []).length; });
+      if (count - k >= want) fs.forEach(function (p) { dropPlate(p.id); });
+    }
+    // too many still: take screws off boards that have 3+, then drop top patches
+    var ids = R.shuffle(o.screws.map(function (s) { return s.id; }));
+    for (var q = 0; q < ids.length && count > want; q++) {
+      var sc = o.screws[ids[q]], mine = perPlate[sc.plate] || [];
+      if (!drop[sc.id] && mine.length >= 3) { mine.splice(mine.indexOf(sc.id), 1); drop[sc.id] = 1; count--; }
+    }
+    var tops = o.plates.filter(function (p) { return !p.gone; }).sort(function (x, y) { return y.layer - x.layer || faces.indexOf(y.face) - faces.indexOf(x.face) || y.id - x.id; });
+    for (var t = 0; t < tops.length && (count > want || count % 3); t++) {
+      var mn = perPlate[tops[t].id] || [];
+      if (mn.length >= 2 && count % 3) { drop[mn.pop()] = 1; count--; t--; continue; }
+      if (count - mn.length >= 9 && (count > want || (count - mn.length) % 3 === 0)) dropPlate(tops[t].id);
+    }
+    while (count % 3) { // last resort
+      var any = false;
+      for (var pid in perPlate) if (perPlate[pid].length > 1) { drop[perPlate[pid].pop()] = 1; count--; any = true; break; }
+      if (!any) break;
+    }
+    var map = {}, plates2 = [];
+    o.plates.forEach(function (p) {
+      if (!p.gone && (perPlate[p.id] || []).length) { map[p.id] = plates2.length + 1; plates2.push(p); }
+      else if (!p.gone) p.cells.forEach(function (i) { o.g.own[i] = -1; });
+    });
+    plates2.forEach(function (p) { var nid = map[p.id]; p.cells.forEach(function (i) { o.g.own[i] = nid; }); p.id = nid; });
+    var screws2 = [];
+    o.screws.forEach(function (s) { if (!drop[s.id] && map[s.plate]) screws2.push({ id: screws2.length, cell: s.cell, face: s.face, plate: map[s.plate], c: 0 }); });
+    o.plates = plates2; o.screws = screws2;
+    return o;
+  }
+  function colorize(o, order, spec, R) {
+    var pal = R.shuffle([0, 1, 2, 3, 4, 5, 6, 7]).slice(0, spec.colors);
+    // blur: each screw may swap with one up to `blur` places later, so a box's three screws are spread out
+    var ord = order.slice();
+    for (var k = 0; k < ord.length; k++) {
+      var j2 = Math.min(ord.length - 1, k + Math.floor(R.r(0, spec.blur + 1)));
+      var t = ord[k]; ord[k] = ord[j2]; ord[j2] = t;
+    }
+    var colors = [], queue = [], last = -1, used = {};
+    for (var q = 0; q < ord.length; q += 3) {
+      var choices = pal.filter(function (c) { return c !== last; });
+      choices.sort(function (x, y) { return (used[x] || 0) - (used[y] || 0); });
+      var c = R.chance(0.6) ? choices[0] : R.pick(choices);
+      used[c] = (used[c] || 0) + 1; last = c;
+      queue.push(c);
+      for (var j = q; j < q + 3 && j < ord.length; j++) colors[ord[j]] = c;
+    }
+    // shuffle the box line a little
+    for (var m = 0; m < spec.shuffle; m++) {
+      var i1 = Math.floor(R.r(0, queue.length)), i2 = Math.min(queue.length - 1, i1 + 1 + Math.floor(R.r(0, 4)));
+      var tt = queue[i1]; queue[i1] = queue[i2]; queue[i2] = tt;
+    }
+    return { colors: colors, queue: queue };
+  }
+
+  // ---------- careful player (used to check each level can be won) ----------
+  function clone(st) {
+    return { g: st.g, own: new Int16Array(st.own), plates: st.plates, screws: st.screws, out: new Uint8Array(st.out), left: Object.assign({}, st.left),
+      boxes: st.boxes.map(function (b) { return b ? { c: b.c, n: b.n } : null; }), queue: st.queue, qi: st.qi, tray: st.tray.slice(), cap: st.cap, total: st.total };
+  }
+  function soonest(st, c) { for (var k = st.qi; k < st.queue.length; k++) if (st.queue[k] === c) return k - st.qi; return 99; }
+  function value(st) {
+    if (st.total === 0) return 1e6;
+    var free = freeScrews(st), fit = 0;
+    for (var k = 0; k < free.length; k++) if (boxFor(st, free[k].c) >= 0) fit++;
+    if (!fit && (st.tray.length >= TRAY || !free.length)) return -1e6;
+    return -st.tray.length * 50 - st.total + fit * 3;
+  }
+  function planStep(st, depth) {
+    var free = freeScrews(st), tried = [];
+    free.forEach(function (s) {
+      var c = clone(st), r = pick(c, s);
+      if (!r) return;
+      var v = value(c);
+      if (r.dest === 'tray') v -= soonest(st, s.c) * 2;
+      tried.push({ s: s, v: v, c: c });
+    });
+    if (!tried.length) return null;
+    tried.sort(function (a, b) { return b.v - a.v; });
+    if (depth > 0) {
+      tried.slice(0, 5).forEach(function (t) {
+        if (t.v > -1e6 && t.v < 1e6) { var n = planStep(t.c, depth - 1); if (n) t.v = Math.max(t.v, n.v); }
+      });
+      tried.sort(function (a, b) { return b.v - a.v; });
+    }
+    return { s: tried[0].s, v: tried[0].v };
+  }
+  function playtest(o, queue, colors, boxes) {
+    var st = fresh(o, queue, colors);
+    while (st.boxes.length < (boxes || BOXES)) addBox(st);
+    for (var g = 0; g < 500 && !won(st); g++) {
+      if (stuck(st)) return false;
+      var m = planStep(st, 1);
+      if (!m) return false;
+      pick(st, m.s);
+    }
+    return won(st);
+  }
+
+  function design(spec) {
+    for (var tries = 0; tries < 30; tries++) {
+      var R = tools(rng(mix32(spec.seed + Math.imul(tries, 0x632BE5AB))));
+      var o = makeObject(spec, R);
+      if (o.screws.length < 9) continue;
+      o = trim(o, spec.target, R);
+      var order = removalOrder(o, R);
+      if (!order) continue;
+      // try the requested mix first, then gentler ones; the plain order always works
+      var s2 = Object.assign({}, spec);
+      for (var k = 0; k < 6; k++) {
+        if (k >= 3) { s2.blur = Math.floor(s2.blur / 2); s2.shuffle = Math.floor(s2.shuffle / 2); }
+        if (k === 5) { s2.blur = 0; s2.shuffle = 0; }
+        var cz = colorize(o, order, s2, R);
+        if (k === 5 || playtest(o, cz.queue, cz.colors)) {
+          o.screws.forEach(function (s, j) { s.c = cz.colors[j]; });
+          return { o: o, queue: cz.queue, colors: cz.colors, order: order };
+        }
+      }
+    }
+    return null;
+  }
+  function newGame(spec) {
+    var d = design(spec);
+    var st = fresh(d.o, d.queue, d.colors);
+    st.boxesTotal = d.queue.length; st.moves = []; st.startTotal = st.total;
+    return st;
+  }
+  // replay saved moves (screw ids; -1 = an extra box) onto a fresh game
+  function replay(spec, moves) {
+    var st = newGame(spec);
+    (moves || []).forEach(function (m) {
+      if (m === -1) addBox(st); else { var s = st.screws[m]; if (s) pick(st, s); }
+      st.moves.push(m);
+    });
+    return st;
+  }
+
+  return {
+    TRAY: TRAY, BOXES: BOXES, MAX_BOXES: MAX_BOXES, HOLES: HOLES, DIRS: DIRS, SCREWS: SCREWS, OBJECTS: OBJECTS, ORDER: ORDER,
+    LEVEL_SCHEME: LEVEL_SCHEME, mix32: mix32, rng: rng, levelSpec: levelSpec, dailySeed: dailySeed, dailySpec: dailySpec,
+    design: design, newGame: newGame, replay: replay, fresh: fresh, pick: pick, addBox: addBox, isFree: isFree, blocker: blocker,
+    freeScrews: freeScrews, boxFor: boxFor, won: won, stuck: stuck, playtest: playtest, planStep: planStep, clone: clone, xyz: xyz, idx: idx
+  };
+})();
+if (typeof module !== 'undefined') module.exports = SB;
+</script>
+<script>
+/* Screwball renderer: draws the object (core + boards) as cubes on a 2D canvas, with round screw heads.
+   Painter's method: cubes sorted back to front; only uncovered sides that face the camera are drawn.
+   Drag to turn the object all the way around; a quick tap is passed to onTap(x, y). */
+var SBRender = (function () {
+  'use strict';
+  function rgb(hex) { var n = parseInt(hex.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; }
+  function css(c, k) { return 'rgb(' + Math.min(255, Math.round(c[0] * k)) + ',' + Math.min(255, Math.round(c[1] * k)) + ',' + Math.min(255, Math.round(c[2] * k)) + ')'; }
+  var FACES = [
+    { n: [1, 0, 0], c: [[1, 0, 0], [1, 1, 0], [1, 1, 1], [1, 0, 1]], u: [0, 0, 1], v: [0, 1, 0] },
+    { n: [-1, 0, 0], c: [[0, 0, 1], [0, 1, 1], [0, 1, 0], [0, 0, 0]], u: [0, 0, 1], v: [0, 1, 0] },
+    { n: [0, 1, 0], c: [[0, 1, 0], [0, 1, 1], [1, 1, 1], [1, 1, 0]], u: [1, 0, 0], v: [0, 0, 1] },
+    { n: [0, -1, 0], c: [[0, 0, 0], [1, 0, 0], [1, 0, 1], [0, 0, 1]], u: [1, 0, 0], v: [0, 0, 1] },
+    { n: [0, 0, 1], c: [[1, 0, 1], [1, 1, 1], [0, 1, 1], [0, 0, 1]], u: [1, 0, 0], v: [0, 1, 0] },
+    { n: [0, 0, -1], c: [[0, 0, 0], [0, 1, 0], [1, 1, 0], [1, 0, 0]], u: [1, 0, 0], v: [0, 1, 0] }
+  ];
+  var LIGHT = (function () { var v = [-0.45, 0.8, 0.55], m = Math.hypot(v[0], v[1], v[2]); return [v[0] / m, v[1] / m, v[2] / m]; })();
+  var HOME_YAW = -0.55, HOME_PITCH = 0.42;
+
+  function create(canvas, screwColors) {
+    var ctx = canvas.getContext('2d'), st = null, W = 1, H = 1, dpr = 1;
+    var yaw = HOME_YAW, pitch = HOME_PITCH, vyaw = 0, scale = 10, baseScale = 10, zoom = 1, ox = 0, oy = 0, cx0 = 0, cy0 = 0, cz0 = 0;
+    var pal = [], scol = screwColors.map(function (c) { return rgb(c.hex); });
+    var falling = [], wobble = null, flashPlate = null, raf = 0, dragging = false, onTap = null, screwAt = {};
+    var tx, ty, tz, bx, by, bz;
+
+    function resize() {
+      dpr = Math.min(2, window.devicePixelRatio || 1);
+      var r = canvas.getBoundingClientRect();
+      W = Math.max(1, r.width); H = Math.max(1, r.height);
+      canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+      fit(); kick();
+    }
+    function fit() {
+      if (!st) return;
+      var g = st.g, lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9];
+      for (var i = 0; i < st.own.length; i++) {
+        if (st.own[i] === -1) continue;
+        var x = i % g.sx, z = Math.floor(i / g.sx) % g.sz, y = Math.floor(i / (g.sx * g.sz));
+        lo[0] = Math.min(lo[0], x); lo[1] = Math.min(lo[1], y); lo[2] = Math.min(lo[2], z);
+        hi[0] = Math.max(hi[0], x + 1); hi[1] = Math.max(hi[1], y + 1); hi[2] = Math.max(hi[2], z + 1);
+      }
+      cx0 = (lo[0] + hi[0]) / 2; cy0 = (lo[1] + hi[1]) / 2; cz0 = (lo[2] + hi[2]) / 2;
+      // fit by the widest the object can look when turned, and its height at a typical tilt
+      var Rh = 0.5 * Math.hypot(hi[0] - lo[0], hi[2] - lo[2]), Hy = hi[1] - lo[1];
+      baseScale = Math.min(W * 0.94 / (2 * Rh * 0.84), H * 0.94 / (Hy * 0.92 + 2 * Rh * 0.45), 46);
+      scale = baseScale * zoom;
+      ox = W / 2; oy = H / 2 + scale * 0.1;
+    }
+    function T(x, y, z) {
+      var cy = Math.cos(yaw), sy = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch);
+      var a = x * cy + z * sy, toward = x * sy - z * cy;
+      return [a, y * cp - toward * sp, toward * cp + y * sp];
+    }
+    function basis() {
+      tx = T(1, 0, 0); ty = T(0, 1, 0); tz = T(0, 0, 1);
+      bx = [tx[0] * scale, -tx[1] * scale, tx[2]]; by = [ty[0] * scale, -ty[1] * scale, ty[2]]; bz = [tz[0] * scale, -tz[1] * scale, tz[2]];
+    }
+    function proj(x, y, z) {
+      var px = x - cx0, py = y - cy0, pz = z - cz0;
+      return [ox + px * bx[0] + py * by[0] + pz * bz[0], oy + px * bx[1] + py * by[1] + pz * bz[1], px * bx[2] + py * by[2] + pz * bz[2]];
+    }
+    function viewN(n) { return [n[0] * tx[0] + n[1] * ty[0] + n[2] * tz[0], n[0] * tx[1] + n[1] * ty[1] + n[2] * tz[1], n[0] * tx[2] + n[1] * ty[2] + n[2] * tz[2]]; }
+    function light(n) { var v = viewN(n); return 0.66 + 0.42 * Math.max(0, v[0] * LIGHT[0] + v[1] * LIGHT[1] + v[2] * LIGHT[2]); }
+    function filled(x, y, z) {
+      var g = st.g;
+      if (x < 0 || y < 0 || z < 0 || x >= g.sx || y >= g.sy || z >= g.sz) return false;
+      return st.own[(y * g.sz + z) * g.sx + x] !== -1;
+    }
+    function quad(pts, fill, stroke) {
+      ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
+      for (var k = 1; k < pts.length; k++) ctx.lineTo(pts[k][0], pts[k][1]);
+      ctx.closePath(); ctx.fillStyle = fill; ctx.fill();
+      if (stroke) { ctx.strokeStyle = stroke; ctx.stroke(); }
+    }
+    function screwCenter(s, lift) {
+      var g = st.g, i = s.cell, x = i % g.sx, z = Math.floor(i / g.sx) % g.sz, y = Math.floor(i / (g.sx * g.sz)), F = FACES[s.face];
+      return [x + .5 + F.n[0] * (.5 + lift), y + .5 + F.n[1] * (.5 + lift), z + .5 + F.n[2] * (.5 + lift)];
+    }
+    // is anything between this point and the camera?
+    function hidden(c, cam) {
+      var g = st.g;
+      for (var t = 0.3; t < 60; t += 0.25) {
+        var x = Math.floor(c[0] + cam[0] * t), y = Math.floor(c[1] + cam[1] * t), z = Math.floor(c[2] + cam[2] * t);
+        if (x < 0 || y < 0 || z < 0 || x >= g.sx || y >= g.sy || z >= g.sz) { if (y >= g.sy || y < 0 || t > 30) return false; continue; }
+        if (st.own[(y * g.sz + z) * g.sx + x] !== -1) return true;
+      }
+      return false;
+    }
+    function drawScrew(s, now) {
+      var F = FACES[s.face], c = screwCenter(s, 0.07), k = light(F.n), col = scol[s.c];
+      var jig = 0;
+      if (wobble && wobble.id === s.id) { var t = (now - wobble.t) / 350; if (t < 1) jig = Math.sin(t * 30) * 0.08 * (1 - t); }
+      var pts = [], r = 0.42;
+      for (var a = 0; a < 14; a++) {
+        var th = a / 14 * Math.PI * 2, cu = Math.cos(th) * r + jig, sv = Math.sin(th) * r;
+        pts.push(proj(c[0] + F.u[0] * cu + F.v[0] * sv, c[1] + F.u[1] * cu + F.v[1] * sv, c[2] + F.u[2] * cu + F.v[2] * sv));
+      }
+      ctx.lineWidth = 1.6;
+      quad(pts, css(col, k), 'rgba(30,20,10,.85)');
+      // cross slot
+      var q = 0.2;
+      function P(du, dv) { return proj(c[0] + F.u[0] * (du + jig) + F.v[0] * dv, c[1] + F.u[1] * (du + jig) + F.v[1] * dv, c[2] + F.u[2] * (du + jig) + F.v[2] * dv); }
+      var a1 = P(-q, 0), a2 = P(q, 0), b1 = P(0, -q), b2 = P(0, q);
+      ctx.beginPath(); ctx.moveTo(a1[0], a1[1]); ctx.lineTo(a2[0], a2[1]); ctx.moveTo(b1[0], b1[1]); ctx.lineTo(b2[0], b2[1]);
+      ctx.strokeStyle = 'rgba(30,20,10,.7)'; ctx.lineWidth = Math.max(1.5, scale * 0.07); ctx.stroke();
+      var sh = P(-0.14, 0.16);
+      ctx.beginPath(); ctx.arc(sh[0], sh[1], Math.max(1.2, scale * 0.05), 0, Math.PI * 2); ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.fill();
+      ctx.lineWidth = 1;
+    }
+    function draw() {
+      raf = 0;
+      var now = performance.now();
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, W, H);
+      if (!st) return;
+      if (!dragging && Math.abs(vyaw) > 0.0005) { yaw += vyaw; vyaw *= 0.92; }
+      basis();
+      var g = st.g;
+      var vis = FACES.map(function (f) { return viewN(f.n)[2] > 1e-6; });
+      var sk = FACES.map(function (f) { return light(f.n); });
+      // ground shadow
+      var gy = 0, sh = [proj(g.ox - 1.5, gy, g.oz - 1.5), proj(g.ox + g.w + 1.5, gy, g.oz - 1.5), proj(g.ox + g.w + 1.5, gy, g.oz + g.d + 1.5), proj(g.ox - 1.5, gy, g.oz + g.d + 1.5)];
+      quad(sh, 'rgba(0,0,0,.14)');
+      var list = [], i, x, y, z;
+      for (i = 0; i < st.own.length; i++) {
+        if (st.own[i] === -1) continue;
+        x = i % g.sx; z = Math.floor(i / g.sx) % g.sz; y = Math.floor(i / (g.sx * g.sz));
+        list.push([proj(x + .5, y + .5, z + .5)[2], x, y, z, g.col[i], 0, 0, st.own[i], i]);
+      }
+      falling = falling.filter(function (f) { return now - f.t < 700; });
+      falling.forEach(function (f) {
+        var t = (now - f.t) / 1000, dy = -12 * t * t - 2 * t, out = 3 * t;
+        f.cells.forEach(function (c) { list.push([proj(c[0] + .5 + f.n[0] * out, c[1] + .5 + dy, c[2] + .5 + f.n[2] * out)[2], c[0] + f.n[0] * out, c[1] + dy, c[2] + f.n[2] * out, c[3], 1, 0, -2, -1]); });
+      });
+      list.sort(function (a, b) { return a[0] - b[0]; });
+      var flashOn = flashPlate && now - flashPlate.t < 500;
+      ctx.lineJoin = 'round';
+      for (var n = 0; n < list.length; n++) {
+        var e = list[n], col = pal[e[4]], moving = e[5];
+        x = e[1]; y = e[2]; z = e[3];
+        var fl = flashOn && e[7] === flashPlate.id ? 1.35 : 1;
+        for (var f = 0; f < 6; f++) {
+          if (!vis[f]) continue;
+          var F = FACES[f];
+          if (!moving && filled(x + F.n[0], y + F.n[1], z + F.n[2])) continue;
+          var pts = [];
+          for (var q = 0; q < 4; q++) pts.push(proj(x + F.c[q][0], y + F.c[q][1], z + F.c[q][2]));
+          var k = sk[f] * fl;
+          ctx.lineWidth = 1;
+          quad(pts, css(col, k), css(col, k * 0.8));
+        }
+        if (!moving && screwAt[e[8]]) screwAt[e[8]].forEach(function (s) { if (!st.out[s.id] && vis[s.face]) drawScrew(s, now); });
+      }
+      if (falling.length || (wobble && now - wobble.t < 400) || flashOn || Math.abs(vyaw) > 0.0005) kick();
+    }
+    function kick() { if (!raf) raf = requestAnimationFrame(draw); }
+
+    // turning with a finger; two fingers pinch to zoom; a short press without moving is a tap
+    var last = null, start = null, pts = {}, pinch = null;
+    function npts() { return Object.keys(pts).length; }
+    canvas.addEventListener('pointerdown', function (e) {
+      pts[e.pointerId] = [e.clientX, e.clientY];
+      try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+      if (npts() === 2) {
+        var p = Object.keys(pts).map(function (k) { return pts[k]; });
+        pinch = { d: Math.hypot(p[0][0] - p[1][0], p[0][1] - p[1][1]) || 1, z: zoom };
+        start = null; last = null; dragging = false; return;
+      }
+      dragging = true; vyaw = 0; last = [e.clientX, e.clientY]; start = [e.clientX, e.clientY, performance.now()];
+    });
+    canvas.addEventListener('pointermove', function (e) {
+      if (!pts[e.pointerId]) return;
+      pts[e.pointerId] = [e.clientX, e.clientY];
+      if (pinch && npts() >= 2) {
+        var p = Object.keys(pts).map(function (k) { return pts[k]; });
+        zoom = Math.max(0.7, Math.min(2.6, pinch.z * Math.hypot(p[0][0] - p[1][0], p[0][1] - p[1][1]) / pinch.d));
+        scale = baseScale * zoom; kick(); return;
+      }
+      if (!dragging || !last) return;
+      var dx = e.clientX - last[0], dy = e.clientY - last[1];
+      if (start && Math.abs(e.clientX - start[0]) + Math.abs(e.clientY - start[1]) < 8) return;
+      start = null;
+      yaw += dx * 0.012; pitch = Math.max(-0.1, Math.min(1.15, pitch + dy * 0.008));
+      vyaw = dx * 0.012; last = [e.clientX, e.clientY];
+      kick();
+    });
+    function up(e) {
+      delete pts[e.pointerId];
+      if (pinch) { if (!npts()) pinch = null; return; }
+      var wasTap = start && performance.now() - start[2] < 600;
+      dragging = false; last = null;
+      if (wasTap && onTap) { var r = canvas.getBoundingClientRect(); onTap(start[0] - r.left, start[1] - r.top); vyaw = 0; }
+      start = null; kick();
+    }
+    canvas.addEventListener('pointerup', up);
+    canvas.addEventListener('pointercancel', function (e) { delete pts[e.pointerId]; if (!npts()) pinch = null; dragging = false; last = null; start = null; });
+
+    return {
+      setState: function (s) {
+        st = s; pal = s.g.pal.map(rgb); falling = []; wobble = null; flashPlate = null; screwAt = {};
+        s.screws.forEach(function (sc) { (screwAt[sc.cell] = screwAt[sc.cell] || []).push(sc); });
+        fit(); kick();
+      },
+      resize: resize, redraw: kick,
+      reset: function () { yaw = HOME_YAW; pitch = HOME_PITCH; vyaw = 0; zoom = 1; scale = baseScale; kick(); },
+      onTap: function (cb) { onTap = cb; },
+      // the screw nearest a tap point (canvas coords) that faces the camera; null if none close
+      // the visible screw closest to a tap point (canvas coords); null if none close
+      screwNear: function (px, py) {
+        basis();
+        var best = null, bd = 1e9, rad = Math.max(26, scale * 0.95), cam = [tx[2], ty[2], tz[2]];
+        st.screws.forEach(function (s) {
+          if (st.out[s.id] || viewN(FACES[s.face].n)[2] <= 0.05) return;
+          var c = screwCenter(s, 0.07), p = proj(c[0], c[1], c[2]), d = Math.hypot(p[0] - px, p[1] - py);
+          if (d > rad || d >= bd || hidden(c, cam)) return;
+          bd = d; best = s;
+        });
+        return best;
+      },
+      screenOf: function (s) { basis(); var c = screwCenter(s, 0.07), p = proj(c[0], c[1], c[2]); return [p[0], p[1]]; },
+      fall: function (plate) {
+        var g = st.g, cells = plate.cells.map(function (i) { return [i % g.sx, Math.floor(i / (g.sx * g.sz)), Math.floor(i / g.sx) % g.sz, g.col[i]]; });
+        falling.push({ cells: cells, n: FACES[plate.face].n, t: performance.now() }); kick();
+      },
+      wobble: function (s, plateId) { wobble = { id: s.id, t: performance.now() }; if (plateId) flashPlate = { id: plateId, t: performance.now() }; kick(); }
+    };
+  }
+  return { create: create };
+})();
+</script>
+<script>
+/* Screwball sounds: synthesized with Web Audio (no audio files). */
+var SBSound = (function () {
+  'use strict';
+  var ac = null, master = null, on = false;
+  function ctx() {
+    if (!on) return null;
+    if (!ac) {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      try { ac = new AC(); } catch (e) { return null; }
+      master = ac.createGain(); master.gain.value = 0.5; master.connect(ac.destination);
+    }
+    if (ac.state === 'suspended') { try { ac.resume(); } catch (e) { /* ignore */ } }
+    return ac;
+  }
+  function tone(type, f0, f1, dur, gain, delay) {
+    var a = ctx(); if (!a) return;
+    var t = a.currentTime + (delay || 0), o = a.createOscillator(), g = a.createGain();
+    o.type = type; o.frequency.setValueAtTime(f0, t);
+    if (f1) o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(gain, t + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + 0.02);
+  }
+  function noise(freq, q, gain, len, delay) {
+    var a = ctx(); if (!a) return;
+    var t = a.currentTime + (delay || 0), n = Math.floor(a.sampleRate * len);
+    var buf = a.createBuffer(1, n, a.sampleRate), d = buf.getChannelData(0);
+    for (var i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 3);
+    var s = a.createBufferSource(); s.buffer = buf;
+    var bp = a.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = freq; bp.Q.value = q;
+    var g = a.createGain(); g.gain.value = gain;
+    s.connect(bp); bp.connect(g); g.connect(master); s.start(t);
+  }
+  return {
+    setEnabled: function (v) { on = !!v; if (on) ctx(); },
+    unlock: function () { if (on) ctx(); },
+    unscrew: function () { if (!on) return; for (var i = 0; i < 4; i++) noise(3000 + i * 400, 6, 0.18, 0.025, i * 0.035); tone('sine', 900, 1500, 0.12, 0.08, 0.12); },
+    clink: function () { if (on) { tone('sine', 2200, 0, 0.12, 0.15); tone('sine', 3300, 0, 0.1, 0.08, 0.01); } },
+    tray: function () { if (on) { noise(1200, 3, 0.35, 0.06); tone('triangle', 500, 0, 0.1, 0.1); } },
+    thud: function () { if (on) { noise(260, 1.5, 0.9, 0.18); tone('sine', 120, 60, 0.2, 0.25); } },
+    box: function () { if (!on) return; [784, 988, 1175].forEach(function (f, i) { tone('triangle', f, 0, 0.16, 0.22, i * 0.07); }); },
+    nope: function () { if (on) tone('triangle', 200, 130, 0.15, 0.25); },
+    stuck: function () { if (!on) return; [330, 262, 196].forEach(function (f, i) { tone('triangle', f, 0, 0.3, 0.3, i * 0.18); }); },
+    win: function () { if (!on) return; [523, 659, 784, 1047, 784, 1047, 1319].forEach(function (f, i) { tone('triangle', f, 0, i === 6 ? 0.7 : 0.2, 0.28, i * 0.1); }); },
+    ding: function () { if (on) { tone('sine', 1319, 0, 0.4, 0.25); tone('sine', 1568, 0, 0.5, 0.2, 0.12); } },
+    sign: function () { if (on) noise(900, 3, 0.4, 0.07); }
+  };
+})();
+</script>
+<script src="../../shared/ads.js"></script>
+<script>
+(function () {
+  'use strict';
+  var S = SBSound, COLORS = SB.SCREWS;
+
+  // ================= storage =================
+  var store = Goobs.store('screwball');
+  var settings = { sound: false, adEvery: 3 };
+  (function () {
+    var s = store.get('settings', {}) || {};
+    for (var k in settings) if (typeof s[k] === typeof settings[k]) settings[k] = s[k];
+    settings.adEvery = Math.min(10, Math.max(1, settings.adEvery | 0));
+  })();
+  function saveSettings() { store.set('settings', settings); }
+  var meta = store.get('meta', null) || {};
+  var MD = { mode: 'level', level: 1, levelTries: {}, daily: {}, finished: 0, lastAdAt: 0, seenHelp: false, turned: false, replay: 0 };
+  for (var mk in MD) if (meta[mk] === undefined) meta[mk] = MD[mk];
+  function saveMeta() { store.set('meta', meta); }
+  var stats = store.get('stats', null) || {};
+  var SD = { screws: 0, boards: 0, boxes: 0, extra: 0, jams: 0, dStreak: 0, dLast: 0, dBest: 0 };
+  for (var sk in SD) if (typeof stats[sk] !== 'number') stats[sk] = SD[sk];
+  function saveStats() { store.set('stats', stats); }
+
+  // ================= helpers =================
+  function $(id) { return document.getElementById(id); }
+  function dayNum(d) { d = d || new Date(); return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); }
+  function prevDay(day) { var d = new Date(Math.floor(day / 10000), Math.floor(day / 100) % 100 - 1, day % 100 - 1); return dayNum(d); }
+  function isOpen(id) { return $(id).classList.contains('show'); }
+  function icon(id) { return '<svg viewBox="0 0 100 100"><use href="#' + id + '"/></svg>'; }
+  function paused() { return isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || isOpen('ovLevels') || GoobsAds.isOpen(); }
+  function head(c, cls) { return '<div class="head' + (cls ? ' ' + cls : '') + '" style="background:' + COLORS[c].hex + '"></div>'; }
+
+  // ================= game state =================
+  // game: { mode: level|replay|daily, level, day, scheme, moves: [screw ids, -1 = extra box], done, tries }
+  var game = null, st = null, R3 = null;
+  function keyFor(mode) { return 'game.' + mode; }
+  function specFor(g) { return g.mode === 'daily' ? SB.dailySpec(g.day) : SB.levelSpec(g.level); }
+  function saveGame() { if (game && !game.done) store.set(keyFor(game.mode), game); }
+  function clearSaved(mode) { store.del(keyFor(mode)); }
+  function startLevel(L, restart, tries) {
+    var mode = L < meta.level ? 'replay' : 'level', saved = !restart && store.get(keyFor(mode), null);
+    if (saved && saved.level === L && saved.scheme === SB.LEVEL_SCHEME && !saved.done) game = saved;
+    else game = { mode: mode, level: L, scheme: SB.LEVEL_SCHEME, moves: [], done: false, tries: tries || 1 };
+    if (mode === 'replay') meta.replay = L;
+    begin();
+  }
+  function startDaily(restart, tries) {
+    var day = dayNum(), saved = !restart && store.get(keyFor('daily'), null);
+    if (saved && saved.day === day && !saved.done) game = saved;
+    else game = { mode: 'daily', day: day, moves: [], done: false, tries: tries || 1 };
+    begin();
+  }
+  function begin() {
+    st = SB.replay(specFor(game), game.moves);
+    meta.mode = game.mode === 'replay' ? 'level' : game.mode;
+    saveMeta();
+    jamShown = false; arriving = {};
+    R3.setState(st); R3.reset();
+    renderAll();
+    saveGame();
+    if (!game.done && SB.stuck(st)) setTimeout(jam, 300);
+  }
+
+  // ================= rendering =================
+  var arriving = {};
+  function renderBoxes(pops) {
+    var h = '';
+    st.boxes.forEach(function (b, k) {
+      if (!b) { h += '<div class="box empty"></div>'; return; }
+      h += '<div class="box' + (arriving[k] ? ' arrive' : '') + '" data-box="' + k + '" style="background:' + COLORS[b.c].hex + '" aria-label="' + COLORS[b.c].name + ' box, ' + b.n + ' of 3">';
+      for (var i = 0; i < SB.HOLES; i++) h += '<div class="hole">' + (i < b.n ? head(b.c, pops && pops[k] && i >= b.n - pops[k] ? 'pop' : '') : '') + '</div>';
+      h += '</div>';
+    });
+    if (st.boxes.length < SB.MAX_BOXES && !game.done) h += '<button class="addbox" id="btnAddBox">+ Box' + (Goobs.adsOn() ? '<small>AD</small>' : '') + '</button>';
+    $('boxes').innerHTML = h;
+    $('boxes').classList.toggle('many', st.boxes.length >= 4);
+    arriving = {};
+  }
+  function renderTray() {
+    var h = '';
+    for (var i = 0; i < SB.TRAY; i++) h += '<div class="spot">' + (i < st.tray.length ? head(st.tray[i]) : '') + '</div>';
+    $('tray').innerHTML = h;
+    $('tray').classList.toggle('full', st.tray.length >= SB.TRAY);
+  }
+  function renderInfo() {
+    var name = st.name, left;
+    if (game.mode === 'daily') left = '<div class="lbl">Daily · ' + new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + '</div><div class="ttl">' + name + '</div>';
+    else left = '<div class="lbl">' + (game.mode === 'replay' ? 'Replay · ' : '') + 'Level ' + game.level + '</div><div class="ttl">' + name + '</div>';
+    $('info').innerHTML = '<div>' + left + '</div><div class="right"><div class="mid">' + st.total + (st.total === 1 ? ' screw left' : ' screws left') + '</div>' +
+      '<div class="bar"><i style="width:' + Math.round(100 * (1 - st.total / st.startTotal)) + '%"></i></div></div>';
+  }
+  function renderModes() {
+    var cur = game.mode === 'replay' ? 'level' : game.mode;
+    Array.prototype.forEach.call($('modes').children, function (b) { b.classList.toggle('on', b.dataset.mode === cur); });
+    $('modeLevel').textContent = 'Level ' + (game.mode === 'replay' ? game.level : meta.level);
+    document.querySelector('#modes .dot').classList.toggle('show', !meta.daily[dayNum()]);
+    $('newLabel').textContent = game.done && game.mode !== 'daily' ? 'Next level' : 'Restart';
+  }
+  function renderAll() { renderBoxes(); renderTray(); renderInfo(); renderModes(); }
+
+  // ================= playing =================
+  function fly(fromX, fromY, toEl, c, done) {
+    var f = document.createElement('div');
+    f.className = 'head'; f.style.background = COLORS[c].hex;
+    f.style.transform = 'translate(' + (fromX - 12) + 'px,' + (fromY - 12) + 'px) scale(1.2)';
+    $('flyer').appendChild(f);
+    var r = toEl ? toEl.getBoundingClientRect() : null;
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        if (r) f.style.transform = 'translate(' + (r.left + r.width / 2 - 12) + 'px,' + (r.top + r.height / 2 - 12) + 'px) scale(.9)';
+      });
+    });
+    setTimeout(function () { f.remove(); done(); }, 360);
+  }
+  function cheerBox(k) {
+    var el = document.querySelector('.box[data-box="' + k + '"]');
+    if (!el) return;
+    var r = el.getBoundingClientRect(), c = el.cloneNode(true);
+    c.classList.add('flydone'); c.classList.remove('arrive');
+    c.style.left = r.left + 'px'; c.style.top = r.top + 'px'; c.style.width = r.width + 'px'; c.style.maxWidth = 'none';
+    var holes = c.querySelectorAll('.hole'), col = el.style.background;
+    Array.prototype.forEach.call(holes, function (h) { if (!h.innerHTML) h.innerHTML = '<div class="head" style="background:' + col + '"></div>'; });
+    document.body.appendChild(c);
+    setTimeout(function () { c.remove(); }, 650);
+  }
+  function tap(x, y) {
+    if (!game || game.done || paused()) return;
+    S.unlock(); hideHint();
+    var s = R3.screenOf ? R3.screwNear(x, y) : null;
+    if (!s) return;
+    if (!SB.isFree(st, s)) { R3.wobble(s, SB.blocker(st, s)); S.nope(); return; }
+    var k = SB.boxFor(st, s.c), destEl;
+    if (k >= 0) destEl = document.querySelectorAll('.box[data-box="' + k + '"] .hole')[st.boxes[k].n];
+    else if (st.tray.length < SB.TRAY) destEl = $('tray').children[st.tray.length];
+    else { S.nope(); var t = $('tray'); t.classList.remove('warn'); void t.offsetWidth; t.classList.add('warn'); return; }
+    var p = R3.screenOf(s), cr = $('cv').getBoundingClientRect();
+    var r = SB.pick(st, s);
+    if (!r) return;
+    game.moves.push(s.id); stats.screws++;
+    S.unscrew();
+    r.fell.forEach(function (pid) { R3.fall(st.plates[pid - 1]); stats.boards++; setTimeout(S.thud, 120); });
+    R3.redraw();
+    renderInfo();
+    saveGame();
+    fly(p[0] + cr.left, p[1] + cr.top, destEl, s.c, function () {
+      var pops = {}, doneAny = false;
+      if (r.dest === 'box') pops[r.index] = 1;
+      r.events.forEach(function (e) {
+        if (e.t === 'done') { cheerBox(e.box); doneAny = true; stats.boxes++; }
+        if (e.t === 'new') arriving[e.box] = 1;
+        if (e.t === 'pull') pops[e.box] = (pops[e.box] || 0) + 1;
+      });
+      if (r.dest === 'box') S.clink(); else S.tray();
+      if (doneAny) setTimeout(S.box, 60);
+      renderBoxes(pops); renderTray();
+      saveStats();
+      afterMove();
+    });
+  }
+  var jamShown = false;
+  function afterMove() {
+    if (game.done) return;
+    if (SB.won(st)) { win(); return; }
+    if (SB.stuck(st) && !jamShown) { jamShown = true; setTimeout(jam, 350); }
+  }
+  function addBox() {
+    if (!game || game.done || st.boxes.length >= SB.MAX_BOXES) return;
+    var go = function () {
+      var ev = SB.addBox(st);
+      if (!ev) return;
+      game.moves.push(-1); stats.extra++;
+      arriving[st.boxes.length - 1] = 1;
+      var pops = {};
+      ev.forEach(function (e) { if (e.t === 'pull') pops[e.box] = (pops[e.box] || 0) + 1; if (e.t === 'done') stats.boxes++; });
+      jamShown = false;
+      renderBoxes(pops); renderTray(); saveGame(); saveStats();
+      afterMove();
+    };
+    if (Goobs.adsOn()) showAd(go); else go();
+  }
+
+  // ================= end of a level =================
+  function showCard(iconId, title, html, buttons) {
+    $('cardIcon').innerHTML = iconId ? icon(iconId) : '';
+    $('endTitle').textContent = title;
+    $('endText').innerHTML = html;
+    var box = $('endActions');
+    box.innerHTML = '';
+    buttons.forEach(function (b) {
+      var el = document.createElement('button');
+      el.className = 'btn' + (b.red ? ' red' : '');
+      el.textContent = b.label;
+      el.addEventListener('click', function () { $('ovEnd').classList.remove('show'); b.go(); });
+      box.appendChild(el);
+    });
+    $('ovEnd').classList.add('show');
+  }
+  function finishRound() {
+    game.done = true;
+    clearSaved(game.mode);
+    meta.finished++;
+    saveMeta(); saveStats();
+  }
+  function jam() {
+    if (!game || game.done || !SB.stuck(st) || isOpen('ovEnd')) { jamShown = false; return; }
+    S.stuck(); stats.jams++; saveStats();
+    var b = [];
+    if (st.boxes.length < SB.MAX_BOXES) b.push({ label: Goobs.adsOn() ? '+ Box (quick ad)' : '+ Box', red: true, go: addBox });
+    b.push({ label: 'Try again', red: !b.length, go: function () {
+      var g = game; finishRound();
+      between(function () { if (g.mode === 'daily') startDaily(true, g.tries + 1); else startLevel(g.level, true, g.tries + 1); });
+    } });
+    showCard('sb-logo', 'The tray’s full!', 'None of the free screws fit a box.' + (st.boxes.length < SB.MAX_BOXES ? ' Another box might do it.' : ''), b);
+  }
+  function win() {
+    var g = game;
+    g.done = true;
+    S.win();
+    var c = $('cheer'); c.textContent = 'Unscrewed!'; c.classList.remove('show'); void c.offsetWidth; c.classList.add('show');
+    var extra = '';
+    if (g.mode === 'level' || g.mode === 'replay') {
+      if (!meta.levelTries[g.level] || g.tries < meta.levelTries[g.level]) meta.levelTries[g.level] = g.tries;
+      if (g.mode === 'level' && meta.level === g.level) meta.level = g.level + 1;
+    } else if (!meta.daily[g.day]) {
+      meta.daily[g.day] = g.tries;
+      stats.dStreak = stats.dLast === prevDay(g.day) ? stats.dStreak + 1 : 1;
+      stats.dLast = g.day;
+      if (stats.dStreak > stats.dBest) stats.dBest = stats.dStreak;
+      extra = '<br>Today’s daily is done' + (stats.dStreak > 1 ? ' · ' + stats.dStreak + ' days in a row' : '') + '.';
+    }
+    finishRound();
+    renderModes(); renderBoxes();
+    var stNow = st;
+    setTimeout(function () {
+      if (game !== g) return; // moved on already
+      var btns = [];
+      if (g.mode === 'level') btns.push({ label: 'Next level: ' + meta.level, red: true, go: function () { between(function () { startLevel(meta.level, true); }); } });
+      else btns.push({ label: g.mode === 'daily' ? 'Play levels' : 'Back to level ' + meta.level, red: true, go: function () { between(function () { startLevel(meta.level); }); } });
+      btns.push({ label: 'Play it again', go: function () { between(function () { if (g.mode === 'daily') startDaily(true); else startLevel(g.level, true); }); } });
+      var boards = stNow.plates.length;
+      showCard('sb-logo', g.mode === 'daily' ? 'Daily done!' : 'Level ' + g.level + ' done!', 'You took out <b>' + stNow.startTotal + ' screws</b> and ' + boards + ' boards came off' +
+        (g.tries > 1 ? ' (try ' + g.tries + ')' : '') + '.' + extra, btns);
+    }, 1300);
+  }
+
+  // ================= ads =================
+  function showAd(done) { GoobsAds.show({ onShow: function () { S.ding(); }, onStep: function () { S.sign(); } }, done); }
+  function between(next) {
+    if (Goobs.adsOn() && meta.finished > 0 && meta.finished % settings.adEvery === 0 && meta.lastAdAt !== meta.finished) {
+      meta.lastAdAt = meta.finished; saveMeta();
+      next();
+      showAd(function () {});
+      return;
+    }
+    next();
+  }
+
+  // ================= sheets =================
+  function renderStats() {
+    $('statsBody').innerHTML =
+      '<div class="tiles2"><div class="tile2"><b>' + (meta.level - 1) + '</b><span>Levels done</span></div>' +
+      '<div class="tile2"><b>' + Object.keys(meta.daily).length + '</b><span>Dailies</span></div>' +
+      '<div class="tile2"><b>' + (stats.dLast === dayNum() || stats.dLast === prevDay(dayNum()) ? stats.dStreak : 0) + '</b><span>Daily streak</span></div></div>' +
+      '<div class="tiles2"><div class="tile2"><b>' + stats.screws + '</b><span>Screws out</span></div>' +
+      '<div class="tile2"><b>' + stats.boards + '</b><span>Boards off</span></div>' +
+      '<div class="tile2"><b>' + stats.boxes + '</b><span>Boxes filled</span></div></div>' +
+      '<p class="version">' + stats.jams + ' full trays · ' + stats.extra + ' extra boxes · best daily streak ' + stats.dBest + '</p>';
+  }
+  var levelsPage = 0;
+  function renderLevels() {
+    var cur = meta.level, maxShown = cur + 4, pages = Math.ceil(maxShown / 100);
+    if (!levelsPage || levelsPage > pages) levelsPage = Math.ceil(cur / 100);
+    var h = '<p class="lvnext">Next up: <b>Level ' + cur + '</b> · ' + SB.OBJECTS[SB.levelSpec(cur).object].name + '</p>';
+    if (pages > 1) {
+      h += '<div class="pages">';
+      for (var p = 1; p <= pages; p++) h += '<button data-page="' + p + '" class="' + (p === levelsPage ? 'on' : '') + '">' + ((p - 1) * 100 + 1) + '–' + p * 100 + '</button>';
+      h += '</div>';
+    }
+    h += '<div class="lvgrid">';
+    for (var L = (levelsPage - 1) * 100 + 1; L <= Math.min(levelsPage * 100, maxShown); L++) {
+      var cls = L < cur ? 'done' : L === cur ? 'cur' : 'lock';
+      h += '<button class="lv ' + cls + '" data-level="' + L + '"' + (L > cur ? ' disabled' : '') + '>' + L + '<small>' + SB.OBJECTS[SB.levelSpec(L).object].name + '</small></button>';
+    }
+    $('levelsBody').innerHTML = h + '</div>';
+  }
+
+  // ================= wiring =================
+  function hideHint() { if (!meta.turned) { meta.turned = true; saveMeta(); } $('turnHint').classList.add('hide'); }
+  function syncSound() {
+    $('btnSound').innerHTML = '<svg viewBox="0 0 24 24"><use href="#i-sound-' + (settings.sound ? 'on' : 'off') + '"/></svg>';
+    $('btnSound').classList.toggle('on', settings.sound);
+    $('setSound').checked = settings.sound;
+    S.setEnabled(settings.sound);
+  }
+  function syncAds() {
+    $('setAds').checked = Goobs.adsOn();
+    $('adEvery').textContent = settings.adEvery;
+    $('rowAdEvery').classList.toggle('off', !Goobs.adsOn());
+    if (game) renderBoxes();
+  }
+  function sheet(btn, ov, close, onOpen) {
+    if (btn) $(btn).addEventListener('click', function () { if (onOpen) onOpen(); $(ov).classList.add('show'); });
+    $(close).addEventListener('click', function () { $(ov).classList.remove('show'); });
+    $(ov).addEventListener('click', function (e) { if (e.target === this) this.classList.remove('show'); });
+  }
+  function init() {
+    Goobs.themePicker($('themes'));
+    R3 = SBRender.create($('cv'), COLORS);
+    R3.onTap(tap);
+    $('cv').addEventListener('pointerdown', function () { S.unlock(); });
+    $('cv').addEventListener('pointermove', function (e) { if (e.buttons) hideHint(); });
+    if (meta.turned) $('turnHint').classList.add('hide');
+    $('boxes').addEventListener('click', function (e) { if (e.target.closest('#btnAddBox')) addBox(); });
+    ['pointerdown', 'touchend', 'click'].forEach(function (ev) { document.addEventListener(ev, function () { S.unlock(); }, { passive: true }); });
+    $('btnHome').addEventListener('click', function () { saveGame(); Goobs.home(); });
+    $('btnView').addEventListener('click', function () { R3.reset(); });
+    $('btnNew').addEventListener('click', function () {
+      if (game.done && game.mode !== 'daily') { between(function () { startLevel(meta.level); }); return; }
+      var go = function () { var t = game.tries + 1; if (game.mode === 'daily') startDaily(true, t); else startLevel(game.level, true, t); };
+      if (!game.moves.length || game.done) { go(); return; }
+      showCard('sb-logo', 'Start over?', 'All the screws and boards go back where they started.', [
+        { label: 'Start over', red: true, go: go }, { label: 'Keep playing', go: function () {} }]);
+    });
+    $('modes').addEventListener('click', function (e) {
+      var bt = e.target.closest('button');
+      if (!bt) return;
+      saveGame();
+      if (bt.dataset.mode === 'level') { levelsPage = 0; renderLevels(); $('ovLevels').classList.add('show'); }
+      else if (meta.daily[dayNum()] && !((store.get(keyFor('daily'), null) || {}).moves || []).length) {
+        startDaily();
+        showCard('sb-logo', 'Today’s daily is done', 'You can play it again for fun. A new one arrives at midnight.', [{ label: 'OK', red: true, go: function () {} }]);
+      } else startDaily();
+    });
+    $('levelsBody').addEventListener('click', function (e) {
+      var bt = e.target.closest('button');
+      if (!bt) return;
+      if (bt.dataset.page) { levelsPage = +bt.dataset.page; renderLevels(); return; }
+      if (bt.dataset.level) { $('ovLevels').classList.remove('show'); saveGame(); startLevel(+bt.dataset.level); }
+    });
+    sheet('btnSettings', 'ovSettings', 'btnCloseSettings');
+    sheet('btnStats', 'ovStats', 'btnCloseStats', renderStats);
+    sheet('btnHelp', 'ovHelp', 'btnCloseHelp');
+    sheet(null, 'ovLevels', 'btnCloseLevels');
+    $('btnCloseHelp').addEventListener('click', function () { if (!meta.seenHelp) { meta.seenHelp = true; saveMeta(); } });
+    $('btnSound').addEventListener('click', function () { settings.sound = !settings.sound; saveSettings(); syncSound(); S.ding(); });
+    $('setSound').addEventListener('change', function () { settings.sound = this.checked; saveSettings(); syncSound(); S.ding(); });
+    $('setAds').addEventListener('change', function () { Goobs.setAds(this.checked); syncAds(); });
+    $('adLess').addEventListener('click', function () { settings.adEvery = Math.max(1, settings.adEvery - 1); saveSettings(); syncAds(); });
+    $('adMore').addEventListener('click', function () { settings.adEvery = Math.min(10, settings.adEvery + 1); saveSettings(); syncAds(); });
+    window.addEventListener('resize', function () { R3.resize(); });
+    document.addEventListener('visibilitychange', function () { if (document.hidden) saveGame(); else if (game) { renderModes(); R3.resize(); } });
+    window.addEventListener('pagehide', saveGame);
+    syncSound(); syncAds();
+
+    var replay = store.get(keyFor('replay'), null);
+    if (meta.mode === 'daily') startDaily();
+    else startLevel(meta.replay && replay && replay.level === meta.replay && !replay.done ? meta.replay : meta.level);
+    R3.resize();
+    if (!meta.seenHelp) $('ovHelp').classList.add('show');
+    Goobs.markPlayed('screwball');
+    Goobs.initUpdates({
+      beforeReload: saveGame,
+      onVersions: function (v) { $('version').textContent = 'Screwball ' + (v.screwball || '?') + ' · Goobs-Games ' + (v.shell || '?'); }
+    });
+  }
+
+  // hook for automated tests
+  window.__sb = { get game() { return game; }, get st() { return st; }, tap: tap, addBox: addBox, meta: function () { return meta; }, stats: function () { return stats; },
+    startLevel: startLevel, startDaily: startDaily, screen: function (s) { return R3.screenOf(s); } };
+
+  init();
+})();
+</script>
+</body>
+</html>

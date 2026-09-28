@@ -178,6 +178,26 @@
         return bits.join(' · ');
       }
     }
+
+    ,
+    {
+      id: 'screwball', name: 'Screwball', blurb: 'Unscrew it, sort the screws', path: 'games/screwball/',
+      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" fill="#cfe9f8"/><path d="M-5 80 L105 80 L105 105 L-5 105Z" fill="#8cc063"/>' +
+        '<g stroke="#3a2616" stroke-width="2" stroke-linejoin="round"><rect x="14" y="26" width="72" height="50" rx="3" fill="#b3322a"/>' +
+        '<rect x="20" y="34" width="60" height="14" rx="2" fill="#d8a868"/><rect x="20" y="54" width="60" height="14" rx="2" fill="#e6c48f" transform="rotate(-6 50 61)"/>' +
+        '<rect x="43" y="28" width="14" height="46" rx="2" fill="#aeb6bd"/></g>' + (function () {
+          var h = '', sc = [[27, 41, '#e53935'], [73, 41, '#1e88e5'], [27, 61, '#fdd835'], [73, 59, '#43a047'], [50, 34, '#8e24aa'], [50, 68, '#fb8c00']];
+          sc.forEach(function (s) { h += '<circle cx="' + s[0] + '" cy="' + s[1] + '" r="5.5" fill="' + s[2] + '" stroke="#3a2616" stroke-width="1.8"/><path d="M' + (s[0] - 3) + ' ' + s[1] + ' h6 M' + s[0] + ' ' + (s[1] - 3) + ' v6" stroke="#3a2616" stroke-width="1.4"/>'; });
+          return h;
+        })() + '<g stroke="#3a2616" stroke-width="1.8"><circle cx="82" cy="14" r="5.5" fill="#f06292"/></g></svg>',
+      status: function () {
+        var m = readLS('screwball.meta');
+        if (!m) return 'New! Tap the screws out';
+        var bits = ['Level ' + (m.level || 1)];
+        if (m.daily && m.daily[todayNum()] != null) bits.push('daily done');
+        return bits.join(' · ');
+      }
+    }
   ];
   var byId = {};
   GAMES.forEach(function (g) { byId[g.id] = g; });
@@ -233,7 +253,7 @@
     GAMES.forEach(function (g) { all.appendChild(tile(g)); });
     var soon = document.createElement('div');
     soon.className = 'gtile soon';
-    soon.innerHTML = '<b>More games on the way</b><small>Screws are next.</small>';
+    soon.innerHTML = '<b>More games on the way</b><small>What should be next?</small>';
     all.appendChild(soon);
   }
 
