@@ -271,3 +271,11 @@ body::before { content: ""; position: fixed; left: 0; right: 0; top: 0; height: 
 .neon .adv { right: 10px; bottom: 8px; color: #ffd6f0; }
 .neon .blink { animation: nblink 1.4s steps(2, jump-none) infinite; }
 @keyframes nblink { 0%, 60% { opacity: 1; } 61%, 100% { opacity: .25; } }
+
+/* ---------- phones on their side: every game but the landscape ones asks to be turned back ---------- */
+@media (orientation: landscape) and (max-height: 500px) {
+  html.gg-game:not(.gg-landscape) body::after {
+    content: "Turn your phone upright to play"; position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center;
+    background: var(--bg); color: var(--ink); font: 700 20px var(--font); text-align: center; padding: 20px;
+  }
+}

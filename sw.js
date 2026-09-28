@@ -2,7 +2,7 @@
    Each part has its own version and its own cache. To publish an update, bump ONLY the
    version of the part that changed; unchanged parts are not downloaded again. */
 const VERSIONS = {
-  shell: '2.7.0',     // menu, manifest, icons, /shared (ads, themes, storage)
+  shell: '2.8.0',     // menu, manifest, icons, /shared (ads, themes, storage)
   zoodoku: '1.8.1',
   woodpile: '1.1.2',
   patchwork: '2.1.1',
@@ -15,7 +15,9 @@ const VERSIONS = {
   match3: '1.0.1',
   snake: '1.0.0',
   solitaire: '1.0.0',
-  three: '0.186.1'   // shared 3D library; bump only when three.js itself changes
+  meanbirds: '1.0.0',
+  three: '0.186.1',  // shared 3D library; bump only when three.js itself changes
+  planck: '1.5.0'    // shared 2D physics library (planck.js); bump only when planck itself changes
 };
 const GROUPS = {
   shell: [
@@ -35,7 +37,9 @@ const GROUPS = {
   match3: ['games/match3/', 'games/match3/index.html'],
   snake: ['games/snake/', 'games/snake/index.html'],
   solitaire: ['games/solitaire/', 'games/solitaire/index.html'],
-  three: ['shared/three.module.min.js']
+  meanbirds: ['games/meanbirds/', 'games/meanbirds/index.html'],
+  three: ['shared/three.module.min.js'],
+  planck: ['shared/planck.min.js']
 };
 const PREFIX = 'goobs-';
 const cacheName = (g) => PREFIX + g + '-' + VERSIONS[g];

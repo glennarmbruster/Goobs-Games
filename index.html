@@ -316,6 +316,24 @@
         if (s) Object.keys(s).forEach(function (k) { won += s[k].won || 0; });
         return (names[m.g] || 'Klondike') + (won ? ' \u00b7 ' + won + (won === 1 ? ' win' : ' wins') : '');
       }
+    },
+    {
+      id: 'meanbirds', name: 'Mean Birds', blurb: 'Fling birds, topple forts', path: 'games/meanbirds/',
+      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="mbsky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#79c9ff"/><stop offset="1" stop-color="#e2f6ff"/></linearGradient></defs>' +
+        '<rect width="100" height="100" fill="url(#mbsky)"/><rect y="80" width="100" height="20" fill="#9b6b3a"/><rect y="78" width="100" height="5" fill="#6cc24a"/>' +
+        '<rect x="60" y="52" width="5" height="26" rx="1.5" fill="#d39a5a" stroke="#8a5a2b"/><rect x="85" y="52" width="5" height="26" rx="1.5" fill="#d39a5a" stroke="#8a5a2b"/><rect x="57" y="47" width="36" height="5" rx="1.5" fill="#bfe6ff" stroke="#6fb4e6"/>' +
+        '<ellipse cx="75" cy="71" rx="8" ry="7.5" fill="#ff9a3c"/><rect x="68" y="65.5" width="14" height="4.5" rx="2" fill="#3b2a5c"/><circle cx="72" cy="67.7" r="1.6" fill="#fff"/><circle cx="78" cy="67.7" r="1.6" fill="#fff"/>' +
+        '<path d="M73 71.5a3 3 0 0 0 4 0" stroke="#7a3a12" stroke-width="1.2" fill="none"/>' +
+        '<ellipse cx="75" cy="40" rx="6" ry="5.6" fill="#ff9a3c"/><rect x="69.5" y="35.5" width="11" height="3.6" rx="1.8" fill="#3b2a5c"/>' +
+        '<path d="M14 78V58M14 60l-5-10M14 60l5-10" stroke="#8a5a2b" stroke-width="3.2" stroke-linecap="round" fill="none"/>' +
+        '<path d="M22 35 q10 -12 26 -4" stroke="#fff" stroke-width="1.6" stroke-dasharray="2 3" fill="none"/>' +
+        '<g transform="translate(46 32)"><ellipse rx="9" ry="8.3" fill="#2b3552"/><path d="M-8 2 c4 3 11 3 15 0l-1 3c-5 2-10 2-14-1z" fill="#e53a3a"/><path d="M6.5 -3l7 2-7 2z" fill="#b8c0cc"/><circle cx="3.5" cy="-3" r="2.3" fill="#fff"/><circle cx="4.3" cy="-3" r="1.1" fill="#10141f"/></g></svg>',
+      status: function () {
+        var m = readLS('meanbirds.meta'), sc = readLS('meanbirds.scores');
+        if (!m) return 'Fling birds, topple forts';
+        var stars = 0; if (sc) Object.keys(sc).forEach(function (k) { stars += sc[k].stars || 0; });
+        return 'Level ' + Math.min(20, (m.cur || 0) + 1) + (stars ? ' \u00b7 ' + stars + ' \u2605' : '');
+      }
     }
   ];
   var byId = {};
