@@ -455,6 +455,25 @@
         var done = d && d.day === today && d.done, streak = s.daily.lastWonDay >= today - 1 ? s.daily.streak : 0;
         return (done ? (d.won ? 'Solved today' : 'Done for today') : 'Today\u2019s word is waiting') + (streak ? ' \u00b7 streak ' + streak : '');
       }
+    },
+    {
+      id: 'mines', name: 'Mine Meadow', blurb: 'Dig safely, flag the mines', path: 'games/mines/',
+      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" fill="#cfe9b8"/>' + (function () {
+          var h = '', open = { '1,1': 1, '2,1': 2, '1,2': 1, '2,2': 0, '3,2': 1, '2,3': 1, '1,3': 2, '3,3': 3, '0,2': 1 }, cols = ['', '#2459c4', '#15905c', '#d6283a'];
+          for (var y = 0; y < 5; y++) for (var x = 0; x < 5; x++) {
+            var k = x + ',' + y, px = x * 20, py = y * 20;
+            if (k in open) { h += '<rect x="' + px + '" y="' + py + '" width="20" height="20" fill="' + ((x + y) % 2 ? '#f1e2c4' : '#ecdbb8') + '"/>'; if (open[k]) h += '<text x="' + (px + 10) + '" y="' + (py + 15.5) + '" font-size="14" font-weight="900" text-anchor="middle" fill="' + cols[open[k]] + '" font-family="system-ui, sans-serif">' + open[k] + '</text>'; }
+            else h += '<rect x="' + px + '" y="' + py + '" width="20" height="20" fill="' + ((x + y) % 2 ? '#7ccf5a' : '#72c451') + '"/>';
+          }
+          return h;
+        })() + '<path d="M67 64 v14 M67 64 l10 4 -10 4" stroke="#6b3f16" stroke-width="2" fill="#e8354a" stroke-linejoin="round"/><path d="M27 84 v12 M27 84 l9 3.5 -9 3.5" stroke="#6b3f16" stroke-width="2" fill="#e8354a" stroke-linejoin="round"/></svg>',
+      status: function () {
+        var s = readLS('mines.stats');
+        if (!s) return 'Dig safely, flag the mines';
+        var f = function (ms) { var t = Math.floor(ms / 1000); return Math.floor(t / 60) + ':' + ('0' + t % 60).slice(-2); };
+        var bits = []; if (s.beginner && s.beginner.best) bits.push('Beginner ' + f(s.beginner.best)); if (s.expert && s.expert.best) bits.push('Expert ' + f(s.expert.best)); else if (s.intermediate && s.intermediate.best) bits.push('Middle ' + f(s.intermediate.best));
+        return bits.join(' \u00b7 ') || 'Dig safely, flag the mines';
+      }
     }
   ];
   var byId = {};
