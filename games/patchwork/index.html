@@ -162,6 +162,8 @@ html, body { height: 100%; overflow: hidden; }
     <div class="sheetbody">
       <div class="themelabel">Theme (all games)</div>
       <div class="themes" id="themes"></div>
+      <label class="row"><div>Lock pieces in place<small>A piece in its right spot can&rsquo;t be moved. Off: you can still move it.</small></div>
+        <span class="switch"><input type="checkbox" id="setLock"><span></span></span></label>
       <label class="row"><div>Sound<small>Clicks when pieces join.</small></div>
         <span class="switch"><input type="checkbox" id="setSound"><span></span></span></label>
       <label class="row"><div>Old-time ads<small>Joke ads between puzzles. This switch is shared by all Goobs-Games.</small></div>
@@ -215,7 +217,7 @@ html, body { height: 100%; overflow: hidden; }
         <li>The picture is cut into squares and mixed up.</li>
         <li><b>Drag</b> a square onto another spot and they <b>swap</b>. Or tap a square, then tap where it goes.</li>
         <li>Squares that sit next to their right neighbor <b>click together</b> and move as one piece.</li>
-        <li>A square in its right spot <b>locks</b> in place.</li>
+        <li>A square that lands in its right spot flashes green. Turn on <b>Lock pieces in place</b> in Settings if you want those squares to stay put.</li>
         <li>Stuck? <b>Peek</b> shows the whole picture while you hold it. <b>Hint</b> puts one piece home: 3 per puzzle, then each costs one quick ad.</li>
         <li><b>My photos</b>: pick a picture from your phone and make a puzzle out of it.</li>
       </ol>
@@ -349,9 +351,10 @@ var PW = (function () {
   }
 
   // Move the group in cells G by (dr, dc). Tiles in the way slide back into the cells the group left,
-  // each along the move direction. Returns the new pos, or null if the move is off the board or
-  // would push a locked (home) tile.
-  function move(pos, cols, G, dr, dc) {
+  // each along the move direction. Returns the new pos, or null if the move is off the board, or (with
+  // lock on, the "Lock pieces in place" setting) would push a tile that is already in its right spot.
+  function move(pos, cols, G, dr, dc, lock) {
+    if (lock === undefined) lock = true;
     if (!dr && !dc) return null;
     var n = pos.length, rows = n / cols, d = dr * cols + dc, inG = {}, inT = {}, i;
     for (i = 0; i < G.length; i++) {
@@ -364,7 +367,7 @@ var PW = (function () {
     for (var k in inT) {
       var p = +k;
       if (inG[p]) continue;
-      if (pos[p] === p) return null; // locked tile in the way
+      if (lock && pos[p] === p) return null; // locked tile in the way
       var q = p - d;
       while (inT[q]) q -= d;
       np[q] = pos[p];
@@ -1359,7 +1362,7 @@ var PWSound = (function () {
 
   // ================= storage =================
   var store = Goobs.store('patchwork');
-  var settings = { sound: false, adEvery: 3 };
+  var settings = { sound: false, adEvery: 3, lockHome: false }; // lockHome: pieces in their right spot can't be moved (Glenn: off by default)
   (function () {
     var s = store.get('settings', {}) || {};
     for (var k in settings) if (typeof s[k] === typeof settings[k]) settings[k] = s[k];
@@ -1653,7 +1656,7 @@ var PWSound = (function () {
   }
   function tryMove(G, anchor, target) {
     var dr = Math.floor(target / game.cols) - Math.floor(anchor / game.cols), dc = target % game.cols - anchor % game.cols;
-    return PW.move(game.pos, game.cols, G, dr, dc);
+    return PW.move(game.pos, game.cols, G, dr, dc, settings.lockHome);
   }
   function cellFrom(e) {
     var r = $('tiles').getBoundingClientRect();
@@ -1687,7 +1690,7 @@ var PWSound = (function () {
     var dx = e.clientX - drag.x0, dy = e.clientY - drag.y0;
     if (!drag.moved) {
       if (Math.abs(dx) + Math.abs(dy) < 8) return;
-      if (game.pos[drag.anchor] === drag.anchor) { shake(drag.G); drag = null; return; }
+      if (settings.lockHome && game.pos[drag.anchor] === drag.anchor) { shake(drag.G); drag = null; return; }
       drag.moved = true;
       if (sel) { sel = null; renderTiles(); }
       S.pick();
@@ -1701,7 +1704,7 @@ var PWSound = (function () {
     if (dr === drag.dr && dc === drag.dc) return;
     drag.dr = dr; drag.dc = dc;
     if (!dr && !dc) { drag.np = null; clearMarks(); return; }
-    drag.np = PW.move(game.pos, game.cols, drag.G, dr, dc);
+    drag.np = PW.move(game.pos, game.cols, drag.G, dr, dc, settings.lockHome);
     var cells = [], rows = game.rows;
     drag.G.forEach(function (c) {
       var r = Math.floor(c / game.cols) + dr, cc = c % game.cols + dc;
@@ -1729,7 +1732,7 @@ var PWSound = (function () {
   }
   function tap(cell, G) {
     if (!sel) {
-      if (game.pos[cell] === cell) { shake(G); return; }
+      if (settings.lockHome && game.pos[cell] === cell) { shake(G); return; }
       sel = { G: G, anchor: cell, set: setOf(G) }; S.pick(); renderTiles(); return;
     }
     if (sel.set[cell]) { sel = null; renderTiles(); return; }
@@ -1740,7 +1743,7 @@ var PWSound = (function () {
       commit(np);
     } else {
       S.nope();
-      if (game.pos[cell] !== cell) { sel = { G: G, anchor: cell, set: setOf(G) }; renderTiles(); } // pick the other piece instead
+      if (!settings.lockHome || game.pos[cell] !== cell) { sel = { G: G, anchor: cell, set: setOf(G) }; renderTiles(); } // pick the other piece instead
     }
   }
 
@@ -1939,6 +1942,7 @@ var PWSound = (function () {
     $('btnSound').innerHTML = '<svg viewBox="0 0 24 24"><use href="#i-sound-' + (settings.sound ? 'on' : 'off') + '"/></svg>';
     $('btnSound').classList.toggle('on', settings.sound);
     $('setSound').checked = settings.sound;
+    $('setLock').checked = settings.lockHome;
     S.setEnabled(settings.sound);
   }
   function syncAds() {
@@ -2037,6 +2041,7 @@ var PWSound = (function () {
     $('btnCloseHelp').addEventListener('click', function () { if (!meta.seenHelp) { meta.seenHelp = true; saveMeta(); } });
     $('btnSound').addEventListener('click', function () { settings.sound = !settings.sound; saveSettings(); syncSound(); S.ding(); });
     $('setSound').addEventListener('change', function () { settings.sound = this.checked; saveSettings(); syncSound(); S.ding(); });
+    $('setLock').addEventListener('change', function () { settings.lockHome = this.checked; saveSettings(); if (game) renderTiles(); });
     $('setAds').addEventListener('change', function () { Goobs.setAds(this.checked); syncAds(); });
     $('adLess').addEventListener('click', function () { settings.adEvery = Math.max(1, settings.adEvery - 1); saveSettings(); syncAds(); });
     $('adMore').addEventListener('click', function () { settings.adEvery = Math.min(10, settings.adEvery + 1); saveSettings(); syncAds(); });

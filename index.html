@@ -16,43 +16,46 @@
 <script src="shared/goobs.js"></script>
 <title>Goobs-Games</title>
 <style>
-.menu { gap: 16px; align-items: stretch; }
+.menu { gap: 12px; align-items: stretch; }
 .logo { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .logo svg { width: 40px; height: 40px; flex: none; border-radius: 11px; box-shadow: 0 4px 10px -4px rgba(90,84,240,.6); }
 .logo h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -.5px; color: var(--ink); white-space: nowrap; }
 .hello { margin: -6px 2px 0; font-size: 15px; color: var(--muted); font-weight: 500; }
 .section h2 { margin: 4px 2px 10px; font-size: 13px; font-weight: 700; color: var(--muted); letter-spacing: .8px; text-transform: uppercase; }
 .continue {
-  width: 100%; display: flex; align-items: center; gap: 14px; padding: 12px; border-radius: 22px; border: 0; text-align: left;
-  background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; box-shadow: 0 12px 26px -12px var(--accent);
+  width: 100%; display: flex; align-items: center; gap: 12px; padding: 9px 10px; border-radius: 18px; border: 0; text-align: left;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; box-shadow: 0 10px 22px -12px var(--accent);
   transition: transform .1s;
 }
 .continue:active { transform: scale(.98); }
-.continue .art { width: 72px; height: 72px; border-radius: 16px; overflow: hidden; flex: none; background: #fff; box-shadow: 0 4px 10px rgba(0,0,0,.15); }
+.continue .art { width: 46px; height: 46px; border-radius: 12px; overflow: hidden; flex: none; background: #fff; box-shadow: 0 3px 8px rgba(0,0,0,.15); }
 .continue .art svg { width: 100%; height: 100%; display: block; }
-.continue b { display: block; font-size: 21px; letter-spacing: -.3px; }
-.continue small { display: block; font-size: 14px; font-weight: 600; opacity: .85; margin-top: 2px; }
-.continue .play { margin-left: auto; font-size: 16px; font-weight: 800; background: rgba(255,255,255,.95); color: var(--accent); border-radius: 14px; padding: 10px 16px; flex: none; }
-.grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.continue .kp { min-width: 0; }
+.continue em { display: block; font-style: normal; font-size: 11px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; opacity: .8; }
+.continue b { display: block; font-size: 17px; letter-spacing: -.2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.continue small { display: block; font-size: 12px; font-weight: 600; opacity: .85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.continue .play { margin-left: auto; font-size: 15px; font-weight: 800; background: rgba(255,255,255,.95); color: var(--accent); border-radius: 12px; padding: 8px 14px; flex: none; }
+/* compact game tiles: 2 across, small art on the left, so about 8 fit on one screen */
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .gtile {
-  position: relative; display: flex; flex-direction: column; border-radius: 22px; overflow: hidden; padding: 0; text-align: left;
-  border: 0; background: var(--surface); color: var(--ink); box-shadow: var(--shadow); transition: transform .1s;
+  position: relative; display: flex; align-items: center; gap: 10px; border-radius: 18px; padding: 8px 24px 8px 8px; text-align: left; min-height: 76px;
+  border: 0; background: var(--surface); color: var(--ink); box-shadow: var(--shadow-sm); transition: transform .1s; min-width: 0;
 }
 .gtile:active { transform: scale(.97); }
-.gtile .art { aspect-ratio: 1 / 1; width: 100%; }
+.gtile .art { width: 58px; height: 58px; flex: none; border-radius: 13px; overflow: hidden; }
 .gtile .art svg { width: 100%; height: 100%; display: block; }
-.gtile .tinfo { padding: 10px 12px 12px; }
-.gtile b { display: block; font-size: 17px; font-weight: 750; letter-spacing: -.2px; }
-.gtile small { display: block; font-size: 13px; font-weight: 500; color: var(--muted); line-height: 1.3; margin-top: 1px; }
+.gtile .tinfo { min-width: 0; }
+.gtile b { display: block; font-size: 15px; font-weight: 750; letter-spacing: -.2px; line-height: 1.2; }
+.gtile small { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 12px; font-weight: 500; color: var(--muted); line-height: 1.25; margin-top: 2px; }
 .gtile .star {
-  position: absolute; top: 8px; right: 8px; width: 36px; height: 36px; border-radius: 50%; border: 0;
-  background: rgba(255,255,255,.9); display: grid; place-items: center; font-size: 19px; line-height: 1; color: #9aa1b2; padding: 0;
-  box-shadow: 0 2px 6px rgba(0,0,0,.12); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  position: absolute; top: 4px; right: 4px; width: 28px; height: 28px; border-radius: 50%; border: 0; background: none;
+  display: grid; place-items: center; font-size: 17px; line-height: 1; color: #aab0bf; padding: 0;
 }
 .gtile .star.on { color: #f5a300; }
-.soon { box-shadow: none; border: 2px dashed var(--line-strong); background: transparent; align-items: center; justify-content: center; text-align: center; min-height: 180px; padding: 14px; }
-.soon b { font-size: 16px; color: var(--muted); }
-.soon small { margin-top: 4px; }
+.soon { box-shadow: none; border: 2px dashed var(--line-strong); background: transparent; justify-content: center; text-align: center; padding: 8px; }
+.soon .tinfo { text-align: center; }
+.soon b { font-size: 14px; color: var(--muted); }
+.soon small { margin-top: 2px; }
 .foot { text-align: center; color: var(--muted); font-size: 12px; margin: 6px 0 4px; }
 </style>
 </head>
@@ -73,7 +76,7 @@
   <p class="hello" id="hello">Puzzles for two.</p>
   <div class="section" id="secContinue"></div>
   <div class="section" id="secFavs"></div>
-  <div class="section"><h2>All games</h2><div class="grid" id="gridAll"></div></div>
+  <div class="section"><h2 id="allTitle">All games</h2><div class="grid" id="gridAll"></div></div>
   <div class="foot" id="foot">Goobs-Games</div>
 </div>
 
@@ -239,43 +242,39 @@
     return b;
   }
 
+  function byName(a, b) { return a.name.localeCompare(b.name); }
   function render() {
-    // pick up where you left off
+    // pick up where you left off (one slim bar)
     var recent = Goobs.recent().filter(function (id) { return byId[id]; });
     var sc = $('secContinue');
     sc.innerHTML = '';
     if (recent.length) {
       var g = byId[recent[0]];
-      sc.innerHTML = '<h2>Keep playing</h2>';
       var b = document.createElement('button');
       b.className = 'continue';
-      b.innerHTML = '<span class="art">' + g.art + '</span><span><b>' + g.name + '</b><small>' + g.status() + '</small></span><span class="play">Play</span>';
+      b.innerHTML = '<span class="art">' + g.art + '</span><span class="kp"><em>Keep playing</em><b>' + g.name + '</b><small>' + g.status() + '</small></span><span class="play">Play</span>';
       b.addEventListener('click', function () { open(g); });
       sc.appendChild(b);
-      if (recent.length > 1) {
-        var h = document.createElement('h2'); h.textContent = 'Recently played'; sc.appendChild(h);
-        var gr = document.createElement('div'); gr.className = 'grid';
-        recent.slice(1, 5).forEach(function (id) { gr.appendChild(tile(byId[id])); });
-        sc.appendChild(gr);
-      }
     }
-    // favorites
-    var favs = Goobs.favs().filter(function (id) { return byId[id]; });
+    // favorites first, then everything else, each A to Z
+    var favIds = Goobs.favs().filter(function (id) { return byId[id]; });
+    var favs = favIds.map(function (id) { return byId[id]; }).sort(byName);
+    var rest = GAMES.filter(function (g) { return favIds.indexOf(g.id) < 0; }).sort(byName);
     var sf = $('secFavs');
     sf.innerHTML = '';
     if (favs.length) {
       sf.innerHTML = '<h2>Favorites</h2>';
       var fg = document.createElement('div'); fg.className = 'grid';
-      favs.forEach(function (id) { fg.appendChild(tile(byId[id])); });
+      favs.forEach(function (gg) { fg.appendChild(tile(gg)); });
       sf.appendChild(fg);
     }
-    // all games + what's coming
+    $('allTitle').textContent = favs.length ? 'More games' : 'All games';
     var all = $('gridAll');
     all.innerHTML = '';
-    GAMES.forEach(function (g) { all.appendChild(tile(g)); });
+    rest.forEach(function (gg) { all.appendChild(tile(gg)); });
     var soon = document.createElement('div');
     soon.className = 'gtile soon';
-    soon.innerHTML = '<b>More games on the way</b><small>What should be next?</small>';
+    soon.innerHTML = '<span class="tinfo"><b>More on the way</b><small>What should be next?</small></span>';
     all.appendChild(soon);
   }
 

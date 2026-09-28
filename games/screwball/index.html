@@ -76,11 +76,11 @@ html, body { height: 100%; overflow: hidden; }
 /* tray */
 .traywrap { width: 100%; display: flex; align-items: center; gap: 10px; flex: none; }
 .traylbl { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; }
-.tray { flex: 1; display: flex; gap: 14px; justify-content: center; background: var(--sb-tray); border-radius: 16px; padding: 7px 10px; box-shadow: var(--shadow-sm); border: 1px solid var(--line); }
+.tray { flex: 1; display: flex; gap: 14px; justify-content: center; background: var(--sb-tray); border-radius: 16px; padding: 5px 10px; box-shadow: var(--shadow-sm); border: 1px solid var(--line); }
 .tray.warn { animation: warn .35s; border-color: var(--bad); }
 @keyframes warn { 0%, 100% { transform: none; } 30% { transform: translateX(-4px); } 60% { transform: translateX(4px); } }
-.spot { width: 38px; height: 38px; border-radius: 50%; background: var(--surface-2); border: 2px dashed var(--sb-line); display: grid; place-items: center; }
-.spot .head { width: 28px; height: 28px; }
+.spot { width: 34px; height: 34px; border-radius: 50%; background: var(--surface-2); border: 2px dashed var(--sb-line); display: grid; place-items: center; }
+.spot .head { width: 26px; height: 26px; }
 .tray.full .spot { border-color: var(--bad); }
 .spot.extra { border-color: var(--gold); }
 
@@ -129,6 +129,7 @@ html, body { height: 100%; overflow: hidden; }
 
   <div class="info" id="info"></div>
   <div class="boxes" id="boxes"></div>
+  <div class="traywrap"><span class="traylbl">Tray</span><div class="tray" id="tray"></div></div>
 
   <div class="stage" id="stage">
     <canvas id="cv"></canvas>
@@ -137,7 +138,6 @@ html, body { height: 100%; overflow: hidden; }
     <div class="cheer" id="cheer"></div>
   </div>
 
-  <div class="traywrap"><span class="traylbl">Tray</span><div class="tray" id="tray"></div></div>
 
   <div class="toolbar">
     <button class="tool" id="btnHelp"><svg viewBox="0 0 24 24"><use href="#i-help"/></svg><span>How to</span></button>
