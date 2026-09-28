@@ -18,7 +18,7 @@ const VERSIONS = {
   meanbirds: '1.0.2',
   aliens: '1.0.0',
   worddice: '1.0.0',
-  digger: '1.0.0',
+  digger: '1.0.1',
   three: '0.186.1',  // shared 3D library; bump only when three.js itself changes
   planck: '1.5.0',   // shared 2D physics library (planck.js); bump only when planck itself changes
   cannon: '0.20.0'   // shared 3D physics library (cannon-es) for Number Nook's Chain Cube
