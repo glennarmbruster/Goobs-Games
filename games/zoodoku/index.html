@@ -383,7 +383,7 @@
         <li><b>Double-tap</b> to put an animal there. Double-tap it again to take it away.</li>
         <li><b>Drag</b> your finger across squares to mark lots of &times; at once.</li>
         <li>With hearts on (3 per puzzle), a wrong animal costs a heart and leaves a red &times; so you remember. Out of hearts? Watch a quick ad to keep going.</li>
-        <li>Some levels are <b>Tricky</b>. Some have a color that's just one square &mdash; that animal is easy to spot. Every 20&ndash;30 levels you get a <b>free animal</b> already in place.</li>
+        <li>Some levels are <b>Tricky</b>, and some <b>Very tricky</b>: they need a &ldquo;try it and see&rdquo; step (suppose an animal on a square and follow the rules until something runs out of room). Some have a color that's just one square &mdash; that animal is easy to spot. Every 20&ndash;30 levels you get a <b>free animal</b> already in place.</li>
         <li>Finish a level and the next one is waiting. Each level has its own animal: squirrels, dogs, cats and penguins take turns. Level numbers are the same puzzle on every phone.</li>
         <li><b>Daily</b> (top right) is a new 11&times;11 every day with a surprise animal, the same for everyone.</li>
         <li>Stuck? <b>Hint</b> explains the next step and can do it for you.</li>
@@ -515,7 +515,7 @@ var ZooEngine = (function () {
   /* Find the next logical deduction.
      Returns {level, kind, place:[cells], elim:[cells], why:{...}} or {contradiction:true} or null.
      Levels: 1 single, 2 confinement (k=1), 3 "would wipe out", 4 group confinement (k>=2). */
-  function nextDeduction(ctx, s) {
+  function nextDeduction(ctx, s, basicOnly) {
     var n = ctx.n, NN = n * n, f, u, i, c, cells;
     var has = [new Uint8Array(n), new Uint8Array(n), new Uint8Array(n)];
     var ucell = ctx.ucell;
@@ -603,7 +603,35 @@ var ZooEngine = (function () {
       }
     }
     // Level 4: k rows/columns/pens squeezed into k others
+    if (basicOnly) return null;
     return groupScan(2, Math.min(MAXK, n - 2));
+  }
+
+  /* Level 5 ("try it and see", Glenn 2026-09-28: some levels should need a guess): suppose an animal on one
+     open square, follow the ordinary steps (levels 1-4) from there; if some row, column or area runs out of room,
+     that square is an x. Returns the first such square, or null. */
+  function trialDeduction(ctx, s) {
+    var n = ctx.n, NN = n * n, has = [new Uint8Array(n), new Uint8Array(n), new Uint8Array(n)], c;
+    for (c = 0; c < NN; c++) if (s.animal[c]) { has[0][ctx.ucell[0][c]] = 1; has[1][ctx.ucell[1][c]] = 1; has[2][ctx.ucell[2][c]] = 1; }
+    for (c = 0; c < NN; c++) {
+      if (!s.cand[c] || s.animal[c] || has[0][ctx.ucell[0][c]] || has[2][ctx.ucell[2][c]]) continue;
+      var t = cloneState(s);
+      place(ctx, t, c);
+      for (var g = 0; g < 4 * n; g++) {
+        var d = nextDeduction(ctx, t, true);
+        if (!d) break;
+        if (d.contradiction) return { level: 5, kind: 'trial', place: [], elim: [c], why: { cell: c, fam: d.why.fam, unit: d.why.unit } };
+        applyDeduction(ctx, t, d);
+        if (isSolved(ctx, t)) break;
+      }
+    }
+    return null;
+  }
+  // the next step a person could take, including "try it and see"
+  function nextDeductionFull(ctx, s) {
+    var d = nextDeduction(ctx, s);
+    if (d) return d;
+    return trialDeduction(ctx, s);
   }
 
   function applyDeduction(ctx, s, d) {
@@ -617,13 +645,13 @@ var ZooEngine = (function () {
     return cnt === ctx.n;
   }
 
-  // Solve with logic only. Returns {solved, maxLevel, counts[1..4], steps}
-  function solveLogic(n, regions, startState) {
+  // Solve with logic only. Returns {solved, maxLevel, counts[1..5], steps}. trial: also use level 5.
+  function solveLogic(n, regions, startState, trial) {
     var ctx = makeCtx(n, regions);
     var s = startState ? cloneState(startState) : newState(ctx);
-    var counts = [0, 0, 0, 0, 0], maxLevel = 0, steps = 0;
+    var counts = [0, 0, 0, 0, 0, 0], maxLevel = 0, steps = 0;
     while (!isSolved(ctx, s)) {
-      var d = nextDeduction(ctx, s);
+      var d = trial ? nextDeductionFull(ctx, s) : nextDeduction(ctx, s);
       if (!d || d.contradiction) return { solved: false, contradiction: !!(d && d.contradiction), state: s, counts: counts, maxLevel: maxLevel, steps: steps };
       counts[d.level]++; steps++;
       if (d.level > maxLevel) maxLevel = d.level;
@@ -732,8 +760,8 @@ var ZooEngine = (function () {
   }
 
   // score = how far pure logic gets (open cells remaining is bad)
-  function progressScore(n, regions) {
-    var res = solveLogic(n, regions);
+  function progressScore(n, regions, trial) {
+    var res = solveLogic(n, regions, null, trial);
     if (res.solved) return { solved: true, res: res, score: 1e9 };
     var s = res.state, sc = 0;
     for (var i = 0; i < s.cand.length; i++) if (!s.cand[i]) sc++;
@@ -747,7 +775,7 @@ var ZooEngine = (function () {
     opts = opts || {};
     var rand = rng(seed);
     var maxAttempts = opts.maxAttempts || 400;
-    var minSize = opts.minSize || 2, maxSize = opts.maxSize || Math.round(n * 2.2);
+    var minSize = opts.minSize || 2, maxSize = opts.maxSize || Math.round(n * 2.2), allowTiny = opts.allowTiny == null ? 1 : opts.allowTiny;
     for (var attempt = 0; attempt < maxAttempts; attempt++) {
       var sol = randomSolution(n, rand);
       var frozen = opts.single ? Math.floor(rand() * n) : -1;
@@ -755,8 +783,8 @@ var ZooEngine = (function () {
       var sizes = new Array(n).fill(0);
       regions.forEach(function (g) { sizes[g]++; });
       var tiny = sizes.filter(function (z) { return z < minSize; }).length;
-      if (tiny > 1 || Math.max.apply(null, sizes) > maxSize) continue;
-      var best = progressScore(n, regions);
+      if (tiny > allowTiny + (frozen >= 0 ? 1 : 0) || Math.max.apply(null, sizes) > maxSize) continue;
+      var best = progressScore(n, regions, opts.trial);
       // hill-climb: move border cells between pens (never an animal's own cell)
       var iters = 0, maxIters = opts.climb || n * n * 12;
       while (!best.solved && iters++ < maxIters) {
@@ -771,7 +799,7 @@ var ZooEngine = (function () {
         if (sizes[from] <= minSize || sizes[to] >= maxSize || to === frozen) continue;
         if (!regionConnected(n, regions, from, c)) continue;
         regions[c] = to;
-        var sc = progressScore(n, regions);
+        var sc = progressScore(n, regions, opts.trial);
         if (sc.score >= best.score) { best = sc; sizes[from]--; sizes[to]++; } else regions[c] = from;
       }
       if (best.solved) {
@@ -780,10 +808,41 @@ var ZooEngine = (function () {
         for (var i = 0; i < n; i++) if (res.solution[i] !== sol[i]) { res = null; break; }
         if (!res) continue;
         if (opts.minLevel && res.maxLevel < opts.minLevel) continue;
-        if (opts.minHard && (res.counts[3] + res.counts[4]) < opts.minHard) continue;
+        if (opts.minHard && (res.counts[3] + res.counts[4] + res.counts[5]) < opts.minHard) continue;
+        if (opts.trial && opts.needTrial && res.counts[5] < opts.needTrial) continue;
         return { n: n, seed: seed, regions: regions, solution: sol, maxLevel: res.maxLevel,
           counts: res.counts, steps: res.steps, attempts: attempt + 1 };
       }
+    }
+    return null;
+  }
+
+  // Nudge a finished puzzle's borders until the ordinary steps (1-4) get stuck but "try it and see" (5) still
+  // finishes it, keeping exactly one solution. Returns the new puzzle or null.
+  function makeExpert(p, rand, tries) {
+    var n = p.n, regions = p.regions.slice(), sol = p.solution, sizes = new Array(n).fill(0);
+    regions.forEach(function (g) { sizes[g]++; });
+    for (var t = 0; t < (tries || 80); t++) {
+      var c = Math.floor(rand() * n * n);
+      if (sol[(c / n) | 0] === c % n) continue;
+      var r = (c / n) | 0, q = c % n, o = [];
+      if (r > 0) o.push(c - n); if (r < n - 1) o.push(c + n);
+      if (q > 0) o.push(c - 1); if (q < n - 1) o.push(c + 1);
+      var others = o.map(function (x) { return regions[x]; }).filter(function (g) { return g !== regions[c]; });
+      if (!others.length) continue;
+      var to = others[Math.floor(rand() * others.length)], from = regions[c];
+      if (sizes[from] <= 3 || sizes[to] >= Math.round(n * 2.2)) continue;
+      if (!regionConnected(n, regions, from, c)) continue;
+      regions[c] = to;
+      var keep = false;
+      if (countSolutions(n, regions, 2).count === 1) {
+        var plain = solveLogic(n, regions);
+        if (!plain.solved) {
+          var tr = solveLogic(n, regions, null, true);
+          if (tr.solved) return { n: n, seed: p.seed, regions: regions, solution: sol, maxLevel: tr.maxLevel, counts: tr.counts, steps: tr.steps };
+        } else keep = rand() < 0.35; // sometimes wander on from a still-solvable version
+      }
+      if (keep) { sizes[from]--; sizes[to]++; } else regions[c] = from;
     }
     return null;
   }
@@ -794,7 +853,7 @@ var ZooEngine = (function () {
      doing so changes which puzzle each level number produces.
      LEVEL_SCHEME 3 (2026-09-28): some levels are harder, some have a one-square color, and every 20-30 levels
      one animal starts in place. */
-  var LEVEL_SCHEME = 3;
+  var LEVEL_SCHEME = 4; // 4 (2026-09-28): harder; no two-square colors except on easy levels; "very tricky" levels need a try-it-and-see step
   // Sizes repeat every 5 levels: 7, 8, 9, 8, 10 (a 10x10 every 5th level)
   var LEVEL_CYCLE = [7, 8, 9, 8, 10];
   function levelSize(L) { return LEVEL_CYCLE[(L - 1) % LEVEL_CYCLE.length]; }
@@ -807,12 +866,20 @@ var ZooEngine = (function () {
   function levelSeed(L, attempt) {
     return mix32(mix32(L * 0x9E3779B1 + LEVEL_SCHEME * 0x85EBCA77) + (attempt || 0) * 0xC2B2AE3D);
   }
-  // 'hard' (about 1 in 4 after level 5): needs the trickier steps (group squeezes / "would wipe out" more than once)
-  // 'single' (about 1 in 8): one color is a single square, so one animal is obvious. Otherwise 'normal'.
+  // Level kinds (LEVEL_SCHEME 4, Glenn 2026-09-28: "most levels should be at least a bit harder", fewer two-square
+  // colors, and some levels that need a guess):
+  //   'easy'    (~12%): the old normal (two-square colors allowed)
+  //   'normal'  (~40%): every color at least 3 squares; needs at least one "would wipe out" step
+  //   'hard'    (~22%, "Tricky"): also needs group squeezes and several hard steps
+  //   'expert'  (~13%, "Very tricky"): needs a try-it-and-see step (suppose an animal here... it can't be)
+  //   'single'  (~13%): one color is a single square; the rest as 'normal'
   function levelKind(L) {
+    if (L <= 3) return 'easy';
     if (L <= 5) return 'normal';
     var h = mix32((L * 0x2C1B3C6D) ^ 0xF1A5C0DE) % 100;
-    return h < 24 ? 'hard' : h < 37 ? 'single' : 'normal';
+    var k = h < 12 ? 'easy' : h < 52 ? 'normal' : h < 74 ? 'hard' : h < 87 ? 'expert' : 'single';
+    if (k === 'expert' && levelSize(L) > 9) k = 'hard'; // 10x10 try-it puzzles take too long to make on a phone
+    return k;
   }
   // Levels that start with one animal already placed: roughly every 20-30 levels
   function giftLevel(L) {
@@ -822,10 +889,15 @@ var ZooEngine = (function () {
   }
   function generateLevel(L) {
     var n = levelSize(L), kind = levelKind(L), opts = {};
-    if (kind === 'single') opts = { single: true, minLevel: 2 };
     for (var k = 0; k < 50; k++) {
-      if (kind === 'hard') opts = k < 30 ? { minLevel: n >= 8 ? 4 : 3, minHard: n >= 9 ? 3 : 2, maxAttempts: 120 } : { minLevel: 3, maxAttempts: 200 };
+      var fb = k >= 30; // after many tries, relax (never back to two-square colors)
+      if (kind === 'easy') opts = {};
+      else if (kind === 'normal') opts = { minSize: 3, allowTiny: 0, minLevel: fb ? 2 : 3, maxAttempts: 150 };
+      else if (kind === 'single') opts = { single: true, minSize: 3, allowTiny: 0, minLevel: fb ? 2 : 3, maxAttempts: 150 };
+      else if (kind === 'hard') opts = { minSize: 3, allowTiny: 0, minLevel: fb ? 3 : n >= 8 ? 4 : 3, minHard: fb ? 1 : n >= 9 ? 3 : 2, maxAttempts: 120 };
+      else opts = { minSize: 3, allowTiny: 0, minLevel: fb ? 3 : 4, maxAttempts: 150 };
       var p = generate(n, levelSeed(L, k), opts);
+      if (p && kind === 'expert' && !fb) { p = makeExpert(p, rng(levelSeed(L, k) ^ 0xE4E), 120); if (!p) continue; }
       if (p) {
         p.level = L; p.scheme = LEVEL_SCHEME; p.kind = kind;
         if (giftLevel(L)) { var r = mix32(L ^ 0x5EED61F7) % n; p.given = r * n + p.solution[r]; }
@@ -853,7 +925,7 @@ var ZooEngine = (function () {
   return {
     generateDaily: generateDaily, DAILY_SCHEME: DAILY_SCHEME, DAILY_SIZE: DAILY_SIZE,
     levelSize: levelSize, levelSeed: levelSeed, generateLevel: generateLevel, levelKind: levelKind, giftLevel: giftLevel, mix32: mix32, LEVEL_SCHEME: LEVEL_SCHEME,
-    rng: rng, generate: generate, solveLogic: solveLogic, countSolutions: countSolutions,
+    rng: rng, generate: generate, solveLogic: solveLogic, countSolutions: countSolutions, nextDeductionFull: nextDeductionFull, trialDeduction: trialDeduction,
     makeCtx: makeCtx, newState: newState, cloneState: cloneState, place: place,
     nextDeduction: nextDeduction, applyDeduction: applyDeduction, geom: geom, FAMNAME: FAMNAME
   };
@@ -1429,7 +1501,7 @@ var ZooSound = (function () {
     else { t = 'Practice ' + game.n + '\u00d7' + game.n; sub = LEVEL_NAMES[game.n] + ' \u00b7 random puzzle'; }
     var an = game.penAnimal[0], names = { squirrel: 'Squirrels', dog: 'Dogs', cat: 'Cats', penguin: 'Penguins' };
     $('lvlTitle').innerHTML = '<svg class="lvan" viewBox="0 0 100 100"><use href="#a-' + an + '"/></svg>' + t;
-    var tag = (game.mode === 'level' || game.mode === 'replay') ? (game.p.given != null ? 'Free animal' : game.p.kind === 'hard' ? 'Tricky' : '') : '';
+    var tag = (game.mode === 'level' || game.mode === 'replay') ? (game.p.given != null ? 'Free animal' : game.p.kind === 'hard' ? 'Tricky' : game.p.kind === 'expert' ? 'Very tricky' : '') : '';
     if (tag) $('lvlTitle').innerHTML += '<span class="lvtag' + (game.p.given != null ? ' gift' : '') + '">' + tag + '</span>';
     $('lvlSub').textContent = sub + ' \u00b7 ' + (names[an] || '');
   }
@@ -1604,7 +1676,7 @@ var ZooSound = (function () {
     var s = E.newState(game.ctx);
     for (c = 0; c < N; c++) if (isX(game.marks[c])) s.cand[c] = 0;
     for (c = 0; c < N; c++) if (game.marks[c] === ANIMAL) E.place(game.ctx, s, c);
-    var d = E.nextDeduction(game.ctx, s);
+    var d = E.nextDeductionFull(game.ctx, s);
     if (!d || d.contradiction) {
       for (var r = 0; r < n; r++) {
         c = r * n + game.p.solution[r];
@@ -1620,7 +1692,11 @@ var ZooSound = (function () {
       return { text: text, area: area, target: [pc], apply: [[pc, ANIMAL]] };
     }
     var apply = d.elim.map(function (x) { return [x, XMARK]; });
-    if (d.kind === 'wipeout') {
+    if (d.kind === 'trial') {
+      area = unitCells(w.fam, w.unit);
+      text = 'Try it and see: if an animal went on the circled square, then following the rules from there, ' + unitName(w.fam, w.unit) +
+        ' would end up with no open square. So it can\u2019t go there. Cross it out.';
+    } else if (d.kind === 'wipeout') {
       area = unitCells(w.fam, w.unit);
       text = 'An animal on the circled square would block every open square in ' + unitName(w.fam, w.unit) + '. Cross it out.';
     } else if (d.kind === 'confined') {

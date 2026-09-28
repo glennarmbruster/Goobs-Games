@@ -91,6 +91,13 @@ html, body { height: 100%; overflow: hidden; }
 .cardicon svg { border-radius: 16px; }
 .building { position: absolute; inset: 0; display: none; place-items: center; font-weight: 800; font-size: 16px; color: var(--muted); pointer-events: none; z-index: 2; }
 .building.show { display: grid; }
+
+/* 2.3.0: each color has a mark on its heads and in its box's empty holes */
+.head.marked::before, .head.marked::after { display: none; }
+.head .mark { position: absolute; inset: 14%; width: 72%; height: 72%; fill: #fff; stroke: rgba(20,24,36,.8); stroke-width: 1.6; stroke-linejoin: round; paint-order: stroke; }
+.head .mark.dark { fill: #1b2130; stroke: rgba(255,255,255,.9); }
+.box .hole .ghost { display: grid; place-items: center; width: 100%; height: 100%; }
+.box .hole .ghost .mark { width: 70%; height: 70%; fill: rgba(255,255,255,.55); stroke: none; }
 </style>
 </head>
 <body>
@@ -693,10 +700,22 @@ var SB = (function () {
   }
 
   // Screw colors (bright, easy to tell apart)
+  // 12 screw colors (2.3.0, Glenn: "hard to tell sometimes... orange or red? white or gray, yellow or orange?"):
+  // colors pushed further apart, and each color has its own mark (a shape on the head and in its box).
+  // sym: an SVG path in a 24x24 box; dark: draw the mark dark (on light colors) instead of white.
   var SCREWS = [
-    { name: 'Red', hex: '#e53935' }, { name: 'Yellow', hex: '#fdd835' }, { name: 'Blue', hex: '#1e88e5' }, { name: 'Green', hex: '#43a047' },
-    { name: 'Purple', hex: '#8e24aa' }, { name: 'Orange', hex: '#fb8c00' }, { name: 'Pink', hex: '#f06292' }, { name: 'Teal', hex: '#00acc1' },
-    { name: 'White', hex: '#f5f5f5' }, { name: 'Black', hex: '#37404c' }, { name: 'Lime', hex: '#b5d334' }, { name: 'Brown', hex: '#8d5a3c' }];
+    { name: 'Red', hex: '#d62828', sym: 'M12 4.5a7.5 7.5 0 1 0 0 15a7.5 7.5 0 1 0 0-15z' },
+    { name: 'Yellow', hex: '#ffe11a', dark: 1, sym: 'M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.6 6.6 19.5l1.2-6L3.3 9.3l6.1-.7z' },
+    { name: 'Blue', hex: '#1e6fe8', sym: 'M5.5 5.5h13v13h-13z' },
+    { name: 'Green', hex: '#16a34a', sym: 'M12 4l8.5 15h-17z' },
+    { name: 'Purple', hex: '#8b3fd9', sym: 'M12 3l8 9-8 9-8-9z' },
+    { name: 'Orange', hex: '#ff8a1f', sym: 'M9.5 4h5v5.5H20v5h-5.5V20h-5v-5.5H4v-5h5.5z' },
+    { name: 'Pink', hex: '#ff6fae', sym: 'M12 20s-7.5-4.6-7.5-10a4.2 4.2 0 0 1 7.5-2.6A4.2 4.2 0 0 1 19.5 10c0 5.4-7.5 10-7.5 10z' },
+    { name: 'Teal', hex: '#11b5c4', sym: 'M12 3.5l7.4 4.25v8.5L12 20.5l-7.4-4.25v-8.5z' },
+    { name: 'White', hex: '#ffffff', dark: 1, sym: 'M12 4a8 8 0 1 0 0 16a8 8 0 1 0 0-16zm0 4a4 4 0 1 1 0 8a4 4 0 1 1 0-8z' },
+    { name: 'Black', hex: '#262b36', sym: 'M6.3 4.2L12 9.9l5.7-5.7 2.1 2.1-5.7 5.7 5.7 5.7-2.1 2.1-5.7-5.7-5.7 5.7-2.1-2.1 5.7-5.7-5.7-5.7z' },
+    { name: 'Lime', hex: '#a3e635', dark: 1, sym: 'M15.5 4a8 8 0 1 0 4.5 12.5A7 7 0 0 1 15.5 4z' },
+    { name: 'Brown', hex: '#8a5a35', sym: 'M6 5h4.5v14H6zM13.5 5H18v14h-4.5z' }];
 
   // ---------- geometry: rotation (same order as three.js Euler 'XYZ'), rays against pieces ----------
   function rotMat(r) {
@@ -1289,7 +1308,29 @@ var SBRender = (function () {
       });
       return g;
     })();
-    var headMat = new THREE.MeshStandardMaterial({ roughness: 0.35, metalness: 0.3 }), slotMat = new THREE.MeshStandardMaterial({ color: 0x1b2130, roughness: 0.6 });
+    var headMat = new THREE.MeshStandardMaterial({ roughness: 0.4, metalness: 0.08 }), slotMat = new THREE.MeshStandardMaterial({ color: 0x1b2130, roughness: 0.6 });
+    // each color's mark on top of its heads (2.3.0): one instanced flat mark per color, in place of the cross slot
+    var symGeo = new THREE.PlaneGeometry(HEAD_R * 1.7, HEAD_R * 1.7); symGeo.rotateX(-Math.PI / 2); symGeo.translate(0, HEAD_H / 2 + 0.004, 0);
+    var symMats = (window.SB ? SB.SCREWS : []).map(function (sc) {
+      var c = document.createElement('canvas'); c.width = c.height = 128;
+      var x = c.getContext('2d'), path = new Path2D(sc.sym);
+      x.translate(64, 64); x.scale(4.4, 4.4); x.translate(-12, -12);
+      x.lineJoin = 'round'; x.lineWidth = 1.6; x.strokeStyle = sc.dark ? 'rgba(255,255,255,.9)' : 'rgba(20,24,36,.85)'; x.fillStyle = sc.dark ? '#1b2130' : '#ffffff';
+      x.stroke(path); x.fill(path, 'evenodd');
+      var t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+      return new THREE.MeshBasicMaterial({ map: t, transparent: true, alphaTest: 0.3, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
+    });
+    // "slots" is a small stand-in: the marks, one mesh per color, addressed by screw index
+    function makeMarks(n) {
+      var list = symMats.map(function (m) { var im = new THREE.InstancedMesh(symGeo, m, Math.max(1, n)); im.frustumCulled = false; for (var i = 0; i < n; i++) im.setMatrixAt(i, ZERO); return im; });
+      var colorOf = [];
+      return {
+        list: list, colorOf: colorOf,
+        setMatrixAt: function (i, mx) { var m = list[colorOf[i]]; if (m) m.setMatrixAt(i, mx); },
+        instanceMatrix: { set needsUpdate(v) { list.forEach(function (m) { m.instanceMatrix.needsUpdate = v; }); } },
+        dispose: function () { list.forEach(function (m) { m.dispose(); }); }
+      };
+    }
     var heads = null, slots = null, meshes = [], M4 = new THREE.Matrix4(), Q = new THREE.Quaternion(), UP = new THREE.Vector3(0, 1, 0), ZERO = new THREE.Matrix4().makeScale(0, 0, 0);
     function headMatrix(s, lift, spin, jig) {
       var n = new THREE.Vector3(s.n[0], s.n[1], s.n[2]);
@@ -1303,7 +1344,7 @@ var SBRender = (function () {
     function clear() {
       meshes.forEach(function (m) { if (m) { root.remove(m); m.material.dispose(); } });
       meshes = [];
-      if (heads) { root.remove(heads); root.remove(slots); heads.dispose(); slots.dispose(); }
+      if (heads) { root.remove(heads); slots.list.forEach(function (m) { root.remove(m); }); heads.dispose(); slots.dispose(); }
       falling.forEach(function (f) { root.remove(f.m); f.m.material.dispose(); });
       falling = []; unscrewing = []; wob = null; flash = null;
     }
@@ -1333,14 +1374,15 @@ var SBRender = (function () {
         m.updateMatrixWorld(); box.expandByObject(m);
       });
       heads = new THREE.InstancedMesh(headGeo, headMat, Math.max(1, st.screws.length));
-      slots = new THREE.InstancedMesh(slotGeo, slotMat, Math.max(1, st.screws.length));
+      slots = makeMarks(st.screws.length);
+      st.screws.forEach(function (sc, i) { slots.colorOf[i] = sc.c; });
       st.screws.forEach(function (sc, i) {
         var mx = st.out[sc.id] ? ZERO : headMatrix(sc);
         heads.setMatrixAt(i, mx); slots.setMatrixAt(i, mx);
         heads.setColorAt(i, SC[sc.c]);
       });
       heads.instanceMatrix.needsUpdate = true; slots.instanceMatrix.needsUpdate = true; if (heads.instanceColor) heads.instanceColor.needsUpdate = true;
-      root.add(heads); root.add(slots);
+      root.add(heads); slots.list.forEach(function (m) { root.add(m); });
       box.getCenter(center);
       var size = box.getSize(new THREE.Vector3());
       radius = 0.5 * Math.hypot(size.x, size.y, size.z); ext = size.clone();
@@ -1600,7 +1642,9 @@ var SBSound = (function () {
   function isOpen(id) { return $(id).classList.contains('show'); }
   function icon(id) { return '<svg viewBox="0 0 100 100"><use href="#' + id + '"/></svg>'; }
   function paused() { return isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || isOpen('ovLevels') || GoobsAds.isOpen(); }
-  function head(c, cls) { return '<div class="head' + (cls ? ' ' + cls : '') + '" style="background:' + COLORS[c].hex + '"></div>'; }
+  // a screw head with its color's mark (2.3.0)
+  function mark(c) { var k = COLORS[c]; return '<svg viewBox="0 0 24 24" class="mark' + (k.dark ? ' dark' : '') + '"><path fill-rule="evenodd" d="' + k.sym + '"/></svg>'; }
+  function head(c, cls) { return '<div class="head marked' + (cls ? ' ' + cls : '') + '" style="background:' + COLORS[c].hex + '">' + mark(c) + '</div>'; }
 
   // ================= game state =================
   // game: { mode: level|replay|daily, level, day, scheme, moves: [screw ids, -1 = extra box], done, tries }
@@ -1646,7 +1690,7 @@ var SBSound = (function () {
     st.boxes.forEach(function (b, k) {
       if (!b) { h += '<div class="box empty"></div>'; return; }
       h += '<div class="box' + (arriving[k] ? ' arrive' : '') + '" data-box="' + k + '" style="background:' + COLORS[b.c].hex + '" aria-label="' + COLORS[b.c].name + ' box, ' + b.n + ' of 3">';
-      for (var i = 0; i < SB.HOLES; i++) h += '<div class="hole">' + (i < b.n ? head(b.c, pops && pops[k] && i >= b.n - pops[k] ? 'pop' : '') : '') + '</div>';
+      for (var i = 0; i < SB.HOLES; i++) h += '<div class="hole">' + (i < b.n ? head(b.c, pops && pops[k] && i >= b.n - pops[k] ? 'pop' : '') : '<span class="ghost">' + mark(b.c) + '</span>') + '</div>';
       h += '</div>';
     });
     if (st.boxes.length < SB.MAX_BOXES && !game.done) h += '<button class="addbox" id="btnAddBox">+ Box' + (Goobs.adsOn() ? '<small>AD</small>' : '') + '</button>';
@@ -1679,7 +1723,7 @@ var SBSound = (function () {
   // ================= playing =================
   function fly(fromX, fromY, toEl, c, done) {
     var f = document.createElement('div');
-    f.className = 'head'; f.style.background = COLORS[c].hex;
+    f.className = 'head marked'; f.style.background = COLORS[c].hex; f.innerHTML = mark(c);
     f.style.transform = 'translate(' + (fromX - 12) + 'px,' + (fromY - 12) + 'px) scale(1.2)';
     $('flyer').appendChild(f);
     var r = toEl ? toEl.getBoundingClientRect() : null;

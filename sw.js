@@ -2,16 +2,16 @@
    Each part has its own version and its own cache. To publish an update, bump ONLY the
    version of the part that changed; unchanged parts are not downloaded again. */
 const VERSIONS = {
-  shell: '2.5.0',     // menu, manifest, icons, /shared (ads, themes, storage)
-  zoodoku: '1.7.1',
-  woodpile: '1.1.0',
+  shell: '2.6.0',     // menu, manifest, icons, /shared (ads, themes, storage)
+  zoodoku: '1.8.0',
+  woodpile: '1.1.1',
   patchwork: '2.1.0',
-  cubecorral: '3.1.0',
-  screwball: '2.2.0',
+  cubecorral: '3.2.0',
+  screwball: '2.3.0',
   skeehop: '1.0.1',
   merge: '1.0.0',
   tapaway: '1.0.0',
-  homerun: '1.0.0',
+  homerun: '1.1.0',
   match3: '1.0.0',
   three: '0.186.1'   // shared 3D library; bump only when three.js itself changes
 };
