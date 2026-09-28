@@ -92,6 +92,10 @@ html, body { background: #8fd6ff; }
 .rotate .phone { width: 64px; height: 108px; border: 6px solid #1b2130; border-radius: 16px; margin: 0 auto; animation: turn 2.2s ease-in-out infinite; }
 @keyframes turn { 0%, 30% { transform: rotate(0); } 60%, 100% { transform: rotate(-90deg); } }
 @media (orientation: portrait) { .rotate { display: flex; } }
+
+.skiphint { position: fixed; left: 50%; transform: translateX(-50%); top: calc(env(safe-area-inset-top, 0px) + 16px); background: rgba(255,255,255,.88); color: #1b2130;
+  font-weight: 800; font-size: 14px; padding: 7px 12px; border-radius: 12px; box-shadow: 0 3px 10px rgba(0,0,0,.18); pointer-events: none; opacity: 0; transition: opacity .25s; }
+.skiphint.show { opacity: 1; }
 </style>
 </head>
 <body>
@@ -124,6 +128,7 @@ html, body { background: #8fd6ff; }
   <div class="hudr"><div class="score" id="score">0</div><div class="best" id="best"></div></div>
 </div>
 <div class="toast" id="toast"></div>
+<div class="skiphint" id="skipHint">Tap to skip &#8250;&#8250;</div>
 
 <!-- level select -->
 <div class="screen show" id="scLevels">
@@ -939,8 +944,12 @@ var MBSound = (function () {
         c: cols[i % 2], s: 0.08 + Math.random() * 0.16, r: Math.random() * 6, vr: (Math.random() - 0.5) * 12 });
     }
   }
+  var quiet = null; // while skipping ahead: count sounds so a burst of breaks plays only a few
   function drainEvents() {
     var ev = S.events; S.events = [];
+    var snd = SND;
+    if (quiet) snd = new Proxy(SND, { get: function (o, k) { var f = o[k]; if (typeof f !== 'function') return f; return function () { quiet[k] = (quiet[k] || 0) + 1; if (quiet[k] <= 1) f.apply(o, arguments); }; } });
+    var SND_ = SND; SND = snd;
     ev.forEach(function (e) {
       if (e.t === 'hit') { if (e.k === 'grub') SND.tap(); else if (SND[e.m]) SND[e.m](); }
       else if (e.t === 'break') {
@@ -959,6 +968,33 @@ var MBSound = (function () {
       else if (e.t === 'dash') { puff(e.x, e.y, '#fff4c2', 10); SND.dash(); }
       else if (e.t === 'poof') { puff(e.x, e.y, '#ffffff', 9); SND.poof(); }
     });
+    SND = SND_;
+  }
+
+  // ================= tap to skip ahead (Glenn: skip past the waiting to the next bird) =================
+  // the physics still runs every step (just not drawn), so the result is exactly what would have happened
+  function canSkip() {
+    if (!S) return false;
+    if (phase === 'flight') return !!S.bird && S.time - S.bird.getUserData().launchedAt > 0.3 && !S.ability;
+    return phase === 'winwait' || phase === 'losewait' || phase === 'bonus';
+  }
+  function skipAhead() {
+    if (!canSkip()) return;
+    var n = 0;
+    quiet = {};
+    if (phase === 'flight') { while (!MB.shotDone(S) && n < 1500) { MB.step(S); n++; } }
+    else if (phase === 'winwait' || phase === 'losewait') { while (!MB.settled(S) && n < 600) { MB.step(S); n++; } phaseT = 99; }
+    else if (phase === 'bonus') {
+      while (S.queue.length) { var q = queuePos(0); S.queue.shift(); S.score += MB.POINTS_BIRD; floats.push({ x: q.x, y: q.y + 1.2, t: fmt(MB.POINTS_BIRD), c: '#ffd23c', life: 1.2, max: 1.2, big: 1 }); }
+      SND.bonus(0); phaseT = 99;
+    }
+    drainEvents();
+    quiet = null;
+    acc = 0;
+  }
+  function renderSkip() {
+    var el = $('skipHint'), on = canSkip() && !paused() && (phase !== 'flight' || S.time - S.bird.getUserData().launchedAt > 0.8);
+    if (el.classList.contains('show') !== on) el.classList.toggle('show', on);
   }
   function stepParts(dt) {
     parts = parts.filter(function (p) {
@@ -1035,7 +1071,7 @@ var MBSound = (function () {
   }
 
   // ================= input: pull the sling, tap for powers, drag to look around, pinch to zoom =================
-  var pts = {}, pan = null, pinch = null;
+  var pts = {}, pan = null, pinch = null, tapStart = null;
   function nearBird(px, py) {
     if (phase !== 'aim' || !S.queue.length) return false;
     var b = birdPos(), r = MB.BIRDS[S.queue[0]].r * cam.z;
@@ -1047,8 +1083,9 @@ var MBSound = (function () {
     pts[e.pointerId] = { x: e.clientX, y: e.clientY };
     try { cv.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
     var n = Object.keys(pts).length;
+    tapStart = n === 1 ? { x: e.clientX, y: e.clientY, t: performance.now(), id: e.pointerId, used: false } : null;
     if (n === 1 && nearBird(e.clientX, e.clientY)) { dragging = true; pull = { x: 0, y: 0 }; SND.stretch(); return; }
-    if (n === 1 && phase === 'flight' && S.ability) { if (MB.useAbility(S)) return; }
+    if (n === 1 && phase === 'flight' && S.ability) { if (MB.useAbility(S)) { tapStart.used = true; return; } }
     if (n === 2) { dragging = false; pull = null; var k = Object.keys(pts), a = pts[k[0]], b = pts[k[1]]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), z: cam.z, mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2, wx: wx((a.x + b.x) / 2), wy: wy((a.y + b.y) / 2) }; pan = null; camMode = 'manual'; return; }
     if (n === 1) pan = { x: e.clientX, y: e.clientY, cx: cam.x, cy: cam.y };
   }
@@ -1076,6 +1113,8 @@ var MBSound = (function () {
   }
   function onUp(e) {
     delete pts[e.pointerId];
+    var ts = tapStart; tapStart = null;
+    if (ts && ts.id === e.pointerId && !ts.used && !dragging && !pinch && Math.hypot(e.clientX - ts.x, e.clientY - ts.y) < 12 && performance.now() - ts.t < 450) { skipAhead(); }
     if (dragging) {
       dragging = false;
       if (pull && Math.hypot(pull.x, pull.y) > 0.35) doLaunch(pull); else pull = null;
@@ -1126,7 +1165,7 @@ var MBSound = (function () {
   // ================= level select =================
   function showLevels() {
     S = null;
-    $('hud').classList.add('hide');
+    $('hud').classList.add('hide'); $('skipHint').classList.remove('show');
     var h = '', total = 0;
     WORLD.levels.forEach(function (l, i) {
       var sc = scores[key(i)], st = sc ? sc.stars : 0, lock = i > meta.cur; total += st;
@@ -1176,6 +1215,7 @@ var MBSound = (function () {
     }
     render(t);
     renderHUD();
+    if (S) renderSkip();
   }
 
   function init() {
