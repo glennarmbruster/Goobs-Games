@@ -488,6 +488,18 @@
         var stars = 0; if (m.stars) Object.keys(m.stars).forEach(function (k) { stars += m.stars[k]; });
         return 'Level ' + Math.min(100, m.open || 1) + (stars ? ' \u00b7 ' + stars + ' \u2605' : '');
       }
+    },
+    {
+      id: 'bricks', name: 'Brickyard', blurb: 'Bounce, break, catch', path: 'games/bricks/',
+      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" fill="#1c1f3a"/>' + (function () {
+          var h = '', cols = ['#ff6b6b', '#ffa94d', '#ffd43b', '#69db7c', '#4dabf7', '#9775fa', '#f783ac', '#c9ced6'];
+          for (var r = 0; r < 4; r++) for (var c = 0; c < 6; c++) { if (r === 3 && (c === 1 || c === 4)) continue; h += '<rect x="' + (4 + c * 15.5) + '" y="' + (12 + r * 9) + '" width="14" height="7.5" rx="2" fill="' + cols[(r * 2 + c) % 8] + '"/><rect x="' + (5.5 + c * 15.5) + '" y="' + (13 + r * 9) + '" width="11" height="1.8" rx=".9" fill="#fff" opacity=".35"/>'; }
+          return h;
+        })() + '<path d="M40 83 L56 62" stroke="#fff" stroke-width="1.6" stroke-dasharray="2 3" opacity=".6"/><circle cx="57" cy="60" r="3.5" fill="#fff"/><rect x="26" y="86" width="30" height="6" rx="3" fill="#7c5cff"/><rect x="72" y="70" width="12" height="6" rx="3" fill="#15aabf"/><text x="78" y="75" font-size="5.5" font-weight="900" fill="#fff" text-anchor="middle" font-family="system-ui, sans-serif">D</text></svg>',
+      status: function () {
+        var m = readLS('bricks.meta');
+        return m && m.best ? 'Best ' + m.best.toLocaleString() + (m.maxLevel > 1 ? ' \u00b7 level ' + m.maxLevel : '') : 'Bounce, break, catch';
+      }
     }
   ];
   var byId = {};
