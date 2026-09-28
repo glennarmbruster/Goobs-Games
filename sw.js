@@ -2,12 +2,14 @@
    Each part has its own version and its own cache. To publish an update, bump ONLY the
    version of the part that changed; unchanged parts are not downloaded again. */
 const VERSIONS = {
-  shell: '2.0.0',     // menu, manifest, icons, /shared (ads, themes, storage)
+  shell: '2.1.0',     // menu, manifest, icons, /shared (ads, themes, storage)
   zoodoku: '1.6.0',
   woodpile: '1.1.0',
   patchwork: '2.0.0',
   cubecorral: '2.0.0',
-  screwball: '1.1.0'
+  screwball: '1.1.0',
+  skeehop: '1.0.0',
+  three: '0.186.1'   // shared 3D library; bump only when three.js itself changes
 };
 const GROUPS = {
   shell: [
@@ -19,7 +21,9 @@ const GROUPS = {
   woodpile: ['games/woodpile/', 'games/woodpile/index.html'],
   patchwork: ['games/patchwork/', 'games/patchwork/index.html'],
   cubecorral: ['games/cubecorral/', 'games/cubecorral/index.html'],
-  screwball: ['games/screwball/', 'games/screwball/index.html']
+  screwball: ['games/screwball/', 'games/screwball/index.html'],
+  skeehop: ['games/skeehop/', 'games/skeehop/index.html'],
+  three: ['shared/three.module.min.js']
 };
 const PREFIX = 'goobs-';
 const cacheName = (g) => PREFIX + g + '-' + VERSIONS[g];
