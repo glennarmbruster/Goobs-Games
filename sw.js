@@ -2,7 +2,7 @@
    Each part has its own version and its own cache. To publish an update, bump ONLY the
    version of the part that changed; unchanged parts are not downloaded again. */
 const VERSIONS = {
-  shell: '2.12.0',     // menu, manifest, icons, /shared (ads, themes, storage)
+  shell: '2.14.0',     // menu, manifest, icons, /shared (ads, themes, storage)
   zoodoku: '1.8.1',
   woodpile: '1.1.2',
   patchwork: '2.1.1',
@@ -19,6 +19,7 @@ const VERSIONS = {
   aliens: '1.0.0',
   worddice: '1.0.0',
   digger: '1.0.1',
+  blocks: '1.0.0',
   three: '0.186.1',  // shared 3D library; bump only when three.js itself changes
   planck: '1.5.0',   // shared 2D physics library (planck.js); bump only when planck itself changes
   cannon: '0.20.0'   // shared 3D physics library (cannon-es) for Number Nook's Chain Cube
@@ -45,6 +46,7 @@ const GROUPS = {
   aliens: ['games/aliens/', 'games/aliens/index.html'],
   worddice: ['games/worddice/', 'games/worddice/index.html', 'games/worddice/words.txt'],
   digger: ['games/digger/', 'games/digger/index.html'],
+  blocks: ['games/blocks/', 'games/blocks/index.html'],
   three: ['shared/three.module.min.js'],
   planck: ['shared/planck.min.js'],
   cannon: ['shared/cannon-es.min.js']

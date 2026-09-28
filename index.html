@@ -380,6 +380,24 @@
         var s = readLS('digger.stats');
         return s && s.best ? 'Best ' + s.best + (s.bestRound ? ' \u00b7 round ' + s.bestRound : '') : 'Dig, pump and pop';
       }
+    },
+    {
+      id: 'blocks', name: 'Tumbledown', blurb: 'Stack, clear, don\u2019t top out', path: 'games/blocks/',
+      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" fill="#1d2140"/>' + (function () {
+          var h = '', cells = [[1, 7, '#ff5d7a'], [2, 7, '#ff5d7a'], [3, 7, '#ff5d7a'], [4, 7, '#ff5d7a'], [0, 7, '#4db5ff'], [0, 6, '#4db5ff'], [1, 6, '#4db5ff'], [1, 5, '#4db5ff'],
+            [5, 7, '#a78bfa'], [5, 6, '#a78bfa'], [6, 7, '#a78bfa'], [7, 7, '#a78bfa'], [7, 6, '#9be15d'], [6, 6, '#9be15d'], [6, 5, '#9be15d'], [7, 5, '#9be15d'],
+            [3, 2, '#ffc53d'], [4, 2, '#ffc53d'], [5, 2, '#ffc53d'], [4, 3, '#ffc53d']];
+          cells.forEach(function (c) { var x = 6 + c[0] * 11, y = 4 + c[1] * 11; h += '<rect x="' + x + '" y="' + y + '" width="10" height="10" rx="2.4" fill="' + c[2] + '"/><rect x="' + (x + 2) + '" y="' + (y + 1.6) + '" width="6" height="1.6" rx=".8" fill="#fff" opacity=".45"/>'; });
+          [[3, 6], [4, 6], [5, 6]].forEach(function (c) { var x = 6 + c[0] * 11, y = 4 + c[1] * 11; h += '<rect x="' + (x + 1) + '" y="' + (y + 1) + '" width="8" height="8" rx="2" fill="none" stroke="#ffc53d" stroke-opacity=".6" stroke-width="1.2"/>'; });
+          return h;
+        })() + '<rect x="4" y="92" width="92" height="2" rx="1" fill="#2d335c"/></svg>',
+      status: function () {
+        var s = readLS('blocks.stats');
+        if (!s) return 'Stack, clear, don\u2019t top out';
+        var bits = []; if (s.marathon && s.marathon.best) bits.push('Best ' + s.marathon.best.toLocaleString());
+        if (s.sprint && s.sprint.best) { var ms = s.sprint.best * 1000 / 60; bits.push('40 lines ' + Math.floor(ms / 60000) + ':' + ('0' + ((ms % 60000) / 1000).toFixed(1)).slice(-4)); }
+        return bits.join(' \u00b7 ') || 'Stack, clear, don\u2019t top out';
+      }
     }
   ];
   var byId = {};
