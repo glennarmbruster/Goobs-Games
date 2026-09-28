@@ -9,7 +9,7 @@ const VERSIONS = {
   cubecorral: '3.2.2',
   screwball: '2.3.1',
   skeehop: '1.0.2',
-  merge: '1.1.1',
+  merge: '1.1.2',
   tapaway: '1.0.1',
   homerun: '1.1.1',
   match3: '1.0.2',

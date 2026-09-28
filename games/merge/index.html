@@ -653,7 +653,7 @@ var NNChain = (function () {
   // ---------------- input: drag to line up, let go to shoot ----------------
   function xFromClient(cx) {
     var r = canvas.getBoundingClientRect(), f = (cx - r.left) / r.width;
-    return Math.max(-W / 2 + SIZE / 2 + 0.05, Math.min(W / 2 - SIZE / 2 - 0.05, (f - 0.5) * (W + 0.8)));
+    return Math.max(-W / 2 + SIZE / 2 + 0.05, Math.min(W / 2 - SIZE / 2 - 0.05, (0.5 - f) * (W + 0.8))); // the camera looks down the tray, so screen right is the tray's -x
   }
   function onDown(e) {
     if (!held || state === 'over' || (hooks.paused && hooks.paused())) return;
