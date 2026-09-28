@@ -113,6 +113,8 @@
     <div class="sheetbody">
       <div class="themelabel">Theme (all games)</div>
       <div class="themes" id="themes"></div>
+      <label class="row"><div>Fancy scenery<small>Swaying grass and soft shadows. Turn off if the game feels slow.</small></div>
+        <span class="switch"><input type="checkbox" id="setFancy"><span></span></span></label>
       <label class="row"><div>Sound<small>Clanks, knocks and cheers.</small></div>
         <span class="switch"><input type="checkbox" id="setSound"><span></span></span></label>
       <label class="row"><div>Old-time ads<small>Joke ads between games. This switch is shared by all Goobs-Games.</small></div>
@@ -469,6 +471,408 @@ var TFSound = (function () {
   };
 })();
 </script>
+<script>
+/* Topple Fair scenery (three.js): sky with clouds, a lawn with real blades of grass that sway, leafy and pine trees,
+   striped tents, a Ferris wheel with lights, a picket fence and bunting, the booth stand, the cannon, and the pieces
+   (metal cans, wood blocks and boards, ice blocks) with sunlight and soft shadows.
+   TFScene.build(THREE, canvas, TF, { fancy }) returns what the app needs; "fancy" off drops shadows and grass blades. */
+var TFScene = (function () {
+  'use strict';
+  var PIECE_COL = { r: '#e0303f', u: '#2f7de6', y: '#ffbf2e' };
+
+  function build(T, canvas, TF, opts) {
+    var fancy = !opts || opts.fancy !== false;
+    var R = TF.rng(20260928);
+    function rnd(a, b) { return a + (b - a) * R(); }
+    function tex(w, h, draw, srgb) {
+      var c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h);
+      var t = new T.CanvasTexture(c); if (srgb !== false) t.colorSpace = T.SRGBColorSpace; t.anisotropy = 8; return t;
+    }
+    function star(x, cx, cy, r, fill) {
+      x.fillStyle = fill; x.beginPath();
+      for (var i = 0; i < 10; i++) { var a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.45 : r; x.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr); }
+      x.closePath(); x.fill();
+    }
+    function std(o) { return new T.MeshStandardMaterial(o); }
+    function shade(hex, k) { var c = new T.Color(hex); c.multiplyScalar(k); return c; }
+
+    // ---------------- renderer, camera, light ----------------
+    var renderer = new T.WebGLRenderer({ canvas: canvas, antialias: true, alpha: false, powerPreference: 'high-performance' });
+    renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    renderer.toneMapping = T.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.0;
+    if (fancy) { renderer.shadowMap.enabled = true; renderer.shadowMap.type = T.PCFSoftShadowMap; }
+    var scene = new T.Scene();
+    var HORIZON = new T.Color('#c9e3f6');
+    scene.background = HORIZON;
+    scene.fog = new T.Fog(HORIZON, 38, 135);
+    var camera = new T.PerspectiveCamera(46, 1, 0.1, 400);
+    var G = TF.GROUND;
+
+    // sky dome
+    var skyMat = new T.ShaderMaterial({
+      side: T.BackSide, depthWrite: false, fog: false,
+      uniforms: { top: { value: new T.Color('#1a66cc') }, mid: { value: new T.Color('#62aef0') }, bot: { value: HORIZON.clone() } },
+      vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: 'uniform vec3 top; uniform vec3 mid; uniform vec3 bot; varying vec3 vP; void main(){ float h = vP.y; vec3 c = mix(mid, top, smoothstep(0.02, 0.55, h)); c = mix(bot, c, smoothstep(-0.02, 0.16, h)); gl_FragColor = vec4(c, 1.0);\n#include <tonemapping_fragment>\n#include <colorspace_fragment>\n}'
+    });
+    var sky = new T.Mesh(new T.SphereGeometry(300, 32, 16), skyMat); scene.add(sky);
+
+    var hemi = new T.HemisphereLight(0xcfe8ff, 0x5d7f3c, 1.1); scene.add(hemi);
+    var sun = new T.DirectionalLight(0xfff1dc, 2.7); sun.position.set(7, 15, 9); sun.target.position.set(0, 0, 0); scene.add(sun); scene.add(sun.target);
+    if (fancy) {
+      sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+      var sc = sun.shadow.camera; sc.left = -10; sc.right = 10; sc.top = 10; sc.bottom = -8; sc.near = 2; sc.far = 45;
+      sun.shadow.bias = -0.0005; sun.shadow.normalBias = 0.03; sun.shadow.radius = 3;
+    }
+    // soft reflections for the metal and ice, made from a small copy of the sky
+    try {
+      var env = new T.Scene(); env.add(new T.Mesh(new T.SphereGeometry(10, 24, 12), skyMat));
+      var eg = new T.Mesh(new T.CircleGeometry(9, 24), new T.MeshBasicMaterial({ color: 0x5e9a3c })); eg.rotation.x = -Math.PI / 2; eg.position.y = -1.5; env.add(eg);
+      var pm = new T.PMREMGenerator(renderer); scene.environment = pm.fromScene(env, 0.04).texture; pm.dispose();
+      if ('environmentIntensity' in scene) scene.environmentIntensity = 0.7;
+    } catch (e) { /* reflections are only a nicety */ }
+
+    // ---------------- clouds and far hills ----------------
+    var cloudTex = tex(256, 128, function (x, w, h) {
+      for (var i = 0; i < 26; i++) {
+        var cx = rnd(40, 216), cy = rnd(55, 90) - Math.max(0, 40 - Math.abs(cx - 128) * 0.35), r = rnd(18, 38);
+        var g = x.createRadialGradient(cx, cy, 0, cx, cy, r); g.addColorStop(0, 'rgba(255,255,255,.95)'); g.addColorStop(0.6, 'rgba(255,255,255,.55)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+        x.fillStyle = g; x.beginPath(); x.arc(cx, cy, r, 0, Math.PI * 2); x.fill();
+      }
+      var s = x.createLinearGradient(0, 70, 0, 110); s.addColorStop(0, 'rgba(210,225,240,0)'); s.addColorStop(1, 'rgba(190,205,225,.35)'); x.globalCompositeOperation = 'source-atop'; x.fillStyle = s; x.fillRect(0, 0, w, h);
+    });
+    var clouds = [];
+    for (var ci = 0; ci < 8; ci++) {
+      var cm = new T.SpriteMaterial({ map: cloudTex, transparent: true, depthWrite: false, fog: false, opacity: rnd(0.75, 1) });
+      var cl = new T.Sprite(cm); var sw = rnd(26, 46); cl.scale.set(sw, sw * 0.5, 1);
+      cl.position.set(rnd(-90, 90), rnd(24, 48), rnd(-150, -110)); scene.add(cl); clouds.push(cl);
+    }
+    var hillM = [std({ color: 0x6aa84a, roughness: 1 }), std({ color: 0x5b9a41, roughness: 1 }), std({ color: 0x78b457, roughness: 1 })];
+    [[-60, -120, 38], [-15, -135, 44], [40, -125, 36], [85, -115, 30], [-100, -105, 30]].forEach(function (h, i) {
+      var m = new T.Mesh(new T.SphereGeometry(h[2], 32, 16, 0, Math.PI * 2, 0, Math.PI / 2), hillM[i % 3]); m.scale.y = 0.32; m.position.set(h[0], G - 0.5, h[1]); scene.add(m);
+    });
+
+    // ---------------- the lawn ----------------
+    var lawnTex = tex(512, 512, function (x, w, h) {
+      x.fillStyle = '#5a9e3a'; x.fillRect(0, 0, w, h);
+      for (var i = 0; i < 700; i++) { x.fillStyle = 'rgba(' + [40 + rnd(0, 40), 100 + rnd(0, 60), 30 + rnd(0, 25)].map(Math.round).join(',') + ',.18)'; x.beginPath(); x.arc(rnd(0, w), rnd(0, h), rnd(6, 26), 0, Math.PI * 2); x.fill(); }
+      for (var j = 0; j < 14000; j++) {
+        var bx = rnd(0, w), by = rnd(0, h), len = rnd(3, 10), a = rnd(-0.5, 0.5) - Math.PI / 2, l = rnd(0, 1);
+        x.strokeStyle = 'rgb(' + Math.round(55 + l * 75) + ',' + Math.round(115 + l * 90) + ',' + Math.round(35 + l * 40) + ')'; x.lineWidth = rnd(0.8, 1.8);
+        x.beginPath(); x.moveTo(bx, by); x.lineTo(bx + Math.cos(a) * len, by + Math.sin(a) * len); x.stroke();
+      }
+    });
+    lawnTex.wrapS = lawnTex.wrapT = T.RepeatWrapping; lawnTex.repeat.set(36, 36);
+    var lawnGeo = new T.PlaneGeometry(260, 260, 64, 64), lc = [], lp = lawnGeo.attributes.position;
+    for (var li = 0; li < lp.count; li++) { // big soft patches and faint mowing stripes so the lawn doesn't look tiled
+      var px = lp.getX(li), py = lp.getY(li), k = 0.9 + 0.12 * Math.sin(px * 0.13 + py * 0.07) * Math.cos(py * 0.11 - px * 0.05) + 0.05 * Math.sin(px * 0.6) * Math.sin(py * 0.45) + (Math.floor((px + 200) / 3) % 2 ? 0.035 : -0.02);
+      lc.push(k, k, k);
+    }
+    lawnGeo.setAttribute('color', new T.Float32BufferAttribute(lc, 3));
+    var lawn = new T.Mesh(lawnGeo, std({ map: lawnTex, vertexColors: true, roughness: 1, metalness: 0 }));
+    lawn.rotation.x = -Math.PI / 2; lawn.position.set(0, G, -60); lawn.receiveShadow = fancy; scene.add(lawn);
+
+    // sand under the stand and around the cannon, fading into the grass
+    var sandTex = tex(256, 256, function (x, w, h) {
+      var g = x.createRadialGradient(128, 128, 60, 128, 128, 128); g.addColorStop(0, 'rgba(236,208,150,1)'); g.addColorStop(0.75, 'rgba(226,196,136,.95)'); g.addColorStop(1, 'rgba(210,180,120,0)');
+      x.fillStyle = g; x.fillRect(0, 0, w, h);
+      for (var i = 0; i < 2500; i++) { x.fillStyle = 'rgba(' + (R() < 0.5 ? '150,120,70' : '255,240,210') + ',' + rnd(0.1, 0.35).toFixed(2) + ')'; var a = rnd(0, Math.PI * 2), d = Math.sqrt(R()) * 110; x.fillRect(128 + Math.cos(a) * d, 128 + Math.sin(a) * d, 1.5, 1.5); }
+    });
+    var sandM = std({ map: sandTex, transparent: true, depthWrite: false, roughness: 1, polygonOffset: true, polygonOffsetFactor: -2 });
+    var s1 = new T.Mesh(new T.PlaneGeometry(6.4, 4.6), sandM); s1.rotation.x = -Math.PI / 2; s1.position.set(0, G + 0.01, 0); s1.receiveShadow = fancy; scene.add(s1);
+    var s2 = new T.Mesh(new T.PlaneGeometry(4.2, 4.2), sandM); s2.rotation.x = -Math.PI / 2; s2.position.set(0, G + 0.01, TF.LAUNCH[2] + 0.8); s2.receiveShadow = fancy; scene.add(s2);
+
+    // blades of grass (instanced), swaying in the breeze
+    var grass = null, grassUni = { value: 0 };
+    function onSand(x, z) { return (x * x) / (3 * 3) + (z * z) / (2.1 * 2.1) < 1 || Math.hypot(x, z - TF.LAUNCH[2] - 0.8) < 1.9; }
+    if (fancy) {
+      var bg = new T.BufferGeometry(), H = 0.34;
+      bg.setAttribute('position', new T.Float32BufferAttribute([-0.028, 0, 0, 0.028, 0, 0, -0.016, H * 0.5, 0.004, 0.016, H * 0.5, 0.004, 0, H, 0.012], 3));
+      bg.setAttribute('color', new T.Float32BufferAttribute([0.16, 0.33, 0.1, 0.16, 0.33, 0.1, 0.33, 0.58, 0.2, 0.33, 0.58, 0.2, 0.62, 0.82, 0.38], 3));
+      bg.setAttribute('normal', new T.Float32BufferAttribute([0, 0.3, 1, 0, 0.3, 1, 0, 0.5, 1, 0, 0.5, 1, 0, 0.8, 0.6], 3));
+      bg.setIndex([0, 1, 2, 1, 3, 2, 2, 3, 4]);
+      var gm = new T.MeshLambertMaterial({ vertexColors: true, side: T.DoubleSide });
+      gm.onBeforeCompile = function (sh) {
+        sh.uniforms.uTime = grassUni;
+        sh.vertexShader = 'uniform float uTime;\n' + sh.vertexShader.replace('#include <begin_vertex>',
+          '#include <begin_vertex>\nfloat tip = position.y / 0.34; vec4 wp = instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);\n' +
+          'transformed.x += sin(uTime * 1.7 + wp.x * 0.8 + wp.z * 0.45) * 0.055 * tip * tip;\ntransformed.z += cos(uTime * 1.3 + wp.x * 0.35 + wp.z * 0.6) * 0.035 * tip * tip;');
+      };
+      var N = 12000, pts = [];
+      while (pts.length < N) {
+        var gx = rnd(-13, 13), gz = rnd(-10, 15.2);
+        if (onSand(gx, gz)) continue;
+        if (gz < -2 && R() < 0.55) continue; // thinner further back (you can't see blades there)
+        pts.push([gx, gz]);
+      }
+      grass = new T.InstancedMesh(bg, gm, N);
+      var mtx = new T.Matrix4(), q = new T.Quaternion(), e = new T.Euler(), sv = new T.Vector3(), pv = new T.Vector3(), col = new T.Color();
+      pts.forEach(function (p, i) {
+        e.set(rnd(-0.18, 0.18), rnd(0, Math.PI * 2), rnd(-0.18, 0.18)); q.setFromEuler(e);
+        var s = rnd(0.6, 1.45); sv.set(s * rnd(0.8, 1.3), s, s); pv.set(p[0], G, p[1]);
+        mtx.compose(pv, q, sv); grass.setMatrixAt(i, mtx);
+        var l = rnd(0.82, 1.18); col.setRGB(l * rnd(0.9, 1.05), l, l * rnd(0.85, 1)); grass.setColorAt(i, col);
+      });
+      grass.receiveShadow = true; grass.frustumCulled = false; scene.add(grass);
+      // little flowers here and there
+      var fl = new T.InstancedMesh(new T.IcosahedronGeometry(0.045, 0), new T.MeshLambertMaterial({ color: 0xffffff }), 260), fcols = [0xffffff, 0xfff27a, 0xff9ed2, 0xc9a7ff];
+      for (var fi = 0; fi < 260; fi++) {
+        var fx0, fz0; do { fx0 = rnd(-13, 13); fz0 = rnd(-9, 15); } while (onSand(fx0, fz0));
+        mtx.makeTranslation(fx0, G + rnd(0.12, 0.26), fz0); fl.setMatrixAt(fi, mtx); fl.setColorAt(fi, col.set(fcols[fi % 4]));
+      }
+      scene.add(fl);
+    }
+
+    // ---------------- trees and bushes ----------------
+    var leafTpl = [0, 1, 2].map(function (t) { // bumpy leaf clumps (smooth, darker underneath)
+      var g = new T.SphereGeometry(1, 22, 16), p = g.attributes.position, cols = [], ph = t * 1.7;
+      for (var i = 0; i < p.count; i++) {
+        var vx = p.getX(i), vy = p.getY(i), vz = p.getZ(i);
+        var n = 1 + 0.12 * Math.sin(vx * 5.1 + vz * 3.3 + ph) * Math.cos(vy * 4.7 - ph) + 0.06 * Math.sin(vx * 11 + vy * 9 + vz * 7);
+        p.setXYZ(i, vx * n, vy * n, vz * n);
+        var k = 0.5 + 0.5 * (vy * 0.5 + 0.5); cols.push(k, k, k);
+      }
+      g.setAttribute('color', new T.Float32BufferAttribute(cols, 3)); g.computeVertexNormals(); return g;
+    });
+    var leafTex = tex(256, 256, function (x, w, h) {
+      x.fillStyle = '#6b9e55'; x.fillRect(0, 0, w, h);
+      for (var i = 0; i < 2600; i++) { var l = rnd(0.55, 1.25); x.fillStyle = 'rgb(' + Math.round(70 * l) + ',' + Math.round(140 * l) + ',' + Math.round(55 * l) + ')'; x.beginPath(); x.ellipse(rnd(0, w), rnd(0, h), rnd(2, 5), rnd(1, 2.5), rnd(0, 3.14), 0, Math.PI * 2); x.fill(); }
+    });
+    leafTex.wrapS = leafTex.wrapT = T.RepeatWrapping; leafTex.repeat.set(3, 2);
+    var leafM = ['#7fbf5e', '#93cc6a', '#6aae52', '#a3d27a'].map(function (c) { return std({ color: c, map: leafTex, vertexColors: true, roughness: 0.9 }); });
+    var barkTex = tex(64, 256, function (x, w, h) { x.fillStyle = '#6b4a2e'; x.fillRect(0, 0, w, h); for (var i = 0; i < 90; i++) { x.fillStyle = R() < 0.5 ? 'rgba(40,25,12,.45)' : 'rgba(150,110,70,.3)'; x.fillRect(rnd(0, w), rnd(0, h), rnd(1, 3), rnd(10, 40)); } });
+    var barkM = std({ map: barkTex, roughness: 1 });
+    function tree(x, z, s) {
+      var g = new T.Group();
+      var tr = new T.Mesh(new T.CylinderGeometry(0.16 * s, 0.3 * s, 2.6 * s, 10), barkM); tr.position.y = 1.3 * s; g.add(tr);
+      [[-0.6, 1.9, 0.9], [0.7, 2.1, -0.8], [0.1, 2.3, 0.2]].forEach(function (b) { var br = new T.Mesh(new T.CylinderGeometry(0.05 * s, 0.1 * s, 1.1 * s, 6), barkM); br.position.set(b[0] * s * 0.45, b[1] * s, 0); br.rotation.z = b[2]; g.add(br); });
+      var blobs = 7 + Math.floor(R() * 4), lm = leafM[Math.floor(R() * leafM.length)];
+      for (var i = 0; i < blobs; i++) {
+        var a = i / blobs * Math.PI * 2 + rnd(0, 0.6), d = rnd(0.5, 1.1) * s, y = rnd(2.6, 3.9) * s;
+        var b = new T.Mesh(leafTpl[i % 3], R() < 0.3 ? leafM[Math.floor(R() * leafM.length)] : lm); var r = rnd(0.75, 1.15) * s;
+        b.scale.set(r, r * rnd(0.8, 1), r); b.position.set(Math.cos(a) * d, y, Math.sin(a) * d * 0.8); b.rotation.set(rnd(0, 3), rnd(0, 3), 0); b.castShadow = fancy; g.add(b);
+      }
+      var top = new T.Mesh(leafTpl[0], lm); top.scale.setScalar(1.05 * s); top.position.y = 4.3 * s; top.castShadow = fancy; g.add(top);
+      tr.castShadow = fancy; g.position.set(x, G, z); g.rotation.y = rnd(0, 6); scene.add(g);
+    }
+    var pineM = std({ color: '#2b6b34', vertexColors: true, roughness: 0.95 });
+    var pineTpl = (function () { var g = new T.ConeGeometry(1, 1.6, 12, 3), p = g.attributes.position, cols = []; for (var i = 0; i < p.count; i++) { var vy = p.getY(i), k = 0.6 + 0.4 * (vy / 1.6 + 0.5); p.setX(i, p.getX(i) * (1 + rnd(-0.08, 0.08))); p.setZ(i, p.getZ(i) * (1 + rnd(-0.08, 0.08))); cols.push(k, k, k); } g.setAttribute('color', new T.Float32BufferAttribute(cols, 3)); g.computeVertexNormals(); return g; })();
+    function pine(x, z, s) {
+      var g = new T.Group(); var tr = new T.Mesh(new T.CylinderGeometry(0.12 * s, 0.22 * s, 1.4 * s, 8), barkM); tr.position.y = 0.7 * s; g.add(tr);
+      for (var i = 0; i < 4; i++) { var c = new T.Mesh(pineTpl, pineM), w = (1.25 - i * 0.24) * s; c.scale.set(w, s, w); c.position.y = (1.4 + i * 0.95) * s; c.castShadow = fancy; g.add(c); }
+      g.position.set(x, G, z); scene.add(g);
+    }
+    [[-9.5, -9, 1.05], [10.5, -11, 1.2], [-15, -16, 1.35], [16, -20, 1.4], [-6, -30, 1.5], [6, -34, 1.6], [-22, -30, 1.7], [24, -34, 1.7], [-13, -44, 1.8], [15, -50, 1.9]].forEach(function (t) { tree(t[0], t[1], t[2]); });
+    [[-12.5, -13, 1.1], [13.5, -15, 1.0], [-19, -22, 1.3], [20, -26, 1.3], [0, -46, 1.6], [-30, -40, 1.8], [31, -44, 1.9]].forEach(function (t) { pine(t[0], t[1], t[2]); });
+    // a hedge along the back fence
+    var bushM = std({ color: '#7cba5a', map: leafTex, vertexColors: true, roughness: 1 });
+    for (var bi = 0; bi < 22; bi++) { var bx = -21 + bi * 2 + rnd(-0.4, 0.4); if (Math.abs(bx) < 2.4) continue; var bu = new T.Mesh(leafTpl[bi % 3], bushM), bs = rnd(0.7, 1.1); bu.scale.set(bs * 1.2, bs * 0.8, bs); bu.position.set(bx, G + bs * 0.45, -12.6 + rnd(-0.3, 0.3)); scene.add(bu); }
+
+    // ---------------- picket fence ----------------
+    (function () {
+      var n = 0, xs = []; for (var x = -20; x <= 20; x += 0.42) { if (Math.abs(x) < 1.2) continue; xs.push(x); }
+      var pk = new T.InstancedMesh(new T.BoxGeometry(0.14, 1, 0.05), std({ color: 0xf6f3ea, roughness: 0.8 }), xs.length), m = new T.Matrix4();
+      xs.forEach(function (x, i) { m.makeTranslation(x, G + 0.5, -11.5); pk.setMatrixAt(i, m); n++; });
+      scene.add(pk);
+      [0.28, 0.72].forEach(function (y) { [-1, 1].forEach(function (sd) { var rl = new T.Mesh(new T.BoxGeometry(18.8, 0.08, 0.04), std({ color: 0xece8dc, roughness: 0.8 })); rl.position.set(sd * 10.6, G + y, -11.53); scene.add(rl); }); });
+    })();
+
+    // ---------------- tents ----------------
+    function stripeTex(c1, c2, n) { return tex(512, 64, function (x, w, h) { for (var i = 0; i < n; i++) { x.fillStyle = i % 2 ? c2 : c1; x.fillRect(i * w / n, 0, w / n + 1, h); } x.fillStyle = 'rgba(0,0,0,.08)'; for (var j = 0; j < n; j++) x.fillRect(j * w / n, 0, 2, h); }); }
+    var scallop = tex(512, 64, function (x, w, h) { var n = 24; for (var i = 0; i < n; i++) { x.fillStyle = i % 2 ? '#ffd23f' : '#ffffff'; x.beginPath(); x.moveTo(i * w / n, 0); x.lineTo((i + 1) * w / n, 0); x.lineTo((i + 1) * w / n, h * 0.45); x.arc((i + 0.5) * w / n, h * 0.45, w / n / 2, 0, Math.PI); x.fill(); } });
+    function tent(x, z, r, c1) {
+      var g = new T.Group(), st = stripeTex(c1, '#fbf6ea', 24), m = std({ map: st, roughness: 0.85, side: T.DoubleSide });
+      var body = new T.Mesh(new T.CylinderGeometry(r, r, r * 1.1, 32, 1, true), m); body.position.y = r * 0.55; body.castShadow = fancy; body.receiveShadow = fancy; g.add(body);
+      var roof = new T.Mesh(new T.ConeGeometry(r * 1.18, r * 1.25, 32, 1, true), m); roof.position.y = r * 1.1 + r * 0.62; roof.castShadow = fancy; g.add(roof);
+      var val = new T.Mesh(new T.CylinderGeometry(r * 1.18, r * 1.18, r * 0.3, 32, 1, true), std({ map: scallop, transparent: true, alphaTest: 0.5, side: T.DoubleSide, roughness: 0.8 })); val.position.y = r * 1.1 - r * 0.15 + 0.02; g.add(val);
+      var door = new T.Mesh(new T.PlaneGeometry(r * 0.55, r * 0.8), std({ color: 0x2b1d33, roughness: 1 })); door.position.set(0, r * 0.4, r + 0.02); g.add(door);
+      var pole = new T.Mesh(new T.CylinderGeometry(0.05, 0.05, r * 0.7, 6), std({ color: 0xffffff })); pole.position.y = r * 2.35 + r * 0.3; g.add(pole);
+      var knob = new T.Mesh(new T.SphereGeometry(0.14, 12, 8), std({ color: 0xffc53d, metalness: 0.6, roughness: 0.3 })); knob.position.y = r * 2.35 + r * 0.65; g.add(knob);
+      var fl = new T.Mesh(new T.PlaneGeometry(0.7, 0.36), std({ color: c1, side: T.DoubleSide })); fl.position.set(0.38, r * 2.35 + r * 0.55, 0); g.add(fl);
+      g.position.set(x, G, z); g.rotation.y = Math.atan2(-x, 20 - z) * 0.6; scene.add(g); return g;
+    }
+    tent(-10.5, -19, 2.5, '#e0303f'); tent(9.5, -24, 3.1, '#2f5fd0'); tent(-1.5, -33, 2.3, '#2f5fd0'); tent(17, -15, 1.9, '#e0303f'); tent(-19, -26, 2.2, '#8a4fd6');
+
+    // ---------------- bunting strung between poles ----------------
+    var buntingFlags = null;
+    (function () {
+      var poleM = std({ color: 0xf2efe6, roughness: 0.7 }), cols = [0xe0303f, 0xffbf2e, 0x2f7de6, 0x2ec27e, 0xffffff, 0x9b5de5];
+      var lines = [[[-10.5, -8.5], [10.5, -8.5], 7], [[-15, -15], [-8, -17], 5.5], [[8, -19], [16, -16], 6]];
+      lines.forEach(function (L) { [L[0], L[1]].forEach(function (p) { var pl = new T.Mesh(new T.CylinderGeometry(0.07, 0.09, L[2] - G, 8), poleM); pl.position.set(p[0], (L[2] + G) / 2, p[1]); pl.castShadow = fancy; scene.add(pl); }); });
+      var fgeo = new T.BufferGeometry(); fgeo.setAttribute('position', new T.Float32BufferAttribute([-0.16, 0, 0, 0.16, 0, 0, 0, -0.38, 0], 3)); fgeo.computeVertexNormals();
+      var total = 0, per = 22; total = lines.length * per;
+      buntingFlags = new T.InstancedMesh(fgeo, new T.MeshLambertMaterial({ side: T.DoubleSide }), total);
+      var m = new T.Matrix4(), q = new T.Quaternion(), s = new T.Vector3(1, 1, 1), p = new T.Vector3(), c = new T.Color(), idx = 0;
+      lines.forEach(function (L) {
+        var a = L[0], b = L[1], pts = [];
+        for (var i = 0; i <= 40; i++) { var t = i / 40; pts.push(new T.Vector3(a[0] + (b[0] - a[0]) * t, L[2] - 0.05 - Math.sin(t * Math.PI) * 0.9, a[1] + (b[1] - a[1]) * t)); }
+        var rope = new T.Mesh(new T.TubeGeometry(new T.CatmullRomCurve3(pts), 40, 0.015, 4), new T.MeshBasicMaterial({ color: 0x555555 })); scene.add(rope);
+        var yaw = Math.atan2(-(b[1] - a[1]), b[0] - a[0]);
+        for (var f = 0; f < per; f++) { var t2 = (f + 0.5) / per; p.set(a[0] + (b[0] - a[0]) * t2, L[2] - 0.06 - Math.sin(t2 * Math.PI) * 0.9, a[1] + (b[1] - a[1]) * t2); q.setFromEuler(new T.Euler(0, yaw, 0)); m.compose(p, q, s); buntingFlags.setMatrixAt(idx, m); buntingFlags.setColorAt(idx, c.set(cols[f % cols.length])); idx++; }
+      });
+      scene.add(buntingFlags);
+    })();
+
+    // ---------------- Ferris wheel ----------------
+    var wheel = new T.Group(), gondolas = [];
+    (function () {
+      var wm = std({ color: 0xf4f4f8, roughness: 0.5, metalness: 0.2 }), R0 = 6;
+      [-0.7, 0.7].forEach(function (z) {
+        var ring = new T.Mesh(new T.TorusGeometry(R0, 0.1, 8, 64), wm); ring.position.z = z; wheel.add(ring);
+        var ring2 = new T.Mesh(new T.TorusGeometry(R0 * 0.55, 0.06, 6, 48), wm); ring2.position.z = z; wheel.add(ring2);
+        for (var sp = 0; sp < 16; sp++) { var a = sp * Math.PI / 8, spoke = new T.Mesh(new T.CylinderGeometry(0.035, 0.035, R0, 4), wm); spoke.position.set(Math.cos(a) * R0 / 2, Math.sin(a) * R0 / 2, z); spoke.rotation.z = a - Math.PI / 2; wheel.add(spoke); }
+      });
+      var hub = new T.Mesh(new T.CylinderGeometry(0.35, 0.35, 1.8, 16), std({ color: 0xffc53d, metalness: 0.6, roughness: 0.35 })); hub.rotation.x = Math.PI / 2; wheel.add(hub);
+      var bulbs = new T.InstancedMesh(new T.SphereGeometry(0.09, 6, 4), new T.MeshBasicMaterial({ color: 0xfff3b0 }), 64), bm = new T.Matrix4();
+      for (var bi2 = 0; bi2 < 64; bi2++) { var ab = bi2 / 64 * Math.PI * 2; bm.makeTranslation(Math.cos(ab) * R0, Math.sin(ab) * R0, bi2 % 2 ? 0.7 : -0.7); bulbs.setMatrixAt(bi2, bm); }
+      wheel.add(bulbs);
+      var gc = [0xe0303f, 0x2f7de6, 0xffbf2e, 0x2ec27e, 0x9b5de5, 0xff7a3d];
+      for (var gi = 0; gi < 12; gi++) {
+        var ag = gi * Math.PI / 6, gp = new T.Group();
+        var cab = new T.Mesh(new T.CylinderGeometry(0.45, 0.35, 0.6, 12), std({ color: gc[gi % 6], roughness: 0.5 })); cab.position.y = -0.5; gp.add(cab);
+        var roofG = new T.Mesh(new T.ConeGeometry(0.5, 0.3, 12), std({ color: 0xffffff })); roofG.position.y = -0.05; gp.add(roofG);
+        gp.position.set(Math.cos(ag) * R0, Math.sin(ag) * R0, 0); wheel.add(gp); gondolas.push(gp);
+      }
+      wheel.position.set(-17, G + R0 + 1.4, -52); scene.add(wheel);
+      var legM = std({ color: 0xdfe3ec, roughness: 0.6 });
+      [-1, 1].forEach(function (k) { [-0.9, 0.9].forEach(function (z) { var leg = new T.Mesh(new T.CylinderGeometry(0.12, 0.16, R0 + 2, 6), legM); leg.position.set(-17 + k * 1.9, G + (R0 + 1.4) / 2, -52 + z); leg.rotation.z = k * 0.3; scene.add(leg); }); });
+    })();
+
+    // ---------------- the booth stand ----------------
+    var woodTop = tex(512, 160, function (x, w, h) {
+      var planks = 6;
+      for (var i = 0; i < planks; i++) {
+        var y0 = i * h / planks, k = rnd(0.9, 1.08);
+        x.fillStyle = 'rgb(' + Math.round(48 * k) + ',' + Math.round(88 * k) + ',' + Math.round(200 * k) + ')'; x.fillRect(0, y0, w, h / planks);
+        for (var j = 0; j < 18; j++) { x.strokeStyle = 'rgba(255,255,255,' + rnd(0.03, 0.09).toFixed(2) + ')'; x.lineWidth = rnd(0.5, 1.5); x.beginPath(); var yy = y0 + rnd(2, h / planks - 2); x.moveTo(0, yy); x.bezierCurveTo(w * 0.3, yy + rnd(-3, 3), w * 0.7, yy + rnd(-3, 3), w, yy + rnd(-2, 2)); x.stroke(); }
+        x.fillStyle = 'rgba(0,0,30,.35)'; x.fillRect(0, y0, w, 1.5);
+      }
+    });
+    var skirt = tex(512, 64, function (x, w, h) { for (var i = 0; i < 20; i++) { x.fillStyle = i % 2 ? '#fbf6ea' : '#e0303f'; x.fillRect(i * w / 20, 0, w / 20 + 1, h); } var g = x.createLinearGradient(0, 0, 0, h); g.addColorStop(0, 'rgba(255,255,255,.15)'); g.addColorStop(1, 'rgba(0,0,0,.15)'); x.fillStyle = g; x.fillRect(0, 0, w, h); });
+    var topM = std({ map: woodTop, roughness: 0.55 }), edgeM = std({ map: skirt, roughness: 0.7 });
+    var standTop = new T.Mesh(new T.BoxGeometry(TF.PW, TF.PT, TF.PD), [edgeM, edgeM, topM, topM, edgeM, edgeM]); standTop.position.set(0, -TF.PT / 2, 0); standTop.castShadow = fancy; standTop.receiveShadow = fancy; scene.add(standTop);
+    var trimM = std({ color: 0xffc53d, metalness: 0.55, roughness: 0.35 });
+    var rim = new T.Mesh(new T.BoxGeometry(TF.PW + 0.14, 0.07, TF.PD + 0.14), trimM); rim.position.set(0, -TF.PT - 0.035, 0); rim.castShadow = fancy; scene.add(rim);
+    var rimTop = new T.Mesh(new T.BoxGeometry(TF.PW + 0.06, 0.03, 0.05), trimM); rimTop.position.set(0, -0.012, TF.PD / 2 + 0.01); scene.add(rimTop);
+    var valance = new T.Mesh(new T.PlaneGeometry(TF.PW + 0.1, 0.34), std({ map: scallop, transparent: true, alphaTest: 0.5, side: T.DoubleSide, roughness: 0.8 })); valance.position.set(0, -TF.PT - 0.23, TF.PD / 2 + 0.075); scene.add(valance);
+    var barber = tex(64, 256, function (x, w, h) { for (var i = -8; i < 16; i++) { x.fillStyle = i % 2 ? '#fbf6ea' : '#e0303f'; x.beginPath(); x.moveTo(0, i * 24); x.lineTo(w, i * 24 - 30); x.lineTo(w, i * 24 - 6); x.lineTo(0, i * 24 + 24); x.fill(); } });
+    barber.wrapT = T.RepeatWrapping; barber.repeat.set(1, 3);
+    var post = new T.Mesh(new T.CylinderGeometry(0.28, 0.36, -G - TF.PT, 24), std({ map: barber, roughness: 0.45 })); post.position.set(0, (G - TF.PT) / 2, 0); post.castShadow = fancy; scene.add(post);
+    var foot = new T.Mesh(new T.CylinderGeometry(0.85, 1.05, 0.28, 32), trimM); foot.position.set(0, G + 0.14, 0); foot.castShadow = fancy; foot.receiveShadow = fancy; scene.add(foot);
+    var cap = new T.Mesh(new T.CylinderGeometry(0.45, 0.3, 0.2, 24), trimM); cap.position.set(0, -TF.PT - 0.15, 0); scene.add(cap);
+
+    // ---------------- the cannon ----------------
+    var cannon = new T.Group(), barrel = new T.Group();
+    (function () {
+      var starTex = tex(256, 128, function (x, w, h) { x.fillStyle = '#d6283a'; x.fillRect(0, 0, w, h); for (var i = 0; i < 6; i++) star(x, 22 + i * 44, i % 2 ? 40 : 88, 13, '#ffffff'); });
+      var red = std({ map: starTex, roughness: 0.35, metalness: 0.15 }), gold = std({ color: 0xffc53d, metalness: 0.75, roughness: 0.28 }), blue = std({ color: 0x2d4fc4, roughness: 0.45, metalness: 0.1 });
+      var base = new T.Mesh(new T.CylinderGeometry(0.75, 0.95, 0.5, 32), blue); base.position.y = -0.25; cannon.add(base);
+      var baseRim = new T.Mesh(new T.TorusGeometry(0.85, 0.08, 10, 32), gold); baseRim.rotation.x = Math.PI / 2; baseRim.position.y = -0.02; cannon.add(baseRim);
+      [-1, 1].forEach(function (k) {
+        var wh = new T.Mesh(new T.TorusGeometry(0.42, 0.08, 8, 24), gold); wh.rotation.y = Math.PI / 2; wh.position.set(k * 0.62, 0.05, 0.2); cannon.add(wh);
+        var hubW = new T.Mesh(new T.CylinderGeometry(0.1, 0.1, 0.12, 12), blue); hubW.rotation.z = Math.PI / 2; hubW.position.set(k * 0.62, 0.05, 0.2); cannon.add(hubW);
+        for (var s = 0; s < 6; s++) { var spk = new T.Mesh(new T.BoxGeometry(0.04, 0.8, 0.05), gold); spk.position.set(k * 0.62, 0.05, 0.2); spk.rotation.x = s * Math.PI / 6; cannon.add(spk); }
+      });
+      var tube = new T.Mesh(new T.CylinderGeometry(0.34, 0.46, 1.5, 32), red); tube.rotation.x = Math.PI / 2; tube.position.z = -0.55; barrel.add(tube);
+      var mouth = new T.Mesh(new T.TorusGeometry(0.34, 0.08, 10, 32), gold); mouth.position.z = -1.3; barrel.add(mouth);
+      var inner = new T.Mesh(new T.CircleGeometry(0.3, 24), new T.MeshBasicMaterial({ color: 0x1a0a0a })); inner.position.z = -1.29; inner.rotation.y = Math.PI; barrel.add(inner);
+      var ballEnd = new T.Mesh(new T.SphereGeometry(0.46, 24, 16), red); ballEnd.position.z = 0.15; barrel.add(ballEnd);
+      var knob = new T.Mesh(new T.SphereGeometry(0.12, 12, 8), gold); knob.position.z = 0.62; barrel.add(knob);
+      [-0.35, -0.95].forEach(function (z) { var band = new T.Mesh(new T.TorusGeometry(0.43 - (z < -0.5 ? 0.06 : 0), 0.06, 8, 32), gold); band.position.z = z; barrel.add(band); });
+      barrel.position.y = 0.3; cannon.add(barrel);
+      cannon.traverse(function (o) { if (o.isMesh) o.castShadow = fancy; });
+      cannon.scale.set(0.62, 0.62, 0.62); cannon.position.set(TF.LAUNCH[0], TF.LAUNCH[1] - 0.19, TF.LAUNCH[2] + 0.78);
+      scene.add(cannon);
+      var stool = new T.Mesh(new T.CylinderGeometry(0.32, 0.45, TF.LAUNCH[1] - 0.5 - G, 24), std({ map: barber, roughness: 0.45 })); stool.position.set(0, (TF.LAUNCH[1] - 0.5 + G) / 2, TF.LAUNCH[2] + 0.78); stool.castShadow = fancy; scene.add(stool);
+    })();
+
+    // ---------------- pieces ----------------
+    var mats = {}, geos = {}, K = TF.KINDS;
+    // cans: one turned shape with rolled rims; the label wraps the middle
+    (function () {
+      var hy = K.r.hy, r = K.r.hx + 0.01, pts = [], side = 11;
+      pts.push(new T.Vector2(0.001, -hy), new T.Vector2(r * 0.72, -hy), new T.Vector2(r * 0.9, -hy + 0.006), new T.Vector2(r * 0.99, -hy + 0.022));
+      for (var i = 0; i < side; i++) pts.push(new T.Vector2(r, -hy + 0.045 + (2 * hy - 0.09) * i / (side - 1)));
+      pts.push(new T.Vector2(r * 0.99, hy - 0.022), new T.Vector2(r * 0.93, hy - 0.004), new T.Vector2(r * 0.86, hy), new T.Vector2(r * 0.8, hy - 0.012), new T.Vector2(0.001, hy - 0.012));
+      geos.can = new T.LatheGeometry(pts, 28);
+      var n = pts.length - 1, v0 = 4 / n, v1 = (4 + side - 1) / n;
+      ['r', 'u', 'y'].forEach(function (k) {
+        var col = PIECE_COL[k];
+        var t = tex(512, 256, function (x, w, h) {
+          var mg = x.createLinearGradient(0, 0, 0, h); mg.addColorStop(0, '#dfe3ea'); mg.addColorStop(0.5, '#aab2c0'); mg.addColorStop(1, '#e6e9ef'); x.fillStyle = mg; x.fillRect(0, 0, w, h);
+          var yTop = h * (1 - v1), yBot = h * (1 - v0);
+          x.fillStyle = col; x.fillRect(0, yTop, w, yBot - yTop);
+          x.fillStyle = 'rgba(255,255,255,.9)'; x.fillRect(0, yTop + (yBot - yTop) * 0.12, w, 5); x.fillRect(0, yBot - (yBot - yTop) * 0.12 - 5, w, 5);
+          for (var s = 0; s < 3; s++) star(x, w * (s + 0.5) / 3, (yTop + yBot) / 2, (yBot - yTop) * 0.24, k === 'y' ? '#e0303f' : '#ffffff');
+          x.fillStyle = 'rgba(0,0,0,.12)'; x.fillRect(0, yTop, w, 3); x.fillRect(0, yBot - 3, w, 3);
+        });
+        mats[k] = std({ map: t, metalness: 0.45, roughness: 0.32 });
+      });
+    })();
+    function woodTex(base, light, grain, emblem) {
+      return tex(256, 256, function (x, w, h) {
+        x.fillStyle = base; x.fillRect(0, 0, w, h);
+        for (var i = 0; i < 40; i++) { x.strokeStyle = grain; x.globalAlpha = rnd(0.1, 0.35); x.lineWidth = rnd(1, 3); x.beginPath(); var y = rnd(0, h); x.moveTo(0, y); x.bezierCurveTo(w * 0.3, y + rnd(-10, 10), w * 0.6, y + rnd(-10, 10), w, y + rnd(-6, 6)); x.stroke(); }
+        for (var k = 0; k < 3; k++) { x.globalAlpha = 0.35; x.strokeStyle = grain; x.lineWidth = 2; x.beginPath(); x.ellipse(rnd(40, 216), rnd(40, 216), rnd(6, 12), rnd(3, 5), 0, 0, Math.PI * 2); x.stroke(); }
+        x.globalAlpha = 1; x.fillStyle = light; x.globalAlpha = 0.25; x.fillRect(0, 0, w, 10); x.globalAlpha = 1;
+        x.strokeStyle = 'rgba(80,45,15,.55)'; x.lineWidth = 12; x.strokeRect(6, 6, w - 12, h - 12);
+        if (emblem) { x.fillStyle = 'rgba(255,255,255,.9)'; x.beginPath(); x.arc(w / 2, h / 2, 46, 0, Math.PI * 2); x.fill(); star(x, w / 2, h / 2, 38, '#e0303f'); }
+      });
+    }
+    mats.b = std({ map: woodTex('#e3b06a', '#fff3d6', '#8a5a26', true), roughness: 0.75 });
+    mats.p = std({ map: tex(512, 96, function (x, w, h) {
+      x.fillStyle = '#c98a45'; x.fillRect(0, 0, w, h);
+      for (var i = 0; i < 30; i++) { x.strokeStyle = '#7a4a1c'; x.globalAlpha = rnd(0.12, 0.35); x.lineWidth = rnd(1, 2.5); x.beginPath(); var y = rnd(0, h); x.moveTo(0, y); x.bezierCurveTo(w * 0.3, y + rnd(-6, 6), w * 0.7, y + rnd(-6, 6), w, y + rnd(-4, 4)); x.stroke(); }
+      x.globalAlpha = 1; x.strokeStyle = 'rgba(70,40,12,.6)'; x.lineWidth = 8; x.strokeRect(4, 4, w - 8, h - 8);
+      x.fillStyle = '#8a8f99'; [24, w - 24].forEach(function (cx) { [22, h - 22].forEach(function (cy) { x.beginPath(); x.arc(cx, cy, 5, 0, Math.PI * 2); x.fill(); }); });
+    }), roughness: 0.7 });
+    mats.h = std({ map: tex(256, 256, function (x, w, h) {
+      var g = x.createLinearGradient(0, 0, w, h); g.addColorStop(0, '#eaf8ff'); g.addColorStop(0.5, '#a9dcfb'); g.addColorStop(1, '#6fb8ea'); x.fillStyle = g; x.fillRect(0, 0, w, h);
+      x.strokeStyle = 'rgba(255,255,255,.7)'; x.lineWidth = 2; for (var i = 0; i < 7; i++) { x.beginPath(); var sx = rnd(20, 236), sy = rnd(20, 236); x.moveTo(sx, sy); for (var j = 0; j < 4; j++) { sx += rnd(-40, 40); sy += rnd(-40, 40); x.lineTo(sx, sy); } x.stroke(); }
+      x.fillStyle = 'rgba(255,255,255,.55)'; x.beginPath(); x.moveTo(20, 60); x.lineTo(60, 20); x.lineTo(130, 20); x.lineTo(20, 130); x.fill();
+      x.strokeStyle = 'rgba(60,140,200,.8)'; x.lineWidth = 12; x.strokeRect(6, 6, w - 12, h - 12);
+    }), roughness: 0.12, metalness: 0.05 });
+    mats.ball = std({ map: tex(256, 128, function (x, w, h) {
+      x.fillStyle = '#ffbf2e'; x.fillRect(0, 0, w, h); x.fillStyle = '#e0303f'; x.fillRect(0, h / 2 - 14, w, 28);
+      star(x, w * 0.25, h * 0.24, 18, '#fff'); star(x, w * 0.75, h * 0.76, 18, '#fff');
+    }), roughness: 0.28, metalness: 0.05 });
+    geos.b = new T.BoxGeometry(K.b.hx * 2, K.b.hy * 2, K.b.hz * 2);
+    geos.h = new T.BoxGeometry(K.h.hx * 2, K.h.hy * 2, K.h.hz * 2);
+    geos.p = new T.BoxGeometry(K.p.hx * 2, K.p.hy * 2, K.p.hz * 2);
+    geos.ball = new T.SphereGeometry(TF.BALLR, 28, 18);
+    geos.confetti = new T.PlaneGeometry(0.12, 0.08);
+    function pieceMesh(k) { var m = K[k].can ? new T.Mesh(geos.can, mats[k]) : new T.Mesh(geos[k], mats[k]); m.castShadow = fancy; m.receiveShadow = fancy; return m; }
+    function ballMesh() { var m = new T.Mesh(geos.ball, mats.ball); m.castShadow = fancy; return m; }
+
+    // ---------------- aim marker ----------------
+    var reticle = new T.Group();
+    var rm = new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95, depthTest: false });
+    reticle.add(new T.Mesh(new T.RingGeometry(0.2, 0.27, 32), rm));
+    reticle.add(new T.Mesh(new T.CircleGeometry(0.06, 16), new T.MeshBasicMaterial({ color: 0xe8354a, depthTest: false })));
+    reticle.renderOrder = 10; reticle.children.forEach(function (c) { c.renderOrder = 10; });
+    reticle.visible = false; scene.add(reticle);
+
+    // ---------------- per frame ----------------
+    var time = 0;
+    function update(dt) {
+      time += dt; grassUni.value = time;
+      clouds.forEach(function (c, i) { c.position.x += dt * (0.25 + (i % 3) * 0.1); if (c.position.x > 110) c.position.x = -110; });
+      wheel.rotation.z += dt * 0.1; gondolas.forEach(function (g) { g.rotation.z = -wheel.rotation.z; });
+    }
+    function resize(w, h) {
+      renderer.setSize(w, h, false);
+      var aspect = w / h, D = 15.5, halfW = 3.4, tanH = halfW / D;
+      var vfov = 2 * Math.atan(tanH / aspect) * 180 / Math.PI;
+      camera.aspect = aspect; camera.fov = Math.max(44, Math.min(78, vfov));
+      camera.position.set(0, 4.4, D); camera.lookAt(0, 0.9, 0);
+      camera.updateProjectionMatrix();
+    }
+    return { renderer: renderer, scene: scene, camera: camera, cannon: cannon, barrel: barrel, reticle: reticle, geos: geos, mats: mats,
+      pieceMesh: pieceMesh, ballMesh: ballMesh, update: update, resize: resize, fancy: fancy };
+  }
+  return { build: build, PIECE_COL: PIECE_COL };
+})();
+</script>
 <script src="../../shared/ads.js"></script>
 <script>
 /* Topple Fair app: the fairground scene (three.js), the throwing cannon, tap-to-throw aiming, the physics loop
@@ -478,11 +882,11 @@ var TFSound = (function () {
   'use strict';
   var S = TFSound, LEVELS = window.TF_LEVELS || [];
   var STEP = 1 / 60, T = null, C = null;
-  var PIECE_COL = { r: '#e8354a', u: '#3a86ff', y: '#ffc53d' };
+  var PIECE_COL = TFScene.PIECE_COL;
 
   // ================= storage =================
   var store = Goobs.store('topple');
-  var settings = { sound: false, adEvery: 3 };
+  var settings = { sound: false, adEvery: 3, fancy: true };
   (function () {
     var s = store.get('settings', {}) || {};
     for (var k in settings) if (typeof s[k] === typeof settings[k]) settings[k] = s[k];
@@ -507,140 +911,19 @@ var TFSound = (function () {
   function sheetOpen() { return isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || isOpen('ovLevels') || GoobsAds.isOpen(); }
   function fmt(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
 
-  // ================= the scene =================
-  var host, canvas, renderer, scene, camera, raycaster, ready = false;
-  var geos = {}, mats = {}, pieceMeshes = [], ballMeshes = [], cannon = null, barrel = null, reticle = null, fx = [];
-  function tex(w, h, draw) {
-    var c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h);
-    var t = new T.CanvasTexture(c); t.colorSpace = T.SRGBColorSpace; t.anisotropy = 4; return t;
-  }
-  function star(x, cx, cy, r, fill) {
-    x.fillStyle = fill; x.beginPath();
-    for (var i = 0; i < 10; i++) { var a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.45 : r; x.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr); }
-    x.closePath(); x.fill();
-  }
-  function lambert(o) { return new T.MeshLambertMaterial(o); }
-  function makeMaterials() {
-    ['r', 'u', 'y'].forEach(function (k) {
-      var col = PIECE_COL[k];
-      var side = tex(256, 128, function (x, w, h) {
-        x.fillStyle = col; x.fillRect(0, 0, w, h);
-        x.fillStyle = 'rgba(255,255,255,.22)'; x.fillRect(0, 22, w, 8);
-        x.fillStyle = '#e9edf5'; x.fillRect(0, 0, w, 14); x.fillRect(0, h - 14, w, 14);
-        x.fillStyle = 'rgba(0,0,0,.12)'; x.fillRect(0, 14, w, 3); x.fillRect(0, h - 17, w, 3);
-        star(x, w * 0.25, h / 2 + 4, 26, k === 'y' ? '#e8354a' : '#fff'); star(x, w * 0.75, h / 2 + 4, 26, k === 'y' ? '#e8354a' : '#fff');
-      });
-      mats[k] = [lambert({ map: side }), lambert({ color: 0xd8dde8 }), lambert({ color: 0xc4cad6 })];
-    });
-    mats.b = lambert({ map: tex(128, 128, function (x, w, h) {
-      x.fillStyle = '#f0c27a'; x.fillRect(0, 0, w, h);
-      x.strokeStyle = 'rgba(150,90,30,.25)'; x.lineWidth = 3;
-      for (var i = 0; i < 7; i++) { x.beginPath(); x.moveTo(0, 12 + i * 17); x.bezierCurveTo(40, 6 + i * 17, 80, 20 + i * 17, 128, 10 + i * 17); x.stroke(); }
-      x.strokeStyle = '#c98b3c'; x.lineWidth = 10; x.strokeRect(5, 5, w - 10, h - 10);
-      star(x, w / 2, h / 2, 22, '#e8354a');
-    }) });
-    mats.p = lambert({ map: tex(256, 64, function (x, w, h) {
-      x.fillStyle = '#d99a52'; x.fillRect(0, 0, w, h);
-      x.strokeStyle = 'rgba(120,70,20,.3)'; x.lineWidth = 2; for (var i = 0; i < 5; i++) { x.beginPath(); x.moveTo(0, 8 + i * 12); x.lineTo(w, 6 + i * 12 + (i % 2) * 4); x.stroke(); }
-      x.strokeStyle = '#9c6428'; x.lineWidth = 6; x.strokeRect(3, 3, w - 6, h - 6);
-    }) });
-    mats.h = lambert({ map: tex(128, 128, function (x, w, h) {
-      var g = x.createLinearGradient(0, 0, w, h); g.addColorStop(0, '#d6f1ff'); g.addColorStop(1, '#7cc4f2'); x.fillStyle = g; x.fillRect(0, 0, w, h);
-      x.fillStyle = 'rgba(255,255,255,.6)'; x.beginPath(); x.moveTo(14, 30); x.lineTo(30, 14); x.lineTo(70, 14); x.lineTo(14, 70); x.fill();
-      x.strokeStyle = '#4f9fd6'; x.lineWidth = 8; x.strokeRect(4, 4, w - 8, h - 8);
-    }) });
-    mats.ball = lambert({ map: tex(128, 64, function (x, w, h) {
-      x.fillStyle = '#ffc53d'; x.fillRect(0, 0, w, h); x.fillStyle = '#e8354a'; x.fillRect(0, h / 2 - 7, w, 14);
-      star(x, w * 0.25, h * 0.26, 9, '#fff'); star(x, w * 0.75, h * 0.74, 9, '#fff');
-    }) });
-    var K = TF.KINDS;
-    geos.can = new T.CylinderGeometry(K.r.hx + 0.01, K.r.hx + 0.01, K.r.hy * 2, 20);
-    geos.b = new T.BoxGeometry(K.b.hx * 2, K.b.hy * 2, K.b.hz * 2);
-    geos.h = new T.BoxGeometry(K.h.hx * 2, K.h.hy * 2, K.h.hz * 2);
-    geos.p = new T.BoxGeometry(K.p.hx * 2, K.p.hy * 2, K.p.hz * 2);
-    geos.ball = new T.SphereGeometry(TF.BALLR, 20, 14);
-    geos.confetti = new T.PlaneGeometry(0.12, 0.08);
-  }
+  // ================= the scene (scene.js) =================
+  var host, canvas, renderer, scene, camera, raycaster, ready = false, SC = null;
+  var geos = {}, pieceMeshes = [], ballMeshes = [], cannon = null, barrel = null, reticle = null, fx = [];
   function build() {
-    renderer = new T.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
-    renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
-    scene = new T.Scene();
-    camera = new T.PerspectiveCamera(42, 1, 0.1, 200);
+    SC = TFScene.build(T, canvas, TF, { fancy: settings.fancy });
+    renderer = SC.renderer; scene = SC.scene; camera = SC.camera; cannon = SC.cannon; barrel = SC.barrel; reticle = SC.reticle; geos = SC.geos;
     raycaster = new T.Raycaster();
-    scene.add(new T.HemisphereLight(0xffffff, 0x6f9a55, 1.55));
-    var sun = new T.DirectionalLight(0xffffff, 1.5); sun.position.set(5, 11, 8); scene.add(sun);
-    makeMaterials();
-    var G = TF.GROUND;
-    // the lawn, mowed in stripes
-    var lawn = tex(256, 256, function (x, w, h) { for (var i = 0; i < 8; i++) { x.fillStyle = i % 2 ? '#79cc55' : '#6cc24a'; x.fillRect(0, i * 32, w, 32); } });
-    lawn.wrapS = lawn.wrapT = T.RepeatWrapping; lawn.repeat.set(6, 12);
-    var ground = new T.Mesh(new T.PlaneGeometry(80, 160), lambert({ map: lawn })); ground.rotation.x = -Math.PI / 2; ground.position.set(0, G, -30); scene.add(ground);
-    // sand under the stand and in front of the cannon
-    var sand = lambert({ color: 0xf1d399 });
-    var s1 = new T.Mesh(new T.CircleGeometry(2.6, 40), sand); s1.rotation.x = -Math.PI / 2; s1.position.set(0, G + 0.01, 0); s1.scale.y = 0.75; scene.add(s1);
-    var s2 = new T.Mesh(new T.CircleGeometry(1.8, 40), sand); s2.rotation.x = -Math.PI / 2; s2.position.set(0, G + 0.01, TF.LAUNCH[2] + 0.8); scene.add(s2);
-    // the stand: a blue top with a yellow rim and a red-and-white striped front, on a white-and-gold post
-    var stripes = tex(256, 32, function (x, w, h) { for (var i = 0; i < 16; i++) { x.fillStyle = i % 2 ? '#ffffff' : '#e8354a'; x.fillRect(i * 16, 0, 16, h); } });
-    var edge = lambert({ map: stripes }), topM = lambert({ color: 0x3a5bd9 });
-    var standTop = new T.Mesh(new T.BoxGeometry(TF.PW, TF.PT, TF.PD), [edge, edge, topM, topM, edge, edge]); standTop.position.set(0, -TF.PT / 2, 0); scene.add(standTop);
-    var rim = new T.Mesh(new T.BoxGeometry(TF.PW + 0.12, 0.06, TF.PD + 0.12), lambert({ color: 0xffc53d })); rim.position.set(0, -TF.PT - 0.03, 0); scene.add(rim);
-    var post = new T.Mesh(new T.CylinderGeometry(0.28, 0.4, -G - TF.PT, 20), lambert({ color: 0xf5f0e0 })); post.position.set(0, (G - TF.PT) / 2, 0); scene.add(post);
-    var foot = new T.Mesh(new T.CylinderGeometry(0.9, 1.1, 0.25, 24), lambert({ color: 0xffc53d })); foot.position.set(0, G + 0.12, 0); scene.add(foot);
-    // the fair in the distance: striped tents, round trees, a Ferris wheel
-    var tentTex = tex(256, 64, function (x, w, h) { for (var i = 0; i < 16; i++) { x.fillStyle = i % 2 ? '#fff4e0' : '#e8354a'; x.fillRect(i * 16, 0, 16, h); } });
-    var tentBlue = tex(256, 64, function (x, w, h) { for (var i = 0; i < 16; i++) { x.fillStyle = i % 2 ? '#fff4e0' : '#3a5bd9'; x.fillRect(i * 16, 0, 16, h); } });
-    [[-9, -18, 2.4, tentTex], [8, -22, 3, tentBlue], [-2.5, -30, 2.2, tentBlue], [14, -14, 1.8, tentTex]].forEach(function (t) {
-      var m = lambert({ map: t[3] }), r = t[2];
-      var body = new T.Mesh(new T.CylinderGeometry(r, r, r * 1.1, 24, 1, true), m); body.position.set(t[0], G + r * 0.55, t[1]); scene.add(body);
-      var roof = new T.Mesh(new T.ConeGeometry(r * 1.12, r * 1.1, 24), m); roof.position.set(t[0], G + r * 1.1 + r * 0.55, t[1]); scene.add(roof);
-      var flag = new T.Mesh(new T.ConeGeometry(0.2, 0.5, 3), lambert({ color: 0xffc53d })); flag.rotation.z = -Math.PI / 2; flag.position.set(t[0] + 0.25, G + r * 2.25, t[1]); scene.add(flag);
-    });
-    var leaf = lambert({ color: 0x3f9d3a }), leaf2 = lambert({ color: 0x57b548 }), trunk = lambert({ color: 0x9a6a3a });
-    [[-13, -12, 1.8], [-6, -26, 2.2], [4, -32, 2.6], [12, -26, 2], [17, -8, 1.6], [-17, -24, 2.4]].forEach(function (t, i) {
-      var tr = new T.Mesh(new T.CylinderGeometry(0.2, 0.28, t[2], 8), trunk); tr.position.set(t[0], G + t[2] / 2, t[1]); scene.add(tr);
-      var c = new T.Mesh(new T.SphereGeometry(t[2] * 0.75, 16, 12), i % 2 ? leaf : leaf2); c.position.set(t[0], G + t[2] * 1.35, t[1]); scene.add(c);
-    });
-    var wheel = new T.Group(), wm = lambert({ color: 0xffffff });
-    var ring = new T.Mesh(new T.TorusGeometry(5, 0.12, 8, 48), wm); wheel.add(ring);
-    for (var sp = 0; sp < 12; sp++) {
-      var a = sp * Math.PI / 6, spoke = new T.Mesh(new T.BoxGeometry(0.08, 10, 0.08), wm); spoke.rotation.z = a; wheel.add(spoke);
-      var car = new T.Mesh(new T.BoxGeometry(0.7, 0.6, 0.6), lambert({ color: [0xe8354a, 0x3a86ff, 0xffc53d, 0x2ec27e][sp % 4] })); car.position.set(Math.cos(a) * 5, Math.sin(a) * 5, 0); wheel.add(car);
-    }
-    wheel.position.set(-14, G + 6.4, -40); scene.add(wheel); fx.wheel = wheel;
-    var legM = lambert({ color: 0xe0e4ee });
-    [-1, 1].forEach(function (k) { var leg = new T.Mesh(new T.BoxGeometry(0.25, 7, 0.25), legM); leg.position.set(-14 + k * 1.8, G + 3.2, -40); leg.rotation.z = k * 0.26; scene.add(leg); });
-    // the cannon
-    cannon = new T.Group();
-    var cm = lambert({ color: 0x3a5bd9 }), cr = lambert({ color: 0xe8354a }), cy = lambert({ color: 0xffc53d });
-    var base = new T.Mesh(new T.CylinderGeometry(0.75, 0.95, 0.5, 24), cm); base.position.y = -0.25; cannon.add(base);
-    var baseRim = new T.Mesh(new T.TorusGeometry(0.85, 0.08, 8, 24), cy); baseRim.rotation.x = Math.PI / 2; baseRim.position.y = -0.02; cannon.add(baseRim);
-    barrel = new T.Group();
-    var tube = new T.Mesh(new T.CylinderGeometry(0.34, 0.46, 1.5, 24), cr); tube.rotation.x = Math.PI / 2; tube.position.z = -0.55; barrel.add(tube);
-    var mouth = new T.Mesh(new T.TorusGeometry(0.34, 0.08, 8, 24), cy); mouth.position.z = -1.3; barrel.add(mouth);
-    var ballEnd = new T.Mesh(new T.SphereGeometry(0.46, 20, 14), cr); ballEnd.position.z = 0.15; barrel.add(ballEnd);
-    var band = new T.Mesh(new T.TorusGeometry(0.43, 0.06, 8, 24), cy); band.position.z = -0.35; barrel.add(band);
-    barrel.position.y = 0.3; cannon.add(barrel);
-    cannon.scale.set(0.62, 0.62, 0.62); cannon.position.set(TF.LAUNCH[0], TF.LAUNCH[1] - 0.19, TF.LAUNCH[2] + 0.78);
-    var stool = new T.Mesh(new T.CylinderGeometry(0.32, 0.45, TF.LAUNCH[1] - 0.5 - G, 20), lambert({ color: 0xf5f0e0 })); stool.position.set(0, (TF.LAUNCH[1] - 0.5 + G) / 2, TF.LAUNCH[2] + 0.78); scene.add(stool);
-    scene.add(cannon);
-    // the aim marker
-    reticle = new T.Group();
-    var rm = new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95, depthTest: false });
-    reticle.add(new T.Mesh(new T.RingGeometry(0.2, 0.27, 32), rm));
-    var dot = new T.Mesh(new T.CircleGeometry(0.06, 16), new T.MeshBasicMaterial({ color: 0xe8354a, depthTest: false })); reticle.add(dot);
-    reticle.renderOrder = 10; reticle.children.forEach(function (c) { c.renderOrder = 10; });
-    reticle.visible = false; scene.add(reticle);
     resize();
   }
   function resize() {
-    if (!renderer) return;
-    var r = host.getBoundingClientRect(), w = Math.max(10, r.width), h = Math.max(10, r.height);
-    renderer.setSize(w, h, false);
-    var aspect = w / h, D = 15.5, halfW = 3.4, tanH = halfW / D;
-    var vfov = 2 * Math.atan(tanH / aspect) * 180 / Math.PI;
-    camera.aspect = aspect; camera.fov = Math.max(44, Math.min(78, vfov));
-    camera.position.set(0, 4.4, D); camera.lookAt(0, 0.9, 0);
-    camera.updateProjectionMatrix();
+    if (!SC) return;
+    var r = host.getBoundingClientRect();
+    SC.resize(Math.max(10, r.width), Math.max(10, r.height));
   }
 
   // ================= game =================
@@ -658,12 +941,13 @@ var TFSound = (function () {
     clearScene();
     sim = TF.create(levelData);
     sim.items.forEach(function (it) {
-      var m = TF.KINDS[it.k].can ? new T.Mesh(geos.can, mats[it.k]) : new T.Mesh(geos[it.k], mats[it.k]);
+      var m = SC.pieceMesh(it.k);
       m.position.copy(it.b.position); m.quaternion.copy(it.b.quaternion); m.userData.item = it; it.mesh = m;
       m.scale.set(0.01, 0.01, 0.01); m.userData.pop = performance.now() + (it.b.position.y * 60 + Math.abs(it.b.position.x) * 25);
       scene.add(m); pieceMeshes.push(m);
     });
-    state = 'play'; acc = 0; cannonAim = [0, 1.5, -8.5]; stats.tries++; saveStats();
+    state = 'play'; acc = 0; stats.tries++; saveStats();
+    aim = clampAimPt(aimHome()); showReticle();
     renderInfo();
   }
   function throwAt(p) {
@@ -671,7 +955,7 @@ var TFSound = (function () {
     if (sim.t - sim.lastShotT < 0.28) return false;
     var ball = TF.shoot(sim, p);
     if (!ball) return false;
-    var m = new T.Mesh(geos.ball, mats.ball); m.position.copy(ball.b.position); scene.add(m);
+    var m = SC.ballMesh(); m.position.copy(ball.b.position); scene.add(m);
     ballMeshes.push({ ball: ball, mesh: m });
     cannonAim = [p[0] - TF.LAUNCH[0], p[1] - TF.LAUNCH[1] + 0.8, p[2] - TF.LAUNCH[2]]; recoil = 1;
     stats.throws++; saveStats();
@@ -763,43 +1047,57 @@ var TFSound = (function () {
     var yaw = Math.atan2(-ax, -az), pitch = Math.atan2(ay, Math.hypot(ax, az));
     barrel.rotation.set(0, 0, 0); cannon.rotation.y += (yaw - cannon.rotation.y) * Math.min(1, dt * 14);
     barrel.rotation.x = pitch; recoil = Math.max(0, recoil - dt * 4); barrel.position.z = recoil * 0.35;
-    if (fx.wheel) fx.wheel.rotation.z += dt * 0.12;
+    SC.update(dt);
+    if (reticle) reticle.visible = state === 'play';
     renderer.render(scene, camera);
   }
 
-  // ================= touch: point at a spot and let go to throw =================
-  var aiming = null;
-  function targetAt(e) {
-    var r = canvas.getBoundingClientRect(), nx = ((e.clientX - r.left) / r.width) * 2 - 1, ny = -((e.clientY - r.top) / r.height) * 2 + 1;
-    raycaster.setFromCamera(new T.Vector2(nx, ny), camera);
-    var live = pieceMeshes.filter(function (m) { return !m.userData.item.off; });
-    var hit = raycaster.intersectObjects(live, false)[0], p;
-    if (hit) p = [hit.point.x, hit.point.y, hit.point.z];
-    else {
-      var o = raycaster.ray.origin, d = raycaster.ray.direction; if (d.z > -1e-4) return null;
-      var t = (0 - o.z) / d.z; p = [o.x + d.x * t, o.y + d.y * t, 0];
-    }
-    p[0] = Math.max(-4.5, Math.min(4.5, p[0])); p[1] = Math.max(0.3, Math.min(9, p[1]));
-    return p;
+  // ================= touch: drag anywhere to steer the aim, let go to throw =================
+  // The aim ring stays on screen. Sliding a finger anywhere moves it (like a trackpad: the ring moves as far as the
+  // finger does, so the finger never covers it); letting go throws at the ring. A tap without sliding throws too.
+  var aiming = null, aim = [0, 1, 0];
+  function aimHome() { // the middle of what's still on the stand, a little below its center
+    var on = sim ? sim.items.filter(function (it) { return !it.off; }) : [];
+    if (!on.length) return [0, 0.8, 0];
+    var x = 0, y = 0; on.forEach(function (it) { x += it.b.position.x; y += it.b.position.y; }); x /= on.length; y /= on.length;
+    return [x, Math.max(0.3, y * 0.8), 0];
   }
-  function showReticle(p) {
-    if (!p) { reticle.visible = false; return; }
-    reticle.visible = true; reticle.position.set(p[0], p[1], p[2] + 0.05); reticle.lookAt(camera.position);
-    cannonAim = [p[0] - TF.LAUNCH[0], p[1] - TF.LAUNCH[1] + 0.8, p[2] - TF.LAUNCH[2]];
+  function clampAimPt(p) { p[0] = Math.max(-4.5, Math.min(4.5, p[0])); p[1] = Math.max(0.3, Math.min(8, p[1])); return p; }
+  // world units per screen pixel at the stand (so the ring follows the finger one-to-one)
+  function unitsPerPx() { var r = canvas.getBoundingClientRect(), d = camera.position.distanceTo(new T.Vector3(aim[0], aim[1], 0)); return 2 * d * Math.tan(camera.fov * Math.PI / 360) / Math.max(1, r.height); }
+  // what the ball will really hit: the front of a piece under the ring, if there is one
+  function throwPoint() {
+    var v = new T.Vector3(aim[0], aim[1], 0).project(camera);
+    raycaster.setFromCamera(new T.Vector2(v.x, v.y), camera);
+    var live = pieceMeshes.filter(function (m) { return !m.userData.item.off; });
+    var hit = raycaster.intersectObjects(live, false)[0];
+    return hit ? [hit.point.x, Math.max(0.3, hit.point.y), hit.point.z] : [aim[0], aim[1], 0];
+  }
+  function showReticle() {
+    if (!reticle) return;
+    reticle.visible = state === 'play';
+    reticle.position.set(aim[0], aim[1], 0); reticle.lookAt(camera.position);
+    var s = aiming ? 1.25 : 1; reticle.scale.set(s, s, s);
+    cannonAim = [aim[0] - TF.LAUNCH[0], aim[1] - TF.LAUNCH[1] + 0.8, -TF.LAUNCH[2]];
   }
   function onDown(e) {
     if (!ready || sheetOpen() || state !== 'play') return;
     S.unlock();
     try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
-    aiming = { id: e.pointerId, p: targetAt(e) }; showReticle(aiming.p);
+    aiming = { id: e.pointerId, x: e.clientX, y: e.clientY, a0: aim.slice(), k: unitsPerPx() * 1.1 };
+    showReticle();
   }
-  function onMove(e) { if (!aiming || e.pointerId !== aiming.id) return; aiming.p = targetAt(e); showReticle(aiming.p); }
+  function onMove(e) {
+    if (!aiming || e.pointerId !== aiming.id) return;
+    aim = clampAimPt([aiming.a0[0] + (e.clientX - aiming.x) * aiming.k, aiming.a0[1] - (e.clientY - aiming.y) * aiming.k, 0]);
+    showReticle();
+  }
   function onUp(e) {
     if (!aiming || e.pointerId !== aiming.id) return;
-    var p = targetAt(e) || aiming.p; aiming = null; reticle.visible = false;
-    if (!p) return;
+    aiming = null; showReticle();
+    if (state !== 'play') return;
     if (sim && sim.ballsLeft <= 0) { toast('No balls left'); return; }
-    throwAt(p);
+    throwAt(throwPoint());
   }
 
   // ================= info and sheets =================
@@ -843,7 +1141,7 @@ var TFSound = (function () {
     $('helpTitle').textContent = 'How to play Topple Fair';
     $('helpList').innerHTML = [
       'Knock <b>every piece</b> off the stand: cans, wood blocks, boards and heavy ice blocks.',
-      '<b>Tap</b> where you want the ball to go (or hold and slide to line it up; the white ring shows the spot) and <b>let go</b> to throw. The ball flies straight at that spot.',
+      'The white <b>ring</b> is where the ball goes. <b>Slide your finger anywhere</b> on the screen to move it up, down, left or right (it moves as far as your finger does), and <b>let go</b> to throw. A quick tap throws at the ring where it is.',
       'You have a set number of <b>balls</b> (top left). You can throw again before the pieces stop moving.',
       'Hit low to bring a stack down. Ice blocks are heavy, and pieces in the back row hide behind the front.',
       'A piece that lands on the grass is out. A piece left hanging on the edge still counts, so finish it off.',
@@ -873,7 +1171,7 @@ var TFSound = (function () {
     Goobs.themePicker($('themes'));
     host = $('stage'); canvas = $('cv');
     canvas.addEventListener('pointerdown', onDown); canvas.addEventListener('pointermove', onMove); canvas.addEventListener('pointerup', onUp);
-    canvas.addEventListener('pointercancel', function () { aiming = null; if (reticle) reticle.visible = false; });
+    canvas.addEventListener('pointercancel', function () { aiming = null; showReticle(); });
     ['pointerdown', 'touchend', 'click'].forEach(function (ev) { document.addEventListener(ev, function () { S.unlock(); }, { passive: true }); });
     $('btnHome').addEventListener('click', function () { Goobs.home(); });
     $('btnNew').addEventListener('click', function () {
@@ -892,6 +1190,8 @@ var TFSound = (function () {
     $('btnSound').addEventListener('click', function () { settings.sound = !settings.sound; saveSettings(); syncSound(); S.ding(); });
     $('setSound').addEventListener('change', function () { settings.sound = this.checked; saveSettings(); syncSound(); S.ding(); });
     $('setAds').addEventListener('change', function () { Goobs.setAds(this.checked); syncAds(); });
+    $('setFancy').checked = settings.fancy;
+    $('setFancy').addEventListener('change', function () { settings.fancy = this.checked; saveSettings(); location.reload(); });
     $('adLess').addEventListener('click', function () { settings.adEvery = Math.max(1, settings.adEvery - 1); saveSettings(); syncAds(); });
     $('adMore').addEventListener('click', function () { settings.adEvery = Math.min(10, settings.adEvery + 1); saveSettings(); syncAds(); });
     var rq = 0, refit = function () { if (rq) return; rq = requestAnimationFrame(function () { rq = 0; resize(); }); };
@@ -913,7 +1213,7 @@ var TFSound = (function () {
 
   // hook for automated tests
   window.__tf = { get sim() { return sim; }, get state() { return state; }, throwAt: throwAt, startLevel: startLevel, TF: TF, meta: function () { return meta; }, stats: function () { return stats; },
-    bot: function () { if (!sim) return false; var t = TF.botTarget(sim); return t ? throwAt(t) : false; }, project: function (x, y, z) { var v = new T.Vector3(x, y, z).project(camera), r = canvas.getBoundingClientRect(); return [r.left + (v.x + 1) / 2 * r.width, r.top + (1 - v.y) / 2 * r.height]; }, get ready() { return ready; } };
+    bot: function () { if (!sim) return false; var t = TF.botTarget(sim); return t ? throwAt(t) : false; }, project: function (x, y, z) { var v = new T.Vector3(x, y, z).project(camera), r = canvas.getBoundingClientRect(); return [r.left + (v.x + 1) / 2 * r.width, r.top + (1 - v.y) / 2 * r.height]; }, get ready() { return ready; }, ring: function () { return aim; } };
 
   init();
 })();

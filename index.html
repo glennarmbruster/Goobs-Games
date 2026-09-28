@@ -517,6 +517,21 @@
         var st = 0; for (var k in (m.stars || {})) st += m.stars[k];
         return 'Level ' + m.open + ' of 60 \u00b7 ' + st + ' \u2605';
       }
+    },
+    {
+      id: 'barrage', name: 'Ball Barrage', blurb: 'Aim, fire, crush', path: 'games/barrage/',
+      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" fill="#151b3d"/>' + (function () {
+          var h = '', cells = [[0, 0, '#ff3355', 24], [1, 0, '#ff6b3d', 18], [2, 0, '#e04fb0', 15], [3, 0, '#8b5cf6', 12], [4, 0, '#3a86ff', 9], [0, 1, '#2ec4e8', 7], [4, 1, '#39d98a', 3], [1, 2, '#8b5cf6', 11], [3, 2, '#3a86ff', 8]];
+          cells.forEach(function (c) { var x = 6 + c[0] * 18, y = 8 + c[1] * 18; h += '<rect x="' + x + '" y="' + y + '" width="16" height="16" rx="3.5" fill="' + c[2] + '"/><text x="' + (x + 8) + '" y="' + (y + 11.5) + '" font-size="8.5" font-weight="900" fill="#fff" text-anchor="middle" font-family="system-ui, sans-serif">' + c[3] + '</text>'; });
+          return h;
+        })() + '<circle cx="48" cy="44" r="5" fill="none" stroke="#9dffb0" stroke-width="2"/><g fill="#fff"><circle cx="58" cy="88" r="3.2"/><circle cx="54" cy="78" r="2.4" opacity=".9"/><circle cx="50" cy="68" r="2.4" opacity=".75"/><circle cx="46" cy="58" r="2.4" opacity=".6"/><circle cx="30" cy="62" r="2.4" opacity=".5"/><circle cx="22" cy="74" r="2.4" opacity=".4"/></g><rect x="0" y="92" width="100" height="1.5" fill="#fff" opacity=".3"/></svg>',
+      status: function () {
+        var m = readLS('barrage.meta');
+        if (!m) return 'Aim, fire, crush';
+        var st = 0; for (var k in (m.stars || {})) st += m.stars[k];
+        var bits = []; if (m.open > 1) bits.push('Level ' + m.open + ' \u00b7 ' + st + ' \u2605'); if (m.endlessBest) bits.push('Endless ' + m.endlessBest);
+        return bits.join(' \u00b7 ') || 'Aim, fire, crush';
+      }
     }
   ];
   var byId = {};
