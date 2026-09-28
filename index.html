@@ -368,6 +368,18 @@
         var m = readLS('worddice.meta');
         return m && m.best && m.best.classic ? 'Best ' + m.best.classic + ' points' : 'Shake the dice, find words';
       }
+    },
+    {
+      id: 'digger', name: 'Tunnel Pop', blurb: 'Dig, pump and pop', path: 'games/digger/',
+      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" fill="#14206b"/><rect y="30" width="100" height="18" fill="#ffc84a"/><rect y="48" width="100" height="18" fill="#f08c2c"/><rect y="66" width="100" height="17" fill="#d1502a"/><rect y="83" width="100" height="17" fill="#9c3218"/>' +
+        '<path d="M50 30 V58 H96" stroke="#000" stroke-width="13" fill="none"/><path d="M8 76 H44" stroke="#000" stroke-width="13" fill="none"/>' +
+        '<circle cx="80" cy="58" r="8" fill="#c05cff"/><rect x="73" y="54" width="14" height="5" rx="2.5" fill="#101018"/><circle cx="77" cy="56.5" r="1.6" fill="#7fe0ff"/><circle cx="83" cy="56.5" r="1.6" fill="#7fe0ff"/>' +
+        '<rect x="44" y="50" width="11" height="5" rx="2" fill="#3b7cff"/><rect x="45" y="55" width="9" height="8" fill="#e8413a"/><path d="M55 58 H70" stroke="#f4f4f4" stroke-width="1.6"/>' +
+        '<g transform="translate(20 8)"><rect width="16" height="14" rx="7" fill="#c68a5a" stroke="#5c3a18" stroke-width="1.5"/></g><circle cx="86" cy="24" r="3" fill="#ff7ab8"/><path d="M86 27 V30" stroke="#6bd84a" stroke-width="1.5"/></svg>',
+      status: function () {
+        var s = readLS('digger.stats');
+        return s && s.best ? 'Best ' + s.best + (s.bestRound ? ' \u00b7 round ' + s.bestRound : '') : 'Dig, pump and pop';
+      }
     }
   ];
   var byId = {};
