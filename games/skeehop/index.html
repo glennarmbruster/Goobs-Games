@@ -279,16 +279,27 @@ var SH = (function () {
     if (b.p[0] > HALF - RB && b.v[0] > 0) { b.p[0] = HALF - RB; b.v[0] *= -0.5; ev.push({ t: 'wall', v: Math.abs(b.v[0]) }); }
     if (b.p[0] < -HALF + RB && b.v[0] < 0) { b.p[0] = -HALF + RB; b.v[0] *= -0.5; ev.push({ t: 'wall', v: Math.abs(b.v[0]) }); }
   }
+  // the ball drops into a hole: it keeps its speed toward the hole's middle for a moment, then falls through
   function capture(b, zone, ev, where) {
     b.phase = 'sink'; b.zone = zone; b.sinkT = 0;
     var bs = toBoard(b.p), hole = ZONES[zone].hole;
-    var tx = hole ? hole[0] : bs[0], ts = hole ? hole[1] : SLIP + RB * 1.2;
-    if (zone === '10') tx = Math.max(-HALF + 0.2, Math.min(HALF - 0.2, bs[0]));
-    b.sink = { from: b.p.slice(), to: boardPoint(tx, ts, 0), how: where || 'roll' };
+    var tx = hole ? hole[0] : Math.max(-HALF + 0.2, Math.min(HALF - 0.2, bs[0])), ts = hole ? hole[1] : SLIP + 0.09;
+    b.sink = { x: bs[0], s: Math.max(0, bs[1]), h: Math.max(0, bs[2]), tx: tx, ts: ts, how: where || 'roll' };
     ev.push({ t: 'capture', zone: zone, pts: ZONES[zone].pts });
   }
+  // it didn't make it: roll it back down the board and the ramp to the player, like a real alley
+  var ARC = RR * RA, U_RAMP = LZ - START, U_BOARD = U_RAMP + ARC;
+  function trackPos(u, x) {
+    if (u <= U_RAMP) return [x, RB, START + u];
+    if (u <= U_BOARD) { var ph = (u - U_RAMP) / RR; return [x, RR * (1 - Math.cos(ph)) + RB * Math.cos(ph), LZ + RR * Math.sin(ph) - RB * Math.sin(ph)]; }
+    var q = boardPoint(x, Math.max(0, u - U_BOARD), 0); return [x, q[1] + RB * SN[1], q[2] + RB * SN[2]];
+  }
   function rollback(b, ev, why) {
-    b.phase = 'back'; b.backT = 0; b.backFrom = b.p.slice();
+    var u;
+    if (b.p[2] <= LZ) u = b.p[2] - START;
+    else if (b.p[2] < B0.z) u = U_RAMP + Math.min(ARC, RR * Math.asin(Math.min(1, (b.p[2] - LZ) / RR)));
+    else u = U_BOARD + Math.max(0, toBoard(b.p)[1]);
+    b.phase = 'back'; b.backT = 0; b.bu = Math.max(0, u); b.bv = Math.min(0, b.v[2] * 0.3); b.bx = b.p[0];
     ev.push({ t: 'rollback', why: why });
   }
 
@@ -325,15 +336,28 @@ var SH = (function () {
       return;
     }
     if (b.phase === 'sink') {
+      // slides the last bit into the hole's middle (quickly), then falls through it
+      var k2 = b.sink;
       b.sinkT += DT;
-      var k = Math.min(1, b.sinkT / 0.28), q = k * k * (3 - 2 * k);
-      for (var i = 0; i < 3; i++) p[i] = b.sink.from[i] + (b.sink.to[i] - b.sink.from[i]) * q;
-      if (k >= 1) { p[1] -= 0.25 * SN[1]; p[2] -= 0.25 * SN[2]; b.phase = 'done'; ev.push({ t: 'done' }); }
+      var pull = Math.min(1, DT * 16);
+      k2.x += (k2.tx - k2.x) * pull; k2.s += (k2.ts - k2.s) * pull;
+      k2.h = b.sinkT < 0.05 ? k2.h * 0.8 : k2.h - 0.5 * G * (b.sinkT - 0.05) * DT * 2;
+      var sp3 = boardPoint(k2.x, k2.s, k2.h); p[0] = sp3[0]; p[1] = sp3[1] + RB * SN[1]; p[2] = sp3[2] + RB * SN[2];
+      if (k2.h < -RB * 2.6) { b.phase = 'done'; ev.push({ t: 'done' }); }
       return;
     }
-    if (b.phase === 'back') { // rolls back down to the player
+    if (b.phase === 'back') { // rolls back down the board and the ramp, then home along the lane
       b.backT += DT;
-      if (b.backT > 0.9) { b.phase = 'done'; ev.push({ t: 'done' }); }
+      var slope = b.bu > U_BOARD ? Math.sin(TH) : b.bu > U_RAMP ? Math.sin((b.bu - U_RAMP) / RR) : 0;
+      b.bv -= G * slope * DT * 0.72; // rolling, not sliding
+      if (b.bu <= U_RAMP) { // on the lane: ease to a stop right at the start line
+        var cap = Math.sqrt(2 * 4.5 * Math.max(0, b.bu)) + 0.05;
+        b.bv = -Math.max(Math.min(-b.bv, cap), Math.min(3.4, cap));
+      }
+      b.bu += b.bv * DT;
+      b.bx *= 1 - DT * 0.3;
+      var tp = trackPos(Math.max(0, b.bu), b.bx); p[0] = tp[0]; p[1] = tp[1]; p[2] = tp[2];
+      if (b.bu <= 0.002 || b.backT > 5) { b.phase = 'done'; ev.push({ t: 'done' }); }
       return;
     }
     if (b.phase !== 'air' && b.phase !== 'board') return;
@@ -358,7 +382,7 @@ var SH = (function () {
       // push out of the board, bounce a little, and roll
       p[1] -= h * SN[1]; p[2] -= h * SN[2]; h = 0;
       if (vn < 0) {
-        var eN = vn < -0.7 ? 0.28 : 0;
+        var eN = vn < -0.6 ? 0.33 : 0;
         if (b.phase === 'air' || vn < -0.7) { landed = true; ev.push({ t: 'land', v: -vn, x: x, s: s }); }
         var dv = -(1 + eN) * vn;
         v[1] += dv * SN[1]; v[2] += dv * SN[2];
@@ -428,13 +452,20 @@ var SH = (function () {
       // the back of the board: bounce off the top edge
       if (s > SB - RB && vs > 0) { var dv3 = -(1 + 0.35) * vs; v[1] += dv3 * ST[1]; v[2] += dv3 * ST[2]; }
     }
-    // settled: drops into the hole of the ring it's in
+    // settling: each ring's floor dips toward its hole at the bottom of the ring, so a ball rolls round to it and
+    // drops in; outside the rings it rolls down to the 10 slot along the front.
     if (onBoard) {
-      var spd2 = Math.hypot(v[0], v[1] * ST[1] + v[2] * ST[2]);
-      b.rest = spd2 < 0.45 ? b.rest + DT : 0;
+      var vs2 = v[1] * ST[1] + v[2] * ST[2], spd2 = Math.hypot(v[0], vs2);
+      b.rest = spd2 < 0.3 ? b.rest + DT : 0;
       var zr = zoneAt(x, s);
-      var nearHole = zr !== '10' && ZONES[zr].hole && Math.hypot(x - ZONES[zr].hole[0], s - ZONES[zr].hole[1]) < 0.14;
-      if (b.rest > 0.12 || (nearHole && spd2 < 1.1)) { capture(b, zr, ev); return; }
+      if (zr === '10') {
+        if (s < SLIP + 0.17 && spd2 < 1.6) { capture(b, '10', ev); return; }
+      } else if (ZONES[zr].hole) {
+        var hx = ZONES[zr].hole[0] - x, hs = ZONES[zr].hole[1] - s, dh = Math.hypot(hx, hs);
+        if (dh < 0.3 && spd2 < 2.2) { var pa = 3.2 * DT * Math.min(1, (0.3 - dh) / 0.12 + 0.4) / (dh || 1); v[0] += hx * pa; v[1] += hs * pa * ST[1]; v[2] += hs * pa * ST[2]; }
+        if (dh < 0.07 || (dh < 0.11 && spd2 < 0.9)) { capture(b, zr, ev); return; }
+      }
+      if (b.rest > 0.9) { capture(b, zr, ev); return; } // wedged somewhere: count the ring it's in
     }
     if (b.t > 12) { // safety: never leave a ball stuck
       if (s >= SLIP) capture(b, zoneAt(x, s), ev); else rollback(b, ev, 'stuck');
@@ -447,11 +478,7 @@ var SH = (function () {
     return ev;
   }
   // position while rolling back (for drawing): along the lane back to the start
-  function backPos(b) {
-    var k = Math.min(1, b.backT / 0.9), q = k * k;
-    var from = b.backFrom, z = from[2] + (START - from[2]) * q, y = z > LZ ? Math.max(RB, from[1] * (1 - k)) : RB;
-    return [from[0] * (1 - q), y, z];
-  }
+  function backPos(b) { return b.p.slice(); }
   // run a whole roll without drawing (tests, bots)
   function simulate(f, tilt) {
     var b = newBall(f), ev = [], all = [];
@@ -518,7 +545,7 @@ var SH = (function () {
 if (typeof module !== 'undefined') module.exports = SH;
 </script>
 <script>
-/* Skee-Hop drawing with three.js (passed in, loaded from /shared). A fixed camera behind the lane.
+/* Skee-Hop drawing with three.js (passed in, loaded from /shared). The camera sits behind the lane and glides up after a rolling ball.
    The machine is built from SH's measurements so what you see matches the physics exactly. */
 var SHRender = (function () {
   'use strict';
@@ -802,14 +829,36 @@ var SHRender = (function () {
     }
 
     // ---------- camera ----------
-    var camView = null;
+    // Home: behind the lane. While a ball is rolling the camera glides up the lane after it (and back after).
+    var camView = null, camCur = null, camGoal = null, homeCam = new THREE.PerspectiveCamera(33, 1, 0.1, 60), lastCamT = 0;
+    function homeView() { return camView || { pos: [0, 3.0, -3.2], look: [0, 0.75, 6.9], fov: 33 }; }
+    function goalFor(p) {
+      var h = homeView();
+      if (!p) return { pos: h.pos.slice(), look: h.look.slice() };
+      var k = Math.max(0, Math.min(1, (p[2] - 3.0) / 4.2)); k = k * k * (3 - 2 * k);
+      return { pos: [h.pos[0], h.pos[1] + 0.3 * k, h.pos[2] + 2.9 * k], look: [h.look[0], h.look[1] + 0.45 * k, h.look[2] + 0.7 * k] };
+    }
     function place() {
-      camera.aspect = W / H;
-      var v = camView || { pos: [0, 3.0, -3.2], look: [0, 0.75, 6.9], fov: 33 };
-      camera.fov = v.fov;
-      camera.position.set(v.pos[0], v.pos[1], v.pos[2]);
-      camera.lookAt(v.look[0], v.look[1], v.look[2]);
+      camera.aspect = W / H; homeCam.aspect = W / H;
+      var v = homeView();
+      camera.fov = v.fov; homeCam.fov = v.fov;
+      if (!camCur) camCur = goalFor(null);
+      camera.position.set(camCur.pos[0], camCur.pos[1], camCur.pos[2]);
+      camera.lookAt(camCur.look[0], camCur.look[1], camCur.look[2]);
       camera.updateProjectionMatrix();
+      homeCam.position.set(v.pos[0], v.pos[1], v.pos[2]); homeCam.lookAt(v.look[0], v.look[1], v.look[2]); homeCam.updateProjectionMatrix(); homeCam.updateMatrixWorld();
+    }
+    function follow(p) { camGoal = goalFor(p); }
+    function moveCam(now) {
+      if (!camGoal) return false;
+      var dt = lastCamT ? Math.min(0.1, (now - lastCamT) / 1000) : 0.016; lastCamT = now;
+      var k = 1 - Math.exp(-dt * 3.2), far = 0;
+      for (var i = 0; i < 3; i++) {
+        camCur.pos[i] += (camGoal.pos[i] - camCur.pos[i]) * k; camCur.look[i] += (camGoal.look[i] - camCur.look[i]) * k;
+        far = Math.max(far, Math.abs(camGoal.pos[i] - camCur.pos[i]), Math.abs(camGoal.look[i] - camCur.look[i]));
+      }
+      place();
+      return far > 0.002;
     }
     function resize() {
       var r = canvas.getBoundingClientRect();
@@ -865,6 +914,7 @@ var SHRender = (function () {
     var tick = 0;
     function render(now, force) {
       var busy = animate(now || performance.now());
+      if (moveCam(now || performance.now())) { busy = true; dirty = Math.max(dirty, 1); }
       if (!force && !busy && dirty <= 0) return false;
       if (!force && dirty <= 0 && (++tick & 1)) return false; // only the lights are moving: 30 fps is plenty
       renderer.render(scene, camera);
@@ -881,18 +931,23 @@ var SHRender = (function () {
       return h ? SH.boardPoint(h[0], h[1], 0.02) : SH.boardPoint(0, SH.SLIP + 0.1, 0.02);
     }
     // finger x on screen -> lane x at the start line
+    function projectHome(p) {
+      group.updateMatrixWorld();
+      var v = group.localToWorld(V(p)).project(homeCam);
+      return [(v.x + 1) / 2 * W, (1 - v.y) / 2 * H];
+    }
     function laneXAt(clientX) {
       var r = canvas.getBoundingClientRect();
       if (Math.abs(r.width - W) > 0.5 || Math.abs(r.height - H) > 0.5) resize();
-      var a = project([-1, SH.RB, SH.START]), b = project([1, SH.RB, SH.START]);
+      var a = projectHome([-1, SH.RB, SH.START]), b = projectHome([1, SH.RB, SH.START]);
       var t = ((clientX - r.left) - a[0]) / (b[0] - a[0]);
       return -1 + 2 * t;
     }
 
     return {
       build: build, resize: resize, render: render, setBall: setBall, resetSpin: resetSpin, setBonus: setBonus, flash: flash,
-      project: project, holeWorld: holeWorld, laneXAt: laneXAt, touch: function () { dirty = 2; }, renderer: renderer, camera: camera,
-      view: function (pos, look, fov) { camView = { pos: pos, look: look, fov: fov }; place(); dirty = 3; }
+      project: project, holeWorld: holeWorld, laneXAt: laneXAt, follow: follow, touch: function () { dirty = 2; }, renderer: renderer, camera: camera,
+      view: function (pos, look, fov) { camView = { pos: pos, look: look, fov: fov }; camCur = goalFor(null); camGoal = null; place(); dirty = 3; }
     };
   }
   return { create: create };
@@ -1188,12 +1243,14 @@ var SHApp = (function () {
       if (ball) {
         if (ball.phase === 'back') R3.setBall(SH.backPos(ball), true);
         else if (ball.phase !== 'done') R3.setBall(ball.p, true, ball.phase === 'sink');
-        var onWood = ball.phase === 'lane' || ball.phase === 'ramp' || ball.phase === 'board';
-        var sp = Math.hypot(ball.v[0], ball.v[1], ball.v[2]);
+        R3.follow(ball.phase === 'back' || ball.phase === 'done' ? null : ball.p);
+        var onWood = ball.phase === 'lane' || ball.phase === 'ramp' || ball.phase === 'board' || ball.phase === 'back';
+        var sp = ball.phase === 'back' ? Math.abs(ball.bv || 0) : Math.hypot(ball.v[0], ball.v[1], ball.v[2]);
         if (onWood) { S.rumble(Math.min(1, sp / 9) * (ball.phase === 'board' ? 0.5 : 1)); rumbleOn = true; }
         else if (rumbleOn) { S.stopRumble(); rumbleOn = false; }
       }
     } else if (rumbleOn) { S.stopRumble(); rumbleOn = false; }
+    if (phase !== 'rolling' || !ball) R3.follow(null);
     R3.render(now);
   }
   var pending = null; // the scored result waiting for the ball to finish sinking
