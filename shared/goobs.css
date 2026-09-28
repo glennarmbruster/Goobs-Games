@@ -48,6 +48,9 @@ body {
   touch-action: manipulation; -webkit-tap-highlight-color: transparent;
   overflow-x: hidden; -webkit-text-size-adjust: 100%; -webkit-font-smoothing: antialiased;
 }
+/* game pages never scroll as a whole (their panels scroll inside), so taps can't drift from what you see */
+html.gg-game, html.gg-game body { height: 100%; overflow: hidden; overscroll-behavior: none; }
+html.gg-game .app { height: 100%; min-height: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
 button { font-family: inherit; color: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .app {
   max-width: 640px; margin: 0 auto; min-height: 100%;

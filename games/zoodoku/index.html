@@ -1825,7 +1825,9 @@ var ZooSound = (function () {
   function pickStart() {
     var v = startValue();
     if (!v) return;
+    $('startLevel').blur(); // close the keyboard first, so the page snaps back into place
     $('ovStart').classList.remove('show');
+    if (Goobs.snap) Goobs.snap();
     meta.startPicked = true; meta.startAsked = true; meta.startFrom = v; meta.level = v;
     if (meta.mode === 'replay') meta.mode = 'level';
     saveMeta();
@@ -2088,9 +2090,10 @@ var ZooSound = (function () {
     else if (meta.mode === 'daily' && (store.get('game.daily', null) || {}).p && store.get('game.daily', null).p.day === dayNum()) openDaily();
     else openLevel();
     $('startLevel').addEventListener('input', syncStartButton);
+    $('startLevel').addEventListener('focus', function () { var el = this; setTimeout(function () { try { el.select(); } catch (e) { /* ignore */ } }, 0); });
     $('startLevel').addEventListener('keydown', function (e) { if (e.key === 'Enter') pickStart(); });
     $('btnStartGo').addEventListener('click', pickStart);
-    $('btnStartKeep').addEventListener('click', function () { $('ovStart').classList.remove('show'); meta.startAsked = true; saveMeta(); tickReset(); });
+    $('btnStartKeep').addEventListener('click', function () { $('startLevel').blur(); if (Goobs.snap) Goobs.snap(); $('ovStart').classList.remove('show'); meta.startAsked = true; saveMeta(); tickReset(); });
     if ($('btnPickStart')) $('btnPickStart').addEventListener('click', function () { $('ovSettings').classList.remove('show'); openStartPicker(); });
     syncStartRow();
     if (!meta.seenHelp) $('ovHelp').classList.add('show');

@@ -124,11 +124,37 @@ var Goobs = (function () {
 
   function home() { location.href = ROOT; }
 
+  // ---------- keep taps lined up with what's on screen (iPhone Home Screen apps) ----------
+  // On iPhone, a Home Screen web app can be left shifted after the keyboard closes, or after the page scrolls a
+  // little: what you see and where a tap lands drift apart (you have to tap below a button). Game pages never
+  // scroll, and every page snaps back to the top whenever the keyboard closes or the visible area changes.
+  var isGame = /\/games\//.test(location.pathname);
+  if (isGame) document.documentElement.classList.add('gg-game');
+  function snap() {
+    var vv = window.visualViewport;
+    if (window.scrollX || window.scrollY || (vv && (vv.offsetTop > 0.5 || vv.offsetLeft > 0.5))) window.scrollTo(0, 0);
+    if (isGame) {
+      if (document.documentElement.scrollTop) document.documentElement.scrollTop = 0;
+      if (document.body && document.body.scrollTop) document.body.scrollTop = 0;
+    }
+  }
+  function snapSoon() { snap(); setTimeout(snap, 120); setTimeout(snap, 450); }
+  document.addEventListener('focusout', function (e) { var t = e.target; if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) snapSoon(); }, true);
+  document.addEventListener('change', function (e) { if (e.target && e.target.tagName === 'INPUT') snapSoon(); }, true); // e.g. back from the photo picker
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', snapSoon);
+    if (isGame) window.visualViewport.addEventListener('scroll', snap);
+  }
+  if (isGame) window.addEventListener('scroll', snap, { passive: true });
+  window.addEventListener('pageshow', snapSoon);
+  window.addEventListener('orientationchange', snapSoon);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) snapSoon(); });
+
   return {
     ROOT: ROOT, store: store, settings: settings, THEMES: THEMES,
     theme: function () { return themeNow; }, setTheme: setTheme, onTheme: function (cb) { themeListeners.push(cb); }, themePicker: themePicker,
     adsOn: function () { return settings.ads; }, setAds: function (on) { settings.ads = !!on; saveSettings(); },
     markPlayed: markPlayed, recent: function () { return gs.get('recent', []) || []; }, favs: favs, toggleFav: toggleFav,
-    initUpdates: initUpdates, home: home
+    initUpdates: initUpdates, home: home, snap: snapSoon
   };
 })();
