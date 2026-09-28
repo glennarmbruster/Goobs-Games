@@ -2,12 +2,12 @@
    Each part has its own version and its own cache. To publish an update, bump ONLY the
    version of the part that changed; unchanged parts are not downloaded again. */
 const VERSIONS = {
-  shell: '1.3.0',     // menu, manifest, icons, /shared (ads, themes, storage)
-  zoodoku: '1.5.0',
-  woodpile: '1.0.0',
-  patchwork: '1.0.0',
-  cubecorral: '1.0.0',
-  screwball: '1.0.0'
+  shell: '2.0.0',     // menu, manifest, icons, /shared (ads, themes, storage)
+  zoodoku: '1.6.0',
+  woodpile: '1.1.0',
+  patchwork: '2.0.0',
+  cubecorral: '2.0.0',
+  screwball: '1.1.0'
 };
 const GROUPS = {
   shell: [

@@ -22,12 +22,12 @@ var Goobs = (function () {
 
   // ---------- global settings ----------
   var THEMES = [
-    { id: 'auto', label: 'Auto', sw: ['#fdf6e3', '#1c1814'] },
-    { id: 'light', label: 'Light', sw: ['#cfe9f8', '#fdf6e3'] },
-    { id: 'dark', label: 'Dark', sw: ['#221c17', '#4a3b2c'] },
-    { id: 'blue', label: 'Blue', sw: ['#0e1a2e', '#22406b'] }
+    { id: 'auto', label: 'Auto', sw: ['#f4f5f9', '#0f1116'] },
+    { id: 'light', label: 'Light', sw: ['#ffffff', '#5a54f0'] },
+    { id: 'dark', label: 'Dark', sw: ['#0f1116', '#7c77ff'] },
+    { id: 'blue', label: 'Blue', sw: ['#0b1628', '#4f9dff'] }
   ];
-  var STATUSBAR = { light: '#b3322a', dark: '#1c1814', blue: '#0e1a2e' };
+  var STATUSBAR = { light: '#5a54f0', dark: '#0f1116', blue: '#0b1628' };
   var settings = { v: 1, theme: 'light', ads: true };
   (function () {
     var s = gs.get('settings', {}) || {};
@@ -89,7 +89,7 @@ var Goobs = (function () {
     var bar = document.createElement('div');
     bar.className = 'updatebar';
     bar.setAttribute('role', 'button');
-    bar.textContent = 'Update available — tap to reload';
+    bar.textContent = 'Update available \u2014 tap to reload';
     document.body.appendChild(bar);
     var wantReload = false, waitingWorker = null;
     function offer(w) { waitingWorker = w; bar.classList.add('show'); }
@@ -98,7 +98,7 @@ var Goobs = (function () {
       if (opts.beforeReload) { try { opts.beforeReload(); } catch (e) { /* ignore */ } }
       wantReload = true;
       waitingWorker.postMessage('SKIP_WAITING');
-      bar.textContent = 'Updating…';
+      bar.textContent = 'Updating\u2026';
     });
     navigator.serviceWorker.addEventListener('controllerchange', function () {
       if (wantReload) { wantReload = false; location.reload(); }

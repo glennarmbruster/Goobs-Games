@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-<meta name="theme-color" content="#b3322a">
+<meta name="theme-color" content="#5a54f0">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -13,42 +13,19 @@
 <link rel="icon" type="image/png" sizes="192x192" href="../../icons/icon-192.png">
 <link rel="stylesheet" href="../../shared/goobs.css">
 <script src="../../shared/goobs.js"></script>
-<title>Cube Corral</title>
+<title>Cube Pop</title>
 <style>
-/* Cube Corral styles (themes, UI kit and ad cards come from /shared/goobs.css) */
-:root { --cc-stage: #fdf6e3; --cc-slot: rgba(90,58,34,.12); --cc-slot-line: rgba(90,58,34,.45); }
-:root[data-theme="dark"] { --cc-stage: #2a231d; --cc-slot: rgba(255,255,255,.06); --cc-slot-line: rgba(255,240,220,.35); }
-:root[data-theme="blue"] { --cc-stage: #182c4c; --cc-slot: rgba(255,255,255,.06); --cc-slot-line: rgba(200,220,255,.4); }
+/* Cube Pop styles (themes, UI kit and ad cards come from /shared/goobs.css) */
+:root { --cc-stage: linear-gradient(#8fd0ff, #d9f0ff 70%, #eef8ff); --cc-slot: var(--surface-2); --cc-slot-line: var(--line-strong); }
+:root[data-theme="dark"] { --cc-stage: linear-gradient(#141a33, #232a4d 70%, #2b3358); }
+:root[data-theme="blue"] { --cc-stage: linear-gradient(#10254a, #1c3d6e 70%, #24497f); }
 html, body { height: 100%; overflow: hidden; }
 .app { height: 100%; min-height: 0; }
 
-.homebtn { background: none; border: 0; padding: 4px 4px 4px 0; display: flex; align-items: center; gap: 3px; color: inherit; }
-.homebtn .chev { font-size: 38px; line-height: 1; font-weight: 800; color: var(--title); margin: -6px 0 0 -2px; }
-.homebtn:active { opacity: .6; }
 .brand h1 { font-size: 22px; white-space: nowrap; }
 @media (max-width: 385px) { .brand h1 { font-size: 20px; } }
 
-.modes { width: 100%; display: flex; gap: 6px; flex: none; }
-.modes button {
-  position: relative; flex: 1; height: 44px; border-radius: 12px; border: 2px solid var(--wood); background: var(--hay-light);
-  color: var(--btn-ink); font-weight: 800; font-size: 16px; box-shadow: 0 3px 0 var(--wood); padding: 0;
-}
-.modes button.on { background: var(--barn); color: #fff; }
-.modes button:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--wood); }
-.modes .dot { position: absolute; top: 5px; right: 7px; width: 11px; height: 11px; border-radius: 50%; background: var(--gold); border: 2px solid #fff; display: none; }
-.modes .dot.show { display: block; }
-:root[data-theme="dark"] .modes button { border-color: #5a4838; }
-:root[data-theme="blue"] .modes button { border-color: #34588c; }
-
-.info { width: 100%; min-height: 44px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 4px; flex: none; }
-.info .lbl { font-size: 13px; font-weight: 800; color: var(--muted); letter-spacing: .5px; text-transform: uppercase; }
-.info .ttl { font-size: 20px; font-weight: 800; line-height: 1.1; white-space: nowrap; }
-.info .right { text-align: right; }
-.info .mid { font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.1; }
-.info .bar { width: 110px; height: 10px; border-radius: 5px; background: var(--line); margin-top: 4px; overflow: hidden; border: 1.5px solid var(--wood); margin-left: auto; }
-.info .bar i { display: block; height: 100%; background: var(--ok); transition: width .3s; }
-
-.stage { position: relative; width: 100%; flex: 1; min-height: 180px; border-radius: 16px; background: var(--cc-stage); border: 2px solid var(--line); overflow: hidden; }
+.stage { position: relative; width: 100%; flex: 1; min-height: 180px; border-radius: 20px; background: var(--cc-stage); box-shadow: var(--shadow); overflow: hidden; }
 .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
 .turnhint {
   position: absolute; left: 50%; top: 8px; transform: translateX(-50%); display: flex; align-items: center; gap: 6px; pointer-events: none;
@@ -62,12 +39,12 @@ html, body { height: 100%; overflow: hidden; }
 
 /* blasters */
 .blaster {
-  position: relative; width: 100%; height: 100%; border-radius: 12px; border: 3px solid rgba(0,0,0,.45);
+  position: relative; width: 100%; height: 100%; border-radius: 14px; border: 2px solid rgba(0,0,0,.35);
   display: grid; place-items: center; box-shadow: inset 0 3px 0 rgba(255,255,255,.35), inset 0 -4px 0 rgba(0,0,0,.2), 0 2px 0 rgba(0,0,0,.25);
 }
 .blaster::before { /* the barrel */
   content: ""; position: absolute; left: 50%; top: -9px; width: 34%; height: 11px; transform: translateX(-50%);
-  background: inherit; border: 3px solid rgba(0,0,0,.45); border-bottom: 0; border-radius: 6px 6px 0 0; filter: brightness(.85);
+  background: inherit; border: 2px solid rgba(0,0,0,.35); border-bottom: 0; border-radius: 6px 6px 0 0; filter: brightness(.85);
 }
 .blaster b { font-size: 22px; font-weight: 900; color: #fff; text-shadow: 0 0 3px rgba(0,0,0,.9), 0 1px 0 rgba(0,0,0,.9); font-variant-numeric: tabular-nums; }
 .blaster.light b { color: #2b2118; text-shadow: 0 0 3px rgba(255,255,255,.9); }
@@ -81,7 +58,7 @@ html, body { height: 100%; overflow: hidden; }
 @keyframes pop { 0% { transform: scale(.5) translateY(30px); opacity: .3; } 100% { transform: scale(1) translateY(0); opacity: 1; } }
 
 .slots { width: 100%; display: flex; gap: 6px; flex: none; justify-content: center; padding-top: 10px; }
-.slot { flex: 1; max-width: 70px; height: 58px; border-radius: 12px; border: 2px dashed var(--cc-slot-line); background: var(--cc-slot); position: relative; }
+.slot { flex: 1; max-width: 70px; height: 58px; border-radius: 14px; border: 2px dashed var(--cc-slot-line); background: var(--cc-slot); position: relative; }
 .slot.extra { border-color: var(--gold); }
 .slots.full .slot { animation: warn .35s; }
 @keyframes warn { 0%, 100% { transform: none; } 30% { transform: translateX(-4px); } 60% { transform: translateX(4px); } }
@@ -97,52 +74,17 @@ html, body { height: 100%; overflow: hidden; }
 .lane .queue i:nth-child(3) { opacity: .5; }
 .lane .queue small { font-size: 13px; font-weight: 800; color: var(--muted); }
 
-.toolbar { display: flex; gap: 8px; width: 100%; flex: none; }
-.tool {
-  flex: 1; height: 52px; border-radius: 14px; border: 2px solid var(--wood); background: var(--hay); color: var(--btn-ink);
-  box-shadow: 0 4px 0 var(--wood); display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 1px; padding: 0; font-weight: 800; font-size: 14px;
-}
-.tool svg { width: 22px; height: 22px; }
-.tool.red { background: var(--barn); color: #fff; }
-.tool:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--wood); }
 
-.helplist { margin: 6px 0 0; padding-left: 24px; font-size: 17px; line-height: 1.45; }
-.helplist li { margin-bottom: 6px; }
-.cardicon { display: flex; justify-content: center; margin-bottom: 4px; }
-.cardicon svg { width: 64px; height: 64px; }
-.tiles2 { display: flex; gap: 8px; margin: 4px 0 12px; }
-.tile2 { flex: 1; background: var(--surface); border: 2px solid var(--wood); border-radius: 14px; text-align: center; padding: 8px 4px; }
-.tile2 b { display: block; font-size: 26px; color: var(--title); }
-.tile2 span { font-size: 13px; font-weight: 700; color: var(--muted); }
-:root[data-theme="dark"] .tile2 { border-color: #5a4838; }
-:root[data-theme="blue"] .tile2 { border-color: #34588c; }
-.lvgrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
-.lv {
-  position: relative; aspect-ratio: 1 / 1; border-radius: 12px; border: 2px solid var(--wood); background: var(--surface); color: var(--ink);
-  display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0; font-weight: 800; font-size: 20px; line-height: 1.1;
-  box-shadow: 0 3px 0 var(--wood);
-}
-.lv small { font-size: 10.5px; font-weight: 700; color: var(--muted); }
-.lv.done { background: #cfe8c0; color: #24421a; }
-.lv.done small { color: #3e6a2c; }
-.lv.done::after { content: "\2713"; position: absolute; top: 2px; right: 6px; font-size: 13px; color: #2f7a22; }
-.lv.cur { background: var(--barn); color: #fff; }
-.lv.cur small { color: #ffe3dc; }
-.lv.lock { opacity: .4; box-shadow: none; }
-:root[data-theme="dark"] .lv.done, :root[data-theme="blue"] .lv.done { background: #2f5a2a; color: #e3f5da; }
-:root[data-theme="dark"] .lv.done small, :root[data-theme="blue"] .lv.done small { color: #b9dcae; }
-.lvnext { font-size: 17px; margin: 0 0 10px; color: var(--muted); font-weight: 700; }
-.pages { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
-.pages button { min-height: 40px; padding: 0 12px; border-radius: 10px; border: 2px solid var(--wood); background: var(--surface); color: var(--ink); font-weight: 800; font-size: 15px; }
-.pages button.on { background: var(--barn); color: #fff; }
+.brand svg { border-radius: 9px; }
+.cardicon svg { border-radius: 16px; }
+.tool { height: 52px; }
 </style>
 </head>
 <body>
 <svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
-<symbol id="cc-logo" viewBox="0 0 100 100"><g stroke="#3a2616" stroke-width="3.5" stroke-linejoin="round">
-<path d="M50 12 L84 28 L50 44 L16 28Z" fill="#f7c531"/><path d="M16 28 L50 44 L50 86 L16 70Z" fill="#d93a2b"/><path d="M84 28 L50 44 L50 86 L84 70Z" fill="#3b82d6"/>
-<path d="M33 20 L67 36 M67 20 L33 36" stroke-width="2" opacity=".5"/><path d="M33 36 L33 78 M16 49 L50 65" stroke-width="2" opacity=".45"/><path d="M67 36 L67 78 M84 49 L50 65" stroke-width="2" opacity=".45"/></g></symbol>
+<symbol id="cc-logo" viewBox="0 0 100 100"><defs><linearGradient id="ccg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5fb8ff"/><stop offset="1" stop-color="#5a54f0"/></linearGradient></defs>
+<rect width="100" height="100" rx="24" fill="url(#ccg)"/><g stroke="#fff" stroke-width="2.5" stroke-linejoin="round">
+<path d="M50 18 L78 32 L50 46 L22 32Z" fill="#ffd24a"/><path d="M22 32 L50 46 L50 82 L22 68Z" fill="#ff5a6e"/><path d="M78 32 L50 46 L50 82 L78 68Z" fill="#2fbf8f"/></g></symbol>
 <symbol id="i-sound-on" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor" fill-opacity=".15"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19.3 5.7a9 9 0 0 1 0 12.6"/></g></symbol>
 <symbol id="i-sound-off" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor" fill-opacity=".15"/><path d="M16.5 9.5l5 5M21.5 9.5l-5 5"/></g></symbol>
 <symbol id="i-stats" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3"/></g></symbol>
@@ -157,7 +99,7 @@ html, body { height: 100%; overflow: hidden; }
     <button class="brand homebtn" id="btnHome" aria-label="Back to all games">
       <span class="chev" aria-hidden="true">&#8249;</span>
       <svg viewBox="0 0 100 100" aria-hidden="true"><use href="#cc-logo"/></svg>
-      <h1>Cube Corral</h1>
+      <h1>Cube Pop</h1>
     </button>
     <div class="topbtns">
       <button class="iconbtn" id="btnSound" aria-label="Sound"><svg viewBox="0 0 24 24"><use href="#i-sound-off"/></svg></button>
@@ -202,7 +144,7 @@ html, body { height: 100%; overflow: hidden; }
         <span class="switch"><input type="checkbox" id="setAds"><span></span></span></label>
       <div class="row" id="rowAdEvery"><div>Show an ad every<small>Counted in finished levels.</small></div>
         <div class="stepper"><button id="adLess" aria-label="Fewer">&minus;</button><b id="adEvery">3</b><button id="adMore" aria-label="More">+</button></div></div>
-      <div class="version" id="version">Cube Corral</div>
+      <div class="version" id="version">Cube Pop</div>
     </div>
     <div class="actions"><button class="btn red" id="btnCloseSettings">Done</button></div>
   </div>
@@ -211,7 +153,7 @@ html, body { height: 100%; overflow: hidden; }
 <!-- Stats -->
 <div class="overlay" id="ovStats">
   <div class="sheet" role="dialog" aria-label="Stats">
-    <h2>Your corral record</h2>
+    <h2>Your Cube Pop record</h2>
     <div class="sheetbody" id="statsBody"></div>
     <div class="actions"><button class="btn red" id="btnCloseStats">Done</button></div>
   </div>
@@ -236,7 +178,7 @@ html, body { height: 100%; overflow: hidden; }
         <li>Blasters shoot cubes of <b>their own color</b> that they can see from the <b>front</b> (the yellow edge). One shot knocks off one cube.</li>
         <li>The number is how many shots it has left. When it runs out, it leaves and the slot opens up.</li>
         <li>If none of its color can be hit, it <b>waits</b> in its slot (you&rsquo;ll see <b>zzz</b>). Knock off the cubes in front to uncover more.</li>
-        <li>When all 5 slots are full and nobody can shoot, the corral&rsquo;s <b>jammed</b>. Watch a quick ad for an extra slot, or try again.</li>
+        <li>When all 5 slots are full and nobody can shoot, you&rsquo;re <b>jammed</b>. Watch a quick ad for an extra slot, or try again.</li>
         <li><b>Drag</b> the sculpture to turn it and look around. Bigger ones have <b>surprise colors inside</b>.</li>
       </ol>
     </div>
@@ -267,6 +209,7 @@ var CCModels = (function () {
     { name: 'Gray', hex: '#9aa3ad' }, { name: 'Tan', hex: '#e2c089' }, { name: 'Purple', hex: '#8d5bd3' }];
   var C = {}; COLORS.forEach(function (c, i) { if (c) C[c.name.toLowerCase()] = i; });
 
+  function acosh(v) { return Math.log(v + Math.sqrt(v * v - 1)); }
   // Primitive tests at a design-space point
   function inside(p, x, y, z) {
     switch (p[0]) {
@@ -276,6 +219,22 @@ var CCModels = (function () {
       case 'cylz': { var ex = x - p[1], ey = y - p[2]; return z >= p[4] && z < p[5] && ex * ex + ey * ey <= p[3] * p[3]; } // along z
       case 'cylx': { var fy = y - p[1], fz = z - p[2]; return x >= p[4] && x < p[5] && fy * fy + fz * fz <= p[3] * p[3]; } // along x
       case 'gable': return z >= p[5] && z < p[6] && y >= p[2] && y < p[2] + p[4] * (1 - Math.abs(x - p[1]) / p[3]); // roof ridge along z
+      case 'arch': { // catenary arch [cx, half, height, thick, z0, z1] (like the Gateway Arch)
+        if (z < p[5] || z >= p[6] || y < 0) return false;
+        var K = 2.2, ch = Math.cosh(K) - 1, dxa = Math.abs(x - p[1]);
+        function hw(half, hh) { return y > hh ? -1 : half * acosh(1 + (1 - y / hh) * ch) / K; }
+        var wo = hw(p[2], p[3]), wi = hw(p[2] - p[4], p[3] - p[4] * 1.1);
+        return dxa <= wo && (wi < 0 || dxa >= wi);
+      }
+      case 'heart': { // [cx, cy, cz, size]
+        var hx = (x - p[1]) / p[4], hy = (y - p[2]) / p[4], hz = (z - p[3]) / p[4], q = hx * hx + 2.25 * hz * hz + hy * hy - 1;
+        return q * q * q - hx * hx * hy * hy * hy - 0.1125 * hz * hz * hy * hy * hy <= 0;
+      }
+      case 'tri': { // triangle in the x-y plane [x0,y0,x1,y1,x2,y2,z0,z1]
+        if (z < p[7] || z >= p[8]) return false;
+        var d1 = (x - p[3]) * (p[2] - p[4]) - (p[1] - p[3]) * (y - p[4]), d2 = (x - p[5]) * (p[4] - p[6]) - (p[3] - p[5]) * (y - p[6]), d3 = (x - p[1]) * (p[6] - p[2]) - (p[5] - p[1]) * (y - p[2]);
+        return !((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0));
+      }
       case 'cone': { var r = p[3] + (p[6] - p[3]) * (y - p[4]) / (p[5] - p[4]), gx = x - p[1], gz = z - p[2]; return y >= p[4] && y < p[5] && gx * gx + gz * gz <= r * r; } // [cx,cz,r0,y0,y1,r1]
     }
     return false;
@@ -496,7 +455,130 @@ var CCModels = (function () {
   }
   function surfaceColors(m) { var s = {}; for (var i = 0; i < m.vox.length; i++) if (m.vox[i]) s[m.vox[i]] = 1; return s; }
 
-  var ORDER = ['cow', 'barn', 'pig', 'tractor', 'hen', 'tree', 'sheep', 'pumpkin', 'house', 'duck', 'horse', 'windmill'];
+
+  // ---------- modern models ----------
+  MODELS.arch = { name: 'Gateway Arch', make: function (R) {
+    return { size: [16, 15, 6], ops: [
+      ['box', 0, 0, 0, 16, 1, 6, C.green], ['box', 0, 0, 4.4, 16, 1, 6, C.blue],
+      ['box', 1, 0, 0, 15, 1, 1.2, C.white],
+      ['arch', 8, 7.4, 13.8, 1.7, 2, 3.6, C.gray],
+      ['paint', C.gray, ['box', 0, 1, 2, 16, 15, 2.6], C.white],
+      ['ell', 1.6, 2, 1, 1.2, 1.4, 1, C.green], ['ell', 14.4, 2, 1, 1.2, 1.4, 1, C.green], ['box', 1.4, 1, .8, 1.8, 1.4, 1.2, C.brown], ['box', 14.2, 1, .8, 14.6, 1.4, 1.2, C.brown]
+    ] };
+  } };
+  MODELS.rocket = { name: 'Rocket', make: function (R) {
+    var body = R.pick([C.white, C.white, C.gray]), trim = R.pick([C.red, C.blue, C.purple]);
+    return { size: [9, 17, 9], ops: [
+      ['box', 0, 0, 0, 9, 1, 9, C.gray],
+      ['cone', 4.5, 4.5, 1.4, 1, 3, 2.6, C.orange], ['cone', 4.5, 4.5, .8, 1, 2.2, 1.6, C.yellow],
+      ['cyl', 4.5, 4.5, 2.6, 3, 12, body],
+      ['cone', 4.5, 4.5, 2.6, 12, 16.5, .3, trim],
+      ['box', .6, 3, 4, 2, 7, 5, trim], ['box', 7, 3, 4, 8.4, 7, 5, trim], ['box', 4, 3, .6, 5, 7, 2, trim], ['box', 4, 3, 7, 5, 7, 8.4, trim],
+      ['cylz', 4.5, 9.4, 1, 1.6, 2.2, C.blue], ['cylz', 4.5, 9.4, .5, 1.5, 2.2, C.white],
+      ['paint', body, ['box', 0, 5.2, 0, 9, 5.8, 9], trim]
+    ] };
+  } };
+  MODELS.car = { name: 'Sports car', make: function (R) {
+    var paint = R.pick([C.red, C.blue, C.yellow, C.orange]);
+    return { size: [15, 6.5, 8], ops: [
+      ['box', 0, 0, 0, 15, .8, 8, C.gray], ['box', 0, .8, 3.8, 15, .9, 4.2, C.white],
+      ['box', 1, 1.8, 1.2, 14, 3.6, 6.8, paint],
+      ['box', 4.6, 3.6, 1.6, 10.4, 5.6, 6.4, paint], ['box', 5, 3.6, 1.4, 10, 5.3, 6.6, C.blue], ['box', 5.8, 3.6, 1.2, 9.2, 5.3, 6.8, C.blue],
+      ['box', 13.8, 2.4, 1.6, 14.2, 3.2, 2.8, C.yellow], ['box', 13.8, 2.4, 5.2, 14.2, 3.2, 6.4, C.yellow], ['box', .8, 2.4, 1.6, 1.2, 3.2, 2.8, C.red], ['box', .8, 2.4, 5.2, 1.2, 3.2, 6.4, C.red],
+      ['cylz', 3.6, 1.8, 1.3, .8, 2, C.black], ['cylz', 3.6, 1.8, 1.3, 6, 7.2, C.black], ['cylz', 11.4, 1.8, 1.3, .8, 2, C.black], ['cylz', 11.4, 1.8, 1.3, 6, 7.2, C.black],
+      ['cylz', 3.6, 1.8, .5, .7, 1, C.gray], ['cylz', 11.4, 1.8, .5, .7, 1, C.gray],
+      ['paint', paint, ['box', 1, 3, 3.6, 14, 3.6, 4.4], C.white]
+    ] };
+  } };
+  MODELS.tower = { name: 'Skyscraper', make: function (R) {
+    var glass = R.pick([C.blue, C.blue, C.purple]);
+    var ops = [['box', 0, 0, 0, 10, 1, 10, C.green], ['box', 2, 1, 2, 8, 11, 8, glass], ['box', 3, 11, 3, 7, 16, 7, glass], ['box', 4, 16, 4, 6, 19, 6, glass], ['cyl', 5, 5, .4, 19, 22, C.gray]];
+    for (var y = 2; y < 19; y += 2) ops.push(['paint', glass, ['box', 0, y, 0, 10, y + .6, 10], C.white]);
+    ops.push(['box', 1, 1, 1, 9, 1.8, 9, C.gray], ['ell', 1.2, 1.6, 8.8, 1, 1.2, 1, C.green], ['ell', 8.8, 1.6, 1.2, 1, 1.2, 1, C.green]);
+    return { size: [10, 22, 10], ops: ops };
+  } };
+  MODELS.robot = { name: 'Robot', make: function (R) {
+    var shell = R.pick([C.gray, C.white]), accent = R.pick([C.blue, C.orange, C.purple]);
+    return { size: [12, 15, 7], ops: [
+      ['box', 3, 0, 2, 5, 4, 5, shell], ['box', 7, 0, 2, 9, 4, 5, shell], ['box', 2.6, 0, 1.6, 5.4, .8, 5.4, C.black], ['box', 6.6, 0, 1.6, 9.4, .8, 5.4, C.black],
+      ['box', 2.4, 4, 1.4, 9.6, 9.5, 5.6, shell], ['box', 4, 5.2, 1, 8, 8.4, 1.6, accent], ['box', 4.6, 6.2, .8, 5.6, 7.2, 1.2, C.red], ['box', 6.4, 6.2, .8, 7.4, 7.2, 1.2, C.yellow],
+      ['box', .6, 5, 2.6, 2.4, 9, 4.4, shell], ['box', 9.6, 5, 2.6, 11.4, 9, 4.4, shell], ['box', .4, 4, 2.4, 2.6, 5, 4.6, accent], ['box', 9.4, 4, 2.4, 11.6, 5, 4.6, accent],
+      ['box', 3.6, 9.5, 2, 8.4, 13, 5, shell], ['box', 4.4, 10.8, 1.6, 5.8, 12, 2, C.blue], ['box', 6.2, 10.8, 1.6, 7.6, 12, 2, C.blue], ['box', 5, 9.8, 1.7, 7, 10.4, 2, C.black],
+      ['cyl', 6, 3.5, .3, 13, 14.2, C.gray], ['ell', 6, 14.5, 3.5, .7, .7, .7, C.red]
+    ] };
+  } };
+  MODELS.balloon = { name: 'Hot-air balloon', make: function (R) {
+    var a = R.pick([C.red, C.blue, C.purple, C.orange]), b = R.pick([C.yellow, C.white]);
+    var ops = [['ell', 6, 9.4, 6, 5.5, 6, 5.5, a], ['cone', 6, 6, 2.4, 3.2, 5, 4.2, a]];
+    for (var k = 0; k < 3; k++) ops.push(['paint', a, ['box', 2.6 + k * 2.6, 0, 0, 3.8 + k * 2.6, 17, 12], b]);
+    ops.push(['box', 4.4, 0, 4.4, 7.6, 2, 7.6, C.brown], ['box', 4.2, 1.8, 4.2, 7.8, 2.3, 7.8, C.tan],
+      ['box', 4.4, 2.3, 4.4, 5, 3.4, 5, C.gray], ['box', 7, 2.3, 4.4, 7.6, 3.4, 5, C.gray], ['box', 4.4, 2.3, 7, 5, 3.4, 7.6, C.gray], ['box', 7, 2.3, 7, 7.6, 3.4, 7.6, C.gray]);
+    return { size: [12, 15.5, 12], ops: ops };
+  } };
+  MODELS.sailboat = { name: 'Sailboat', make: function (R) {
+    var hull = R.pick([C.blue, C.red, C.white]);
+    return { size: [15, 15, 7], ops: [
+      ['box', 0, 0, 0, 15, 1, 7, C.blue],
+      ['box', 2, 1, 2, 13, 2.2, 5, hull], ['box', 3, 2.2, 2.2, 12, 3, 4.8, hull], ['box', 12.5, 1.6, 2.6, 14, 3, 4.4, hull],
+      ['paint', C.blue, ['box', 0, 0, 0, 15, 1, 7], C.blue],
+      ['box', 7.2, 3, 3.2, 7.8, 14, 3.8, C.brown],
+      ['tri', 7.8, 4, 7.8, 13.6, 12.6, 4, 3.1, 3.9, C.white], ['tri', 7.2, 5, 7.2, 12, 3.2, 5, 3.1, 3.9, C.white],
+      ['box', 7.1, 13.6, 3.1, 8.6, 14.4, 3.9, C.red]
+    ] };
+  } };
+  MODELS.icecream = { name: 'Ice cream', make: function (R) {
+    var s1 = R.pick([C.pink, C.white, C.brown]), s2 = R.pick([C.yellow, C.green, C.pink]);
+    return { size: [9, 16, 9], ops: [
+      ['cone', 4.5, 4.5, .4, 0, 8, 3.2, C.tan],
+      ['paint', C.tan, ['box', 0, 2, 0, 9, 2.6, 9], C.brown], ['paint', C.tan, ['box', 0, 5, 0, 9, 5.6, 9], C.brown],
+      ['ell', 4.5, 9.2, 4.5, 3.8, 2.6, 3.8, s1], ['ell', 4.5, 12, 4.5, 3, 2.4, 3, s2],
+      ['ell', 4.5, 14.8, 4.5, 1.1, 1.1, 1.1, C.red], ['box', 4.4, 15.6, 4.3, 4.6, 16, 4.7, C.green]
+    ] };
+  } };
+  MODELS.modern = { name: 'Modern house', make: function (R) {
+    return { size: [15, 9, 11], ops: [
+      ['box', 0, 0, 0, 15, 1, 11, C.green], ['box', 9.5, 0, .5, 14.5, 1, 4, C.blue],
+      ['box', 1, 1, 3, 10, 5, 10, C.white], ['box', 5, 5, 4, 14, 8.2, 10, C.white],
+      ['box', .6, 5, 2.6, 10.6, 5.6, 10.4, C.black], ['box', 4.6, 8.2, 3.6, 14.4, 8.8, 10.4, C.black],
+      ['box', 2, 1.6, 2.6, 7, 4.4, 3.2, C.blue], ['box', 6, 5.6, 3.6, 12.6, 7.8, 4.2, C.blue],
+      ['box', 7.6, 1, 2.6, 9.4, 4, 3.2, C.brown], ['box', 10, 1, 5, 14, 5, 10, C.brown],
+      ['ell', 12.8, 2, 1.2, 1.1, 1.4, 1.1, C.green], ['box', 12.7, 1, 1.1, 12.9, 1.4, 1.3, C.brown]
+    ] };
+  } };
+  MODELS.heart = { name: 'Big heart', make: function (R) {
+    return { size: [14, 13, 7], ops: [['box', 2, 0, 1.5, 12, 1, 5.5, C.white], ['heart', 7, 6.8, 3.5, 5.6, C.red], ['paint', C.red, ['ell', 4.4, 9.6, 1.4, 1.4, 1.2, .8], C.pink]] };
+  } };
+  MODELS.lighthouse = { name: 'Lighthouse', make: function (R) {
+    var ops = [['box', 0, 0, 0, 12, 1, 12, C.blue], ['ell', 6, 1, 6, 5, 2, 5, C.gray], ['cone', 6, 6, 2.6, 2, 13, 1.8, C.white]];
+    for (var y = 3; y < 13; y += 3) ops.push(['paint', C.white, ['box', 0, y, 0, 12, y + 1.5, 12], C.red]);
+    ops.push(['cyl', 6, 6, 2.4, 13, 13.6, C.black], ['cyl', 6, 6, 1.4, 13.6, 15.2, C.yellow], ['cone', 6, 6, 1.8, 15.2, 16.6, .2, C.red]);
+    return { size: [12, 17, 12], ops: ops };
+  } };
+  MODELS.plane = { name: 'Airplane', make: function (R) {
+    var tail = R.pick([C.red, C.blue, C.orange]);
+    return { size: [16, 7, 15], ops: [
+      ['cylx', 3.5, 7.5, 1.8, 1, 14.5, C.white], ['ell', 14.5, 3.5, 7.5, 1.4, 1.6, 1.6, C.white], ['ell', 1.2, 3.5, 7.5, 1.2, 1.4, 1.4, C.white],
+      ['box', 6.5, 3, 0, 9.5, 3.8, 15, C.gray], ['box', 1, 4, 5, 3, 4.6, 10, C.gray], ['box', .6, 4.6, 7.1, 2.8, 7, 7.9, tail],
+      ['cyl', 8, 3, .8, 1.4, 3, C.gray], ['cyl', 8, 12, .8, 1.4, 3, C.gray],
+      ['paint', C.white, ['box', 4, 3.8, 5.6, 13, 4.4, 9.4], C.blue], ['paint', C.white, ['box', 13.5, 3.8, 6.2, 15.5, 4.8, 8.8], C.black]
+    ] };
+  } };
+  MODELS.controller = { name: 'Game controller', make: function (R) {
+    var body = R.pick([C.black, C.purple, C.gray]);
+    return { size: [16, 11, 6], ops: [
+      ['box', 5, 0, 1, 11, 1, 5, C.gray], ['box', 7, 1, 2.4, 9, 2.4, 3.6, C.gray],
+      ['box', 4, 3, 2, 12, 9, 4.6, body], ['ell', 4, 5.6, 3.3, 3.4, 3.6, 1.3, body], ['ell', 12, 5.6, 3.3, 3.4, 3.6, 1.3, body],
+      ['box', 2.4, 5.4, 1.2, 5.6, 6.4, 2, C.white], ['box', 3.5, 4.3, 1.2, 4.5, 7.5, 2, C.white],
+      ['box', 11.5, 6.8, 1.2, 12.5, 7.8, 2, C.green], ['box', 11.5, 4, 1.2, 12.5, 5, 2, C.blue], ['box', 10.1, 5.4, 1.2, 11.1, 6.4, 2, C.red], ['box', 12.9, 5.4, 1.2, 13.9, 6.4, 2, C.yellow],
+      ['box', 6.6, 6.4, 1.4, 7.4, 7, 2, C.gray], ['box', 8.6, 6.4, 1.4, 9.4, 7, 2, C.gray]
+    ] };
+  } };
+
+  // Level order: modern models, with a farm one now and then
+  var ORDER = ['arch', 'rocket', 'car', 'modern', 'balloon', 'cow', 'tower', 'icecream', 'robot', 'heart', 'sailboat', 'barn',
+    'lighthouse', 'plane', 'controller', 'tractor', 'rocket', 'arch', 'car', 'pig'];
+  var ALL = ['arch', 'rocket', 'car', 'tower', 'robot', 'balloon', 'sailboat', 'icecream', 'modern', 'heart', 'lighthouse', 'plane', 'controller',
+    'cow', 'barn', 'pig', 'tractor', 'hen', 'tree', 'sheep', 'pumpkin', 'house', 'duck', 'horse', 'windmill'];
   // inner: 0 none, 1 a hidden core, 2 two hidden colors in bands, 3 three hidden colors in bands
   function build(id, res, rand, inner) {
     var R = {
@@ -516,7 +598,7 @@ var CCModels = (function () {
     }
     return m;
   }
-  return { COLORS: COLORS, C: C, ORDER: ORDER, MODELS: MODELS, build: build, layer: layer };
+  return { COLORS: COLORS, C: C, ORDER: ORDER, ALL: ALL, MODELS: MODELS, build: build, layer: layer };
 })();
 if (typeof module !== 'undefined') module.exports = CCModels;
 </script>
@@ -651,7 +733,7 @@ var CC = (function () {
   function settle(st) { var n = 0; for (;;) { var ev = step(st); if (!ev.length) return n; n += ev.length; } }
 
   // ---------- levels ----------
-  var LEVEL_SCHEME = 1;
+  var LEVEL_SCHEME = 2; // 2 (2026-09-27): modern models
   function levelSpec(L) {
     var id = M.ORDER[(L - 1) % M.ORDER.length], round = Math.floor((L - 1) / M.ORDER.length);
     var res = Math.min(1.05, 0.64 + 0.02 * (L - 1)) + (L > 24 ? ((L * 7) % 5) * 0.02 : 0);
@@ -1232,14 +1314,14 @@ var CCSound = (function () {
       var g = game; finishRound();
       between(function () { if (g.mode === 'daily') startDaily(true, g.tries + 1); else startLevel(g.level, true, g.tries + 1); });
     } });
-    showCard('cc-logo', 'The corral’s jammed!', 'All ' + st.slots.length + ' slots are full and none of them can hit anything.' +
+    showCard('cc-logo', 'Jammed!', 'All ' + st.slots.length + ' slots are full and none of them can hit anything.' +
       (st.extra < CC.MAX_EXTRA ? ' An extra slot might get things moving.' : ''), b);
   }
   function win() {
     var g = game;
     g.done = true;
     S.win();
-    var c = $('cheer'); c.textContent = 'Corralled!'; c.classList.remove('show'); void c.offsetWidth; c.classList.add('show');
+    var c = $('cheer'); c.textContent = 'Cleared!'; c.classList.remove('show'); void c.offsetWidth; c.classList.add('show');
     var extra = '';
     if (g.mode === 'level' || g.mode === 'replay') {
       if (!meta.levelTries[g.level] || g.tries < meta.levelTries[g.level]) meta.levelTries[g.level] = g.tries;
@@ -1378,7 +1460,7 @@ var CCSound = (function () {
     Goobs.markPlayed('cubecorral');
     Goobs.initUpdates({
       beforeReload: saveGame,
-      onVersions: function (v) { $('version').textContent = 'Cube Corral ' + (v.cubecorral || '?') + ' · Goobs-Games ' + (v.shell || '?'); }
+      onVersions: function (v) { $('version').textContent = 'Cube Pop ' + (v.cubecorral || '?') + ' · Goobs-Games ' + (v.shell || '?'); }
     });
   }
 

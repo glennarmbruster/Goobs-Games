@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-<meta name="theme-color" content="#b3322a">
+<meta name="theme-color" content="#5a54f0">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Goobs-Games">
-<meta name="description" content="A farm-animal logic puzzle.">
+<meta name="description" content="An animal logic puzzle.">
 <link rel="manifest" href="../../manifest.json">
 <link rel="apple-touch-icon" href="../../icons/icon-180.png">
 <link rel="icon" type="image/png" sizes="192x192" href="../../icons/icon-192.png">
@@ -16,366 +16,228 @@
 <script src="../../shared/goobs.js"></script>
 <title>Zoodoku</title>
 <style>
-/* Zoodoku-only styles (shared themes and UI kit come from /shared/goobs.css) */
+/* Zoodoku-only styles (themes and the shared UI kit come from /shared/goobs.css) */
 /* ---------- size picker ---------- */
 .sizes { display: flex; width: 100%; gap: 6px; }
 .sizes button {
-  flex: 1; height: 50px; border-radius: 12px; border: 2px solid var(--wood); padding: 0;
-  background: var(--hay-light); color: var(--btn-ink); box-shadow: 0 3px 0 var(--wood); line-height: 1.05;
+  flex: 1; height: 50px; border-radius: 13px; border: 0; padding: 0;
+  background: var(--surface-2); color: var(--ink); line-height: 1.05;
 }
-.sizes button b { display: block; font-size: 18px; }
-.sizes button small { display: block; font-size: 12.5px; font-weight: 600; opacity: .8; }
-.sizes button.on { background: var(--barn); color: #fff; }
-.sizes button:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--wood); }
+.sizes button b { display: block; font-size: 17px; }
+.sizes button small { display: block; font-size: 12px; font-weight: 600; color: var(--muted); }
+.sizes button.on { background: var(--accent); color: #fff; }
+.sizes button.on small { color: rgba(255,255,255,.8); }
+.sizes button:active { transform: scale(.97); }
 
 /* ---------- status ---------- */
-.status { width: 100%; min-height: 32px; display: flex; align-items: center; justify-content: center; gap: 14px; }
+.status { width: 100%; min-height: 30px; display: flex; align-items: center; justify-content: center; gap: 16px; }
 .hearts { display: flex; gap: 3px; align-items: center; }
-.hearts svg { width: 28px; height: 28px; }
-.hearts svg.full { fill: #e0342b; }
+.hearts svg { width: 26px; height: 26px; }
+.hearts svg.full { fill: #ff4d5e; }
 .hearts svg.empty { fill: var(--heart-empty); }
 .hearts svg.pop { animation: pop .5s; }
 @keyframes pop { 30% { transform: scale(1.5) rotate(-12deg); } 100% { transform: scale(1); } }
-.relaxed { font-size: 15px; color: var(--muted); font-weight: 700; }
-.timer { display: flex; align-items: center; gap: 4px; font-weight: 800; font-size: 19px; font-variant-numeric: tabular-nums; color: var(--muted); }
-.timer svg { width: 22px; height: 22px; }
+.relaxed { font-size: 14px; color: var(--muted); font-weight: 600; }
+.timer { display: flex; align-items: center; gap: 5px; font-weight: 700; font-size: 17px; font-variant-numeric: tabular-nums; color: var(--muted); background: var(--surface-2); border-radius: 10px; padding: 3px 10px; }
+.timer svg { width: 18px; height: 18px; }
 .timer.hide { display: none; }
 
 /* ---------- board ---------- */
-.boardwrap { position: relative; width: min(calc(100vw - 24px), calc(100vh - 336px), 600px); aspect-ratio: 1 / 1; flex: none; }
-@supports (height: 100dvh) { .boardwrap { width: min(calc(100vw - 24px), calc(100dvh - 336px), 600px); } }
+.boardwrap { position: relative; width: min(calc(100vw - 28px), calc(100vh - 336px), 600px); aspect-ratio: 1 / 1; flex: none; }
+@supports (height: 100dvh) { .boardwrap { width: min(calc(100vw - 28px), calc(100dvh - 336px), 600px); } }
 .board {
-  position: absolute; inset: 0; display: grid; border-radius: 12px; overflow: hidden; gap: 2.5px; padding: 2.5px;
-  background: var(--grid); touch-action: none; box-shadow: 0 4px 0 var(--shade), 0 8px 18px rgba(0,0,0,.2);
+  position: absolute; inset: 0; display: grid; border-radius: 16px; overflow: hidden; gap: 2.5px; padding: 2.5px;
+  background: var(--grid); touch-action: none; box-shadow: var(--shadow);
 }
+:root[data-theme="dark"] .board, :root[data-theme="blue"] .board { box-shadow: 0 0 0 1px rgba(255,255,255,.06), var(--shadow); }
 .cell { position: relative; display: grid; place-items: center; border-radius: 13%; }
 .cell svg { position: relative; z-index: 2; }
-.cell svg.an { width: 86%; height: 86%; }
+.cell svg.an { width: 88%; height: 88%; filter: drop-shadow(0 1px 1px rgba(0,0,0,.12)); }
 .cell svg.xm { width: 84%; height: 84%; color: var(--x); }
 .cell.wx svg.xm { color: var(--x-wrong); width: 88%; height: 88%; }
 .cell.auto svg.xm { color: var(--x-auto); width: 66%; height: 66%; }
 .cell.conflict::after {
   content: ""; position: absolute; inset: 2px; border-radius: 6px; z-index: 1;
-  background: rgba(210,59,47,.25); border: 3px solid var(--bad);
+  background: rgba(229,72,77,.22); border: 3px solid var(--bad);
 }
 .cell.wrong { animation: shake .45s; }
-.cell.wrong::after { content: ""; position: absolute; inset: 0; z-index: 1; border-radius: inherit; background: rgba(210,59,47,.55); animation: fadeout .7s forwards; }
+.cell.wrong::after { content: ""; position: absolute; inset: 0; z-index: 1; border-radius: inherit; background: rgba(229,72,77,.55); animation: fadeout .7s forwards; }
 .cell.wrong svg.an { animation: fadeout .7s forwards; }
 @keyframes shake { 20%,60% { transform: translateX(-4px); } 40%,80% { transform: translateX(4px); } }
 @keyframes fadeout { 0%,55% { opacity: 1; } 100% { opacity: 0; } }
 .cell.placed svg.an { animation: plop .28s ease-out; }
 @keyframes plop { 0% { transform: scale(.3); } 70% { transform: scale(1.15); } 100% { transform: scale(1); } }
 .board.won .cell svg.an { animation: hop .6s ease-in-out infinite alternate; }
-@keyframes hop { 0% { transform: translateY(0); } 100% { transform: translateY(-14%); } }
 /* hint highlights */
 .cell.hl-area::before { content: ""; position: absolute; inset: 0; z-index: 1; border-radius: inherit; background: rgba(255,255,255,.55); }
 :root[data-theme="dark"] .cell.hl-area::before, :root[data-theme="blue"] .cell.hl-area::before { background: rgba(255,255,255,.28); }
 .cell.hl-target::before {
   content: ""; position: absolute; inset: 3px; z-index: 1; border-radius: 50%;
-  border: 3px solid var(--hint); background: rgba(29,111,184,.18); animation: pulse 1s ease-in-out infinite alternate;
+  border: 3px solid var(--hint); background: rgba(47,127,245,.18); animation: pulse 1s ease-in-out infinite alternate;
 }
 @keyframes pulse { 0% { transform: scale(.88); } 100% { transform: scale(1); } }
 .board.hinting .cell:not(.hl-area):not(.hl-target) { filter: saturate(.55) brightness(.93); }
 .lines { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .loading {
   position: absolute; inset: 0; display: none; place-items: center; text-align: center;
-  background: var(--cream); opacity: .92; border-radius: 10px; font-weight: 700; color: var(--muted);
+  background: var(--surface); opacity: .94; border-radius: 16px; font-weight: 600; color: var(--muted);
 }
 .loading.show { display: grid; }
 .loading svg { width: 64px; height: 64px; animation: hop .5s ease-in-out infinite alternate; }
 
 /* ---------- message line / hint ---------- */
-.msg { width: 100%; min-height: 50px; font-size: 16px; line-height: 1.35; text-align: center; color: var(--muted); display: flex; align-items: center; justify-content: center; }
-.msg .how { font-size: 14.5px; opacity: .85; }
+.msg { width: 100%; min-height: 50px; font-size: 15px; line-height: 1.4; text-align: center; color: var(--muted); display: flex; align-items: center; justify-content: center; }
+.msg b { color: var(--ink); }
+.msg .how { font-size: 14px; opacity: .9; }
 .msg.hint {
-  text-align: left; justify-content: space-between; gap: 8px; background: var(--surface); border: 2px solid var(--hint);
-  border-radius: 14px; padding: 6px 8px; color: var(--ink); font-size: 15px; line-height: 1.3;
+  text-align: left; justify-content: space-between; gap: 10px; background: var(--surface); box-shadow: var(--shadow);
+  border-left: 4px solid var(--hint); border-radius: 14px; padding: 8px 8px 8px 12px; color: var(--ink); font-size: 15px; line-height: 1.35;
 }
 .msg.hint button {
-  flex: none; min-height: 44px; padding: 0 10px; border-radius: 12px; border: 2px solid var(--hint);
-  background: var(--hint); color: #fff; font-weight: 800; font-size: 16px;
+  flex: none; min-height: 42px; padding: 0 14px; border-radius: 12px; border: 0;
+  background: var(--hint); color: #fff; font-weight: 700; font-size: 15px;
 }
 
-/* ---------- toolbar ---------- */
-.toolbar { display: flex; gap: 8px; width: 100%; }
-.tool {
-  flex: 1; height: 62px; border-radius: 14px; border: 2px solid var(--wood); background: var(--hay); color: var(--btn-ink);
-  box-shadow: 0 4px 0 var(--wood); display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 1px; padding: 0; font-weight: 800; font-size: 15px;
-}
-.tool svg { width: 26px; height: 26px; }
-.tool.red { background: var(--barn); color: #fff; }
-.tool:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--wood); }
-.tool:disabled { opacity: .45; }
-
+/* ---------- toolbar: a little taller here ---------- */
+.tool { height: 60px; }
+.tool svg { width: 24px; height: 24px; }
 
 /* ---------- stats ---------- */
-.tiles { display: flex; gap: 8px; margin: 4px 0 12px; }
-.tile { flex: 1; background: var(--surface); border: 2px solid var(--wood); border-radius: 14px; text-align: center; padding: 8px 4px; }
-.tile b { display: block; font-size: 28px; color: var(--title); }
-.tile span { font-size: 13px; font-weight: 700; color: var(--muted); }
-.stable { width: 100%; border-collapse: collapse; font-size: 17px; }
-.stable th { font-size: 13px; color: var(--muted); text-align: center; padding: 4px; }
+.stable { width: 100%; border-collapse: collapse; font-size: 16px; }
+.stable th { font-size: 12px; color: var(--muted); text-align: center; padding: 4px; font-weight: 600; }
 .stable td { text-align: center; padding: 10px 4px; border-top: 1px solid var(--line); font-weight: 700; font-variant-numeric: tabular-nums; }
 .stable td:first-child { text-align: left; }
-.stable td small { display: block; font-size: 12px; color: var(--muted); font-weight: 600; }
+.stable td small { display: block; font-size: 12px; color: var(--muted); font-weight: 500; }
 
 /* ---------- how to play ---------- */
-.example { width: 200px; height: 200px; margin: 0 auto 8px; display: grid; grid-template-columns: repeat(5, 1fr); border-radius: 12px; overflow: hidden; box-shadow: 0 3px 0 rgba(90,58,34,.5); gap: 2px; padding: 2px; background: #fff; }
+.example { width: 200px; height: 200px; margin: 0 auto 10px; display: grid; grid-template-columns: repeat(5, 1fr); border-radius: 14px; overflow: hidden; box-shadow: var(--shadow); gap: 2px; padding: 2px; background: #fff; }
 .example div { display: grid; place-items: center; border-radius: 13%; }
 .example svg { width: 88%; height: 88%; }
-.helplist { margin: 6px 0 0; padding-left: 24px; font-size: 17px; line-height: 1.45; }
-.helplist li { margin-bottom: 6px; }
-
-
 
 /* ---------- level bar ---------- */
-.levelbar { width: 100%; display: flex; align-items: stretch; gap: 8px; min-height: 54px; }
+.levelbar { width: 100%; display: flex; align-items: stretch; gap: 8px; min-height: 56px; }
 .levelbar .lvinfo {
-  flex: 1; min-width: 0; text-align: left; padding: 6px 30px 6px 12px; border-radius: 14px; border: 2px solid var(--wood);
-  background: var(--hay-light); color: var(--btn-ink); box-shadow: 0 3px 0 var(--wood); position: relative;
+  flex: 1; min-width: 0; text-align: left; padding: 7px 32px 7px 14px; border-radius: 16px; border: 1px solid var(--line);
+  background: var(--surface); color: var(--ink); box-shadow: var(--shadow-sm); position: relative;
 }
-.levelbar .lvinfo::after { content: "\203A"; position: absolute; right: 12px; top: 50%; transform: translateY(-54%); font-size: 30px; color: var(--muted); }
-.levelbar button:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--wood); }
-.levelbar .lvl { font-size: 22px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.levelbar .sub { font-size: 14px; font-weight: 700; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.levelbar .lvinfo::after { content: "\203A"; position: absolute; right: 14px; top: 50%; transform: translateY(-54%); font-size: 28px; color: var(--muted); }
+.levelbar button:active { transform: scale(.98); }
+.levelbar .lvl { font-size: 20px; font-weight: 800; letter-spacing: -.3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.levelbar .lvan { width: 24px; height: 24px; vertical-align: -4px; margin-right: 6px; }
+.levelbar .sub { font-size: 13px; font-weight: 600; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .levelbar .daily {
-  flex: none; position: relative; width: 84px; border-radius: 14px; border: 2px solid var(--wood); background: var(--barn); color: #fff;
-  box-shadow: 0 3px 0 var(--wood); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
-  font-weight: 800; font-size: 15px; padding: 0;
+  flex: none; position: relative; width: 80px; border-radius: 16px; border: 0; background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff;
+  box-shadow: 0 6px 16px -8px var(--accent); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  font-weight: 700; font-size: 13px; padding: 0;
 }
-.levelbar .daily svg { width: 24px; height: 24px; }
-.levelbar .daily .dot { position: absolute; top: 6px; right: 8px; width: 12px; height: 12px; border-radius: 50%; background: var(--gold); border: 2px solid #fff; }
-.levelbar .daily.done { background: var(--ok); }
+.levelbar .daily svg { width: 22px; height: 22px; }
+.levelbar .daily .dot { position: absolute; top: 7px; right: 9px; width: 9px; height: 9px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 0 2px rgba(255,255,255,.9); }
+.levelbar .daily.done { background: var(--ok); box-shadow: 0 6px 16px -8px var(--ok); }
 .levelbar .daily.done .dot { display: none; }
-:root[data-theme="dark"] .levelbar .lvinfo, :root[data-theme="dark"] .levelbar .daily { border-color: #5a4838; }
-:root[data-theme="blue"] .levelbar .lvinfo, :root[data-theme="blue"] .levelbar .daily { border-color: #34588c; }
 
-/* ---------- levels sheet ---------- */
-.lvnext { font-size: 17px; margin: 0 0 10px; color: var(--muted); font-weight: 700; }
-.pages { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
-.pages button { min-height: 40px; padding: 0 12px; border-radius: 10px; border: 2px solid var(--wood); background: var(--surface); color: var(--ink); font-weight: 800; font-size: 15px; }
-.pages button.on { background: var(--barn); color: #fff; }
-.lvgrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
-.lv {
-  position: relative; aspect-ratio: 1 / 1; border-radius: 12px; border: 2px solid var(--wood); background: var(--surface); color: var(--ink);
-  display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0; font-weight: 800; font-size: 20px; line-height: 1.1;
-  box-shadow: 0 3px 0 var(--wood);
-}
-.lv small { font-size: 11px; font-weight: 700; color: var(--muted); }
-.lv.done { background: #cfe8c0; color: #24421a; }
-.lv.done small { color: #3e6a2c; }
-.lv.done::after { content: "\2713"; position: absolute; top: 2px; right: 6px; font-size: 13px; color: #2f7a22; }
-.lv.cur { background: var(--barn); color: #fff; animation: pulse 1s ease-in-out infinite alternate; }
-.lv.cur small { color: #ffe3dc; }
-.lv.lock { opacity: .4; box-shadow: none; }
-:root[data-theme="dark"] .lv.done, :root[data-theme="blue"] .lv.done { background: #2f5a2a; color: #e3f5da; }
-:root[data-theme="dark"] .lv.done small, :root[data-theme="blue"] .lv.done small { color: #b9dcae; }
-:root[data-theme="dark"] .lv.done::after, :root[data-theme="blue"] .lv.done::after { color: #b9f0a8; }
-.lvsection { margin: 16px 0 8px; font-size: 17px; font-weight: 800; }
+/* ---------- levels sheet extras ---------- */
+.lv.cur { animation: pulse 1s ease-in-out infinite alternate; }
+.lvsection { margin: 18px 0 8px; font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; }
 .practice { display: flex; gap: 6px; }
-.practice button { flex: 1; min-height: 52px; border-radius: 12px; border: 2px solid var(--wood); background: var(--hay-light); color: var(--btn-ink); font-weight: 800; font-size: 16px; line-height: 1.1; box-shadow: 0 3px 0 var(--wood); }
-.practice button small { display: block; font-size: 11.5px; font-weight: 700; opacity: .8; }
-
+.practice button { flex: 1; min-height: 52px; border-radius: 13px; border: 0; background: var(--surface-2); color: var(--ink); font-weight: 700; font-size: 16px; line-height: 1.1; }
+.practice button small { display: block; font-size: 11px; font-weight: 600; color: var(--muted); }
+.practice button:active { transform: scale(.97); }
 
 /* ---------- X color picker ---------- */
-.swatchbtn { flex: none; width: 64px; height: 44px; border-radius: 12px; border: 2px solid var(--wood); background: var(--surface); padding: 5px; }
-.swatchbtn i { display: block; width: 100%; height: 100%; border-radius: 7px; border: 1px solid rgba(0,0,0,.25); }
+.swatchbtn { flex: none; width: 60px; height: 40px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); padding: 5px; }
+.swatchbtn i { display: block; width: 100%; height: 100%; border-radius: 7px; border: 1px solid rgba(0,0,0,.15); }
 .wheelwrap { position: relative; width: min(72vw, 260px); aspect-ratio: 1 / 1; margin: 6px auto 12px; touch-action: none; }
-.wheelwrap canvas { width: 100%; height: 100%; border-radius: 50%; display: block; box-shadow: 0 3px 10px rgba(0,0,0,.25); }
+.wheelwrap canvas { width: 100%; height: 100%; border-radius: 50%; display: block; box-shadow: var(--shadow); }
 .wheelmark {
   position: absolute; width: 30px; height: 30px; margin: -15px 0 0 -15px; border-radius: 50%; pointer-events: none;
   border: 4px solid #fff; box-shadow: 0 0 0 2px #111, 0 2px 6px rgba(0,0,0,.5);
 }
-.bright { display: flex; align-items: center; gap: 12px; font-weight: 700; margin: 4px 2px 12px; }
-.bright input { flex: 1; height: 36px; accent-color: var(--barn); }
+.bright { display: flex; align-items: center; gap: 12px; font-weight: 600; margin: 4px 2px 12px; }
+.bright input { flex: 1; height: 36px; accent-color: var(--accent); }
 .presets { display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px; margin-bottom: 12px; }
-.presets button { aspect-ratio: 1 / 1; border-radius: 10px; border: 2px solid var(--wood); padding: 0; }
-.presets button.on { box-shadow: 0 0 0 3px var(--gold); }
-.xpreview { display: grid; grid-template-columns: repeat(6, 1fr); border-radius: 10px; overflow: hidden; gap: 2px; padding: 2px; background: #fff; }
+.presets button { aspect-ratio: 1 / 1; border-radius: 10px; border: 1px solid rgba(0,0,0,.12); padding: 0; }
+.presets button.on { box-shadow: 0 0 0 3px var(--accent); }
+.xpreview { display: grid; grid-template-columns: repeat(6, 1fr); border-radius: 12px; overflow: hidden; gap: 2px; padding: 2px; background: #fff; }
 .xpreview div { aspect-ratio: 1 / 1; display: grid; place-items: center; border-radius: 13%; }
 .xpreview svg { width: 84%; height: 84%; }
 .xpreview svg.a { width: 66%; height: 66%; }
-
-/* ---------- back to the Goobs-Games menu ---------- */
-.homebtn { background: none; border: 0; padding: 4px 4px 4px 0; display: flex; align-items: center; gap: 3px; color: inherit; }
-.homebtn .chev { font-size: 38px; line-height: 1; font-weight: 800; color: var(--title); margin: -6px 0 0 -2px; }
-.homebtn:active { opacity: .6; }
 </style>
 </head>
 <body>
 <svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" style="position:absolute" aria-hidden="true">
 <defs>
-<!-- Cow: white face, black patch, cream horns, pink muzzle -->
-<symbol id="a-cow" viewBox="0 0 100 100"><g stroke="#3a2616" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
-<path d="M33 27 Q21 16 25 5 Q31 16 42 22Z" fill="#f1dfb8"/>
-<path d="M67 27 Q79 16 75 5 Q69 16 58 22Z" fill="#f1dfb8"/>
-<ellipse cx="17" cy="40" rx="13" ry="7" transform="rotate(-18 17 40)" fill="#fff"/>
-<ellipse cx="83" cy="40" rx="13" ry="7" transform="rotate(18 83 40)" fill="#fff"/>
-<path d="M27 32 Q27 18 50 18 Q73 18 73 32 L70 66 L30 66Z" fill="#fff"/>
-<path d="M52 20 Q70 18 71 30 Q70 40 62 38 Q56 34 52 20Z" fill="#2b2b2b" stroke="none"/>
-<path d="M29 44 Q34 40 36 50 Q31 56 29 52Z" fill="#2b2b2b" stroke="none"/>
-<ellipse cx="50" cy="70" rx="23" ry="16" fill="#f6b3c0"/>
-<ellipse cx="41" cy="70" rx="3.5" ry="4.5" fill="#3a2616" stroke="none"/>
-<ellipse cx="59" cy="70" rx="3.5" ry="4.5" fill="#3a2616" stroke="none"/>
-<circle cx="40" cy="45" r="4.5" fill="#3a2616" stroke="none"/>
-<circle cx="60" cy="45" r="4.5" fill="#3a2616" stroke="none"/>
-<circle cx="61.5" cy="43.5" r="1.5" fill="#fff" stroke="none"/>
+<!-- Zoodoku animals (original art): squirrel, dog, cat, penguin -->
+<symbol id="a-squirrel" viewBox="0 0 100 100"><g stroke="#2b2330" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+<path d="M64 88 Q97 84 95 52 Q93 20 70 12 Q86 34 78 52 Q72 66 58 74Z" fill="#c9773a"/>
+<path d="M70 80 Q88 74 88 54 Q87 36 78 26 Q84 44 76 58 Q70 68 62 74Z" fill="#e7a468" stroke="none"/>
+<path d="M22 38 L18 10 Q30 12 38 28Z" fill="#b8652b"/>
+<path d="M58 28 Q64 12 76 10 L72 38Z" fill="#b8652b"/>
+<path d="M22 32 L20 16 M72 32 L74 16" stroke="#e7a468" stroke-width="3"/>
+<ellipse cx="46" cy="57" rx="32" ry="29" fill="#d98a48"/>
+<ellipse cx="46" cy="69" rx="21" ry="14" fill="#f7dcc0" stroke="none"/>
+<ellipse cx="27" cy="64" rx="9" ry="7" fill="#f7dcc0" stroke="none"/>
+<ellipse cx="65" cy="64" rx="9" ry="7" fill="#f7dcc0" stroke="none"/>
+<ellipse cx="34" cy="52" rx="5.5" ry="6.5" fill="#2b2330" stroke="none"/>
+<ellipse cx="58" cy="52" rx="5.5" ry="6.5" fill="#2b2330" stroke="none"/>
+<circle cx="36" cy="49.5" r="2" fill="#fff" stroke="none"/><circle cx="60" cy="49.5" r="2" fill="#fff" stroke="none"/>
+<ellipse cx="46" cy="62" rx="4.5" ry="3.2" fill="#2b2330" stroke="none"/>
+<path d="M46 65 V68 M46 68 Q42 71 38 69 M46 68 Q50 71 54 69" fill="none" stroke-width="2.4"/>
+<path d="M42.5 70.5 H49.5 V76 Q46 78 42.5 76Z" fill="#fff" stroke-width="2"/><path d="M46 70.5 V76.5" stroke-width="1.6"/>
+<ellipse cx="24" cy="70" rx="4.5" ry="3" fill="#f28fa6" stroke="none" opacity=".6"/><ellipse cx="68" cy="70" rx="4.5" ry="3" fill="#f28fa6" stroke="none" opacity=".6"/>
+</g></symbol>
+<symbol id="a-dog" viewBox="0 0 100 100"><g stroke="#2b2330" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+<path d="M26 22 Q6 26 7 56 Q8 74 22 68 Q26 44 32 30Z" fill="#7a4a2a"/>
+<path d="M74 22 Q94 26 93 56 Q92 74 78 68 Q74 44 68 30Z" fill="#7a4a2a"/>
+<path d="M24 40 Q24 16 50 16 Q76 16 76 40 L75 64 Q73 88 50 88 Q27 88 25 64Z" fill="#e7b073"/>
+<path d="M44 17 Q50 15 56 17 L58 52 Q50 57 42 52Z" fill="#fff" stroke="none"/>
+<ellipse cx="50" cy="71" rx="19" ry="15" fill="#fff"/>
+<ellipse cx="37" cy="47" rx="5.5" ry="6.5" fill="#2b2330" stroke="none"/>
+<ellipse cx="63" cy="47" rx="5.5" ry="6.5" fill="#2b2330" stroke="none"/>
+<circle cx="39" cy="44.5" r="2" fill="#fff" stroke="none"/><circle cx="65" cy="44.5" r="2" fill="#fff" stroke="none"/>
+<path d="M31 37 Q36 34 41 37 M59 37 Q64 34 69 37" fill="none" stroke-width="2.4"/>
+<ellipse cx="50" cy="63" rx="8" ry="5.5" fill="#2b2330"/>
+<ellipse cx="48" cy="61.5" rx="2.4" ry="1.4" fill="#fff" stroke="none" opacity=".7"/>
+<path d="M50 69 V73 M50 73 Q44 78 39 74 M50 73 Q56 78 61 74" fill="none" stroke-width="2.4"/>
+<path d="M45.5 76 Q46 86 50 86 Q54 86 54.5 76 Q50 78 45.5 76Z" fill="#f28fa6" stroke-width="2.2"/>
+</g></symbol>
+<symbol id="a-cat" viewBox="0 0 100 100"><g stroke="#2b2330" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+<path d="M18 46 L20 9 L46 26Z" fill="#f2a65a"/>
+<path d="M82 46 L80 9 L54 26Z" fill="#f2a65a"/>
+<path d="M25 35 L26 19 L38 27Z" fill="#f7c6c9" stroke="none"/>
+<path d="M75 35 L74 19 L62 27Z" fill="#f7c6c9" stroke="none"/>
+<ellipse cx="50" cy="57" rx="38" ry="32" fill="#f2a65a"/>
+<path d="M44 27 L46 37 M50 25 V38 M56 27 L54 37" stroke="#c9782f" stroke-width="3.2"/>
+<path d="M13 52 L21 54 M14 60 L21 60" stroke="#c9782f" stroke-width="3"/><path d="M87 52 L79 54 M86 60 L79 60" stroke="#c9782f" stroke-width="3"/>
+<ellipse cx="50" cy="70" rx="16" ry="11" fill="#fff4e6" stroke="none"/>
+<ellipse cx="35" cy="54" rx="6" ry="7.5" fill="#2b2330" stroke="none"/>
+<ellipse cx="65" cy="54" rx="6" ry="7.5" fill="#2b2330" stroke="none"/>
+<circle cx="37.5" cy="51" r="2.3" fill="#fff" stroke="none"/><circle cx="67.5" cy="51" r="2.3" fill="#fff" stroke="none"/>
+<path d="M45.5 63.5 H54.5 L50 68.5Z" fill="#f28fa6" stroke-width="2.2"/>
+<path d="M50 68.5 Q46 74 41 71.5 M50 68.5 Q54 74 59 71.5" fill="none" stroke-width="2.4"/>
+<path d="M30 66 L10 63 M30 71 L11 74 M70 66 L90 63 M70 71 L89 74" stroke-width="1.8"/>
+<ellipse cx="25" cy="65" rx="4.5" ry="3" fill="#f28fa6" stroke="none" opacity=".55"/><ellipse cx="75" cy="65" rx="4.5" ry="3" fill="#f28fa6" stroke="none" opacity=".55"/>
+</g></symbol>
+<symbol id="a-penguin" viewBox="0 0 100 100"><g stroke="#2b2330" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+<path d="M46 16 Q50 6 58 10 Q52 12 52 18Z" fill="#2f3547"/>
+<ellipse cx="50" cy="54" rx="37" ry="35" fill="#2f3547"/>
+<path d="M50 36 Q60 22 72 31 Q83 43 75 62 Q65 82 50 84 Q35 82 25 62 Q17 43 28 31 Q40 22 50 36Z" fill="#fff" stroke="none"/>
+<ellipse cx="38" cy="51" rx="5.5" ry="6.5" fill="#2b2330" stroke="none"/>
+<ellipse cx="62" cy="51" rx="5.5" ry="6.5" fill="#2b2330" stroke="none"/>
+<circle cx="40" cy="48.5" r="2" fill="#fff" stroke="none"/><circle cx="64" cy="48.5" r="2" fill="#fff" stroke="none"/>
+<path d="M40 61 Q50 55 60 61 Q55 70 50 72 Q45 70 40 61Z" fill="#ffa726"/>
+<path d="M41 61.5 Q50 64 59 61.5" fill="none" stroke-width="2"/>
+<ellipse cx="29" cy="64" rx="5" ry="3.2" fill="#f28fa6" stroke="none" opacity=".6"/><ellipse cx="71" cy="64" rx="5" ry="3.2" fill="#f28fa6" stroke="none" opacity=".6"/>
 </g></symbol>
 
-<!-- Pig: round pink face, big snout, pointed ears -->
-<symbol id="a-pig" viewBox="0 0 100 100"><g stroke="#3a2616" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
-<path d="M24 34 L16 8 L44 22Z" fill="#ee8fa8"/>
-<path d="M76 34 L84 8 L56 22Z" fill="#ee8fa8"/>
-<circle cx="50" cy="55" r="34" fill="#f7b3c5"/>
-<ellipse cx="50" cy="65" rx="17" ry="12" fill="#ef8aa4"/>
-<ellipse cx="44" cy="65" rx="3" ry="5" fill="#3a2616" stroke="none"/>
-<ellipse cx="56" cy="65" rx="3" ry="5" fill="#3a2616" stroke="none"/>
-<circle cx="37" cy="45" r="4.5" fill="#3a2616" stroke="none"/>
-<circle cx="63" cy="45" r="4.5" fill="#3a2616" stroke="none"/>
-<ellipse cx="27" cy="62" rx="5" ry="3.5" fill="#f28fa6" stroke="none" opacity=".7"/>
-<ellipse cx="73" cy="62" rx="5" ry="3.5" fill="#f28fa6" stroke="none" opacity=".7"/>
-</g></symbol>
-
-<!-- Sheep: fluffy white cloud, dark face -->
-<symbol id="a-sheep" viewBox="0 0 100 100"><g stroke="#3a2616" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
-<g fill="#fff">
-<circle cx="30" cy="28" r="15"/><circle cx="50" cy="20" r="16"/><circle cx="70" cy="28" r="15"/>
-<circle cx="81" cy="50" r="14"/><circle cx="71" cy="73" r="15"/><circle cx="50" cy="81" r="15"/>
-<circle cx="29" cy="73" r="15"/><circle cx="19" cy="50" r="14"/>
-</g>
-<circle cx="50" cy="50" r="31" fill="#fff" stroke="none"/>
-<ellipse cx="27" cy="46" rx="11" ry="5.5" transform="rotate(20 27 46)" fill="#4a3f3c"/>
-<ellipse cx="73" cy="46" rx="11" ry="5.5" transform="rotate(-20 73 46)" fill="#4a3f3c"/>
-<ellipse cx="50" cy="56" rx="16" ry="21" fill="#4a3f3c"/>
-<circle cx="50" cy="31" r="9" fill="#fff" stroke="none"/>
-<circle cx="43" cy="51" r="4.5" fill="#fff" stroke="none"/><circle cx="57" cy="51" r="4.5" fill="#fff" stroke="none"/>
-<circle cx="43.5" cy="51.5" r="2.3" fill="#1c1410" stroke="none"/><circle cx="56.5" cy="51.5" r="2.3" fill="#1c1410" stroke="none"/>
-<path d="M45 67 Q50 71 55 67" fill="none" stroke="#f0e6e0" stroke-width="2.5"/>
-</g></symbol>
-
-<!-- Horse: long brown face, dark mane tuft, white blaze -->
-<symbol id="a-horse" viewBox="0 0 100 100"><g stroke="#3a2616" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
-<path d="M33 24 L29 4 L45 15Z" fill="#8c5a32"/>
-<path d="M67 24 L71 4 L55 15Z" fill="#8c5a32"/>
-<path d="M29 24 Q50 10 71 24 L66 70 L34 70Z" fill="#a0693d"/>
-<path d="M37 18 Q41 3 50 13 Q57 2 63 18 Q55 27 50 22 Q44 28 37 18Z" fill="#3b2415"/>
-<path d="M47 27 L53 27 L52.5 58 L47.5 58Z" fill="#fff" stroke="none"/>
-<ellipse cx="50" cy="76" rx="20" ry="16" fill="#dcb48d"/>
-<ellipse cx="42" cy="78" rx="3.5" ry="5" fill="#3a2616" stroke="none"/>
-<ellipse cx="58" cy="78" rx="3.5" ry="5" fill="#3a2616" stroke="none"/>
-<circle cx="38" cy="42" r="4.5" fill="#1c1410" stroke="none"/>
-<circle cx="62" cy="42" r="4.5" fill="#1c1410" stroke="none"/>
-<circle cx="63.5" cy="40.5" r="1.5" fill="#fff" stroke="none"/><circle cx="39.5" cy="40.5" r="1.5" fill="#fff" stroke="none"/>
-</g></symbol>
-
-<!-- Hen: plump white bird, small red comb, yellow beak -->
-<symbol id="a-hen" viewBox="0 0 100 100"><g stroke="#3a2616" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
-<path d="M14 50 L6 36 L20 40 L16 28 L28 40Z" fill="#fffaf0"/>
-<path d="M58 22 Q60 12 66 18 Q70 10 74 18 Q80 14 78 26Z" fill="#e0342b"/>
-<path d="M18 58 Q18 38 40 40 Q52 42 56 36 Q54 22 68 22 Q82 22 82 38 Q82 52 74 60 Q80 80 54 86 Q20 90 18 58Z" fill="#fffaf0"/>
-<path d="M82 34 L94 39 L82 44Z" fill="#f5b82e"/>
-<path d="M80 45 Q84 55 77 55 Q74 50 76 46Z" fill="#e0342b"/>
-<circle cx="71" cy="33" r="3.8" fill="#1c1410" stroke="none"/>
-<path d="M34 60 Q46 72 60 62" fill="none"/>
-<path d="M44 86 L42 96 M58 85 L60 96" fill="none" stroke="#e39a1f"/>
-</g></symbol>
-
-<!-- Rooster: tall rusty-orange bird, big red comb, dark green sweeping tail -->
-<symbol id="a-rooster" viewBox="0 0 100 100"><g stroke="#3a2616" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
-<path d="M30 58 Q6 50 8 18 Q20 30 26 40 Q22 20 34 8 Q36 30 40 44Z" fill="#1f5a3c"/>
-<path d="M30 60 Q14 60 12 40 Q24 48 34 50Z" fill="#2f7a52"/>
-<path d="M60 14 Q60 2 67 9 Q71 0 76 9 Q83 4 82 14 Q88 14 82 22 L62 22Z" fill="#e0342b"/>
-<path d="M28 60 Q30 44 48 46 Q58 46 60 38 Q56 22 70 20 Q84 20 84 36 Q84 46 76 54 Q76 78 52 80 Q28 80 28 60Z" fill="#d8672b"/>
-<path d="M62 40 Q72 50 76 54 Q70 66 60 60 Q56 50 62 40Z" fill="#f2b54a" stroke="none"/>
-<path d="M84 31 L96 36 L84 41Z" fill="#f5b82e"/>
-<path d="M82 43 Q87 55 78 55 Q75 49 78 44Z" fill="#e0342b"/>
-<circle cx="73" cy="31" r="3.8" fill="#1c1410" stroke="none"/>
-<path d="M42 80 L40 96 M34 96 L46 96 M58 79 L60 96 M54 96 L66 96" fill="none" stroke="#e39a1f"/>
-</g></symbol>
-
-<!-- Duck: yellow, low body, flat orange bill -->
-<symbol id="a-duck" viewBox="0 0 100 100"><g stroke="#3a2616" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
-<path d="M10 56 Q8 44 16 46 Q28 52 40 52 Q46 50 52 48 Q46 36 50 28 Q56 16 68 18 Q82 20 82 34 Q82 44 74 50 Q92 58 86 72 Q78 86 50 86 Q18 86 10 56Z" fill="#ffd84a"/>
-<path d="M80 34 Q94 32 97 38 Q96 45 80 44Z" fill="#f28a1e"/>
-<circle cx="69" cy="30" r="4" fill="#1c1410" stroke="none"/>
-<path d="M36 62 Q50 76 66 64" fill="none"/>
-</g></symbol>
-
-<!-- Goat: tan face, curved dark horns, white beard, bar pupils -->
-<symbol id="a-goat" viewBox="0 0 100 100"><g stroke="#3a2616" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
-<path d="M39 26 Q31 4 12 8 Q28 12 31 30Z" fill="#6b625a"/>
-<path d="M61 26 Q69 4 88 8 Q72 12 69 30Z" fill="#6b625a"/>
-<ellipse cx="18" cy="38" rx="14" ry="6.5" transform="rotate(8 18 38)" fill="#cbb497"/>
-<ellipse cx="82" cy="38" rx="14" ry="6.5" transform="rotate(-8 82 38)" fill="#cbb497"/>
-<path d="M42 70 Q50 99 58 70Z" fill="#f6f1e8"/>
-<path d="M31 30 Q50 16 69 30 L63 68 Q50 76 37 68Z" fill="#d6c0a3"/>
-<ellipse cx="50" cy="64" rx="13" ry="9" fill="#ecdcc6"/>
-<ellipse cx="45" cy="64" rx="2.5" ry="3.5" fill="#3a2616" stroke="none"/>
-<ellipse cx="55" cy="64" rx="2.5" ry="3.5" fill="#3a2616" stroke="none"/>
-<ellipse cx="41" cy="43" rx="6" ry="5" fill="#f3e2a8"/>
-<ellipse cx="59" cy="43" rx="6" ry="5" fill="#f3e2a8"/>
-<rect x="37" y="42" width="8" height="2.6" rx="1" fill="#1c1410" stroke="none"/>
-<rect x="55" y="42" width="8" height="2.6" rx="1" fill="#1c1410" stroke="none"/>
-</g></symbol>
-
-<!-- Dog: golden face, long floppy brown ears, tongue -->
-<symbol id="a-dog" viewBox="0 0 100 100"><g stroke="#3a2616" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
-<circle cx="50" cy="50" r="30" fill="#e8b96a"/>
-<path d="M30 26 Q8 26 8 56 Q10 72 22 68 Q28 50 36 32Z" fill="#7a4726"/>
-<path d="M70 26 Q92 26 92 56 Q90 72 78 68 Q72 50 64 32Z" fill="#7a4726"/>
-<ellipse cx="50" cy="66" rx="17" ry="13" fill="#f7e4c0"/>
-<path d="M46 74 Q46 86 51 86 Q56 86 55 74Z" fill="#f07c8c"/>
-<path d="M40 70 Q45 75 50 70 Q55 75 60 70" fill="none"/>
-<ellipse cx="50" cy="60" rx="7" ry="5" fill="#241610" stroke="none"/>
-<circle cx="40" cy="46" r="4.5" fill="#1c1410" stroke="none"/>
-<circle cx="60" cy="46" r="4.5" fill="#1c1410" stroke="none"/>
-<circle cx="41.5" cy="44.5" r="1.5" fill="#fff" stroke="none"/><circle cx="61.5" cy="44.5" r="1.5" fill="#fff" stroke="none"/>
-</g></symbol>
-
-<!-- Turkey: striped fan tail, brown body, blue head, red wattle -->
-<symbol id="a-turkey" viewBox="0 0 100 100"><g stroke="#3a2616" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
-<path d="M50 62 L6 46 Q4 30 12 20 Z" fill="#c0392b"/>
-<path d="M50 62 L12 20 Q20 8 32 6 Z" fill="#e6a23c"/>
-<path d="M50 62 L32 6 Q50 0 68 6 Z" fill="#8e4a1d"/>
-<path d="M50 62 L68 6 Q80 8 88 20 Z" fill="#e6a23c"/>
-<path d="M50 62 L88 20 Q96 30 94 46 Z" fill="#c0392b"/>
-<ellipse cx="50" cy="66" rx="22" ry="24" fill="#7a4323"/>
-<path d="M40 70 Q50 80 60 70 Q56 86 50 88 Q44 86 40 70Z" fill="#a0602f" stroke="none"/>
-<circle cx="50" cy="42" r="11" fill="#9cc3d8"/>
-<path d="M47 45 L50 52 L53 45Z" fill="#f5b82e"/>
-<path d="M49 50 Q44 58 48 62 Q53 60 52 50Z" fill="#e0342b"/>
-<circle cx="45.5" cy="40" r="2.6" fill="#1c1410" stroke="none"/>
-<circle cx="54.5" cy="40" r="2.6" fill="#1c1410" stroke="none"/>
-</g></symbol>
-
-<!-- Rabbit: gray face, tall pink-lined ears, buck teeth -->
-<symbol id="a-rabbit" viewBox="0 0 100 100"><g stroke="#3a2616" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
-<ellipse cx="36" cy="28" rx="9" ry="24" transform="rotate(-10 36 28)" fill="#b8b2ac"/>
-<ellipse cx="64" cy="28" rx="9" ry="24" transform="rotate(10 64 28)" fill="#b8b2ac"/>
-<ellipse cx="36" cy="30" rx="4" ry="16" transform="rotate(-10 36 30)" fill="#f4b7c4" stroke="none"/>
-<ellipse cx="64" cy="30" rx="4" ry="16" transform="rotate(10 64 30)" fill="#f4b7c4" stroke="none"/>
-<ellipse cx="50" cy="66" rx="28" ry="25" fill="#c8c2bc"/>
-<rect x="45" y="74" width="10" height="9" rx="2" fill="#fff"/>
-<path d="M50 74 L50 83" fill="none" stroke-width="2"/>
-<path d="M46 67 L54 67 L50 72Z" fill="#f28fa6"/>
-<path d="M42 74 Q46 77 50 73 Q54 77 58 74" fill="none" stroke-width="2.5"/>
-<path d="M30 70 L14 66 M30 75 L14 78 M70 70 L86 66 M70 75 L86 78" fill="none" stroke-width="2"/>
-<circle cx="39" cy="58" r="4.5" fill="#1c1410" stroke="none"/>
-<circle cx="61" cy="58" r="4.5" fill="#1c1410" stroke="none"/>
-<circle cx="40.5" cy="56.5" r="1.5" fill="#fff" stroke="none"/><circle cx="62.5" cy="56.5" r="1.5" fill="#fff" stroke="none"/>
-</g></symbol>
+<symbol id="zoo-logo" viewBox="0 0 100 100"><rect width="100" height="100" rx="24" fill="#fbe7c8"/>
+<rect x="12" y="12" width="36" height="36" rx="8" fill="#e4adaa"/><rect x="52" y="12" width="36" height="36" rx="8" fill="#a5c3de"/>
+<rect x="12" y="52" width="36" height="36" rx="8" fill="#b1cb98"/><rect x="52" y="52" width="36" height="36" rx="8" fill="#dfd293"/>
+<use href="#a-cat" x="53" y="53" width="34" height="34"/><use href="#a-dog" x="13" y="13" width="34" height="34"/></symbol>
 
 <!-- X mark -->
 <symbol id="xmark" viewBox="0 0 100 100"><path d="M24 24 L76 76 M76 24 L24 76" stroke="currentColor" stroke-width="17" stroke-linecap="round" fill="none"/></symbol>
 <!-- Heart -->
 <symbol id="heart" viewBox="0 0 100 100"><path d="M50 88 L14 52 Q2 38 12 24 Q24 10 40 18 Q46 22 50 30 Q54 22 60 18 Q76 10 88 24 Q98 38 86 52Z" stroke="#7a1f19" stroke-width="5" stroke-linejoin="round"/></symbol>
-<!-- UI icons (24x24, stroke = currentColor) -->
-<symbol id="barn" viewBox="0 0 100 100"><g stroke="#3a2616" stroke-width="4" stroke-linejoin="round">
-<path d="M8 44 L50 12 L92 44 L86 44 L86 92 L14 92 L14 44Z" fill="#b3322a"/>
-<path d="M34 92 L34 58 L66 58 L66 92Z" fill="#fff"/>
-<path d="M34 58 L66 92 M66 58 L34 92" fill="none"/>
-<path d="M42 30 L58 30 L58 44 L42 44Z" fill="#f2d27a"/></g></symbol>
 <symbol id="i-sound-on" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor" fill-opacity=".15"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19.3 5.7a9 9 0 0 1 0 12.6"/></g></symbol>
 <symbol id="i-sound-off" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor" fill-opacity=".15"/><path d="M16.5 9.5l5 5M21.5 9.5l-5 5"/></g></symbol>
 <symbol id="i-stats" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3"/></g></symbol>
@@ -394,7 +256,7 @@
   <div class="top">
     <button class="brand homebtn" id="btnHome" aria-label="Back to all games">
       <span class="chev" aria-hidden="true">&#8249;</span>
-      <svg viewBox="0 0 100 100" aria-hidden="true"><use href="#barn"/></svg>
+      <svg viewBox="0 0 100 100" aria-hidden="true"><use href="#zoo-logo"/></svg>
       <h1>Zoodoku</h1>
     </button>
     <div class="topbtns">
@@ -417,7 +279,7 @@
   <div class="boardwrap" id="boardwrap">
     <div class="board" id="board"></div>
     <svg class="lines" id="lines" preserveAspectRatio="none"></svg>
-    <div class="loading" id="loading"><div><svg viewBox="0 0 100 100"><use href="#a-pig"/></svg><div>Building the farm&hellip;</div></div></div>
+    <div class="loading" id="loading"><div><svg viewBox="0 0 100 100"><use href="#a-cat"/></svg><div>Setting up&hellip;</div></div></div>
   </div>
 
   <div class="msg" id="msg"></div>
@@ -439,7 +301,7 @@
       <div class="themes" id="themes"></div>
       <label class="row"><div>Hearts<small>5 hearts per puzzle. A wrong animal costs one. Starts with the next puzzle.</small></div>
         <span class="switch"><input type="checkbox" id="setHearts"><span></span></span></label>
-      <label class="row"><div>Auto-&times;<small>Placing an animal crosses out its row, column, pen and neighbors.</small></div>
+      <label class="row"><div>Auto-&times;<small>Placing an animal crosses out its row, column, color and neighbors.</small></div>
         <span class="switch"><input type="checkbox" id="setAutoX"><span></span></span></label>
       <div class="row"><div>&times; color<small>Pick any color for your &times; marks.</small></div>
         <button class="swatchbtn" id="btnXColor" aria-label="Choose X color"><i id="xSwatch"></i></button></div>
@@ -447,9 +309,9 @@
         <span class="switch"><input type="checkbox" id="setHighlight"><span></span></span></label>
       <label class="row"><div>Timer<small>Show the clock while you play.</small></div>
         <span class="switch"><input type="checkbox" id="setTimer"><span></span></span></label>
-      <label class="row"><div>Sound<small>Farm sounds and chimes.</small></div>
+      <label class="row"><div>Sound<small>Animal sounds and chimes.</small></div>
         <span class="switch"><input type="checkbox" id="setSound"><span></span></span></label>
-      <label class="row"><div>Farm-fresh ads<small>Old-time ads between puzzles, just for fun. This switch is shared by all Goobs-Games.</small></div>
+      <label class="row"><div>Old-time ads<small>Old-time ads between puzzles, just for fun. This switch is shared by all Goobs-Games.</small></div>
         <span class="switch"><input type="checkbox" id="setAds"><span></span></span></label>
       <div class="row" id="rowAdEvery"><div>Show an ad every<small>Counted in finished puzzles.</small></div>
         <div class="stepper"><button id="adLess" aria-label="Fewer">&minus;</button><b id="adEvery">3</b><button id="adMore" aria-label="More">+</button></div></div>
@@ -489,7 +351,7 @@
 <!-- Stats -->
 <div class="overlay" id="ovStats">
   <div class="sheet" role="dialog" aria-label="Stats">
-    <h2>Your farm record</h2>
+    <h2>Your Zoodoku record</h2>
     <div class="sheetbody" id="statsBody"></div>
     <div class="actions"><button class="btn red" id="btnCloseStats">Done</button></div>
   </div>
@@ -502,14 +364,14 @@
     <div class="sheetbody">
       <div class="example" id="example"></div>
       <ol class="helplist">
-        <li>Put <b>one animal</b> in every <b>row</b>, every <b>column</b> and every <b>colored pen</b>.</li>
+        <li>Put <b>one animal</b> in every <b>row</b>, every <b>column</b> and every <b>color</b>.</li>
         <li>Animals need elbow room: <b>no two can touch</b>, not even corner to corner.</li>
         <li><b>Tap</b> a square to mark it &times; (no animal here). Tap again to clear it.</li>
-        <li><b>Double-tap</b> to put the pen's animal there. Double-tap it again to take it away.</li>
+        <li><b>Double-tap</b> to put an animal there. Double-tap it again to take it away.</li>
         <li><b>Drag</b> your finger across squares to mark lots of &times; at once.</li>
         <li>With hearts on, a wrong animal costs a heart and leaves a red &times; so you remember. Out of hearts? Watch a quick ad to keep going.</li>
-        <li>Finish a level and the next one is waiting. Level numbers are the same puzzle on every phone.</li>
-        <li><b>Daily</b> (top right) is a new 11&times;11 every day, the same for everyone.</li>
+        <li>Finish a level and the next one is waiting. Each level has its own animal: squirrels, dogs, cats and penguins take turns. Level numbers are the same puzzle on every phone.</li>
+        <li><b>Daily</b> (top right) is a new 11&times;11 every day with a surprise animal, the same for everyone.</li>
         <li>Stuck? <b>Hint</b> explains the next step and can do it for you.</li>
       </ol>
     </div>
@@ -1053,6 +915,13 @@ var ZooSound = (function () {
     duck: function () {
       [0, 0.18].forEach(function (d) { voice({ type: 'sawtooth', f0: 420, f1: 360, dur: 0.14, delay: d, attack: 0.01, gain: 0.4, formants: [[1100, 9, 1], [2500, 10, 0.5]] }); });
     },
+    squirrel: function () {
+      [0, 0.07, 0.14, 0.21, 0.28].forEach(function (d, i) { voice({ type: 'square', f0: 2100 + (i % 2) * 300, f1: 1500, dur: 0.05, delay: d, attack: 0.004, gain: 0.18, formants: [[2400, 5, 1]] }); });
+    },
+    cat: function () { voice({ type: 'sawtooth', f0: 480, f1: 380, glide: 1, dur: 0.6, attack: 0.05, gain: 0.4, vib: 12, vibRate: 5, formants: [[900, 5, 1], [1700, 6, 0.7], [2800, 8, 0.3]] }); voice({ type: 'sawtooth', f0: 560, f1: 700, dur: 0.22, attack: 0.03, gain: 0.25, formants: [[1100, 5, 1]] }); },
+    penguin: function () {
+      [0, 0.22].forEach(function (d, i) { voice({ type: 'sawtooth', f0: 300 + i * 40, f1: 240, dur: 0.18, delay: d, attack: 0.01, gain: 0.4, trem: 30, formants: [[700, 4, 1], [1300, 5, 0.6]] }); });
+    },
     dog: function () {
       [0, 0.2].forEach(function (d) { voice({ type: 'sawtooth', f0: 520, f1: 240, dur: 0.13, delay: d, attack: 0.005, gain: 0.5, formants: [[600, 3, 1], [1150, 4, 0.5]] }); });
     },
@@ -1101,7 +970,11 @@ var ZooSound = (function () {
   var MAX_HEARTS = 5;
   var DOUBLE_TAP_MS = 350;
   var UNDO_LIMIT = 300;
-  var ANIMALS = ['cow', 'pig', 'sheep', 'horse', 'hen', 'rooster', 'duck', 'goat', 'dog', 'turkey', 'rabbit'];
+  var ANIMALS = ['cow', 'pig', 'sheep', 'horse', 'hen', 'rooster', 'duck', 'goat', 'dog', 'turkey', 'rabbit']; // old set: only shuffled so colors stay stable
+  // One animal per puzzle. Levels take turns in this order; the daily and practice pick one by seed.
+  var ZOO = ['squirrel', 'dog', 'cat', 'penguin'];
+  // Color names for hints, by palette index (same hue family in every theme)
+  var COLOR_NAMES = ['red', 'orange', 'yellow', 'green', 'teal', 'blue', 'purple', 'pink', 'brown', 'gray', 'white'];
   // Pen colors per theme. Same index = same hue family in every theme.
   var PALETTES = {
     light: ['#e4adaa', '#e0bf90', '#dfd293', '#b1cb98', '#8fbfb6', '#a5c3de', '#c4b5e1', '#e6bbd5', '#c9b79b', '#c7cacd', '#ebe7e0'],
@@ -1200,7 +1073,7 @@ var ZooSound = (function () {
   // ================= cosmetics: which animal and color each pen gets =================
   // Colors and animals come from the level number (and how many times it was played),
   // so two levels with look-alike layouts still look different.
-  function cosmetics(n, regions, cseed) {
+  function cosmetics(n, regions, cseed, animal) {
     var rand = E.rng(cseed);
     var pool = ANIMALS.slice();
     for (var i = pool.length - 1; i > 0; i--) { var j = Math.floor(rand() * (i + 1)); var t = pool[i]; pool[i] = pool[j]; pool[j] = t; }
@@ -1223,7 +1096,9 @@ var ZooSound = (function () {
       var score = worst * 10000 + sum;
       if (score > bestScore) { bestScore = score; best = perm; }
     }
-    return { penAnimal: pool.slice(0, n), penIdx: best.slice(0, n) };
+    var same = [];
+    for (i = 0; i < n; i++) same.push(animal);
+    return { penAnimal: same, penIdx: best.slice(0, n) };
   }
   function levelCseed(L, plays) { return E.mix32((L * 2654435761 + plays * 40503 + 12345) >>> 0); }
 
@@ -1301,7 +1176,8 @@ var ZooSound = (function () {
     else if (mode === 'practice') cseed = (p.seed ^ 0x5bd1e995) >>> 0;
     else if (mode === 'daily') cseed = E.mix32((Math.imul(p.day, 0x9E3779B1) ^ 0x2545F491) >>> 0);
     else cseed = levelCseed(p.level, meta.plays[p.level] || 0);
-    var look = cosmetics(n, p.regions, cseed);
+    var animal = mode === 'daily' ? ZOO[E.mix32((p.day ^ 0x00A11A15) >>> 0) % 4] : mode === 'practice' ? ZOO[(p.seed >>> 7) % 4] : ZOO[((p.level || 1) - 1) % 4];
+    var look = cosmetics(n, p.regions, cseed, animal);
     var g = {
       p: p, n: n, mode: mode, level: p.level || 0, day: p.day || 0, key: gameKey(mode, n), cseed: cseed,
       ctx: E.makeCtx(n, p.regions), marks: new Uint8Array(n * n),
@@ -1500,13 +1376,14 @@ var ZooSound = (function () {
     else if (game.mode === 'replay') { t = 'Replay: Level ' + game.level; sub = sizeLabel(game.n) + ' \u00b7 you\u2019re on ' + meta.level; }
     else if (game.mode === 'daily') { t = 'Daily puzzle'; sub = '11\u00d711 \u00b7 ' + dayLabel(game.day); }
     else { t = 'Practice ' + game.n + '\u00d7' + game.n; sub = LEVEL_NAMES[game.n] + ' \u00b7 random puzzle'; }
-    $('lvlTitle').textContent = t;
-    $('lvlSub').textContent = sub;
+    var an = game.penAnimal[0], names = { squirrel: 'Squirrels', dog: 'Dogs', cat: 'Cats', penguin: 'Penguins' };
+    $('lvlTitle').innerHTML = '<svg class="lvan" viewBox="0 0 100 100"><use href="#a-' + an + '"/></svg>' + t;
+    $('lvlSub').textContent = sub + ' \u00b7 ' + (names[an] || '');
   }
 
   function setMessage(html, cls) { var m = $('msg'); m.className = 'msg' + (cls ? ' ' + cls : ''); m.innerHTML = html; }
   function defaultMessage() {
-    setMessage('<div>One animal per <b>row</b>, <b>column</b> &amp; <b>pen</b>. No touching, not even corners.<br>' +
+    setMessage('<div>One animal per <b>row</b>, <b>column</b> &amp; <b>color</b>. No touching, not even corners.<br>' +
       '<span class="how">Tap <b>&times;</b> &nbsp;&middot;&nbsp; Double-tap <b>animal</b> &nbsp;&middot;&nbsp; Drag <b>&times;&times;&times;</b></span></div>');
   }
 
@@ -1651,12 +1528,13 @@ var ZooSound = (function () {
     if ($('msg').classList.contains('hint')) defaultMessage();
   }
   function unitCells(f, u) { return game.ctx.fam[f][u].slice(); }
-  function unitName(f, u) { return f === 0 ? 'row ' + (u + 1) : f === 1 ? 'column ' + (u + 1) : 'the ' + game.penAnimal[u] + ' pen'; }
+  function areaName(u) { return 'the ' + COLOR_NAMES[game.penIdx[u]] + ' area'; }
+  function unitName(f, u) { return f === 0 ? 'row ' + (u + 1) : f === 1 ? 'column ' + (u + 1) : areaName(u); }
   function unitsName(f, us) {
-    if (f === 2) return 'the ' + joinAnd(us.map(function (u) { return game.penAnimal[u]; })) + ' pens';
+    if (f === 2) return 'the ' + joinAnd(us.map(function (u) { return COLOR_NAMES[game.penIdx[u]]; })) + ' areas';
     return (f === 0 ? 'rows ' : 'columns ') + joinAnd(us.map(function (u) { return u + 1; }));
   }
-  function kindWord(f, plural) { return (f === 0 ? 'row' : f === 1 ? 'column' : 'pen') + (plural ? 's' : ''); }
+  function kindWord(f, plural) { return (f === 0 ? 'row' : f === 1 ? 'column' : 'area') + (plural ? 's' : ''); }
 
   function findHint() {
     var n = game.n, N = n * n, c;
@@ -1744,7 +1622,8 @@ var ZooSound = (function () {
 
   // ================= end of puzzle =================
   function parade() {
-    $('parade').innerHTML = game.penAnimal.slice(0, 5).map(function (a) { return svgUse('', 'a-' + a); }).join('');
+    var first = ZOO.indexOf(game.penAnimal[0]);
+    $('parade').innerHTML = [0, 1, 2, 3].map(function (k) { return svgUse('', 'a-' + ZOO[(first + k + 4) % 4]); }).join('');
   }
   function showCard(title, html, buttons) {
     $('endTitle').textContent = title;
@@ -1813,9 +1692,9 @@ var ZooSound = (function () {
       if (settings.timer) bits.push('Time ' + fmtTime(game.elapsed));
       if (game.heartsOn) bits.push(game.hearts + (game.hearts === 1 ? ' heart' : ' hearts') + ' left');
       bits.push(game.hints ? game.hints + (game.hints === 1 ? ' hint' : ' hints') : 'no hints');
-      var html = 'Every animal is safe in its pen.<br><b>' + bits.join(' &middot; ') + '</b>';
+      var html = 'Every animal found its spot.<br><b>' + bits.join(' &middot; ') + '</b>';
       if (r.newBest && settings.timer) html += '<br><span class="newbest">New best time!</span>';
-      else if (r.perfect) html += '<br><span class="newbest">Perfect farm!</span>';
+      else if (r.perfect) html += '<br><span class="newbest">Perfect!</span>';
       if (r.dailyFirst) html += '<br><span class="newbest">Daily streak: ' + stats.dStreak + (stats.dStreak === 1 ? ' day' : ' days') + '</span>';
       var title = game.mode === 'practice' ? 'Puzzle solved!' : game.mode === 'daily' ? 'Daily puzzle done!' : 'Level ' + game.level + ' done!';
       var buttons;
@@ -1826,7 +1705,7 @@ var ZooSound = (function () {
       else buttons = [
         { label: 'Another ' + game.n + '\u00d7' + game.n, red: true, go: function () { var n = game.n; between(function () { openPractice(n, true); }); } },
         { label: 'Back to level ' + meta.level, go: function () { between(openLevel); } }];
-      buttons.push({ label: 'Look at the farm', go: function () {} });
+      buttons.push({ label: 'Look at the board', go: function () {} });
       showCard(title, html, buttons);
     }, 1100);
   }
@@ -1944,7 +1823,7 @@ var ZooSound = (function () {
   function renderExample() {
     var pens = ['AACCC', 'AACCE', 'ADDEE', 'DDBBE', 'DBBBE'];
     var col = { A: 5, B: 2, C: 3, D: 7, E: 1 };
-    var an = { A: 'cow', B: 'pig', C: 'sheep', D: 'hen', E: 'duck' };
+    var an = { A: 'cat', B: 'cat', C: 'cat', D: 'cat', E: 'cat' };
     var sol = [0, 2, 4, 1, 3], h = '';
     for (var r = 0; r < 5; r++) for (var c = 0; c < 5; c++) {
       var p = pens[r].charAt(c);

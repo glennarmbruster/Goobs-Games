@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-<meta name="theme-color" content="#b3322a">
+<meta name="theme-color" content="#5a54f0">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -16,141 +16,86 @@
 <title>Screwball</title>
 <style>
 /* Screwball styles (themes, UI kit and ad cards come from /shared/goobs.css) */
-:root { --sb-stage: #fdf6e3; --sb-box: #fbf3e3; --sb-hole: rgba(58,38,22,.22); --sb-line: rgba(90,58,34,.45); --sb-tray: rgba(90,58,34,.1); }
-:root[data-theme="dark"] { --sb-stage: #2a231d; --sb-box: #3a3027; --sb-hole: rgba(0,0,0,.45); --sb-line: rgba(255,240,220,.35); --sb-tray: rgba(255,255,255,.06); }
-:root[data-theme="blue"] { --sb-stage: #182c4c; --sb-box: #22406b; --sb-hole: rgba(0,0,0,.45); --sb-line: rgba(200,220,255,.4); --sb-tray: rgba(255,255,255,.06); }
+:root { --sb-stage: linear-gradient(#e9efff, #f7f9ff 65%, #eef1f8); --sb-hole: rgba(0,0,0,.28); --sb-line: var(--line-strong); --sb-tray: var(--surface); }
+:root[data-theme="dark"] { --sb-stage: linear-gradient(#161a2b, #1d2236 65%, #20263a); --sb-hole: rgba(0,0,0,.45); }
+:root[data-theme="blue"] { --sb-stage: linear-gradient(#10254a, #173462 65%, #1c3d6e); --sb-hole: rgba(0,0,0,.45); }
 html, body { height: 100%; overflow: hidden; }
 .app { height: 100%; min-height: 0; }
 
-.homebtn { background: none; border: 0; padding: 4px 4px 4px 0; display: flex; align-items: center; gap: 3px; color: inherit; }
-.homebtn .chev { font-size: 38px; line-height: 1; font-weight: 800; color: var(--title); margin: -6px 0 0 -2px; }
-.homebtn:active { opacity: .6; }
-.brand h1 { font-size: 24px; white-space: nowrap; }
-@media (max-width: 385px) { .brand h1 { font-size: 21px; } }
-
-.modes { width: 100%; display: flex; gap: 6px; flex: none; }
-.modes button {
-  position: relative; flex: 1; height: 44px; border-radius: 12px; border: 2px solid var(--wood); background: var(--hay-light);
-  color: var(--btn-ink); font-weight: 800; font-size: 16px; box-shadow: 0 3px 0 var(--wood); padding: 0;
-}
-.modes button.on { background: var(--barn); color: #fff; }
-.modes button:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--wood); }
-.modes .dot { position: absolute; top: 5px; right: 7px; width: 11px; height: 11px; border-radius: 50%; background: var(--gold); border: 2px solid #fff; display: none; }
-.modes .dot.show { display: block; }
-:root[data-theme="dark"] .modes button { border-color: #5a4838; }
-:root[data-theme="blue"] .modes button { border-color: #34588c; }
-
-.info { width: 100%; min-height: 40px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 4px; flex: none; }
-.info .lbl { font-size: 13px; font-weight: 800; color: var(--muted); letter-spacing: .5px; text-transform: uppercase; }
-.info .ttl { font-size: 20px; font-weight: 800; line-height: 1.1; white-space: nowrap; }
-.info .right { text-align: right; }
-.info .mid { font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.1; }
-.info .bar { width: 110px; height: 10px; border-radius: 5px; background: var(--line); margin-top: 4px; overflow: hidden; border: 1.5px solid var(--wood); margin-left: auto; }
-.info .bar i { display: block; height: 100%; background: var(--ok); transition: width .3s; }
+.brand h1 { font-size: 22px; white-space: nowrap; }
+@media (max-width: 385px) { .brand h1 { font-size: 20px; } }
+.brand svg { border-radius: 9px; }
 
 /* screw heads (boxes, tray, flying) */
-.head { width: 22px; height: 22px; border-radius: 50%; border: 2px solid rgba(30,20,10,.85); position: relative; box-shadow: inset -2px -3px 0 rgba(0,0,0,.18), inset 2px 2px 0 rgba(255,255,255,.35); }
-.head::before, .head::after { content: ""; position: absolute; left: 50%; top: 50%; background: rgba(30,20,10,.7); border-radius: 1px; }
+.head { width: 22px; height: 22px; border-radius: 50%; border: 2px solid rgba(20,24,36,.8); position: relative; box-shadow: inset -2px -3px 0 rgba(0,0,0,.18), inset 2px 2px 0 rgba(255,255,255,.4); }
+.head::before, .head::after { content: ""; position: absolute; left: 50%; top: 50%; background: rgba(20,24,36,.65); border-radius: 1px; }
 .head::before { width: 10px; height: 2.5px; transform: translate(-50%, -50%); }
 .head::after { width: 2.5px; height: 10px; transform: translate(-50%, -50%); }
 
 /* boxes */
-.boxes { width: 100%; display: flex; gap: 6px; flex: none; justify-content: center; }
+.boxes { width: 100%; display: flex; gap: 8px; flex: none; justify-content: center; }
 .box {
-  flex: 1 1 0; min-width: 0; max-width: 104px; height: 58px; border-radius: 12px; border: 3px solid rgba(30,20,10,.55); position: relative;
-  display: flex; align-items: center; justify-content: center; gap: 5px; box-shadow: inset 0 4px 0 rgba(255,255,255,.3), 0 3px 0 rgba(0,0,0,.2);
+  flex: 1 1 0; min-width: 0; max-width: 104px; height: 56px; border-radius: 16px; position: relative;
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+  box-shadow: inset 0 2px 0 rgba(255,255,255,.35), inset 0 -3px 0 rgba(0,0,0,.15), var(--shadow-sm);
 }
-.box .hole { width: 22px; height: 22px; border-radius: 50%; background: rgba(0,0,0,.28); box-shadow: inset 0 2px 3px rgba(0,0,0,.4); display: grid; place-items: center; }
+.box .hole { width: 22px; height: 22px; border-radius: 50%; background: var(--sb-hole); box-shadow: inset 0 2px 3px rgba(0,0,0,.35); display: grid; place-items: center; }
 .box .hole .head { width: 20px; height: 20px; }
-.box.empty { background: var(--sb-tray) !important; border: 2px dashed var(--sb-line); box-shadow: none; }
+.box.empty { background: var(--surface-2) !important; border: 2px dashed var(--sb-line); box-shadow: none; }
 .box.arrive { animation: arrive .35s ease-out; }
 @keyframes arrive { 0% { transform: translateY(-30px) scale(.8); opacity: 0; } 100% { transform: none; opacity: 1; } }
 .box .hole .head.pop { animation: hpop .3s ease-out; }
 @keyframes hpop { 0% { transform: scale(1.5); } 100% { transform: scale(1); } }
-.boxes.many .box { gap: 2px; border-width: 2px; }
+.boxes.many { gap: 5px; }
+.boxes.many .box { gap: 2px; border-radius: 13px; }
 .boxes.many .box .hole { width: 16px; height: 16px; }
 .boxes.many .box .hole .head { width: 15px; height: 15px; }
 .boxes.many .box .hole .head::before { width: 7px; } .boxes.many .box .hole .head::after { height: 7px; }
 .addbox {
-  flex: none; width: 50px; height: 58px; border-radius: 12px; border: 2px dashed var(--gold); background: none; color: var(--ink); font-weight: 900; font-size: 15px;
+  flex: none; width: 52px; height: 56px; border-radius: 16px; border: 2px dashed var(--gold); background: var(--surface); color: var(--ink); font-weight: 800; font-size: 14px;
   display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1; padding: 0;
 }
-.addbox small { font-size: 10px; background: var(--gold); color: #3a2616; border-radius: 5px; padding: 0 4px; margin-top: 2px; }
+.addbox small { font-size: 10px; background: var(--gold); color: #3a2a00; border-radius: 5px; padding: 0 4px; margin-top: 3px; font-weight: 800; }
+.addbox:active { transform: scale(.96); }
 .flydone { position: fixed; z-index: 15; pointer-events: none; animation: flydone .6s ease-in forwards; }
 @keyframes flydone { 0% { transform: none; opacity: 1; } 100% { transform: translateY(-60px) scale(.7); opacity: 0; } }
 
-.stage { position: relative; width: 100%; flex: 1; min-height: 200px; border-radius: 16px; background: var(--sb-stage); border: 2px solid var(--line); overflow: hidden; }
+.stage { position: relative; width: 100%; flex: 1; min-height: 200px; border-radius: 20px; background: var(--sb-stage); box-shadow: var(--shadow); overflow: hidden; }
 .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
 .turnhint {
-  position: absolute; left: 50%; top: 8px; transform: translateX(-50%); display: flex; align-items: center; gap: 6px; pointer-events: none;
-  background: rgba(0,0,0,.55); color: #fff; font-weight: 800; font-size: 14px; padding: 5px 12px; border-radius: 20px; transition: opacity .6s; white-space: nowrap;
+  position: absolute; left: 50%; top: 10px; transform: translateX(-50%); display: flex; align-items: center; gap: 6px; pointer-events: none;
+  background: rgba(20,24,36,.6); color: #fff; font-weight: 700; font-size: 14px; padding: 5px 12px; border-radius: 20px; transition: opacity .6s; white-space: nowrap;
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
 }
 .turnhint svg { width: 20px; height: 20px; }
 .turnhint.hide { opacity: 0; }
-.cheer { position: absolute; left: 0; right: 0; top: 38%; text-align: center; font-size: 34px; font-weight: 900; color: #fff; text-shadow: 0 3px 0 #7a3d10, 0 0 14px rgba(0,0,0,.35); pointer-events: none; opacity: 0; }
+.cheer { position: absolute; left: 0; right: 0; top: 38%; text-align: center; font-size: 34px; font-weight: 900; color: #fff; text-shadow: 0 3px 0 var(--accent), 0 0 14px rgba(0,0,0,.3); pointer-events: none; opacity: 0; }
 .cheer.show { animation: cheer 1.4s ease-out forwards; }
 @keyframes cheer { 0% { opacity: 0; transform: scale(.6); } 20% { opacity: 1; transform: scale(1.1); } 70% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: translateY(-20px); } }
 
 /* tray */
-.traywrap { width: 100%; display: flex; align-items: center; gap: 8px; flex: none; }
-.traylbl { font-size: 13px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
-.tray { flex: 1; display: flex; gap: 6px; justify-content: space-between; background: var(--sb-tray); border-radius: 14px; padding: 7px 10px; border: 2px solid var(--line); }
+.traywrap { width: 100%; display: flex; align-items: center; gap: 10px; flex: none; }
+.traylbl { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; }
+.tray { flex: 1; display: flex; gap: 6px; justify-content: space-between; background: var(--sb-tray); border-radius: 16px; padding: 7px 10px; box-shadow: var(--shadow-sm); border: 1px solid var(--line); }
 .tray.warn { animation: warn .35s; border-color: var(--bad); }
 @keyframes warn { 0%, 100% { transform: none; } 30% { transform: translateX(-4px); } 60% { transform: translateX(4px); } }
-.spot { width: 38px; height: 38px; border-radius: 50%; border: 2px dashed var(--sb-line); display: grid; place-items: center; }
+.spot { width: 38px; height: 38px; border-radius: 50%; background: var(--surface-2); border: 2px dashed var(--sb-line); display: grid; place-items: center; }
 .spot .head { width: 28px; height: 28px; }
 .tray.full .spot { border-color: var(--bad); }
 
 #flyer { position: fixed; inset: 0; pointer-events: none; z-index: 14; }
 #flyer .head { position: absolute; left: 0; top: 0; width: 24px; height: 24px; transition: transform .34s cubic-bezier(.3,.7,.4,1); }
 
-.toolbar { display: flex; gap: 8px; width: 100%; flex: none; }
-.tool {
-  flex: 1; height: 50px; border-radius: 14px; border: 2px solid var(--wood); background: var(--hay); color: var(--btn-ink);
-  box-shadow: 0 4px 0 var(--wood); display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 1px; padding: 0; font-weight: 800; font-size: 14px;
-}
-.tool svg { width: 22px; height: 22px; }
-.tool.red { background: var(--barn); color: #fff; }
-.tool:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--wood); }
-
-.helplist { margin: 6px 0 0; padding-left: 24px; font-size: 17px; line-height: 1.45; }
-.helplist li { margin-bottom: 6px; }
-.cardicon { display: flex; justify-content: center; margin-bottom: 4px; }
-.cardicon svg { width: 64px; height: 64px; }
-.tiles2 { display: flex; gap: 8px; margin: 4px 0 12px; }
-.tile2 { flex: 1; background: var(--surface); border: 2px solid var(--wood); border-radius: 14px; text-align: center; padding: 8px 4px; }
-.tile2 b { display: block; font-size: 26px; color: var(--title); }
-.tile2 span { font-size: 13px; font-weight: 700; color: var(--muted); }
-:root[data-theme="dark"] .tile2 { border-color: #5a4838; }
-:root[data-theme="blue"] .tile2 { border-color: #34588c; }
-.lvgrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
-.lv {
-  position: relative; aspect-ratio: 1 / 1; border-radius: 12px; border: 2px solid var(--wood); background: var(--surface); color: var(--ink);
-  display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0; font-weight: 800; font-size: 20px; line-height: 1.1;
-  box-shadow: 0 3px 0 var(--wood);
-}
-.lv small { font-size: 10px; font-weight: 700; color: var(--muted); text-align: center; }
-.lv.done { background: #cfe8c0; color: #24421a; }
-.lv.done small { color: #3e6a2c; }
-.lv.done::after { content: "\2713"; position: absolute; top: 2px; right: 6px; font-size: 13px; color: #2f7a22; }
-.lv.cur { background: var(--barn); color: #fff; }
-.lv.cur small { color: #ffe3dc; }
-.lv.lock { opacity: .4; box-shadow: none; }
-:root[data-theme="dark"] .lv.done, :root[data-theme="blue"] .lv.done { background: #2f5a2a; color: #e3f5da; }
-:root[data-theme="dark"] .lv.done small, :root[data-theme="blue"] .lv.done small { color: #b9dcae; }
-.lvnext { font-size: 17px; margin: 0 0 10px; color: var(--muted); font-weight: 700; }
-.pages { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
-.pages button { min-height: 40px; padding: 0 12px; border-radius: 10px; border: 2px solid var(--wood); background: var(--surface); color: var(--ink); font-weight: 800; font-size: 15px; }
-.pages button.on { background: var(--barn); color: #fff; }
+.tool { height: 52px; }
+.cardicon svg { border-radius: 16px; }
 </style>
 </head>
 <body>
 <svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
-<symbol id="sb-logo" viewBox="0 0 100 100"><g stroke="#3a2616" stroke-width="4" stroke-linejoin="round" stroke-linecap="round">
-<rect x="10" y="30" width="80" height="40" rx="6" fill="#d8a868"/><path d="M18 42 H82 M18 58 H82" stroke-width="2" opacity=".35"/>
-<circle cx="28" cy="50" r="12" fill="#e53935"/><path d="M21 50 H35 M28 43 V57" stroke-width="3.5"/>
-<circle cx="72" cy="50" r="12" fill="#1e88e5"/><path d="M65 50 H79 M72 43 V57" stroke-width="3.5"/></g></symbol>
+<symbol id="sb-logo" viewBox="0 0 100 100"><defs><linearGradient id="sbg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4f8cff"/><stop offset="1" stop-color="#7a5cff"/></linearGradient></defs>
+<rect width="100" height="100" rx="24" fill="url(#sbg)"/><rect x="18" y="26" width="64" height="48" rx="8" fill="#fff"/><rect x="18" y="26" width="64" height="48" rx="8" fill="none" stroke="#dfe4ee" stroke-width="2"/>
+<g stroke="#1b2130" stroke-width="2.5"><circle cx="30" cy="38" r="7" fill="#e53935"/><circle cx="70" cy="38" r="7" fill="#fdd835"/><circle cx="30" cy="62" r="7" fill="#1e88e5"/><circle cx="70" cy="62" r="7" fill="#43a047"/></g>
+<g stroke="#1b2130" stroke-width="2.2" stroke-linecap="round"><path d="M26 38h8M30 34v8M66 38h8M70 34v8M26 62h8M30 58v8M66 62h8M70 58v8"/></g></symbol>
 <symbol id="i-sound-on" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor" fill-opacity=".15"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19.3 5.7a9 9 0 0 1 0 12.6"/></g></symbol>
 <symbol id="i-sound-off" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor" fill-opacity=".15"/><path d="M16.5 9.5l5 5M21.5 9.5l-5 5"/></g></symbol>
 <symbol id="i-stats" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3"/></g></symbol>
@@ -220,7 +165,7 @@ html, body { height: 100%; overflow: hidden; }
 <!-- Stats -->
 <div class="overlay" id="ovStats">
   <div class="sheet" role="dialog" aria-label="Stats">
-    <h2>Your toolbox record</h2>
+    <h2>Your Screwball record</h2>
     <div class="sheetbody" id="statsBody"></div>
     <div class="actions"><button class="btn red" id="btnCloseStats">Done</button></div>
   </div>
@@ -247,7 +192,7 @@ html, body { height: 100%; overflow: hidden; }
         <li>Each box holds <b>3 screws</b>. When it&rsquo;s full, the next box comes in.</li>
         <li>No box for that color yet? The screw waits in the <b>tray</b> (5 spots) and hops into its box when one shows up.</li>
         <li>Tray full and nothing fits a box = <b>stuck</b>. Tap <b>+ Box</b> (a quick ad) for a 4th or 5th box.</li>
-        <li><b>Drag</b> to turn the object and find screws on the other sides. <b>Pinch</b> with two fingers to zoom in.</li>
+        <li><b>Drag</b> to turn it (a house, the Arch, a bus...) and find screws on the other sides. <b>Pinch</b> with two fingers to zoom in.</li>
       </ol>
     </div>
     <div class="actions"><button class="btn red" id="btnCloseHelp">Let's play</button></div>
@@ -266,7 +211,7 @@ html, body { height: 100%; overflow: hidden; }
 
 <script>
 /* Screwball game logic (no DOM).
-   A farm object with boards (panels) held on by colored screws. Tap a screw that nothing covers and it flies
+   An object (house, arch, bus...) with boards (panels) held on by colored screws. Tap a screw that nothing covers and it flies
    into the box of its color (3 boxes showing, 3 holes each; ads can add a 4th and 5th). No matching box: it
    waits in a 5-spot tray. A board with no screws left falls off. Stuck = tray full and no free screw fits a box.
    Grid cells: index i = (y * sz + z) * sx + x. The side facing you at the start is z = 0 ("front"). */
@@ -307,7 +252,7 @@ var SB = (function () {
   // Board colors (muted woods and paints)
   var WOODS = ['#d8a868', '#c98b4f', '#b07a45', '#e6c48f', '#a8743f', '#d9d2c4', '#aeb6bd', '#8fae7a', '#c9867a', '#9fb8cf'];
 
-  // ---------- farm objects: a core (not removable) plus faces where boards get mounted ----------
+  // ---------- objects: a core (not removable) plus faces where boards get mounted ----------
   // Each returns { w, h, d (core box), extra: [[x0,x1,y0,y1,z0,z1,hex]] (relative to core origin), core hex, faces, specials, name }
   function gable(w, h, d, rh, hex, over) { // a stepped roof on top of a w x h x d box, ridge along z
     var out = [];
@@ -318,19 +263,72 @@ var SB = (function () {
     }
     return out;
   }
+  // Catenary-style arch (the Gateway Arch): cells in curve order, each [x, y] relative to the core origin.
+  function archCells(W, H, y0) {
+    var A = W / 2 - 1, k = 2, Hh = H - 2, pts = [], cells = [], seen = {};
+    for (var t = -A; t <= A + 1e-9; t += 0.02) pts.push([W / 2 + t, y0 + Hh * (1 - (Math.cosh(k * t / A) - 1) / (Math.cosh(k) - 1))]);
+    for (var y = y0; y < y0 + H + 1; y++) for (var x = 0; x < W; x++) {
+      var best = 1e9, bi = 0;
+      for (var q = 0; q < pts.length; q++) { var dx = x + 0.5 - pts[q][0], dy = y + 0.5 - pts[q][1], dd = dx * dx + dy * dy; if (dd < best) { best = dd; bi = q; } }
+      if (best < 1.0 && !seen[x + ',' + y]) { seen[x + ',' + y] = 1; cells.push([x, y, bi]); }
+    }
+    cells.sort(function (p, q) { return p[2] - q[2] || p[1] - q[1] || p[0] - q[0]; });
+    return cells;
+  }
+  var GLASS = '#8fc3ff', WHITE = '#f4f6fb', GRAY = '#c7ced9', CHAR = '#4b5563', WOOD = '#d59a5c', MINT = '#7fd6b3', CORAL = '#ff8a7a', SUN = '#ffd24a', STEEL = '#dfe5ec';
   var OBJECTS = {
-    crate: { name: 'Feed crate', make: function (R, big) {
-      var w = 5 + big, h = 5 + Math.floor(big / 2), d = 5 + big;
-      return { w: w, h: h, d: d, core: '#b07a45', extra: [], faces: [5, 0, 1, 4, 2], specials: [] };
+    house: { name: 'Modern house', make: function (R, big) {
+      var w = 8 + big, h = 7, d = 6 + big;
+      return { w: w, h: h, d: d, core: WHITE, extra: [[-1, w + 1, h, h + 1, -1, d + 1, '#2f3540'], [1, 4, h + 1, h + 3, 1, 4, CHAR]],
+        faces: [5, 0, 1, 4], specials: [], boards: [GLASS, WOOD, CHAR, '#e3e8ef'], patches: [WOOD, GRAY, '#b9dcff', CHAR] };
     } },
+    arch: { name: 'Gateway Arch', make: function (R, big) {
+      var W = 13 + 2 * big, H = 15 + 2 * big, d = 3, cells = archCells(W, H, 1);
+      var ex = cells.map(function (c) { return [c[0], c[0] + 1, c[1], c[1] + 1, 0, d, '#aab5c1']; });
+      return { w: W, h: 1, d: d, core: '#9aa3ad', extra: ex, faces: [], specials: [{ kind: 'archPanels', cells: cells }],
+        boards: [STEEL, '#c3ccd6', '#eef2f6', '#b3bdc8'], patches: ['#8f9aa8', '#7c8796'] };
+    } },
+    bus: { name: 'City bus', make: function (R, big) {
+      var w = 12 + big, h = 5, d = 4, body = R.pick(['#2f7de1', '#e0503c', '#1f9d8a']);
+      return { w: w, h: h, d: d, core: body, extra: [[3, 7, h, h + 1, 1, 3, GRAY]], faces: [5, 4, 0, 1], top: { a0: 0, a1: w },
+        specials: [{ kind: 'wheel', face: 5, a: 2, b: 1, r: 1, layer: 2 }, { kind: 'wheel', face: 5, a: w - 3, b: 1, r: 1, layer: 2 },
+          { kind: 'wheel', face: 4, a: 2, b: 1, r: 1, layer: 2 }, { kind: 'wheel', face: 4, a: w - 3, b: 1, r: 1, layer: 2 }],
+        boards: [GLASS, WHITE, SUN, '#e3e8ef'], patches: [CHAR, GRAY, WHITE] };
+    } },
+    car: { name: 'SUV', make: function (R, big) {
+      var w = 9 + big, h = 3, d = 5, body = R.pick(['#2f7de1', '#e0503c', '#f2f4f8', '#1f9d8a']);
+      return { w: w, h: h, d: d, core: body, extra: [[2, w - 2, h, h + 2, 0, d, body], [3, w - 3, h + 2, h + 3, 1, d - 1, '#2b2f36']],
+        faces: [5, 4, 0, 1], top: { a0: 0, a1: 2 },
+        specials: [{ kind: 'wheel', face: 5, a: 2, b: 1, r: 1, layer: 2 }, { kind: 'wheel', face: 5, a: w - 3, b: 1, r: 1, layer: 2 },
+          { kind: 'wheel', face: 4, a: 2, b: 1, r: 1, layer: 2 }, { kind: 'wheel', face: 4, a: w - 3, b: 1, r: 1, layer: 2 }],
+        boards: [WHITE, GLASS, GRAY, '#e3e8ef'], patches: [CHAR, GRAY, SUN] };
+    } },
+    rocket: { name: 'Rocket', make: function (R, big) {
+      var w = 4, h = 12 + big, d = 4, red = '#e0503c';
+      return { w: w, h: h, d: d, core: WHITE, extra: [[0, w, h, h + 1, 0, d, red], [1, w - 1, h + 1, h + 3, 1, d - 1, red],
+        [-1, 0, 0, 3, 1, 3, red], [w, w + 1, 0, 3, 1, 3, red], [1, 3, 0, 3, -1, 0, red], [1, 3, 0, 3, d, d + 1, red]],
+        faces: [5, 0, 1, 4], specials: [], boards: [WHITE, GRAY, '#5a7bd8', '#e3e8ef'], patches: [red, SUN, GLASS] };
+    } },
+    tower: { name: 'Skyscraper', make: function (R, big) {
+      var w = 5 + big, h = 14 + big, d = 5, mid = Math.floor(w / 2);
+      return { w: w, h: h, d: d, core: '#5d6b7e', extra: [[1, w - 1, h, h + 2, 1, d - 1, '#8a96a8'], [mid, mid + 1, h + 2, h + 6, 2, 3, GRAY]],
+        faces: [5, 0, 1, 4], specials: [], boards: [GLASS, '#6ea8f0', '#b9dcff', GRAY], patches: [CHAR, WHITE, '#8a96a8'] };
+    } },
+    lighthouse: { name: 'Lighthouse', make: function (R, big) {
+      var w = 4, h = 11 + big, d = 4;
+      return { w: w, h: h, d: d, core: WHITE, extra: [[-1, w + 1, h, h + 1, -1, d + 1, '#2b2f36'], [0, w, h + 1, h + 3, 0, d, SUN], [1, w - 1, h + 3, h + 4, 1, d - 1, '#e0503c']],
+        faces: [5, 0, 1, 4], specials: [], boards: ['#ef5b4c', WHITE, GRAY, '#e3e8ef'], patches: [CHAR, '#ef5b4c', GLASS] };
+    } },
+    robot: { name: 'Robot', make: function (R, big) {
+      var w = 6 + big, h = 6, d = 4;
+      return { w: w, h: h, d: d, core: '#9aa7b8', extra: [[1, w - 1, h, h + 3, 0, d, GRAY], [2, w - 2, h + 3, h + 4, 1, 3, CORAL],
+        [-1, 0, 2, 5, 1, 3, '#7c8a9c'], [w, w + 1, 2, 5, 1, 3, '#7c8a9c']],
+        faces: [5, 0, 1, 4], specials: [], boards: [MINT, CORAL, SUN, GRAY], patches: [WHITE, GLASS, CHAR] };
+    } },
+    // a few from the farm, kept for fun
     barn: { name: 'Barn', make: function (R, big) {
       var w = 7 + big, h = 5 + Math.floor(big / 2), d = 6 + big;
       return { w: w, h: h, d: d, core: R.pick(['#b3322a', '#a52a24', '#8e3b2e']), extra: gable(w, h, d, Math.ceil(w / 2), '#6f6a66'), faces: [5, 0, 1, 4], specials: [] };
-    } },
-    coop: { name: 'Chicken coop', make: function (R, big) {
-      var w = 6 + big, h = 4 + Math.floor(big / 2), d = 5 + Math.floor(big / 2);
-      var ex = gable(w, h, d, Math.ceil(w / 2), '#5b6e2e');
-      return { w: w, h: h, d: d, core: '#e6d3a3', extra: ex, faces: [5, 0, 1, 4], specials: [] };
     } },
     tractor: { name: 'Tractor', make: function (R, big) {
       var w = 9 + big, h = 4, d = 5, cab = 4;
@@ -344,23 +342,10 @@ var SB = (function () {
       var w = 5, h = 11 + big, d = 5;
       return { w: w, h: h, d: d, core: '#c9c2b4', extra: gable(w, h, d, 3, '#8e3b2e', 0), faces: [5, 0, 1, 4], specials: [
         { kind: 'blades', face: 5, a: 2, b: h - 3, len: 4, layer: 2 }] };
-    } },
-    wagon: { name: 'Hay wagon', make: function (R, big) {
-      var w = 9 + big, h = 3, d = 5;
-      return { w: w, h: h, d: d, core: '#8a5a3a', extra: [[1, w - 1, h, h + 2, 1, d - 1, '#e2c089'], [2, w - 3, h + 2, h + 3, 1, d - 1, '#e8cb95']], faces: [5, 4, 0, 1], specials: [
-        { kind: 'wheel', face: 5, a: 2, b: 1, r: 1, layer: 2 }, { kind: 'wheel', face: 5, a: w - 3, b: 1, r: 1, layer: 2 },
-        { kind: 'wheel', face: 4, a: 2, b: 1, r: 1, layer: 2 }, { kind: 'wheel', face: 4, a: w - 3, b: 1, r: 1, layer: 2 }] };
-    } },
-    outhouse: { name: 'Outhouse', make: function (R, big) {
-      var w = 4 + Math.floor(big / 2), h = 7 + big, d = 4 + Math.floor(big / 2);
-      return { w: w, h: h, d: d, core: '#9c6b3f', extra: gable(w, h, d, 2, '#5a4a3a', 0), faces: [5, 0, 1, 4], specials: [] };
-    } },
-    hive: { name: 'Beehive', make: function (R, big) {
-      var w = 5 + big, h = 6 + big, d = 5 + big;
-      return { w: w, h: h, d: d, core: '#f2e6c4', extra: [[-1, w + 1, h, h + 1, -1, d + 1, '#c9a24a']], faces: [5, 0, 1, 4], specials: [] };
     } }
   };
-  var ORDER = ['crate', 'barn', 'tractor', 'coop', 'windmill', 'wagon', 'outhouse', 'hive'];
+  var ORDER = ['house', 'arch', 'car', 'rocket', 'bus', 'tower', 'barn', 'lighthouse', 'robot', 'arch',
+    'tractor', 'house', 'tower', 'car', 'windmill', 'rocket', 'bus', 'lighthouse', 'robot', 'arch'];
   var M = 4; // room around the core for boards (layers 1..4)
 
   // ---------- building the object ----------
@@ -422,7 +407,7 @@ var SB = (function () {
     for (var b = b0; b < b1; b++) for (var a = a0; a < a1; a++) out.push(mt.cell(a, b, L));
     return out;
   }
-  function boards(g, plates, mt, R, layers, woods) {
+  function boards(g, plates, mt, R, layers, woods, patches) {
     var A0 = mt.a0 || 0, A1 = mt.a1 || mt.A, B = mt.B, horiz = R.chance(0.6);
     var wood1 = R.pick(woods), wood2 = R.pick(woods), wood3 = R.pick(woods);
     // layer 1: planks side by side
@@ -473,14 +458,15 @@ var SB = (function () {
       var bs = braceScrews[j], pa = Math.max(A0, Math.min(A1 - 2, bs[0] - R.i(0, 1))), pb = Math.max(0, Math.min(B - 2, bs[1] - R.i(0, 1)));
       var c3 = rectCells(mt, pa, pa + 2, pb, pb + 2, 3);
       var s3 = R.chance(0.6) ? [c3[0], c3[3]] : [c3[1], c3[2]];
-      if (addPlate(g, plates, c3, R.pick(['#d9d2c4', '#aeb6bd', '#e6c48f', '#9fb8cf']), 3, mt.face, s3)) np--;
+      if (addPlate(g, plates, c3, R.pick(patches || ['#d9d2c4', '#aeb6bd', '#e6c48f', '#9fb8cf']), 3, mt.face, s3)) np--;
     }
   }
-  function special(g, plates, sp, R) {
-    addPlate.special = true;
-    try { special0(g, plates, sp, R); } finally { addPlate.special = false; }
+  function special(g, plates, sp, R, obj, layers) {
+    addPlate.special = sp.kind !== 'archPanels';
+    try { special0(g, plates, sp, R, obj, layers); } finally { addPlate.special = false; }
   }
-  function special0(g, plates, sp, R) {
+  function special0(g, plates, sp, R, obj, layers) {
+    if (sp.kind === 'archPanels') return archPanels(g, plates, sp, R, obj, layers);
     var mt = mount(g, sp.face), cells = [], sc = [];
     if (sp.kind === 'wheel') {
       for (var b = sp.b - sp.r; b <= sp.b + sp.r; b++) for (var a = sp.a - sp.r; a <= sp.a + sp.r; a++) {
@@ -501,6 +487,31 @@ var SB = (function () {
     }
   }
 
+  // steel panels along the arch, front and back; joints covered by small cover plates (layer 2)
+  function archPanels(g, plates, sp, R, obj, layers) {
+    var cs = sp.cells, n = cs.length, pal = obj.boards, cover = obj.patches;
+    [5, 4].forEach(function (face) {
+      var mt = mount(g, face), chunks = [], at = 0, flip = 0;
+      function cell(c, L) { return face === 5 ? mt.cell(c[0], c[1], L) : mt.cell(obj.w - 1 - c[0], c[1], L); }
+      while (at < n) {
+        var len = Math.min(n - at, R.i(5, 7));
+        if (n - (at + len) < 3) len = n - at;
+        chunks.push(cs.slice(at, at + len)); at += len;
+      }
+      chunks.forEach(function (ch) {
+        var cells = ch.map(function (c) { return cell(c, 1); });
+        addPlate(g, plates, cells, pal[flip++ % 2 + (R.chance(0.3) ? 2 : 0)], 1, face, [cells[0], cells[cells.length - 1]]);
+      });
+      if (layers < 2) return;
+      for (var k = 0; k + 1 < chunks.length; k++) {
+        if (R.chance(0.35)) continue;
+        var a = chunks[k], b = chunks[k + 1], part = a.slice(-2).concat(b.slice(0, 2));
+        var c2 = part.map(function (c) { return cell(c, 2); });
+        if (addPlate(g, plates, c2, R.pick(cover), 2, face, [c2[0], c2[c2.length - 1]])) k++;
+      }
+    });
+  }
+
   // ---------- screws ----------
   // A screw on cell i facing out along face f is covered if any other cell further out along that line is filled.
   function covered(g, i, f, own) {
@@ -514,7 +525,8 @@ var SB = (function () {
   }
 
   // ---------- levels ----------
-  var LEVEL_SCHEME = 1;
+  // LEVEL_SCHEME 2 (2026-09-27): modern objects (house, Gateway Arch, bus, rocket...), farm ones now a small share.
+  var LEVEL_SCHEME = 2;
   function levelSpec(L) {
     var t = L <= 3 ? 0 : L <= 8 ? 1 : L <= 20 ? 2 : 3;
     return { scheme: LEVEL_SCHEME, level: L, object: ORDER[(L - 1) % ORDER.length], big: Math.min(2, Math.floor((L - 1) / 12)),
@@ -532,11 +544,11 @@ var SB = (function () {
   function makeObject(spec, R) {
     var obj = OBJECTS[spec.object].make(R, spec.big);
     var g = geometry(obj), plates = [];
-    var woods = R.shuffle(WOODS).slice(0, 4);
-    obj.specials.forEach(function (sp) { special(g, plates, sp, R); });
+    var woods = obj.boards ? obj.boards.slice() : R.shuffle(WOODS).slice(0, 4);
+    obj.specials.forEach(function (sp) { special(g, plates, sp, R, obj, spec.layers); });
     var faces = obj.faces.slice(0, spec.faces);
-    faces.forEach(function (f) { boards(g, plates, mount(g, f, f === 2 ? obj.top : null), R, spec.layers, woods); });
-    if (spec.faces >= 5 && obj.faces.indexOf(2) < 0 && obj.top) boards(g, plates, mount(g, 2, obj.top), R, Math.min(2, spec.layers), woods);
+    faces.forEach(function (f) { boards(g, plates, mount(g, f, f === 2 ? obj.top : null), R, spec.layers, woods, obj.patches); });
+    if (spec.faces >= 5 && obj.faces.indexOf(2) < 0 && obj.top) boards(g, plates, mount(g, 2, obj.top), R, Math.min(2, spec.layers), woods, obj.patches);
     // screws: one per listed cell, on the board's outside face
     var screws = [];
     plates.forEach(function (p) {
@@ -853,7 +865,17 @@ var SBRender = (function () {
       cx0 = (lo[0] + hi[0]) / 2; cy0 = (lo[1] + hi[1]) / 2; cz0 = (lo[2] + hi[2]) / 2;
       // fit by the widest the object can look when turned, and its height at a typical tilt
       var Rh = 0.5 * Math.hypot(hi[0] - lo[0], hi[2] - lo[2]), Hy = hi[1] - lo[1];
-      baseScale = Math.min(W * 0.94 / (2 * Rh * 0.84), H * 0.94 / (Hy * 0.92 + 2 * Rh * 0.45), 46);
+      var dx = hi[0] - lo[0], dz = hi[2] - lo[2], wide = Math.min(1, 0.84 + 0.32 * Math.abs(dx - dz) / Math.max(dx, dz)); // long things (bus, car) need more room
+      baseScale = Math.min(W * 0.94 / (2 * Rh * wide), H * 0.94 / (Hy * 0.98 + 2 * Rh * 0.45), 46);
+      // and make sure the whole thing shows at the starting view
+      var y0 = yaw, p0 = pitch, mnx = 1e9, mxx = -1e9, mny = 1e9, mxy = -1e9;
+      yaw = HOME_YAW; pitch = HOME_PITCH;
+      for (var k = 0; k < 8; k++) {
+        var q = T((k & 1 ? hi[0] : lo[0]) - cx0, (k & 2 ? hi[1] : lo[1]) - cy0, (k & 4 ? hi[2] : lo[2]) - cz0);
+        mnx = Math.min(mnx, q[0]); mxx = Math.max(mxx, q[0]); mny = Math.min(mny, q[1]); mxy = Math.max(mxy, q[1]);
+      }
+      yaw = y0; pitch = p0;
+      baseScale = Math.min(baseScale, W * 0.94 / (mxx - mnx), H * 0.9 / (mxy - mny));
       scale = baseScale * zoom;
       ox = W / 2; oy = H / 2 + scale * 0.1;
     }
