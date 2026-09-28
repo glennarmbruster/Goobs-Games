@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="gg-landscape">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
@@ -17,54 +17,97 @@
 <title>Moonshot</title>
 <style>
 /* Moonshot styles (themes, UI kit and ad cards come from /shared/goobs.css) */
-html, body { height: 100%; overflow: hidden; }
-.app { height: 100%; min-height: 0; }
-.brand svg { border-radius: 10px; }
-.modes button { font-size: 14px; padding-left: 2px; padding-right: 2px; }
-.modes button.locked { opacity: .5; }
+/* Moonshot is played sideways (Glenn, 2026-09-28): the ballpark fills the screen, the buttons float on top. */
+html, body { height: 100%; overflow: hidden; background: #5fc9d8; }
+.stage { position: fixed; inset: 0; overflow: hidden; background: #5fc9d8; }
+.stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; transition: opacity .16s; }
+#cv, #side { pointer-events: none; }
+#ink { z-index: 1; }                     /* the finger goes here */
+.stage canvas.hide { opacity: 0; }
 
-.health { display: flex; gap: 3px; justify-content: center; margin-top: 4px; }
-.health i { width: 14px; height: 9px; border-radius: 3px; background: #2ec27e; }
-.health i.off { background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--line); }
-.info .mid small { font-size: 12px; color: var(--muted); font-weight: 700; }
+/* the floating heads-up display */
+.hud {
+  position: absolute; left: 0; right: 0; top: 0; z-index: 3; display: flex; justify-content: space-between; align-items: flex-start; pointer-events: none;
+  padding: calc(env(safe-area-inset-top, 0px) + 8px) calc(env(safe-area-inset-right, 0px) + 10px) 0 calc(env(safe-area-inset-left, 0px) + 10px);
+}
+.hudl, .hudr { display: flex; gap: 7px; align-items: center; pointer-events: auto; flex: 1; }
+.hudr { justify-content: flex-end; }
+.hbtn { width: 42px; height: 42px; border-radius: 21px; border: 0; background: rgba(255,255,255,.9); color: #1b2130; display: flex; align-items: center; justify-content: center; gap: 3px;
+  box-shadow: 0 3px 10px rgba(0,0,0,.2); padding: 0; flex: none; font-weight: 800; font-size: 15px; }
+.hbtn svg { width: 22px; height: 22px; }
+.hbtn:active { transform: scale(.93); }
+.hbtn.on { color: #5a54f0; }
+.hbtn.shades { width: auto; padding: 0 11px 0 9px; }
+.hbtn.shades:disabled { opacity: .5; }
+.hbtn.shades.hide { display: none; }
+.hud .info { width: auto; min-height: 0; display: block; padding: 0 0 0 3px; color: #fff; text-shadow: 0 2px 0 rgba(0,0,0,.28), 0 0 8px rgba(0,0,0,.2); }
+.hud .info .lbl { color: #fff; opacity: .95; font-size: 13px; font-weight: 900; letter-spacing: .8px; }
+.hud .info .ttl { font-size: 16px; font-weight: 800; }
+.hudc { flex: none; text-align: center; color: #fff; text-shadow: 0 2px 0 rgba(0,0,0,.3); pointer-events: none; min-width: 150px; background: rgba(20,24,36,.32); border-radius: 18px; padding: 5px 12px 6px; -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
+.hudc .score { font-size: 30px; font-weight: 900; font-variant-numeric: tabular-nums; letter-spacing: -.5px; line-height: 1; }
+.hudc small { display: block; font-size: 12px; font-weight: 800; opacity: .95; margin-top: 3px; letter-spacing: .3px; }
+.health { display: flex; gap: 3px; justify-content: center; margin: 5px auto 0; width: 190px; padding: 3px; border-radius: 8px; background: rgba(20,24,36,.45); }
+.health i { flex: 1; height: 9px; border-radius: 4px; background: linear-gradient(#ff7a6b, #e63b3b); }
+.health i.off { background: rgba(255,255,255,.18); }
 
-.stage { position: relative; width: 100%; flex: 1; min-height: 240px; border-radius: 20px; box-shadow: var(--shadow); overflow: hidden; background: #8cc8f5; }
-.stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
-#ink { pointer-events: none; }
 .callout {
-  position: absolute; left: 0; right: 0; top: 22%; text-align: center; pointer-events: none; opacity: 0;
-  font-weight: 900; font-size: 40px; color: #fff; letter-spacing: -.5px; text-shadow: 0 3px 0 rgba(20,24,60,.55), 0 0 18px rgba(0,0,0,.35);
+  position: absolute; left: 0; right: 0; top: 24%; text-align: center; pointer-events: none; opacity: 0; z-index: 2;
+  font-weight: 900; font-size: 42px; color: #fff; letter-spacing: -.5px; text-shadow: 0 3px 0 rgba(20,24,60,.55), 0 0 18px rgba(0,0,0,.35);
 }
 .callout small { display: block; font-size: 20px; color: #ffe08a; margin-top: 2px; }
-.callout.hr { color: #ffd23f; font-size: 46px; }
+.callout.hr { color: #ffd23f; font-size: 50px; }
 .callout.show { animation: callout 1.5s ease-out forwards; }
 @keyframes callout { 0% { opacity: 0; transform: scale(.6); } 15% { opacity: 1; transform: scale(1.08); } 75% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: translateY(-16px); } }
 .flickhint {
-  position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); white-space: nowrap; pointer-events: none; display: none;
+  position: absolute; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 12px); transform: translateX(-50%); white-space: nowrap; pointer-events: none; display: none; z-index: 2;
   background: rgba(20,24,36,.62); color: #fff; font-weight: 700; font-size: 14px; padding: 6px 13px; border-radius: 20px;
 }
 .flickhint.show { display: block; }
-.shades {
-  position: absolute; left: 10px; top: 10px; height: 38px; min-width: 56px; padding: 0 10px; border: 0; border-radius: 19px; display: flex; align-items: center; gap: 5px;
-  background: rgba(20,24,36,.6); color: #fff; font-weight: 800; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
-}
-.shades svg { width: 24px; height: 24px; }
-.shades:disabled { opacity: .45; }
-.shades.hide { display: none; }
 .preview {
-  position: absolute; left: 10px; top: 54px; display: none; flex-direction: column; gap: 5px; pointer-events: none;
-  background: rgba(20,24,36,.72); color: #fff; border-radius: 14px; padding: 8px 10px; font-weight: 700; font-size: 13px;
+  position: absolute; right: calc(env(safe-area-inset-right, 0px) + 10px); top: calc(env(safe-area-inset-top, 0px) + 58px); display: none; flex-direction: column; gap: 5px; pointer-events: none; z-index: 3;
+  background: rgba(20,24,36,.75); color: #fff; border-radius: 14px; padding: 8px 10px; font-weight: 700; font-size: 13px;
 }
 .preview.show { display: flex; }
 .preview span { display: flex; align-items: center; gap: 7px; }
 .preview i { width: 16px; height: 16px; border-radius: 50%; box-shadow: inset -2px -2px 0 rgba(0,0,0,.18); display: inline-block; }
-.building { position: absolute; inset: 0; display: none; place-items: center; font-weight: 800; font-size: 16px; color: #fff; pointer-events: none; z-index: 2; text-align: center; padding: 20px; }
+.viewtoast { position: absolute; left: 50%; top: 40%; transform: translate(-50%, -50%); background: rgba(20,24,36,.72); color: #fff; font-weight: 800; font-size: 16px;
+  padding: 8px 16px; border-radius: 20px; pointer-events: none; opacity: 0; transition: opacity .25s; z-index: 3; white-space: nowrap; }
+.viewtoast.show { opacity: 1; }
+.building { position: absolute; inset: 0; display: none; place-items: center; font-weight: 800; font-size: 16px; color: #fff; pointer-events: none; z-index: 4; text-align: center; padding: 20px; }
 .building.show { display: grid; }
 
+/* the menu sheet */
+.menutop { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.menutop svg { width: 34px; height: 34px; border-radius: 10px; }
+.menutop h2 { margin: 0; }
+.menugrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+.menugrid .tool { width: 100%; }
+.menugrid .tool.hide { visibility: hidden; }
+
+/* portrait: ask for the phone to be turned sideways */
+.rotate { position: fixed; inset: 0; z-index: 40; display: none; align-items: center; justify-content: center; text-align: center; background: linear-gradient(#5fc9d8, #b9f0e8); color: #1b2130; padding: 24px; }
+.rotate b { display: block; font-size: 22px; margin: 18px 0 6px; }
+.rotate span { color: #2f4a52; font-size: 16px; }
+.rotate .phone { width: 64px; height: 108px; border: 6px solid #1b2130; border-radius: 16px; margin: 0 auto; animation: turn 2.2s ease-in-out infinite; }
+@keyframes turn { 0%, 30% { transform: rotate(0); } 60%, 100% { transform: rotate(-90deg); } }
+@media (orientation: portrait) { .rotate { display: flex; } }
+
+/* sheets and cards on a short (sideways) screen */
+@media (max-height: 500px) {
+  .sheet { max-height: 96vh; padding-top: 16px; max-width: 600px; }
+  .sheet h2, .card h2 { font-size: 21px; }
+  .card { padding: 16px 18px 14px; max-height: 94vh; overflow-y: auto; }
+  .card p { margin: 4px 0 12px; font-size: 16px; }
+  .cardicon svg { width: 44px; height: 44px; }
+  .row { padding: 9px 2px; }
+  .hudc .score { font-size: 26px; }
+  .health { width: 160px; }
+}
+
 /* training: pitch picker */
-.chips { width: 100%; display: none; gap: 6px; overflow-x: auto; flex: none; padding-bottom: 2px; -webkit-overflow-scrolling: touch; }
+.chips { position: absolute; z-index: 3; left: calc(env(safe-area-inset-left, 0px) + 10px); right: calc(env(safe-area-inset-right, 0px) + 10px); bottom: calc(env(safe-area-inset-bottom, 0px) + 8px); display: none; gap: 6px; overflow-x: auto; padding-bottom: 2px; -webkit-overflow-scrolling: touch; }
 .chips.show { display: flex; }
-.chips button { flex: none; height: 32px; border-radius: 16px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font-weight: 700; font-size: 13px; padding: 0 12px; display: flex; align-items: center; gap: 6px; }
+.chips button { flex: none; height: 32px; border-radius: 16px; border: 0; background: rgba(255,255,255,.9); color: #1b2130; box-shadow: 0 2px 6px rgba(0,0,0,.15); font-weight: 700; font-size: 13px; padding: 0 12px; display: flex; align-items: center; gap: 6px; }
 .chips button i { width: 12px; height: 12px; border-radius: 50%; box-shadow: inset -1px -1px 0 rgba(0,0,0,.2); }
 .chips button.on { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
 
@@ -88,16 +131,8 @@ html, body { height: 100%; overflow: hidden; }
 .stars { font-size: 26px; color: #ffc83d; letter-spacing: 2px; }
 .stars .off { color: var(--line-strong); }
 .cardicon svg { border-radius: 16px; }
-@media (max-width: 385px) { .modes button { font-size: 12.5px; } }
-.viewbtn {
-  position: absolute; right: 10px; top: 10px; height: 34px; padding: 0 11px; border: 0; border-radius: 17px; display: flex; align-items: center; gap: 5px;
-  background: rgba(20,24,36,.6); color: #fff; font-weight: 800; font-size: 13px; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
-}
-.viewbtn svg { width: 20px; height: 20px; }
-
-/* side view: a small marker on the right edge shows where the pitch is coming in from */
-.edgecue { position: absolute; right: 4px; width: 0; height: 0; border-top: 9px solid transparent; border-bottom: 9px solid transparent; border-right: 12px solid rgba(255,255,255,.95);
-  transform: translateY(-50%); opacity: 0; transition: opacity .08s; pointer-events: none; filter: drop-shadow(0 1px 2px rgba(0,0,0,.4)); z-index: 2; }
+.modes button { font-size: 14px; padding-left: 2px; padding-right: 2px; }
+.modes button.locked { opacity: .5; }
 </style>
 </head>
 <body>
@@ -118,51 +153,65 @@ html, body { height: 100%; overflow: hidden; }
 <symbol id="i-undo" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></g></symbol>
 <symbol id="i-new" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 3v5h-5"/></g></symbol>
 <symbol id="i-levels" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5" fill="currentColor" fill-opacity=".35"/></g></symbol>
+<symbol id="i-menu" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></g></symbol>
+<symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 <symbol id="i-help" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.3a2.6 2.6 0 0 1 5 .9c0 1.8-2.5 2.2-2.5 3.9M12 17.3v.2"/></g></symbol>
 </defs></svg>
 
-<div class="app">
-  <div class="top">
-    <button class="brand homebtn" id="btnHome" aria-label="Back to all games">
-      <span class="chev" aria-hidden="true">&#8249;</span>
-      <svg viewBox="0 0 100 100" aria-hidden="true"><use href="#ms-logo"/></svg>
-      <h1>Moonshot</h1>
-    </button>
-    <div class="topbtns">
-      <button class="iconbtn" id="btnSound" aria-label="Sound"><svg viewBox="0 0 24 24"><use href="#i-sound-off"/></svg></button>
-      <button class="iconbtn" id="btnStats" aria-label="Stats"><svg viewBox="0 0 24 24"><use href="#i-stats"/></svg></button>
-      <button class="iconbtn" id="btnSettings" aria-label="Settings"><svg viewBox="0 0 24 24"><use href="#i-gear"/></svg></button>
+<!-- Played with the phone sideways (Glenn, 2026-09-28). The whole screen is the ballpark; the buttons float on top. -->
+<div class="stage" id="stage">
+  <canvas id="cv"></canvas>
+  <canvas id="side"></canvas>
+  <canvas id="ink"></canvas>
+  <div class="callout" id="callout"></div>
+  <div class="flickhint" id="flickHint">Flick up through the ball as it reaches the dotted line</div>
+  <div class="hud">
+    <div class="hudl">
+      <button class="hbtn" id="btnHome" aria-label="Back to all games"><svg viewBox="0 0 24 24"><use href="#i-back"/></svg></button>
+      <div class="info" id="info"></div>
+    </div>
+    <div class="hudc" id="scorebox"></div>
+    <div class="hudr">
+      <button class="hbtn shades" id="btnShades" aria-label="Show the next pitches"><svg viewBox="0 0 24 24"><use href="#i-glasses"/></svg><b id="shadesN">3</b></button>
+      <button class="hbtn" id="btnView" aria-label="Change the view"><svg viewBox="0 0 24 24"><use href="#i-cam"/></svg></button>
+      <button class="hbtn" id="btnSound" aria-label="Sound"><svg viewBox="0 0 24 24"><use href="#i-sound-off"/></svg></button>
+      <button class="hbtn" id="btnMenu" aria-label="Menu"><svg viewBox="0 0 24 24"><use href="#i-menu"/></svg></button>
     </div>
   </div>
-
-  <div class="modes" id="modes">
-    <button data-mode="minor">Minor</button>
-    <button data-mode="major" id="modeMajor">Major</button>
-    <button data-mode="moonstar">Moon-Star</button>
-    <button data-mode="training">Training</button>
-  </div>
-
-  <div class="info" id="info"></div>
-
-  <div class="stage" id="stage">
-    <canvas id="cv"></canvas>
-    <canvas id="ink"></canvas>
-    <div class="callout" id="callout"></div>
-    <div class="flickhint" id="flickHint">Flick up through the ball to swing</div>
-    <button class="viewbtn" id="btnView" aria-label="Change the view"><svg viewBox="0 0 24 24"><use href="#i-cam"/></svg><span id="viewLabel">Side view</span></button>
-    <button class="shades" id="btnShades" aria-label="Show the next pitches"><svg viewBox="0 0 24 24"><use href="#i-glasses"/></svg><b id="shadesN">3</b></button>
-    <div class="preview" id="preview"></div>
-    <div class="building" id="building">Loading&hellip;</div>
-  </div>
-
+  <div class="preview" id="preview"></div>
+  <div class="viewtoast" id="viewToast"></div>
   <div class="chips" id="chips"></div>
+  <div class="building" id="building">Loading&hellip;</div>
+</div>
 
-  <div class="toolbar">
-    <button class="tool" id="btnSkills"><svg viewBox="0 0 24 24"><use href="#i-bolt"/></svg><span id="skillsLabel">Level 1</span></button>
-    <button class="tool" id="btnHelp"><svg viewBox="0 0 24 24"><use href="#i-help"/></svg><span>How to</span></button>
-    <button class="tool red" id="btnNew"><svg viewBox="0 0 24 24"><use href="#i-new"/></svg><span>Restart</span></button>
+<!-- Menu: modes, level and upgrades, help, restart, records, settings -->
+<div class="overlay" id="ovMenu">
+  <div class="sheet" role="dialog" aria-label="Menu">
+    <div class="menutop">
+      <svg viewBox="0 0 100 100" aria-hidden="true"><use href="#ms-logo"/></svg>
+      <h2>Moonshot</h2>
+    </div>
+    <div class="sheetbody">
+      <div class="modes" id="modes">
+        <button data-mode="minor">Minor</button>
+        <button data-mode="major" id="modeMajor">Major</button>
+        <button data-mode="moonstar">Moon-Star</button>
+        <button data-mode="training">Training</button>
+      </div>
+      <div class="menugrid">
+        <button class="tool" id="btnSkills"><svg viewBox="0 0 24 24"><use href="#i-bolt"/></svg><span id="skillsLabel">Level 1</span></button>
+        <button class="tool" id="btnSteps"><svg viewBox="0 0 24 24"><use href="#i-levels"/></svg><span>Steps</span></button>
+        <button class="tool" id="btnHelp"><svg viewBox="0 0 24 24"><use href="#i-help"/></svg><span>How to</span></button>
+        <button class="tool" id="btnStats"><svg viewBox="0 0 24 24"><use href="#i-stats"/></svg><span>Records</span></button>
+        <button class="tool" id="btnSettings"><svg viewBox="0 0 24 24"><use href="#i-gear"/></svg><span>Settings</span></button>
+        <button class="tool red" id="btnNew"><svg viewBox="0 0 24 24"><use href="#i-new"/></svg><span>Restart</span></button>
+      </div>
+    </div>
+    <div class="actions"><button class="btn red" id="btnCloseMenu">Play</button></div>
   </div>
 </div>
+
+<div class="rotate" id="rotate"><div><div class="phone"></div><b>Turn your phone sideways</b><span>Moonshot plays in landscape.</span></div></div>
 
 <!-- Settings -->
 <div class="overlay" id="ovSettings">
@@ -173,7 +222,7 @@ html, body { height: 100%; overflow: hidden; }
       <div class="themes" id="themes"></div>
       <label class="row"><div>Sound<small>Cracks of the bat, the crowd, the machine.</small></div>
         <span class="switch"><input type="checkbox" id="setSound"><span></span></span></label>
-      <label class="row"><div>Side view<small>Watch the pitch from the side, like the original. Off: from behind the plate.</small></div>
+      <label class="row"><div>Side view<small>Watch the pitch from the side, like the original. Off: from behind the plate, in 3D. The camera button switches too.</small></div>
         <span class="switch"><input type="checkbox" id="setSide"><span></span></span></label>
       <label class="row"><div>Old-time ads<small>Joke ads between steps and games. This switch is shared by all Goobs-Games.</small></div>
         <span class="switch"><input type="checkbox" id="setAds"><span></span></span></label>
@@ -218,13 +267,13 @@ html, body { height: 100%; overflow: hidden; }
     <h2>How to play</h2>
     <div class="sheetbody">
       <ol class="helplist">
-        <li>The machine pitches. <b>Flick your finger up through the ball</b> as it reaches you, like swinging a bat.</li>
-        <li><b>Timing</b> aims it: early pulls it to left field, late pushes it to right. <b>Flick faster</b> to hit harder. A flick that <b>rises steeply</b>, or passes just <b>under</b> the ball, lifts it higher.</li>
+        <li>Hold your phone sideways. The machine pitches. <b>Flick your finger up through the ball</b> as it reaches the <b>dotted line</b>, like swinging a bat.</li>
+        <li><b>Timing</b> aims it: early pulls it to left field, late pushes it to right. <b>Flick faster</b> to hit harder. A <b>steep</b> flick lifts it higher; a flatter one hits a line drive. (From behind the plate, a flick just <b>under</b> the ball lifts it too.)</li>
         <li>Every ball that goes <b>100 ft</b> or more scores its distance in points; a <b>home run</b> scores double. Balloons are 50 more.</li>
-        <li>Balls with faces do tricks: some curve, drop, stop in mid-air, wobble, or come three at once (only one is real). Heavy grey balls don&rsquo;t go far. A <b>gold ball</b> multiplies the distance.</li>
+        <li>Balls with faces do tricks: some curve, drop, stop in mid-air, wobble, or come three at once (only one is real; the fakes fade just before the line). Heavy grey balls don&rsquo;t go far. A <b>gold ball</b> multiplies the distance.</li>
         <li><b>Minor</b> and <b>Major</b>: each step has more balls. A miss, a foul or a short hit costs one bar of health; lose all five and the step is over.</li>
         <li><b>Moon-Star</b>: 9 balls for a record. Hit the moon or the stars for big bonuses. <b>Training</b>: pick a pitch and practice.</li>
-        <li>The <b>sunglasses</b> show the next pitches (a few uses per step). Points earn experience; each level up gives an upgrade: <b>Power</b>, <b>Contact</b> (a bigger sweet spot) or <b>Batting Eye</b> (more sunglasses).</li>
+        <li>The <b>camera</b> button switches between the side view and the view from behind the plate. The <b>sunglasses</b> show the next pitches (a few uses per step). Points earn experience; each level up gives an upgrade: <b>Power</b>, <b>Contact</b> (a bigger sweet spot) or <b>Batting Eye</b> (more sunglasses).</li>
       </ol>
     </div>
     <div class="actions"><button class="btn red" id="btnCloseHelp">Play ball!</button></div>
@@ -440,14 +489,11 @@ var MSRender = (function () {
     var renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
     renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
     var scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(34, 1, 0.05, 1200);
-    // Two ways to watch the pitch: from behind the plate, or from the side like the original (Glenn, 2026-09-28).
-    // Side view (made more side-on 2026-09-28, Glenn: "even more of a side shot ... ala the original"): the camera is
-    // out on the third-base side, about 60 degrees off the pitching line and low, like the original's. The machine is
-    // off-screen to the right; the ball comes in from the right edge and crosses to the plate on the left, near the
-    // bottom of the screen where your thumb is. The ball is drawn bigger from the side so it's easy to follow.
+    // The 3D view: from behind the plate. (The side view is a flat 2D picture like the original's, side.js; after a hit
+    // in either view this 3D view follows the ball.) Phones are held sideways (Glenn, 2026-09-28), so the view is wide:
+    // fov[0] for landscape, fov[1] for a tall screen.
     var VIEWS = {
-      back: { pos: new THREE.Vector3(0, 1.28, -2.5), look: new THREE.Vector3(0, 1.35, 18), fov: [34, 40], ball: 1 },
-      side: { pos: new THREE.Vector3(-11, 1.4, -4), look: new THREE.Vector3(0, 3.65, 2.3), fov: [52, 56], ball: 1.7 }
+      back: { pos: new THREE.Vector3(0, 1.28, -2.5), look: new THREE.Vector3(0, 1.35, 18), fov: [30, 40], ball: 1 }
     };
     var view = VIEWS.back, HOME_POS = view.pos.clone(), HOME_LOOK = view.look.clone();
     camera.position.copy(HOME_POS); camera.lookAt(HOME_LOOK);
@@ -646,29 +692,18 @@ var MSRender = (function () {
       setMult(pitch.m); trailGeo.setDrawRange(0, 0); ring.visible = false;
       kick();
     }
-    function hitNowCue() { cue(null); }
-    function hitNow(res, t0) { hitNowCue(); ball.scale.setScalar(MS.PITCHES[ball.userData.kind || 'straight'].size || 1); play = { mode: 'flight', res: res, t0: t0 }; fakes.forEach(function (f) { f.visible = false; }); setMult(0); kick(); }
-    function idle() { cue(null); play = { mode: 'idle' }; ball.visible = false; shadow.visible = false; fakes.forEach(function (f) { f.visible = false; }); setMult(0); kick(); }
+    function hitNow(res, t0) { ball.scale.setScalar(MS.PITCHES[ball.userData.kind || 'straight'].size || 1); play = { mode: 'flight', res: res, t0: t0 }; fakes.forEach(function (f) { f.visible = false; }); setMult(0); kick(); }
+    function idle() { play = { mode: 'idle' }; ball.visible = false; shadow.visible = false; fakes.forEach(function (f) { f.visible = false; }); setMult(0); kick(); }
     function flightAt(res, t) { // position along the flight path at time t
       var f = t * 30, i = Math.min(res.path.length - 1, Math.floor(f)), j = Math.min(res.path.length - 1, i + 1), k = f - Math.floor(f);
       var a = res.path[i], b = res.path[j];
       return [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
     }
-    var edge = document.createElement('div');
-    edge.className = 'edgecue';
-    if (canvas.parentNode) canvas.parentNode.appendChild(edge);
-    function cue(p) {
-      if (view !== VIEWS.side || !p) { edge.style.opacity = 0; return; }
-      V.set(p[0], p[1], p[2]).project(camera);
-      var x = (V.x + 1) / 2 * W, y = (1 - V.y) / 2 * H;
-      if (x > W - 4 && V.z < 1) { edge.style.opacity = 1; edge.style.top = Math.max(20, Math.min(H - 20, y)) + 'px'; }
-      else edge.style.opacity = 0;
-    }
     function update(now) {
       var busy = false;
       if (play.mode === 'pitch') {
         var t = (now - play.t0) / 1000, p = MS.pitchPos(play.pitch, Math.max(0, t));
-        ball.position.set(p[0], p[1], p[2]); ball.rotation.x -= 0.25; cue(p);
+        ball.position.set(p[0], p[1], p[2]); ball.rotation.x -= 0.25;
         if (play.pitch.fakes) {
           var u = MS.progress(play.pitch, t);
           fakes.forEach(function (f, i) { var q = MS.pitchPos(play.pitch, Math.max(0, t), play.pitch.fakes[i]); f.position.set(q[0], q[1], q[2]); f.visible = u < 0.82; });
@@ -706,8 +741,11 @@ var MSRender = (function () {
       camera.position.copy(cam.pos); camera.lookAt(cam.look);
       return busy;
     }
+    var paused = false; // the 2D side view is covering this one: don't spend the battery drawing it
+    function setPaused(p) { paused = !!p; if (!paused) kick(); }
     function draw() {
       raf = 0;
+      if (paused) return;
       var busy = update(performance.now());
       renderer.render(scene, camera);
       if (onFrame) onFrame();
@@ -719,7 +757,7 @@ var MSRender = (function () {
       W = Math.max(1, r.width); H = Math.max(1, r.height);
       renderer.setSize(W, H, false);
       camera.aspect = W / H;
-      camera.fov = W / H < 0.6 ? view.fov[1] : view.fov[0]; // tall phones see a little more
+      camera.fov = W / H < 1 ? view.fov[1] : view.fov[0]; // tall screens see a little more
       camera.updateProjectionMatrix(); kick();
     }
     if (window.ResizeObserver) new ResizeObserver(resize).observe(canvas);
@@ -733,19 +771,171 @@ var MSRender = (function () {
       V.set(p[0], p[1], p[2]).project(homeCam);
       return [(V.x + 1) / 2 * W, (1 - V.y) / 2 * H];
     }
-    // the hitting line (dotted), shown in the side view like the original's
-    var zoneLine = new THREE.Group();
-    for (var zi = 0; zi < 9; zi++) { var dash = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.14, 0.03), new THREE.MeshBasicMaterial({ color: 0xffffff })); dash.position.set(0, 0.12 + zi * 0.26, MS.ZONE.far); zoneLine.add(dash); }
-    zoneLine.visible = false; scene.add(zoneLine);
     function setView(k) {
       view = VIEWS[k] || VIEWS.back;
       HOME_POS.copy(view.pos); HOME_LOOK.copy(view.look); cam.pos.copy(HOME_POS); cam.look.copy(HOME_LOOK);
-      zoneLine.visible = k === 'side';
       resize();
     }
     resize();
     return { pitch: pitchNow, setView: setView, hit: hitNow, idle: idle, setTargets: setTargets, popTarget: popTarget, setSky: setSky, project: project,
-      size: function () { return [W, H]; }, redraw: kick, onFrame: function (cb) { onFrame = cb; } };
+      size: function () { return [W, H]; }, redraw: kick, setPaused: setPaused, onFrame: function (cb) { onFrame = cb; } };
+  }
+  return { create: create };
+})();
+</script>
+<script>
+/* Moonshot side view (2D canvas), like the original's: the pitching machine stands on the right, the ball flies
+   across the screen to the dotted hitting line on the left, in front of a town skyline, a fence and grass.
+   The ball is drawn big, as in the original. After a hit the 3D view takes over to follow the ball.
+   Our own art: skyline, fence, and the friendly robot pitching machine. */
+var MSSide = (function () {
+  'use strict';
+  var LINE_Z = 0.15; // the dotted line: a ball met here goes straight out to centre field
+  function create(canvas) {
+    var ctx = canvas.getContext('2d'), W = 1, H = 1, dpr = 1, sky = 'day', bgCache = null;
+    var L = {}; // layout: plateX, mouthX, groundY, sx (px per metre along the pitch), sy (px per metre up), r (ball radius)
+    function resize() {
+      var r = canvas.getBoundingClientRect();
+      dpr = Math.min(2, window.devicePixelRatio || 1);
+      W = Math.max(1, r.width); H = Math.max(1, r.height);
+      canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+      L.plateX = W * 0.4; L.mouthX = W * 0.78; L.groundY = H * 0.86;
+      L.sx = (L.mouthX - L.plateX) / MS.RELEASE[2];
+      L.sy = H * 0.26;
+      L.r = Math.max(12, H * 0.06);
+      L.lineX = L.plateX + LINE_Z * L.sx;
+      bgCache = null;
+    }
+    // world (metres) -> screen (px). Sideways movement (curves, wobbles, the Triplet's two fakes) shows as up/down, as if seen from a little above.
+    function project(p) { return [L.plateX + p[2] * L.sx, L.groundY - (p[1] - 0.6 * p[0]) * L.sy]; }
+
+    // ---------- the backdrop (drawn once per size and sky) ----------
+    var SKIES = {
+      day: { top: '#4fc0dc', bottom: '#c8f3ec', far: '#a9dcd6', near: ['#6db5ae', '#7cc2b9'], win: '#effcf8', cloud: '#ffffff', lit: 0.3 },
+      dusk: { top: '#ff8f6e', bottom: '#ffd9a6', far: '#e6a49a', near: ['#8e5877', '#9d6482'], win: '#ffe39a', cloud: '#fff0e2', lit: 0.5 },
+      night: { top: '#0d1340', bottom: '#2f3380', far: '#262c6a', near: ['#151a46', '#1b2152'], win: '#ffd76b', cloud: '#3a4290', lit: 0.55 }
+    };
+    function drawBackdrop() {
+      var c = document.createElement('canvas'); c.width = canvas.width; c.height = canvas.height;
+      var x = c.getContext('2d'), s = SKIES[sky] || SKIES.day;
+      x.setTransform(dpr, 0, 0, dpr, 0, 0);
+      var g = x.createLinearGradient(0, 0, 0, L.groundY); g.addColorStop(0, s.top); g.addColorStop(1, s.bottom); x.fillStyle = g; x.fillRect(0, 0, W, H);
+      if (sky === 'night') { x.fillStyle = 'rgba(255,255,255,.8)'; for (var st = 0; st < 70; st++) { var sxp = (st * 137.5) % W, syp = (st * 71.3) % (H * 0.5); x.fillRect(sxp, syp, 1.5, 1.5); } }
+      // clouds: puffs of one flat colour
+      x.fillStyle = s.cloud;
+      [[0.2, 0.36, 0.9], [0.66, 0.3, 1.1], [0.93, 0.42, 0.8]].forEach(function (cl) {
+        var cx = W * cl[0], cy = H * cl[1], k = H * 0.05 * cl[2];
+        [[0, 0, 2.3, 0.75], [-0.9, 0.05, 1, 0.9], [0.5, -0.45, 1.2, 1.1], [1.4, 0.1, 0.9, 0.7]].forEach(function (e) {
+          x.beginPath(); x.ellipse(cx + e[0] * k, cy + e[1] * k, e[2] * k, e[3] * k, 0, 0, Math.PI * 2); x.fill();
+        });
+      });
+      // a town skyline (our own blocky buildings): a pale far row, then a nearer row with windows
+      var base = L.groundY - H * 0.17, seed = 7;
+      function rnd() { seed = (seed * 16807) % 2147483647; return seed / 2147483647; }
+      x.fillStyle = s.far;
+      for (var fx = -10; fx < W;) { var fw = W * (0.04 + rnd() * 0.06), fh2 = H * (0.2 + rnd() * 0.22); x.fillRect(fx, base - fh2, fw + 1, fh2 + 4); fx += fw; }
+      for (var bx = -5; bx < W;) {
+        var bw = W * (0.05 + rnd() * 0.08), bh = H * (0.1 + rnd() * 0.2), top = base - bh;
+        x.fillStyle = s.near[rnd() < 0.5 ? 0 : 1]; x.fillRect(bx, top, bw + 1, bh + 4);
+        if (rnd() < 0.3) x.fillRect(bx + bw * 0.3, top - H * 0.03, bw * 0.4, H * 0.03);
+        if (rnd() < 0.25) { x.beginPath(); x.moveTo(bx, top); x.lineTo(bx + bw / 2, top - H * 0.06); x.lineTo(bx + bw, top); x.fill(); }
+        x.fillStyle = s.win;
+        for (var wy = top + H * 0.035; wy < base - H * 0.03; wy += H * 0.06) for (var wx = bx + bw * 0.18; wx < bx + bw - bw * 0.25; wx += bw * 0.32) if (rnd() < s.lit) x.fillRect(wx, wy, bw * 0.13, H * 0.025);
+        bx += bw + (rnd() < 0.3 ? W * 0.02 : 0);
+      }
+      // grass behind the fence, the fence, grass in front
+      x.fillStyle = sky === 'night' ? '#1f5a36' : sky === 'dusk' ? '#5a9a48' : '#56b556'; x.fillRect(0, base, W, L.groundY - base + 4);
+      var fy = L.groundY - H * 0.16, fh = H * 0.16, pw = Math.max(8, H * 0.035), gap = pw * 0.9;
+      x.fillStyle = sky === 'night' ? '#b9bcc9' : '#e9e6d6'; x.strokeStyle = 'rgba(0,0,0,.25)'; x.lineWidth = 1;
+      x.fillRect(0, fy + fh * 0.3, W, fh * 0.1); x.fillRect(0, fy + fh * 0.72, W, fh * 0.1);
+      for (var px = gap / 2; px < W; px += pw + gap) {
+        x.beginPath(); x.moveTo(px, fy + fh); x.lineTo(px, fy + pw * 0.6); x.lineTo(px + pw / 2, fy); x.lineTo(px + pw, fy + pw * 0.6); x.lineTo(px + pw, fy + fh); x.closePath(); x.fill(); x.stroke();
+      }
+      var gg = x.createLinearGradient(0, L.groundY - 6, 0, H); gg.addColorStop(0, sky === 'night' ? '#3b8a4a' : '#8bd64f'); gg.addColorStop(1, sky === 'night' ? '#256b36' : '#5db83a');
+      x.fillStyle = gg; x.fillRect(0, L.groundY - 4, W, H - L.groundY + 4);
+      x.strokeStyle = sky === 'night' ? '#4ea35d' : '#a6e66b'; x.lineWidth = 2;
+      for (var gx = 0; gx < W; gx += 6) { x.beginPath(); x.moveTo(gx, L.groundY + 2); x.lineTo(gx + 2, L.groundY - 5 - (gx * 7 % 5)); x.stroke(); }
+      // home plate
+      x.fillStyle = '#ffffff'; x.beginPath(); x.ellipse(L.plateX, L.groundY + 5, H * 0.05, H * 0.012, 0, 0, Math.PI * 2); x.fill();
+      machine(x);
+      return c;
+    }
+    // the pitching machine: our friendly robot cannon on a stand, barrel pointing left at the plate
+    function machine(x) {
+      var mx = L.mouthX, my = L.groundY - MS.RELEASE[1] * L.sy, u = H * 0.016;
+      x.save();
+      x.fillStyle = '#3a3f52'; x.strokeStyle = '#23263a'; x.lineWidth = u * 0.6;
+      // stand
+      x.beginPath(); x.moveTo(mx + u * 7, my + u * 6); x.lineTo(mx + u * 2, L.groundY); x.moveTo(mx + u * 9, my + u * 6); x.lineTo(mx + u * 14, L.groundY); x.moveTo(mx + u * 8, my + u * 6); x.lineTo(mx + u * 8, L.groundY); x.stroke();
+      x.fillRect(mx + u * 4, L.groundY - u * 12, u * 8, u * 1.2);
+      // body
+      x.fillStyle = '#5a54f0'; x.strokeStyle = '#3a33b8'; x.lineWidth = u * 0.7;
+      roundRect(x, mx + u * 2, my - u * 9, u * 13, u * 14, u * 3); x.fill(); x.stroke();
+      // eyes
+      x.fillStyle = '#fff'; x.beginPath(); x.arc(mx + u * 6, my - u * 4, u * 2, 0, Math.PI * 2); x.arc(mx + u * 11, my - u * 4, u * 2, 0, Math.PI * 2); x.fill();
+      x.fillStyle = '#1d2446'; x.beginPath(); x.arc(mx + u * 5.3, my - u * 4, u * 1, 0, Math.PI * 2); x.arc(mx + u * 10.3, my - u * 4, u * 1, 0, Math.PI * 2); x.fill();
+      // antenna
+      x.strokeStyle = '#c9d0de'; x.lineWidth = u * 0.6; x.beginPath(); x.moveTo(mx + u * 8.5, my - u * 9); x.lineTo(mx + u * 8.5, my - u * 13); x.stroke();
+      x.fillStyle = '#ff5a6e'; x.beginPath(); x.arc(mx + u * 8.5, my - u * 13.5, u * 1.3, 0, Math.PI * 2); x.fill();
+      // barrel (the ball comes out of its mouth)
+      x.fillStyle = '#c9d0de'; x.strokeStyle = '#8a93a8'; x.lineWidth = u * 0.6;
+      x.beginPath(); x.moveTo(mx + u * 3, my - u * 2); x.lineTo(mx - u * 2, my - u * 3.2); x.lineTo(mx - u * 2, my + u * 3.2); x.lineTo(mx + u * 3, my + u * 2); x.closePath(); x.fill(); x.stroke();
+      x.fillStyle = '#23263a'; x.beginPath(); x.ellipse(mx - u * 2, my, u * 1.1, u * 3, 0, 0, Math.PI * 2); x.fill();
+      x.restore();
+    }
+    function roundRect(x, a, b, w, h, r) { x.beginPath(); x.moveTo(a + r, b); x.arcTo(a + w, b, a + w, b + h, r); x.arcTo(a + w, b + h, a, b + h, r); x.arcTo(a, b + h, a, b, r); x.arcTo(a, b, a + w, b, r); x.closePath(); }
+
+    // ---------- the ball ----------
+    function face(x, kind, r) {
+      x.strokeStyle = 'rgba(30,30,40,.85)'; x.fillStyle = 'rgba(30,30,40,.85)'; x.lineWidth = Math.max(1.4, r * 0.11); x.lineCap = 'round';
+      var e = r * 0.32, ey = -r * 0.12;
+      function eyes(h) { x.beginPath(); x.arc(-e, ey, r * 0.1 * (h || 1), 0, Math.PI * 2); x.arc(e, ey, r * 0.1 * (h || 1), 0, Math.PI * 2); x.fill(); }
+      function mouth(a0, a1, y) { x.beginPath(); x.arc(0, y, r * 0.3, a0, a1); x.stroke(); }
+      switch (kind) {
+        case 'fire': eyes(); x.beginPath(); x.moveTo(-e - r * 0.15, ey - r * 0.2); x.lineTo(-e + r * 0.12, ey - r * 0.1); x.moveTo(e + r * 0.15, ey - r * 0.2); x.lineTo(e - r * 0.12, ey - r * 0.1); x.stroke(); mouth(0.2, Math.PI - 0.2, r * 0.12); break;
+        case 'sleepy': x.beginPath(); x.moveTo(-e - r * 0.12, ey); x.lineTo(-e + r * 0.12, ey); x.moveTo(e - r * 0.12, ey); x.lineTo(e + r * 0.12, ey); x.stroke(); x.beginPath(); x.arc(0, r * 0.35, r * 0.1, 0, Math.PI * 2); x.stroke(); break;
+        case 'wink': x.beginPath(); x.arc(-e, ey, r * 0.1, 0, Math.PI * 2); x.fill(); x.beginPath(); x.moveTo(e - r * 0.12, ey); x.lineTo(e + r * 0.12, ey); x.stroke(); mouth(0.3, Math.PI - 0.3, r * 0.05); break;
+        case 'frown': eyes(); mouth(Math.PI + 0.4, -0.4, r * 0.5); break;
+        case 'shock': eyes(1.3); x.beginPath(); x.ellipse(0, r * 0.35, r * 0.12, r * 0.17, 0, 0, Math.PI * 2); x.stroke(); break;
+        case 'dizzy': x.beginPath(); x.arc(-e, ey, r * 0.13, 0, Math.PI * 1.6); x.moveTo(e + r * 0.13, ey); x.arc(e, ey, r * 0.13, 0, Math.PI * 1.6); x.stroke(); mouth(0.3, Math.PI - 0.3, r * 0.05); break;
+        case 'grumpy': eyes(); x.beginPath(); x.moveTo(-e - r * 0.15, ey - r * 0.15); x.lineTo(-e + r * 0.14, ey - r * 0.25); x.moveTo(e + r * 0.15, ey - r * 0.15); x.lineTo(e - r * 0.14, ey - r * 0.25); x.moveTo(-r * 0.22, r * 0.36); x.lineTo(r * 0.22, r * 0.36); x.stroke(); break;
+        case 'mask': x.fillStyle = 'rgba(20,20,40,.9)'; x.fillRect(-r * 0.75, ey - r * 0.15, r * 1.5, r * 0.3); x.fillStyle = '#fff'; x.beginPath(); x.arc(-e, ey, r * 0.08, 0, Math.PI * 2); x.arc(e, ey, r * 0.08, 0, Math.PI * 2); x.fill(); break;
+        case 'star': break;
+        default: eyes(); mouth(0.3, Math.PI - 0.3, r * 0.05);
+      }
+    }
+    function ball(x, p, kind, mult, fake) {
+      var s = project(p), d = MS.PITCHES[kind] || MS.PITCHES.straight, r = L.r * (d.size || 1);
+      // shadow on the ground
+      x.fillStyle = 'rgba(0,0,0,.18)'; x.beginPath(); x.ellipse(s[0], L.groundY + 2, r * 0.9, r * 0.22, 0, 0, Math.PI * 2); x.fill();
+      x.save(); x.translate(s[0], s[1]);
+      var g = x.createRadialGradient(-r * 0.35, -r * 0.4, r * 0.1, 0, 0, r);
+      g.addColorStop(0, '#ffffff'); g.addColorStop(0.25, d.color); g.addColorStop(1, shade(d.color));
+      x.fillStyle = g; x.beginPath(); x.arc(0, 0, r, 0, Math.PI * 2); x.fill();
+      x.strokeStyle = 'rgba(0,0,0,.35)'; x.lineWidth = Math.max(1, r * 0.08); x.stroke();
+      if (mult) { x.fillStyle = '#7a4f00'; x.font = '900 ' + Math.round(r * 0.8) + 'px -apple-system, system-ui, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('×' + mult, 0, r * 0.05); }
+      else face(x, d.face, r);
+      x.restore();
+    }
+    function shade(hex) { var n = parseInt(hex.slice(1), 16), k = 0.62; return 'rgb(' + Math.round((n >> 16) * k) + ',' + Math.round(((n >> 8) & 255) * k) + ',' + Math.round((n & 255) * k) + ')'; }
+
+    // ---------- a frame ----------
+    // state: { pitch, t (s since release) } or null
+    function draw(state) {
+      if (!bgCache) bgCache = drawBackdrop();
+      ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(bgCache, 0, 0);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      // the dotted hitting line
+      ctx.fillStyle = 'rgba(255,255,255,.8)';
+      for (var y = H * 0.2; y < L.groundY - 4; y += H * 0.055) { ctx.beginPath(); ctx.arc(L.lineX, y, Math.max(2.5, H * 0.009), 0, Math.PI * 2); ctx.fill(); }
+      if (!state || !state.pitch) return;
+      var p = state.pitch, pos = MS.pitchPos(p, Math.max(0, state.t));
+      if (p.fakes && MS.progress(p, state.t) < 0.82) p.fakes.forEach(function (tg) { ball(ctx, MS.pitchPos(p, Math.max(0, state.t), tg), p.kind, 0, true); });
+      if (state.t >= 0) ball(ctx, pos, p.kind, p.m || 0);
+    }
+    function setSky(k) { sky = k; bgCache = null; }
+    resize();
+    return { resize: resize, project: project, draw: draw, setSky: setSky, size: function () { return [W, H]; }, radius: function () { return L.r; } };
   }
   return { create: create };
 })();
@@ -819,18 +1009,19 @@ var MSSound = (function () {
 /* Moonshot app: modes, the flick swing, pitches, results, saves, stats, upgrades and house ads. */
 (function () {
   'use strict';
-  var S = MSSound, THREE = null, R3 = null;
+  var S = MSSound, THREE = null, R3 = null, SV = null; // SV: the 2D side view (side.js)
   var MAJOR_AT = 10;                  // clear Minor step 10 to open Major
   var MODE_NAMES = { minor: 'Minor', major: 'Major', moonstar: 'Moon-Star', training: 'Training' };
   var SKY = { minor: 'day', major: 'dusk', moonstar: 'night', training: 'day' };
 
   // ================= storage =================
   var store = Goobs.store('homerun');
-  var settings = { sound: false, adEvery: 3, view: 'back' };
+  var settings = { sound: false, adEvery: 3, view: 'side', view2: false }; // view2: the side view became the default (1.3.0)
   (function () {
     var s = store.get('settings', {}) || {};
     for (var k in settings) if (typeof s[k] === typeof settings[k]) settings[k] = s[k];
     settings.adEvery = Math.min(10, Math.max(1, settings.adEvery | 0));
+    if (!settings.view2) { settings.view = 'side'; settings.view2 = true; } // 1.3.0: everyone starts in the new side view once
   })();
   function saveSettings() { store.set('settings', settings); }
   var meta = store.get('meta', null) || {};
@@ -847,7 +1038,8 @@ var MSSound = (function () {
   function $(id) { return document.getElementById(id); }
   function fmt(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
   function isOpen(id) { return $(id).classList.contains('show'); }
-  function locked() { return isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || isOpen('ovSkills') || isOpen('ovSteps') || GoobsAds.isOpen(); }
+  function portrait() { return window.matchMedia && matchMedia('(orientation: portrait)').matches; }
+  function locked() { return portrait() || isOpen('ovMenu') || isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || isOpen('ovSkills') || isOpen('ovSteps') || GoobsAds.isOpen(); }
   function newSeed() { try { return crypto.getRandomValues(new Uint32Array(1))[0]; } catch (e) { return Math.floor(Math.random() * 4294967296); } }
   function level() { return MS.levelFromXp(meta.xp); }
   function majorOpen() { return meta.minor > MAJOR_AT; }
@@ -859,7 +1051,7 @@ var MSSound = (function () {
   function clearTimers() { timers.forEach(clearTimeout); timers = []; }
   function saveRun() { if (run && !run.done && run.mode !== 'training') store.set('run.' + run.mode, run); }
   function start(mode, step, fresh) {
-    clearTimers(); live = null;
+    clearTimers(); live = null; flying = false;
     if (run && !run.done) saveRun();
     if (mode === 'major' && !majorOpen()) mode = 'minor';
     var saved = !fresh && mode !== 'training' && store.get('run.' + mode, null);
@@ -871,7 +1063,7 @@ var MSSound = (function () {
     pitches = mode === 'minor' || mode === 'major' ? MS.stepPitches(mode, run.step) : mode === 'moonstar' ? MS.moonStarPitches(run.seed) : [];
     targets = MS.balloonsFor(mode, run.seed).filter(function (t) { return run.popped.indexOf(t.id) < 0; });
     meta.mode = mode; saveMeta();
-    R3.idle(); R3.setTargets(targets); R3.setSky(SKY[mode]);
+    R3.idle(); R3.setTargets(targets); R3.setSky(SKY[mode]); SV.setSky(SKY[mode]); showSide(true);
     renderAll();
     saveRun();
     later(nextBall, 700);
@@ -892,18 +1084,42 @@ var MSSound = (function () {
     if (locked()) { later(throwBall, 400); return; }
     var pitch = currentPitch(), t0 = performance.now();
     live = { pitch: pitch, t0: t0, done: false, whiff: false };
-    S.launch(); R3.pitch(pitch, t0);
+    S.launch(); R3.pitch(pitch, t0); kickSide();
     later(function () { if (live && !live.done && live.pitch === pitch) resolveMiss(); }, (MS.pitchDuration(pitch) + 0.3) * 1000);
+  }
+
+  // ================= the side view (2D, like the original) =================
+  // It shows while the ball is pitched; after a hit the 3D view takes over to follow the ball, then it comes back.
+  var sideShown = false, sideRaf = 0, flying = false;
+  function sideOn() { return settings.view === 'side'; }
+  function showSide(on) {
+    on = !!on && sideOn();
+    sideShown = on;
+    $('side').classList.toggle('hide', !on);
+    R3.setPaused(on);
+    if (on) kickSide();
+  }
+  function kickSide() { if (sideShown && !sideRaf) sideRaf = requestAnimationFrame(sideFrame); }
+  function sideFrame() {
+    sideRaf = 0;
+    if (!sideShown) return;
+    var st = null;
+    if (live && !live.hit) {
+      var t = (performance.now() - live.t0) / 1000;
+      if (t < MS.pitchDuration(live.pitch) + 1.2) st = { pitch: live.pitch, t: t };
+    }
+    SV.draw(st);
+    if (st) kickSide();
   }
 
   // ================= the swing =================
   var stroke = null, ink = [], inkRaf = 0;
-  function cvPos(e) { var r = $('cv').getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top, t: performance.now() }; }
+  function cvPos(e) { var r = $('ink').getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top, t: performance.now() }; }
   function onDown(e) {
     S.unlock();
     if (locked()) return;
     stroke = { id: e.pointerId, pts: [cvPos(e)] };
-    try { $('cv').setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+    try { $('ink').setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
     addInk(stroke.pts[0]);
   }
   function onMove(e) {
@@ -927,22 +1143,25 @@ var MSSound = (function () {
     if (pts.length < 2) return null;
     var b = pts[pts.length - 1], a = pts[0];
     for (var i = pts.length - 2; i >= 0; i--) { a = pts[i]; if (b.t - a.t > 80) break; }
-    var dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy), dt = Math.max(8, b.t - a.t), H = R3.size()[1];
+    var dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy), dt = Math.max(8, b.t - a.t), sz = R3.size(), H = Math.max(sz[0], sz[1]); // long side, so sideways and upright feel the same
     var tot = 0; for (var k = 1; k < pts.length; k++) tot += Math.hypot(pts[k].x - pts[k - 1].x, pts[k].y - pts[k - 1].y);
     return { speed: len / dt * 1000 / H, dirX: len ? dx / len : 0, dirY: len ? dy / len : -1, len: tot };
   }
   function checkContact(A, B) {
-    var W = R3.size()[0], Rpx = MS.contactRadius(meta.skills) * (W / 390) * (MS.PITCHES[live.pitch.kind].size || 1);
+    var side = sideOn(), sz = R3.size(), sizeK = MS.PITCHES[live.pitch.kind].size || 1;
+    var Rpx = MS.contactRadius(meta.skills) * (Math.min(sz[0], sz[1]) / 390) * sizeK;
+    if (side) Rpx = Math.max(Rpx, SV.radius() * sizeK * 1.3);
     for (var s = 0; s <= 4; s++) {
       var t = A.t + (B.t - A.t) * s / 4, tb = (t - live.t0) / 1000, bp = MS.pitchPos(live.pitch, tb);
       if (bp[2] > MS.ZONE.far || bp[2] < MS.ZONE.near) continue;
-      var sc = R3.project(bp), dx = B.x - A.x, dy = B.y - A.y, L2 = dx * dx + dy * dy || 1;
+      var sc = side ? SV.project(bp) : R3.project(bp), dx = B.x - A.x, dy = B.y - A.y, L2 = dx * dx + dy * dy || 1;
       var u = Math.max(0, Math.min(1, ((sc[0] - A.x) * dx + (sc[1] - A.y) * dy) / L2));
       var cx = A.x + dx * u, cy = A.y + dy * u, d = Math.hypot(sc[0] - cx, sc[1] - cy);
       if (d > Rpx) continue;
       var info = strokeInfo(stroke.pts) || { speed: 0.5, dirX: 0, dirY: -1 };
       var L = Math.sqrt(L2), nx = dy / L, ny = -dx / L; if (ny > 0) { nx = -nx; ny = -ny; } // the stroke's "up" side
       var off = Math.max(-1, Math.min(1, ((sc[0] - A.x) * nx + (sc[1] - A.y) * ny) / Rpx));   // + = ball above the stroke
+      if (side) off = 0; // from the side an upward flick's offset is just timing; the flick's angle sets the height
       onHit({ quality: 1 - d / Rpx, off: off, speed: info.speed, dirX: info.dirX, dirY: info.dirY, z: bp[2] });
       return;
     }
@@ -968,7 +1187,7 @@ var MSSound = (function () {
   function onHit(swing) {
     var pitch = live.pitch; live.done = true;
     var ex = MS.exitVelocity(pitch, swing, meta.skills), res = MS.fly(ex, targets), now = performance.now();
-    R3.hit(res, now); S.crack(swing.quality);
+    live.hit = true; flying = true; showSide(false); R3.hit(res, now); S.crack(swing.quality);
     if (!meta.hitOnce) { meta.hitOnce = true; saveMeta(); $('flickHint').classList.remove('show'); }
     stats.balls++; stats.hits++;
     var fl = res.t / 1.6;
@@ -1004,6 +1223,7 @@ var MSSound = (function () {
     after(out, pts, res.feet);
   }
   function resolveMiss() {
+    if (locked()) { live = null; R3.idle(); kickSide(); later(nextBall, 500); return; } // turned upright or opened a sheet mid-pitch: that one doesn't count
     live.done = true; stats.balls++; stats.misses++;
     S.miss(); callout(live.whiff ? 'Swing and a miss' : 'Strike', '', false);
     after(true, 0, 0);
@@ -1015,7 +1235,7 @@ var MSSound = (function () {
     if (out && (run.mode === 'minor' || run.mode === 'major')) run.health--;
     saveStats(); saveRun(); renderInfo();
     later(function () {
-      R3.idle();
+      R3.idle(); flying = false; showSide(true);
       if ((run.mode === 'minor' || run.mode === 'major') && run.health <= 0) { finishRun(false); return; }
       nextBall();
     }, 900);
@@ -1105,27 +1325,29 @@ var MSSound = (function () {
   }
 
   // ================= UI =================
+  // top left: mode, step and ball; top middle: score and the health bar
   function renderInfo() {
-    var h, m = run.mode;
+    var l, c, m = run.mode;
     if (m === 'minor' || m === 'major') {
       var pips = ''; for (var i = 0; i < MS.HEALTH; i++) pips += '<i class="' + (i < run.health ? '' : 'off') + '"></i>';
-      h = '<div><div class="lbl">' + MODE_NAMES[m] + ' · Step ' + run.step + '</div><div class="ttl">Ball ' + Math.min(run.i + 1, pitches.length) + ' of ' + pitches.length + '</div></div>' +
-        '<div style="text-align:center"><div class="lbl">Health</div><div class="health">' + pips + '</div></div>' +
-        '<div class="right"><div class="lbl">Score</div><div class="mid">' + fmt(run.score) + '</div></div>';
+      l = '<div class="lbl">' + MODE_NAMES[m].toUpperCase() + ' · STEP ' + run.step + '</div><div class="ttl">Ball ' + Math.min(run.i + 1, pitches.length) + ' of ' + pitches.length + '</div>';
+      var tg = MS.stepTargets(run.step), need = run.score >= tg[2] ? '★★★' : run.score >= tg[1] ? '★★★ at ' + fmt(tg[2]) : '★★ at ' + fmt(tg[1]);
+      c = '<div class="score">' + fmt(run.score) + '</div><div class="health" aria-label="Health ' + run.health + ' of ' + MS.HEALTH + '">' + pips + '</div><small>' + need + '</small>';
     } else if (m === 'moonstar') {
-      h = '<div><div class="lbl">Moon-Star</div><div class="ttl">Ball ' + Math.min(run.i + 1, 9) + ' of 9</div></div>' +
-        '<div class="right"><div class="lbl">Score · record ' + fmt(meta.msBest) + '</div><div class="mid">' + fmt(run.score) + '</div></div>';
+      l = '<div class="lbl">MOON-STAR</div><div class="ttl">Ball ' + Math.min(run.i + 1, 9) + ' of 9</div>';
+      c = '<div class="score">' + fmt(run.score) + '</div><small>Record ' + fmt(meta.msBest) + '</small>';
     } else {
-      h = '<div><div class="lbl">Training</div><div class="ttl">' + MS.PITCHES[meta.train].name + '</div></div>' +
-        '<div class="right"><div class="lbl">Last · longest</div><div class="mid">' + (run.last ? fmt(run.last) + ' ft' : '–') + ' <small>· ' + (run.bestHere ? fmt(run.bestHere) + ' ft' : '–') + '</small></div></div>';
+      l = '<div class="lbl">TRAINING</div><div class="ttl">' + MS.PITCHES[meta.train].name + '</div>';
+      c = '<div class="score">' + (run.last ? fmt(run.last) + ' ft' : '–') + '</div><small>Longest ' + (run.bestHere ? fmt(run.bestHere) + ' ft' : '–') + '</small>';
     }
-    $('info').innerHTML = h;
+    $('info').innerHTML = l; $('scorebox').innerHTML = c;
   }
   function renderModes() {
     Array.prototype.forEach.call($('modes').children, function (b) { b.classList.toggle('on', b.dataset.mode === run.mode); });
     $('modeMajor').classList.toggle('locked', !majorOpen());
     $('modeMajor').textContent = majorOpen() ? 'Major' : 'Major 🔒';
     $('chips').classList.toggle('show', run.mode === 'training');
+    $('btnSteps').classList.toggle('hide', run.mode !== 'minor' && run.mode !== 'major');
     Array.prototype.forEach.call($('chips').children, function (b) { b.classList.toggle('on', b.dataset.kind === meta.train); });
   }
   function renderTools() { $('skillsLabel').textContent = 'Level ' + (level() + 1) + (meta.pts ? ' ·' + meta.pts : ''); }
@@ -1173,8 +1395,13 @@ var MSSound = (function () {
     $('btnSound').classList.toggle('on', settings.sound); $('setSound').checked = settings.sound; S.setEnabled(settings.sound);
   }
   function syncView() {
-    $('viewLabel').textContent = settings.view === 'side' ? 'Behind' : 'Side view';
-    $('setSide').checked = settings.view === 'side';
+    $('setSide').checked = sideOn();
+    $('btnView').classList.toggle('on', sideOn());
+    showSide(!flying);
+  }
+  function setViewTo(v, toast) {
+    settings.view = v; saveSettings(); syncView();
+    if (toast) { var t = $('viewToast'); t.textContent = v === 'side' ? 'Side view' : 'From behind the plate'; t.classList.add('show'); clearTimeout(setViewTo.t); setViewTo.t = setTimeout(function () { t.classList.remove('show'); }, 1100); }
   }
   function syncAds() { $('setAds').checked = Goobs.adsOn(); $('adEvery').textContent = settings.adEvery; $('rowAdEvery').classList.toggle('off', !Goobs.adsOn()); }
   function sheet(btn, ov, close, onOpen) {
@@ -1186,12 +1413,15 @@ var MSSound = (function () {
     Goobs.themePicker($('themes'));
     try { R3 = MSRender.create(THREE, $('cv')); }
     catch (e) { $('building').textContent = 'This phone couldn’t start the 3D view.'; $('building').classList.add('show'); return; }
+    SV = MSSide.create($('side'));
+    if (window.ResizeObserver) new ResizeObserver(function () { SV.resize(); kickSide(); }).observe($('side'));
+    window.addEventListener('resize', function () { SV.resize(); kickSide(); });
     renderChips();
     if (settings.view !== 'side') settings.view = 'back';
-    R3.setView(settings.view); syncView();
-    $('btnView').addEventListener('click', function () { settings.view = settings.view === 'side' ? 'back' : 'side'; saveSettings(); R3.setView(settings.view); syncView(); });
-    $('setSide').addEventListener('change', function () { settings.view = this.checked ? 'side' : 'back'; saveSettings(); R3.setView(settings.view); syncView(); });
-    var cv = $('cv');
+    R3.setView('back'); syncView();
+    $('btnView').addEventListener('click', function () { setViewTo(sideOn() ? 'back' : 'side', true); });
+    $('setSide').addEventListener('change', function () { setViewTo(this.checked ? 'side' : 'back', false); });
+    var cv = $('ink');
     cv.addEventListener('pointerdown', onDown);
     cv.addEventListener('pointermove', onMove);
     cv.addEventListener('pointerup', onUp);
@@ -1206,11 +1436,12 @@ var MSSound = (function () {
       if (m === 'major' && !majorOpen()) { showCard('Major', 'Major opens when you clear Minor step ' + MAJOR_AT + '. Faster, trickier pitches, and every pitch type from the start.', [{ label: 'OK', red: true, go: function () {} }]); return; }
       if ((m === 'minor' || m === 'major') && run.mode === m) { renderSteps(m); $('ovSteps').classList.add('show'); return; }
       if (m === run.mode) return;
+      $('ovMenu').classList.remove('show');
       start(m, m === 'minor' || m === 'major' ? meta[m] : 0);
     });
     $('stepsBody').addEventListener('click', function (e) {
       var b = e.target.closest('button[data-step]'); if (!b) return;
-      $('ovSteps').classList.remove('show'); start($('stepsBody').dataset.mode, +b.dataset.step);
+      $('ovSteps').classList.remove('show'); $('ovMenu').classList.remove('show'); start($('stepsBody').dataset.mode, +b.dataset.step);
     });
     $('chips').addEventListener('click', function (e) {
       var b = e.target.closest('button'); if (!b) return;
@@ -1223,9 +1454,12 @@ var MSSound = (function () {
       if (k === 'eye' && run && !run.done) { run.looks++; renderShades(); }
     });
     $('btnSkills').addEventListener('click', function () { openSkills(null); });
+    $('btnSteps').addEventListener('click', function () { if (run.mode === 'minor' || run.mode === 'major') { renderSteps(run.mode); $('ovSteps').classList.add('show'); } });
+    sheet('btnMenu', 'ovMenu', 'btnCloseMenu', function () { renderAll(); });
     $('btnCloseSkills').addEventListener('click', function () { $('ovSkills').classList.remove('show'); if (afterSkills) { var f = afterSkills; afterSkills = null; f(); } });
     $('ovSkills').addEventListener('click', function (e) { if (e.target === this) { this.classList.remove('show'); if (afterSkills) { var f = afterSkills; afterSkills = null; f(); } } });
     $('btnNew').addEventListener('click', function () {
+      $('ovMenu').classList.remove('show');
       var go = function () { start(run.mode, run.step, true); };
       if (run.mode === 'training' || (!run.i && !run.score)) { go(); return; }
       showCard('Restart?', run.mode === 'moonstar' ? 'This game starts over.' : 'Step ' + run.step + ' starts over from the first ball.', [
@@ -1255,7 +1489,7 @@ var MSSound = (function () {
 
   // hook for automated tests
   window.__ms = { get run() { return run; }, get live() { return live; }, meta: function () { return meta; }, stats: function () { return stats; }, start: start,
-    project: function (p) { return R3.project(p); }, hit: function (sw) { if (live && !live.done) onHit(sw); }, MS: MS, finish: finishRun };
+    project: function (p) { return sideOn() ? SV.project(p) : R3.project(p); }, view: function () { return settings.view; }, hit: function (sw) { if (live && !live.done) onHit(sw); }, MS: MS, finish: finishRun };
   window.MSApp = { start: function (T) { if (THREE) return; THREE = T; init(); }, started: function () { return !!THREE; } };
 })();
 </script>
