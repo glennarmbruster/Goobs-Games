@@ -2,17 +2,19 @@
    Each part has its own version and its own cache. To publish an update, bump ONLY the
    version of the part that changed; unchanged parts are not downloaded again. */
 const VERSIONS = {
-  shell: '2.6.0',     // menu, manifest, icons, /shared (ads, themes, storage)
-  zoodoku: '1.8.0',
-  woodpile: '1.1.1',
-  patchwork: '2.1.0',
-  cubecorral: '3.2.0',
-  screwball: '2.3.0',
-  skeehop: '1.0.1',
-  merge: '1.0.0',
-  tapaway: '1.0.0',
-  homerun: '1.1.0',
-  match3: '1.0.0',
+  shell: '2.7.0',     // menu, manifest, icons, /shared (ads, themes, storage)
+  zoodoku: '1.8.1',
+  woodpile: '1.1.2',
+  patchwork: '2.1.1',
+  cubecorral: '3.2.1',
+  screwball: '2.3.1',
+  skeehop: '1.0.2',
+  merge: '1.0.1',
+  tapaway: '1.0.1',
+  homerun: '1.1.1',
+  match3: '1.0.1',
+  snake: '1.0.0',
+  solitaire: '1.0.0',
   three: '0.186.1'   // shared 3D library; bump only when three.js itself changes
 };
 const GROUPS = {
@@ -31,6 +33,8 @@ const GROUPS = {
   tapaway: ['games/tapaway/', 'games/tapaway/index.html'],
   homerun: ['games/homerun/', 'games/homerun/index.html'],
   match3: ['games/match3/', 'games/match3/index.html'],
+  snake: ['games/snake/', 'games/snake/index.html'],
+  solitaire: ['games/solitaire/', 'games/solitaire/index.html'],
   three: ['shared/three.module.min.js']
 };
 const PREFIX = 'goobs-';
