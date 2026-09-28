@@ -175,11 +175,11 @@ html, body { height: 100%; overflow: hidden; }
     <div class="sheetbody">
       <ol class="helplist">
         <li><b>Tap</b> the front blaster in any of the 3 lines. It moves up into a <b>slot</b>.</li>
-        <li>Blasters shoot cubes of <b>their own color</b> that they can see from the <b>front</b> (the yellow edge). One shot knocks off one cube.</li>
+        <li>Blasters shoot cubes of <b>their own color</b> that are <b>showing</b>: if you can see a cube from any side, it can be hit. One shot knocks off one cube.</li>
         <li>The number is how many shots it has left. When it runs out, it leaves and the slot opens up.</li>
-        <li>If none of its color can be hit, it <b>waits</b> in its slot (you&rsquo;ll see <b>zzz</b>). Knock off the cubes in front to uncover more.</li>
+        <li>If none of its color can be hit, it <b>waits</b> in its slot (you&rsquo;ll see <b>zzz</b>). Knock off the cubes covering its color to uncover more.</li>
         <li>When all 5 slots are full and nobody can shoot, you&rsquo;re <b>jammed</b>. Watch a quick ad for an extra slot, or try again.</li>
-        <li><b>Drag</b> the sculpture to turn it and look around. Bigger ones have <b>surprise colors inside</b>.</li>
+        <li><b>Drag</b> the sculpture to turn it all the way around. Watch the numbers: a blaster with more shots than its color has showing will stop and wait. Bigger sculptures have <b>surprise colors inside</b>.</li>
       </ol>
     </div>
     <div class="actions"><button class="btn red" id="btnCloseHelp">Let's play</button></div>
@@ -453,7 +453,23 @@ var CCModels = (function () {
       m.vox[i] = bands.pattern[(depth[i] - bands.from) % bands.pattern.length];
     }
   }
-  function surfaceColors(m) { var s = {}; for (var i = 0; i < m.vox.length; i++) if (m.vox[i]) s[m.vox[i]] = 1; return s; }
+  // Hidden cubes (everything under the outside layer) get colors by chunk: the inside is cut into blocks of
+  // about 3x3x3 and each block gets one of the pool colors. A hidden color then shows up a little at a time.
+  function chunks(m, pool, rand) {
+    var sx = m.sx, sy = m.sy, sz = m.sz, n = sx * sy * sz, i, x, y, z, cs = 3, cell = {};
+    var ox = Math.floor(rand() * cs), oy = Math.floor(rand() * cs), oz = Math.floor(rand() * cs);
+    for (i = 0; i < n; i++) {
+      if (!m.vox[i]) continue;
+      x = i % sx; z = Math.floor(i / sx) % sz; y = Math.floor(i / (sx * sz));
+      var open = x === 0 || x === sx - 1 || z === 0 || z === sz - 1 || y === sy - 1 ||
+        !m.vox[i - 1] || !m.vox[i + 1] || !m.vox[i - sx] || !m.vox[i + sx] || !m.vox[i + sx * sz] || (y > 0 && !m.vox[i - sx * sz]);
+      if (open) continue;
+      var key = Math.floor((x + ox) / cs) + ',' + Math.floor((y + oy) / cs) + ',' + Math.floor((z + oz) / cs);
+      if (!cell[key]) cell[key] = pool[Math.floor(rand() * pool.length)];
+      m.vox[i] = cell[key];
+    }
+  }
+  function surfaceColors(m) { var s = {}; for (var i = 0; i < m.vox.length; i++) if (m.vox[i]) s[m.vox[i]] = (s[m.vox[i]] || 0) + 1; return s; }
 
 
   // ---------- modern models ----------
@@ -593,8 +609,10 @@ var CCModels = (function () {
       for (var c = 1; c < COLORS.length; c++) if (!used[c]) spare.push(c);
       for (var s = spare.length - 1; s > 0; s--) { var t = Math.floor(rand() * (s + 1)), tmp = spare[s]; spare[s] = spare[t]; spare[t] = tmp; }
       // 1: one solid hidden core; 2: two colors in alternating bands; 3: three colors in bands
-      var pat = inner === 1 ? [spare[0]] : inner === 2 ? [spare[0], spare[1]] : [spare[0], spare[1], spare[0], spare[2]];
-      layer(m, { from: inner === 1 ? 2 : 1, pattern: pat });
+      var surf = Object.keys(used).map(Number).sort(function (a, b) { return used[b] - used[a]; }).slice(0, 3);
+      for (s = surf.length - 1; s > 0; s--) { t = Math.floor(rand() * (s + 1)); tmp = surf[s]; surf[s] = surf[t]; surf[t] = tmp; }
+      if (inner === 1) layer(m, { from: 2, pattern: [spare[0]] });
+      else chunks(m, inner === 2 ? [spare[0], spare[1], surf[0]] : [spare[0], spare[1], spare[2], surf[0], surf[1] || spare[3]], rand);
     }
     return m;
   }
@@ -605,16 +623,17 @@ if (typeof module !== 'undefined') module.exports = CCModels;
 <script>
 /* Cube Corral game logic (no DOM).
    A sculpture of colored cubes. Blasters wait in 3 lines; tap the front one of a line and it moves into
-   one of 5 slots, then shoots cubes of its own color that it can see from the front (nothing in front of
-   them), one per shot, until its shots run out.
-   (The first version let blasters hit any cube with an open side; bots showed even random tapping always won.)
+   one of 5 slots, then shoots cubes of its own color that are showing (any side open, from any angle), one
+   per shot, until its shots run out. (3.0 only allowed cubes seen from the front; Glenn, 2026-09-28: "if it's
+   visible, it should be fair game".)
    A blaster with nothing of its color showing waits in its slot. All slots full and nobody can shoot = stuck.
+   Difficulty comes from hidden colors inside (in chunks), blasters that carry more shots than there are
+   cubes of their color showing, and lines dealt in runs so tapping at random pulls later blasters too soon.
    Every level is built by a "designer" that plays it while building it, so every level can be won. */
 var CC = (function () {
   'use strict';
   var M = (typeof CCModels !== 'undefined') ? CCModels : require('./models.js');
   var SLOTS = 5, LANES = 3, MAX_EXTRA = 2;
-  var RULE = 'front'; // 'front': a cube can be hit when nothing is in front of it (z = 0 is the side facing the blasters)
 
   function mix32(x) {
     x = x >>> 0;
@@ -643,44 +662,36 @@ var CC = (function () {
     return out;
   }
   var NB = [0, 0, 0, 0, 0, 0];
-  function colOf(st, i) { return Math.floor(i / (st.sx * st.sz)) * st.sx + i % st.sx; }
+  // A cube is fair game when you can see it: at least one side is open (not against another cube; the
+  // bottom resting on the ground doesn't count). Glenn, 2026-09-28: "if it's visible, it should be fair game".
   function isOpen(st, i) {
-    if (RULE === 'front') return st.front ? Math.floor(i / st.sx) % st.sz === st.front[colOf(st, i)] : true;
     nb(st, i, NB);
     for (var k = 0; k < 6; k++) { var j = NB[k]; if (j === -1 || (j >= 0 && !st.vox[j])) return true; }
     return false;
   }
+  // st.exp[i] = 1 while cube i is showing; st.lists[color] = the showing cubes of that color (checked lazily)
   function makeState(model) {
-    var st = { sx: model.sx, sy: model.sy, sz: model.sz, vox: new Uint8Array(model.vox), exp: new Uint8Array(model.vox.length), left: {}, total: 0 };
-    // front[column] = z of the frontmost cube in that (x, y) column (sz if the column is empty)
-    st.front = new Uint8Array(st.sx * st.sy);
-    for (var y0 = 0; y0 < st.sy; y0++) for (var x0 = 0; x0 < st.sx; x0++) {
-      var zf = 0;
-      while (zf < st.sz && !st.vox[(y0 * st.sz + zf) * st.sx + x0]) zf++;
-      st.front[y0 * st.sx + x0] = zf;
-    }
+    var st = { sx: model.sx, sy: model.sy, sz: model.sz, vox: new Uint8Array(model.vox), exp: new Uint8Array(model.vox.length), lists: {}, left: {}, total: 0 };
     for (var i = 0; i < st.vox.length; i++) {
       var c = st.vox[i];
       if (!c) continue;
       st.left[c] = (st.left[c] || 0) + 1; st.total++;
-      st.exp[i] = isOpen(st, i) ? 1 : 0;
+      if (!st.lists[c]) st.lists[c] = [];
+      if (isOpen(st, i)) { st.exp[i] = 1; st.lists[c].push(i); }
     }
     return st;
   }
   function removeCube(st, i) {
     var c = st.vox[i];
-    st.vox[i] = 0; if (st.exp) st.exp[i] = 0; st.left[c]--; st.total--;
-    if (RULE === 'front') { // the next cube behind it (same row) is now in the open
-      var z = Math.floor(i / st.sx) % st.sz, zz = z + 1;
-      for (var j = i + st.sx; zz < st.sz; j += st.sx, zz++) if (st.vox[j]) { if (st.exp) st.exp[j] = 1; break; }
-      st.front[colOf(st, i)] = zz;
-      return;
-    }
+    st.vox[i] = 0; st.exp[i] = 0; st.left[c]--; st.total--;
     nb(st, i, NB);
-    for (var k = 0; k < 6; k++) { var j = NB[k]; if (j >= 0 && st.vox[j]) st.exp[j] = 1; }
+    for (var k = 0; k < 6; k++) {
+      var j = NB[k];
+      if (j >= 0 && st.vox[j] && !st.exp[j]) { st.exp[j] = 1; (st.lists[st.vox[j]] || (st.lists[st.vox[j]] = [])).push(j); }
+    }
   }
-  // Which cube a blaster of color c shoots next: the most exposed one (corners and edges first, so the
-  // sculpture wears down evenly), then the highest, then the farthest out. It doesn't depend on how the
+  // Which cube a blaster of color c shoots next: the highest showing one (the sculpture comes down from the
+  // top, so the inside shows up a little at a time), then the most exposed, then the farthest out. It doesn't depend on how the
   // sculpture is turned, so the game plays the same on every phone.
   function openSides(st, i) {
     nb(st, i, NB);
@@ -688,27 +699,27 @@ var CC = (function () {
     for (var s = 0; s < 6; s++) { var j = NB[s]; if (j === -1 || (j >= 0 && !st.vox[j])) k++; }
     return k;
   }
+  function showing(st, c) { // the list of showing cubes of color c, with gone ones dropped
+    var a = st.lists[c];
+    if (!a) return [];
+    var w = 0;
+    for (var r = 0; r < a.length; r++) { var i = a[r]; if (st.vox[i] === c && st.exp[i]) a[w++] = i; }
+    a.length = w;
+    return a;
+  }
   function target(st, c) {
-    var best = -1, bk = -1, by = -1, bd = -1, sx = st.sx, sz = st.sz, hx = (sx - 1) / 2, hz = (sz - 1) / 2;
-    for (var col = st.front.length - 1; col >= 0; col--) {
-      var zf = st.front[col];
-      if (zf >= sz) continue;
-      var i = (Math.floor(col / sx) * sz + zf) * sx + col % sx;
-      if (st.vox[i] !== c) continue;
+    var best = -1, bk = -1, by = -1, bd = -1, sx = st.sx, sz = st.sz, hx = (sx - 1) / 2, hz = (sz - 1) / 2, a = showing(st, c);
+    for (var q = 0; q < a.length; q++) {
+      var i = a[q], y = Math.floor(i / (sx * sz));
+      if (y < by) continue;
       var k = openSides(st, i);
-      if (k < bk) continue;
-      var y = Math.floor(i / (sx * sz));
-      if (k === bk && y < by) continue;
+      if (y === by && k < bk) continue;
       var dx = i % sx - hx, dz = Math.floor(i / sx) % sz - hz, d = dx * dx + dz * dz;
-      if (k > bk || y > by || d > bd) { best = i; bk = k; by = y; bd = d; }
+      if (y > by || k > bk || d > bd || (d === bd && i > best)) { best = i; bk = k; by = y; bd = d; }
     }
     return best;
   }
-  function openCount(st, c) {
-    var n = 0, sx = st.sx, sz = st.sz;
-    for (var col = 0; col < st.front.length; col++) { var zf = st.front[col]; if (zf < sz && st.vox[(Math.floor(col / sx) * sz + zf) * sx + col % sx] === c) n++; }
-    return n;
-  }
+  function openCount(st, c) { return showing(st, c).length; }
 
   // ---------- play ----------
   function freeSlot(st) { for (var s = 0; s < st.slots.length; s++) if (!st.slots[s]) return s; return -1; }
@@ -746,32 +757,36 @@ var CC = (function () {
   function settle(st) { var n = 0; for (;;) { var ev = step(st); if (!ev.length) return n; n += ev.length; } }
 
   // ---------- levels ----------
-  var LEVEL_SCHEME = 3; // 2 (2026-09-27): modern models; 3 (2026-09-28): smaller cubes, harder from level 4
+  var LEVEL_SCHEME = 4; // 2 (2026-09-27): modern models; 3 (2026-09-28): smaller cubes, harder from level 4; 4 (2026-09-28): showing = fair game
   function levelSpec(L) {
     var id = M.ORDER[(L - 1) % M.ORDER.length], round = Math.floor((L - 1) / M.ORDER.length);
     var res = Math.min(1.9, 1.15 + 0.035 * (L - 1)) + (L > 24 ? ((L * 7) % 5) * 0.03 : 0);
     var t = L <= 3 ? 0 : L <= 5 ? 1 : L <= 10 ? 2 : L <= 20 ? 3 : 4; // difficulty tier
     return { scheme: LEVEL_SCHEME, level: L, model: id, round: round, res: res, maxCubes: Math.min(1800, 380 + 70 * (L - 1)),
-      design: [2, 4, 4, 4, 4][t] + (t === 4 && L % 3 === 0 ? 1 : 0), decoy: [0.2, 0.7, 0.8, 0.85, 0.85][t], partial: [0.6, 0.6, 0.6, 0.55, 0.55][t],
-      amin: [8, 10, 12, 14, 16][t], amax: [20, 26, 32, 38, 44][t], inner: L <= 2 ? 0 : L <= 4 ? 1 : L <= 8 ? 2 : 3,
+      design: [2, 4, 5, 5, 5][t], decoy: [0.2, 0.85, 0.9, 0.95, 0.95][t], partial: [0.6, 0.6, 0.6, 0.55, 0.55][t],
+      amin: [8, 10, 12, 14, 16][t], amax: [20, 26, 32, 38, 44][t], stick: [0, 0.4, 0.45, 0.5, 0.5][t], fill: [0, 0.8, 0.85, 0.85, 0.85][t], inner: L <= 2 ? 0 : L <= 3 ? 1 : L <= 5 ? 2 : 3,
       careless: [1, 0.55, 0.4, 0.25, 0.15][t],
       seed: mix32(Math.imul(L, 0x9E3779B1) ^ 0xC0BE5) };
   }
   function dailySeed(day) { return mix32(day ^ 0xDA1C0BE); }
   function dailySpec(day) {
     var s = dailySeed(day), R = rng(s);
-    return { model: M.ORDER[Math.floor(R() * M.ORDER.length)], res: 1.45 + R() * 0.25, maxCubes: 1100, design: 4, decoy: 0.8, partial: 0.55, amin: 12, amax: 34, inner: 3, careless: 0.3, seed: s };
+    return { model: M.ORDER[Math.floor(R() * M.ORDER.length)], res: 1.45 + R() * 0.25, maxCubes: 1100, design: 4, decoy: 0.9, partial: 0.55, amin: 12, amax: 34, stick: 0.45, fill: 0.85, inner: 3, careless: 0.3, seed: s };
   }
 
   // The designer plays the level while inventing its blasters, so the order it used always works.
   function design(spec) {
     var R = rng(spec.seed), res = spec.res, model;
-    for (var tries = 0; tries < 12; tries++) { // keep big sculptures to a sensible size
+    // size the sculpture to about the level's cube count: thin models get finer cubes, so they have an inside too
+    var cap = spec.maxCubes || 650, grow = spec.fill ? 1 : 0, prev = null;
+    for (var tries = 0; tries < 14; tries++) {
       R = rng(spec.seed);
       model = M.build(spec.model, res, R, spec.inner || 0);
       var cubes = 0; for (var q = 0; q < model.vox.length; q++) if (model.vox[q]) cubes++;
-      if (cubes <= (spec.maxCubes || 650)) break;
-      res *= 0.93;
+      if (cubes > cap) { if (prev) { model = prev.m; R = prev.R; break; } res *= 0.93; grow = 0; continue; }
+      if (!grow || cubes >= cap * spec.fill || res >= 3) break;
+      prev = { m: model, R: R };
+      res *= 1.07;
     }
     var st = makeState(model), seq = [], active = [];
     st.slots = []; for (var s = 0; s < spec.design; s++) st.slots.push(null);
@@ -783,11 +798,12 @@ var CC = (function () {
       st.slots.forEach(function (b) { if (b) { filled++; claimed[b.c] = (claimed[b.c] || 0) + b.n; } });
       var colors = Object.keys(st.left).map(Number).filter(function (c) { return st.left[c] - (claimed[c] || 0) > 0; });
       var open = colors.filter(function (c) { return openCount(st, c) > 0; });
-      var shut = colors.filter(function (c) { return openCount(st, c) === 0; });
+      // a color with cubes still hidden (all of them, or some): a blaster for it has to wait for them
       var c, n, want = spec.amin + Math.floor(R() * (spec.amax - spec.amin + 1));
-      if (shut.length && filled < spec.design - 1 && R() < spec.decoy) {
-        c = shut[Math.floor(R() * shut.length)];
-        n = Math.min(want, st.left[c] - (claimed[c] || 0));
+      var hid = colors.filter(function (c) { var k = openCount(st, c); return st.left[c] - (claimed[c] || 0) > k && k < want; });
+      if (hid.length && filled < spec.design - 1 && R() < spec.decoy) {
+        c = hid[Math.floor(R() * hid.length)];
+        n = Math.min(Math.max(want, openCount(st, c) + 3 + Math.floor(R() * 8)), st.left[c] - (claimed[c] || 0));
       } else {
         // weight by how much of the color is showing
         var tot = 0, w = open.map(function (cc) { var k = openCount(st, cc); tot += k; return k; }), x = R() * tot;
@@ -805,18 +821,22 @@ var CC = (function () {
       st.slots[freeSlot(st)] = b;
     }
     // deal the blasters into 3 lines, keeping the designer's order within each line
-    var lanes = [[], [], []], order = [];
+    // (from level 4, runs of blasters often stay in one line, so tapping lines at random pulls later blasters too soon)
+    var lanes = [[], [], []], order = [], prev = 0, stick = spec.stick || 0;
     seq.forEach(function (b) {
       var ln;
-      if (R() < 0.55) { ln = 0; for (var q = 1; q < LANES; q++) if (lanes[q].length < lanes[ln].length) ln = q; }
+      if (R() < stick) ln = prev;
+      else if (R() < 0.55) { ln = 0; for (var q = 1; q < LANES; q++) if (lanes[q].length < lanes[ln].length) ln = q; }
       else ln = Math.floor(R() * LANES);
+      prev = ln;
       lanes[ln].push(b); order.push(ln);
     });
     return { model: model, lanes: lanes, blasters: seq.length, order: order };
   }
   // ---------- playtest: a careful player looking two taps ahead ----------
   function clone(st) {
-    return { sx: st.sx, sy: st.sy, sz: st.sz, vox: new Uint8Array(st.vox), exp: null, front: new Uint8Array(st.front), left: Object.assign({}, st.left), total: st.total,
+    var lists = {}; for (var c in st.lists) lists[c] = showing(st, +c).slice();
+    return { sx: st.sx, sy: st.sy, sz: st.sz, vox: new Uint8Array(st.vox), exp: new Uint8Array(st.exp), lists: lists, left: Object.assign({}, st.left), total: st.total,
       lanes: st.lanes.map(function (l) { return l.map(function (b) { return { c: b.c, n: b.n }; }); }),
       slots: st.slots.map(function (b) { return b ? { c: b.c, n: b.n } : null; }) };
   }
@@ -922,7 +942,7 @@ if (typeof module !== 'undefined') module.exports = CC;
 <script>
 /* Cube Pop renderer: the cube sculpture drawn with three.js (shared/three.module.min.js).
    All cubes are one instanced mesh, so thousands of small cubes stay smooth on a phone.
-   Drag to turn the sculpture and look around; blasters always shoot at the front (z = 0) side. */
+   Drag to turn the sculpture all the way around; blasters hit any cube that is showing. */
 var CCRender = (function () {
   'use strict';
   function create(THREE, canvas, colors) {
@@ -954,7 +974,7 @@ var CCRender = (function () {
     var mesh = null, instOf = null, shown = null;
     var M4 = new THREE.Matrix4(), ZERO = new THREE.Matrix4().makeScale(0, 0, 0);
 
-    // ground shadow and the yellow stripe on the side the blasters shoot from
+    // ground shadow
     function shadowTex() {
       var c = document.createElement('canvas'); c.width = c.height = 128;
       var x = c.getContext('2d'), g = x.createRadialGradient(64, 64, 8, 64, 64, 64);
@@ -964,8 +984,6 @@ var CCRender = (function () {
     }
     var ground = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: shadowTex(), transparent: true, depthWrite: false }));
     ground.rotation.x = -Math.PI / 2; group.add(ground);
-    var stripe = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ color: 0xf7c948, transparent: true, opacity: 0.85, depthWrite: false }));
-    stripe.rotation.x = -Math.PI / 2; group.add(stripe);
 
     function pos(i, out) {
       var x = i % st.sx, z = Math.floor(i / st.sx) % st.sz, y = Math.floor(i / (st.sx * st.sz));
@@ -990,7 +1008,6 @@ var CCRender = (function () {
       mesh.instanceMatrix.needsUpdate = true; if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
       group.add(mesh);
       ground.scale.set(st.sx * 1.6 + 3, st.sz * 1.6 + 3, 1); ground.position.set(0, 0.01, 0);
-      stripe.scale.set(st.sx + 1.2, 0.55, 1); stripe.position.set(0, 0.02, st.sz / 2 + 0.75);
       fit(); kick();
     }
     // hide cubes that are gone (kept while a shot is still flying at them)
@@ -1087,7 +1104,7 @@ var CCRender = (function () {
       if (shots.length || pops.length || Math.abs(vyaw) > 0.0005) kick();
     }
     function kick() { if (!raf) raf = requestAnimationFrame(draw); }
-    function setYaw(v) { yaw = Math.max(-1.25, Math.min(1.25, v)); }
+    function setYaw(v) { yaw = v; } // all the way around (every showing cube is fair game)
 
     // turning with a finger
     var last = null;
@@ -1098,7 +1115,7 @@ var CCRender = (function () {
     canvas.addEventListener('pointermove', function (e) {
       if (!dragging || !last) return;
       var dx = e.clientX - last[0], dy = e.clientY - last[1];
-      setYaw(yaw + dx * 0.012); pitch = Math.max(0.02, Math.min(1.0, pitch + dy * 0.008));
+      setYaw(yaw + dx * 0.012); pitch = Math.max(0.02, Math.min(1.45, pitch + dy * 0.008));
       vyaw = dx * 0.012; last = [e.clientX, e.clientY];
       kick();
     });

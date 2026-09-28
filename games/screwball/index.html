@@ -196,7 +196,7 @@ html, body { height: 100%; overflow: hidden; }
         <li>Each box holds <b>3 screws</b>. When it&rsquo;s full, the next box comes in.</li>
         <li>No box for that color yet? The screw waits in the <b>tray</b> (3 spots) and hops into its box when one shows up.</li>
         <li>A <b>4th</b> screw with no box ends the level &mdash; or watch a quick ad to get another tray spot and keep going. <b>+ Box</b> (also a quick ad) adds a 4th or 5th box.</li>
-        <li><b>Drag</b> to turn it all the way around and find screws on every side. <b>Pinch</b> with two fingers to zoom in. Peek through windows: there's furniture inside.</li>
+        <li><b>Drag</b> to turn it any way you like: all the way around, over the top and underneath, to find screws on every side. <b>Pinch</b> with two fingers to zoom in. Peek through windows: there's furniture inside.</li>
       </ol>
     </div>
     <div class="actions"><button class="btn red" id="btnCloseHelp">Let's play</button></div>
@@ -819,14 +819,41 @@ var SB = (function () {
     list.forEach(function (f) { localSpots(p, f).forEach(function (s) { out.push(toWorld(p, s)); }); });
     return out;
   }
-  // which pieces are in the way of a screw (nearest first)
-  function blockersFor(parts, pid, sc) {
-    var o = [sc.p[0] + sc.n[0] * 0.03, sc.p[1] + sc.n[1] * 0.03, sc.p[2] + sc.n[2] * 0.03], hits = [];
+  // which pieces are in the way of a screw (nearest first).
+  // 2.2 (Glenn, 2026-09-28: "showing some screws blocked when clearly they aren't"): the ray used to go on
+  // forever, so a tree or a tower far across the scene blocked a screw that plainly looked free. Now only
+  // pieces within REACH of the head count, unless the screw is shut in (on furniture inside the house, say):
+  // then everything along its line still counts, so the roof or wall has to come off first.
+  var REACH = 1.0;
+  function hitsAlong(parts, pid, o, d, far) {
+    var hits = [];
     for (var j = 0; j < parts.length; j++) {
       if (j === pid || parts[j].dropped) continue;
-      var t = rayHit(parts[j], o, sc.n);
-      if (t >= 0) hits.push([t, j]);
+      var t = rayHit(parts[j], o, d);
+      if (t >= 0 && t <= far) hits.push([t, j]);
     }
+    return hits;
+  }
+  // shut in = every look-out line in a wide cone around the screw runs into some piece
+  function shutIn(parts, pid, o, n) {
+    var a = Math.abs(n[0]) < 0.9 ? [1, 0, 0] : [0, 1, 0];
+    var u = [n[1] * a[2] - n[2] * a[1], n[2] * a[0] - n[0] * a[2], n[0] * a[1] - n[1] * a[0]], ul = Math.hypot(u[0], u[1], u[2]);
+    u = [u[0] / ul, u[1] / ul, u[2] / ul];
+    var v = [n[1] * u[2] - n[2] * u[1], n[2] * u[0] - n[0] * u[2], n[0] * u[1] - n[1] * u[0]];
+    for (var ring = 0; ring < 2; ring++) {
+      var ca = Math.cos(ring ? 1.0 : 0.55), sa = Math.sin(ring ? 1.0 : 0.55);
+      for (var b = 0; b < 8; b++) {
+        var cb = Math.cos(b * Math.PI / 4 + ring * 0.39), sb = Math.sin(b * Math.PI / 4 + ring * 0.39);
+        var d = [ca * n[0] + sa * (cb * u[0] + sb * v[0]), ca * n[1] + sa * (cb * u[1] + sb * v[1]), ca * n[2] + sa * (cb * u[2] + sb * v[2])];
+        if (!hitsAlong(parts, pid, o, d, 1e9).length) return false;
+      }
+    }
+    return true;
+  }
+  function blockersFor(parts, pid, sc) {
+    var o = [sc.p[0] + sc.n[0] * 0.03, sc.p[1] + sc.n[1] * 0.03, sc.p[2] + sc.n[2] * 0.03];
+    var hits = hitsAlong(parts, pid, o, sc.n, 1e9);
+    if (hits.some(function (h) { return h[0] > REACH; }) && !shutIn(parts, pid, o, sc.n)) hits = hits.filter(function (h) { return h[0] <= REACH; });
     hits.sort(function (a, b) { return a[0] - b[0]; });
     return hits.map(function (h) { return h[1]; });
   }
@@ -999,7 +1026,7 @@ var SB = (function () {
 
   // ---------- levels ----------
   // LEVEL_SCHEME 3 (2026-09-28): real 3D pieces, every piece comes off, harder from level 4.
-  var LEVEL_SCHEME = 3;
+  var LEVEL_SCHEME = 4; // 4 (2026-09-28): only pieces within REACH of a screw block it
   function tier(L) { return L <= 3 ? 0 : L <= 6 ? 1 : L <= 12 ? 2 : L <= 24 ? 3 : 4; }
   function levelSpec(L) {
     var t = tier(L), round = Math.floor((L - 1) / O.ORDER.length);
@@ -1168,7 +1195,7 @@ var SB = (function () {
     LEVEL_SCHEME: LEVEL_SCHEME, mix32: mix32, rng: rng, tools: tools, levelSpec: levelSpec, dailySeed: dailySeed, dailySpec: dailySpec,
     design: design, newGame: newGame, replay: replay, fresh: fresh, pick: pick, addBox: addBox, isFree: isFree, blocker: blocker,
     freeScrews: freeScrews, boxFor: boxFor, won: won, stuck: stuck, playtest: playtest, planStep: planStep, clone: clone, carelessRate: carelessRate,
-    buildObject: buildObject, rayHit: rayHit, rotMat: rotMat
+    buildObject: buildObject, rayHit: rayHit, rotMat: rotMat, REACH: REACH
   };
 })();
 if (typeof module !== 'undefined') module.exports = SB;
@@ -1188,7 +1215,17 @@ var SBRender = (function () {
     var fill = new THREE.DirectionalLight(0xdfe8ff, 0.5); fill.position.set(6, 3, -6); scene.add(fill);
     var root = new THREE.Group(); scene.add(root);
     var W = 1, H = 1, st = null, raf = 0, tapCb = null;
-    var HOME_YAW = 0.55, HOME_PITCH = 0.42, yaw = HOME_YAW, pitch = HOME_PITCH, zoom = 1, vyaw = 0, dist = 20, center = new THREE.Vector3();
+    var HOME_YAW = 0.55, HOME_PITCH = 0.42, zoom = 1, vyaw = 0, vpitch = 0, dist = 20, center = new THREE.Vector3();
+    // The view turns freely all the way round in every direction (Glenn, 2026-09-28): the camera's turn is a
+    // quaternion, and each drag turns it about the screen's own up and sideways axes (no stop at the top or bottom).
+    var orient = new THREE.Quaternion(), QT = new THREE.Quaternion(), AX = new THREE.Vector3(1, 0, 0), AY = new THREE.Vector3(0, 1, 0);
+    function home() { orient.setFromEuler(new THREE.Euler(-HOME_PITCH, HOME_YAW, 0, 'YXZ')); }
+    home();
+    function turn(dx, dy) { // radians about the screen's up axis, then its sideways axis
+      if (dx) orient.multiply(QT.setFromAxisAngle(AY, dx));
+      if (dy) orient.multiply(QT.setFromAxisAngle(AX, dy));
+      orient.normalize();
+    }
     var SC = screwColors.map(function (c) { return new THREE.Color(c.hex); });
 
     // ---------- shapes ----------
@@ -1322,8 +1359,11 @@ var SBRender = (function () {
     }
     function place() {
       var d = dist / zoom;
-      camera.position.set(center.x + Math.sin(yaw) * Math.cos(pitch) * d, center.y + Math.sin(pitch) * d, center.z + Math.cos(yaw) * Math.cos(pitch) * d);
-      camera.lookAt(center);
+      camera.position.set(0, 0, d).applyQuaternion(orient).add(center);
+      camera.quaternion.copy(orient);
+      // the soft fill light rides with the camera, so the underside isn't dark when turned upside down
+      fill.target.position.copy(center); fill.position.copy(camera.position);
+      fill.target.updateMatrixWorld();
     }
     function resize() {
       var r = canvas.getBoundingClientRect();
@@ -1373,11 +1413,12 @@ var SBRender = (function () {
       raf = 0;
       if (!st) return;
       var now = performance.now();
-      if (!dragging && Math.abs(vyaw) > 0.0005) { yaw += vyaw; vyaw *= 0.92; }
+      var spin = Math.abs(vyaw) + Math.abs(vpitch) > 0.0005;
+      if (!dragging && spin) { turn(vyaw, vpitch); vyaw *= 0.92; vpitch *= 0.92; }
       var busy = animate(now);
       place();
       renderer.render(scene, camera);
-      if (busy || Math.abs(vyaw) > 0.0005) kick();
+      if (busy || (!dragging && Math.abs(vyaw) + Math.abs(vpitch) > 0.0005)) kick();
     }
     function kick() { if (!raf) raf = requestAnimationFrame(draw); }
 
@@ -1388,7 +1429,7 @@ var SBRender = (function () {
       pointers[e.pointerId] = [e.clientX, e.clientY];
       try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
       var p = pts();
-      if (p.length === 1) { down = { x: e.clientX, y: e.clientY, t: performance.now(), moved: false }; dragging = true; vyaw = 0; }
+      if (p.length === 1) { down = { x: e.clientX, y: e.clientY, t: performance.now(), moved: false }; dragging = true; vyaw = 0; vpitch = 0; }
       if (p.length === 2) { pinch = { d: Math.hypot(p[0][0] - p[1][0], p[0][1] - p[1][1]) || 1, z: zoom }; if (down) down.moved = true; }
     });
     canvas.addEventListener('pointermove', function (e) {
@@ -1403,8 +1444,8 @@ var SBRender = (function () {
       if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 8) down.moved = true;
       if (!down.moved) return;
       var dx = e.clientX - prev[0], dy = e.clientY - prev[1];
-      yaw -= dx * 0.011; pitch = Math.max(-0.25, Math.min(1.35, pitch + dy * 0.008));
-      vyaw = -dx * 0.011;
+      vyaw = -dx * 0.011; vpitch = -dy * 0.009;
+      turn(vyaw, vpitch);
       kick();
     });
     function up(e) {
@@ -1457,7 +1498,7 @@ var SBRender = (function () {
 
     return {
       setState: setState, resize: resize, redraw: kick,
-      reset: function () { yaw = HOME_YAW; pitch = HOME_PITCH; zoom = 1; vyaw = 0; kick(); },
+      reset: function () { home(); zoom = 1; vyaw = 0; vpitch = 0; kick(); },
       onTap: function (cb) { tapCb = cb; },
       screwNear: screwNear, screenOf: screenOf, visible: function (s) { return screwVisible(s); },
       unscrew: function (s) { unscrewing.push({ s: s, i: st.screws.indexOf(s), t: performance.now() }); kick(); },
