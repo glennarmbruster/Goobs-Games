@@ -441,7 +441,7 @@ var MB = (function () {
     (level.terrain || []).forEach(function (o) { grow(o.x + o.w / 2, o.y + o.h / 2); });
     (level.tnt || []).forEach(function (o) { grow(o.x + 0.5, o.y + 0.5); });
     (level.boulders || []).forEach(function (o) { grow(o.x + o.r, o.y + o.r); });
-    return { x0: sx - 2.3 - 0.85 * Math.max(0, (level.birds || []).length - 2), x1: x1 + 2, y0: -0.8, y1: Math.max(y1 + 2, 9) };
+    return { x0: sx - 3.8 - 0.85 * Math.max(0, (level.birds || []).length - 2), x1: x1 + 2, y0: -0.8, y1: Math.max(y1 + 2, 9) };
   }
 
   return {
@@ -839,13 +839,23 @@ var MBSound = (function () {
   var W = 0, H = 0, dpr = 1, cv = $('cv'), ctx = cv.getContext('2d'), cam = { x: 0, y: 5, z: 20 }, camMode = 'auto', fitZ = 20;
   function resize() {
     W = window.innerWidth; H = window.innerHeight; dpr = Math.min(2.5, window.devicePixelRatio || 1);
+    readInsets();
     cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     if (S) snapCam();
   }
+  // the notch side of a phone lying sideways is kept clear, so the slingshot never sits under it
+  var insetL = 0, insetR = 0;
+  function readInsets() {
+    var p = document.createElement('div');
+    p.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px);visibility:hidden';
+    document.body.appendChild(p);
+    var cs = getComputedStyle(p); insetL = parseFloat(cs.paddingLeft) || 0; insetR = parseFloat(cs.paddingRight) || 0;
+    p.remove();
+  }
   function fitTo(b) {
-    var z = Math.min(W / (b.x1 - b.x0), (H - 10) / (b.y1 - b.y0));
-    return { x: (b.x0 + b.x1) / 2, y: b.y0 + H / (2 * z), z: z };
+    var avail = Math.max(100, W - insetL - insetR), z = Math.min(avail / (b.x1 - b.x0), (H - 10) / (b.y1 - b.y0));
+    return { x: b.x0 + (W / 2 - insetL) / z, y: b.y0 + H / (2 * z), z: z };
   }
   function levelView() { var b = MB.bounds(lv); return b; }
   function target() {
