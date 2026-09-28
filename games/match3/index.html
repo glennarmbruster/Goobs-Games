@@ -1401,7 +1401,8 @@ var GSSound = (function () {
     if (!game || game.done || st.moves > 0 || GS.done(st) || isOpen('ovEnd')) return;
     S.over();
     var left = GOAL_ORDER.filter(function (k) { return GS.goalLeft(st, k); }).map(function (k) { return GS.goalLeft(st, k) + ' ' + ({ box: 'boxes', grass: 'grass', ice: 'ice', stone: 'stones', acorn: 'acorns', berry: 'berries', leaf: 'leaves' }[k] || k + 's'); });
-    card('Out of moves', 'Still to do: ' + left.join(', ') + '.', [
+    var total = GS.movesFor(game.level) + game.extra * CONTINUE_MOVES;
+    card('Out of moves', 'You\u2019ve used all ' + total + ' moves (the counter at the top shows how many are left). Still to do: ' + left.join(', ') + '.', [
       { label: Goobs.adsOn() ? '+' + CONTINUE_MOVES + ' moves (quick ad)' : '+' + CONTINUE_MOVES + ' moves', red: true, go: function () {
         var go = function () { game.extra++; st.moves += CONTINUE_MOVES; saveGame(); renderInfo(); poke(); };
         if (Goobs.adsOn()) showAd(go); else go();

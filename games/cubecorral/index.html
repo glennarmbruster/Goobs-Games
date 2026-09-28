@@ -68,7 +68,8 @@ html, body { height: 100%; overflow: hidden; }
 .lane { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 7px; background: none; border: 0; padding: 0; min-width: 0; }
 .lane .front { width: 74px; height: 66px; }
 .lane .front.none { border: 2px dashed var(--cc-slot-line); border-radius: 12px; }
-.lane:active .front .blaster { transform: translateY(2px); }
+.lanes { touch-action: manipulation; }
+.lane.down .front .blaster { transform: translateY(2px); }
 .lane .queue { display: flex; gap: 4px; height: 24px; align-items: center; }
 .lane .queue i { display: block; width: 20px; height: 20px; border-radius: 5px; border: 2px solid rgba(0,0,0,.4); }
 .lane .queue i:nth-child(2) { opacity: .75; }
@@ -1511,7 +1512,15 @@ var CCSound = (function () {
     catch (e) { $('turnHint').textContent = 'This phone couldn\u2019t start the 3D view.'; return; }
     $('cv').addEventListener('pointerdown', function () { S.unlock(); setTimeout(hideHint, 600); });
     if (meta.turned) $('turnHint').classList.add('hide');
-    $('lanes').addEventListener('click', function (e) { var b = e.target.closest('.lane'); if (b) tapLane(+b.dataset.lane); });
+    // lanes answer on touch-down, by which third of the row was touched (not which element), so a tap anywhere
+    // on a lane counts even while the page redraws the blasters (2026-09-28: on iPad the third lane only took taps near its bottom)
+    $('lanes').addEventListener('pointerdown', function (e) {
+      var r = this.getBoundingClientRect(), l = Math.floor((e.clientX - r.left) / r.width * CC.LANES);
+      if (l < 0 || l >= CC.LANES) return;
+      e.preventDefault();
+      var b = this.children[l]; if (b) { b.classList.add('down'); setTimeout(function () { b.classList.remove('down'); }, 120); }
+      tapLane(l);
+    });
     ['pointerdown', 'touchend', 'click'].forEach(function (ev) { document.addEventListener(ev, function () { S.unlock(); }, { passive: true }); });
     $('btnHome').addEventListener('click', function () { saveGame(); Goobs.home(); });
     $('btnView').addEventListener('click', function () { R3.reset(); });

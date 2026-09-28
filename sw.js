@@ -6,18 +6,19 @@ const VERSIONS = {
   zoodoku: '1.8.1',
   woodpile: '1.1.2',
   patchwork: '2.1.1',
-  cubecorral: '3.2.1',
+  cubecorral: '3.2.2',
   screwball: '2.3.1',
   skeehop: '1.0.2',
-  merge: '1.0.1',
+  merge: '1.1.0',
   tapaway: '1.0.1',
   homerun: '1.1.1',
-  match3: '1.0.1',
+  match3: '1.0.2',
   snake: '1.0.0',
   solitaire: '1.0.0',
   meanbirds: '1.0.0',
   three: '0.186.1',  // shared 3D library; bump only when three.js itself changes
-  planck: '1.5.0'    // shared 2D physics library (planck.js); bump only when planck itself changes
+  planck: '1.5.0',   // shared 2D physics library (planck.js); bump only when planck itself changes
+  cannon: '0.20.0'   // shared 3D physics library (cannon-es) for Number Nook's Chain Cube
 };
 const GROUPS = {
   shell: [
@@ -39,7 +40,8 @@ const GROUPS = {
   solitaire: ['games/solitaire/', 'games/solitaire/index.html'],
   meanbirds: ['games/meanbirds/', 'games/meanbirds/index.html'],
   three: ['shared/three.module.min.js'],
-  planck: ['shared/planck.min.js']
+  planck: ['shared/planck.min.js'],
+  cannon: ['shared/cannon-es.min.js']
 };
 const PREFIX = 'goobs-';
 const cacheName = (g) => PREFIX + g + '-' + VERSIONS[g];

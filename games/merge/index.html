@@ -102,6 +102,20 @@
 .cardicon svg { border-radius: 16px; }
 .tally { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 10px; }
 .tally span { background: var(--surface-2); border-radius: 8px; padding: 3px 8px; font-size: 13px; font-weight: 700; }
+
+/* Chain Cube (3D) */
+.chainwrap { position: relative; width: 100%; flex: 1 1 auto; min-height: 260px; border-radius: 18px; overflow: hidden; display: none;
+  background: linear-gradient(#bfe3ff, #eef6ff 60%, #f4f5f9); box-shadow: var(--shadow); }
+:root[data-theme="dark"] .chainwrap { background: linear-gradient(#1b2340, #262d4a 60%, #1a1d25); }
+:root[data-theme="blue"] .chainwrap { background: linear-gradient(#143260, #1c3d6e 60%, #13233b); }
+.chainwrap.show { display: block; }
+.chainwrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
+.chainmsg { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-weight: 700; }
+.chainmsg.hide { display: none; }
+.app.chainmode .boardwrap, .app.chainmode .sizes, .app.chainmode .spacer { display: none; }
+.app.chainmode #btnUndo { display: none; }
+.nextcube { width: 32px; height: 32px; border-radius: 7px; display: grid; place-items: center; font-weight: 900; font-size: 13px; box-shadow: 0 3px 0 rgba(0,0,0,.18); }
+#cfloats .float { left: 50%; top: 18%; transform: translateX(-50%); }
 </style>
 </head>
 <body>
@@ -138,6 +152,7 @@
   <div class="modes" id="modes">
     <button data-mode="classic">Classic 2048</button>
     <button data-mode="trios">Trios</button>
+    <button data-mode="chain">Chain Cube</button>
   </div>
 
   <div class="sizes" id="sizes">
@@ -150,6 +165,7 @@
     <div class="board" id="board"><div class="bg" id="bg"></div><div class="layer" id="layer"></div></div>
     <div class="floats" id="floats"></div>
   </div>
+  <div class="chainwrap" id="chainwrap"><div class="chainmsg" id="chainMsg">Loading&hellip;</div><div class="floats" id="cfloats"></div></div>
 
   <div class="spacer"></div>
   <div class="toolbar">
@@ -432,6 +448,257 @@ var NNSound = (function () {
   };
 })();
 </script>
+<script>
+/* Number Nook: Chain Cube mode (Chain Cube: 2048 3D-style). three.js draws, cannon-es does the physics;
+   both come from /shared and are loaded the first time this mode opens.
+   A numbered cube waits at the near end of a long tray. Drag left or right to line it up, let go to shoot it forward.
+   Two cubes with the same number merge into one double cube, which hops up toward the nearest cube of its new number,
+   so merges can chain. If a cube is left behind the red line once things settle, the game is over. */
+var NNChain = (function () {
+  'use strict';
+  var T = null, C = null;                       // THREE, CANNON
+  var W = 5, LEN = 12, LINE = 2.3, START_Z = 0.9, SIZE = 1, SPEED = 20, GRAV = -30;
+  var SPAWN = [[2, 30], [4, 25], [8, 19], [16, 13], [32, 8], [64, 5]];
+  var COLORS = { 2: '#eef1ff', 4: '#dbe2ff', 8: '#ffc46b', 16: '#ffa24d', 32: '#ff7a59', 64: '#ff4f6a', 128: '#c77dff', 256: '#9a6bff',
+    512: '#5a7cff', 1024: '#25b5f0', 2048: '#16cf97' };
+  var BIG = ['#1b1f3a', '#2d1b3a', '#3a1b1f', '#1b3a2d', '#3a2d1b'];
+
+  var host = null, canvas = null, renderer = null, scene = null, camera = null, world = null, mats = {}, geo = null;
+  var checking = false, cubes = [], held = null, heldX = 0, dragging = false, shotAt = 0, state = 'idle', hooks = {}, raf = 0, running = false;
+  var score = 0, top = 2, nextVal = 2, pendingMerges = [], lineMesh = null, guide = null, lastT = 0, acc = 0;
+
+  function rnd() { try { return crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296; } catch (e) { return Math.random(); } }
+  function pick() { var tot = 0, r, i; SPAWN.forEach(function (s) { tot += s[1]; }); r = rnd() * tot; for (i = 0; i < SPAWN.length; i++) { r -= SPAWN[i][1]; if (r <= 0) return SPAWN[i][0]; } return 2; }
+  function label(v) {
+    if (v < 10000) return String(v);
+    var u = [[1e12, 'T'], [1e9, 'B'], [1e6, 'M'], [1e3, 'K']];
+    for (var i = 0; i < u.length; i++) if (v >= u[i][0]) { var x = v / u[i][0]; return (x >= 100 ? Math.round(x) : Math.round(x * 10) / 10) + u[i][1]; }
+    return String(v);
+  }
+  function colorOf(v) { return COLORS[v] || BIG[Math.round(Math.log(v) / Math.LN2) % BIG.length]; }
+  function inkOf(v) { return v <= 4 ? '#3b3f73' : v >= 4096 ? '#ffd66b' : '#ffffff'; }
+  function material(v) {
+    if (mats[v]) return mats[v];
+    var c = document.createElement('canvas'); c.width = c.height = 256;
+    var x = c.getContext('2d');
+    x.fillStyle = colorOf(v); x.fillRect(0, 0, 256, 256);
+    x.strokeStyle = 'rgba(0,0,0,.18)'; x.lineWidth = 18; x.strokeRect(9, 9, 238, 238);
+    x.fillStyle = 'rgba(255,255,255,.18)'; x.fillRect(18, 18, 220, 40);
+    var t = label(v), fs = t.length <= 1 ? 150 : t.length === 2 ? 130 : t.length === 3 ? 104 : t.length === 4 ? 82 : 68;
+    x.font = '900 ' + fs + 'px -apple-system,system-ui,sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.lineWidth = fs * 0.08; x.strokeStyle = 'rgba(0,0,0,.25)'; x.strokeText(t, 128, 136);
+    x.fillStyle = inkOf(v); x.fillText(t, 128, 136);
+    var tex = new T.CanvasTexture(c); tex.colorSpace = T.SRGBColorSpace; tex.anisotropy = 4;
+    mats[v] = new T.MeshLambertMaterial({ map: tex });
+    return mats[v];
+  }
+
+  // ---------------- scene ----------------
+  function build() {
+    renderer = new T.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    scene = new T.Scene();
+    camera = new T.PerspectiveCamera(50, 1, 0.1, 100);
+    scene.add(new T.HemisphereLight(0xffffff, 0x8890b0, 1.6));
+    var sun = new T.DirectionalLight(0xffffff, 1.4); sun.position.set(-4, 10, -3); scene.add(sun);
+    // the tray: floor, low side walls, a back wall
+    var floor = new T.Mesh(new T.BoxGeometry(W, 0.4, LEN), new T.MeshLambertMaterial({ color: 0xd9ddef }));
+    floor.position.set(0, -0.2, LEN / 2 - 0.2); floor.scale.z = (LEN + 0.4) / LEN; scene.add(floor);
+    var stripes = new T.MeshLambertMaterial({ color: 0xcfd4ea });
+    for (var i = 1; i < 5; i++) { var s = new T.Mesh(new T.BoxGeometry(0.03, 0.01, LEN), stripes); s.position.set(-W / 2 + i, 0.005, LEN / 2); scene.add(s); }
+    var wallM = new T.MeshLambertMaterial({ color: 0x5a54f0 });
+    [-1, 1].forEach(function (k) { var w = new T.Mesh(new T.BoxGeometry(0.3, 0.7, LEN), wallM); w.position.set(k * (W / 2 + 0.15), 0.15, LEN / 2); scene.add(w); });
+    var back = new T.Mesh(new T.BoxGeometry(W + 0.6, 1.2, 0.3), wallM); back.position.set(0, 0.4, LEN + 0.15); scene.add(back);
+    var near = new T.Mesh(new T.BoxGeometry(W + 0.6, 0.35, 0.3), wallM); near.position.set(0, -0.02, -0.2); scene.add(near);
+    lineMesh = new T.Mesh(new T.BoxGeometry(W, 0.02, 0.08), new T.MeshBasicMaterial({ color: 0xff3b4f })); lineMesh.position.set(0, 0.012, LINE); scene.add(lineMesh);
+    guide = new T.Mesh(new T.BoxGeometry(0.06, 0.01, LEN - START_Z - 0.6), new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.55 }));
+    guide.position.set(0, 0.012, START_Z + (LEN - START_Z) / 2); scene.add(guide);
+    geo = new T.BoxGeometry(SIZE, SIZE, SIZE);
+    // turn the top face's number around so it reads the right way up from behind the tray
+    var uv = geo.attributes.uv; for (var k = 8; k < 12; k++) uv.setXY(k, 1 - uv.getX(k), 1 - uv.getY(k)); uv.needsUpdate = true;
+
+    world = new C.World({ gravity: new C.Vec3(0, GRAV, 0) });
+    world.allowSleep = true;
+    world.defaultContactMaterial.friction = 0.14; world.defaultContactMaterial.restitution = 0.12;
+    var ground = new C.Body({ mass: 0, shape: new C.Plane() }); ground.quaternion.setFromEuler(-Math.PI / 2, 0, 0); world.addBody(ground);
+    [-1, 1].forEach(function (k) { var b = new C.Body({ mass: 0, shape: new C.Box(new C.Vec3(0.15, 2, LEN / 2)) }); b.position.set(k * (W / 2 + 0.15), 2, LEN / 2); world.addBody(b); });
+    var bk = new C.Body({ mass: 0, shape: new C.Box(new C.Vec3(W / 2 + 0.3, 2, 0.15)) }); bk.position.set(0, 2, LEN + 0.15); world.addBody(bk);
+    var nr = new C.Body({ mass: 0, shape: new C.Box(new C.Vec3(W / 2 + 0.3, 2, 0.15)) }); nr.position.set(0, 2, -0.2); world.addBody(nr); // cubes can't slide off the near end
+    resize();
+  }
+  function resize() {
+    if (!renderer) return;
+    var r = host.getBoundingClientRect(), w = Math.max(10, r.width), h = Math.max(10, r.height);
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    // fit the tray's width at the near end; taller screens see further down the tray
+    camera.fov = w / h < 0.62 ? 62 : 54;
+    camera.position.set(0, 7.2, -3.6);
+    camera.lookAt(0, 0, 5.2);
+    camera.updateProjectionMatrix();
+  }
+
+  // ---------------- cubes ----------------
+  function addCube(v, x, y, z, still) {
+    var b = new C.Body({ mass: 1, shape: new C.Box(new C.Vec3(SIZE / 2, SIZE / 2, SIZE / 2)), linearDamping: 0.18, angularDamping: 0.35, allowSleep: true, sleepSpeedLimit: 0.15, sleepTimeLimit: 0.4 });
+    b.position.set(x, y, z);
+    var m = new T.Mesh(geo, material(v));
+    scene.add(m);
+    var cube = { v: v, b: b, m: m, born: performance.now(), alive: true, shot: false };
+    b.cube = cube;
+    b.addEventListener('collide', function (e) {
+      var o = e.body && e.body.cube;
+      if (!o || !cube.alive || !o.alive || o.v !== cube.v || cube === held || o === held) return;
+      if (!cube.shot && !cube.merged) return;
+      pendingMerges.push([cube, o]);
+    });
+    if (!still) world.addBody(b);
+    cubes.push(cube);
+    return cube;
+  }
+  function removeCube(cube) {
+    cube.alive = false;
+    if (cube.b.world) world.removeBody(cube.b);
+    scene.remove(cube.m);
+    cubes.splice(cubes.indexOf(cube), 1);
+  }
+  function newHeld() {
+    held = addCube(nextVal, heldX, SIZE / 2, START_Z, true);
+    nextVal = pick();
+    held.m.scale.set(0.2, 0.2, 0.2);
+    if (state !== 'over') state = 'aim';
+    if (hooks.change) hooks.change();
+  }
+  function shoot() {
+    if (state !== 'aim' || !held) return;
+    var c = held; held = null;
+    c.shot = true;
+    c.b.position.set(heldX, SIZE / 2, START_Z);
+    world.addBody(c.b);
+    c.b.velocity.set(0, 0, SPEED);
+    shotAt = performance.now();
+    state = 'fly'; checking = true;
+    if (hooks.sound) hooks.sound('shoot');
+  }
+  function doMerges() {
+    var done = [];
+    pendingMerges.forEach(function (p) {
+      var a = p[0], b = p[1];
+      if (!a.alive || !b.alive || done.indexOf(a) >= 0 || done.indexOf(b) >= 0) return;
+      done.push(a, b);
+      var v = a.v * 2, pa = a.b.position, pb = b.b.position;
+      // the new cube appears where the one further down the tray was
+      var far = pa.z > pb.z ? a : b, pos = far.b.position;
+      var x = pos.x, y = Math.max(pos.y, SIZE / 2) + 0.05, z = pos.z;
+      removeCube(a); removeCube(b);
+      var n = addCube(v, x, y, z, false);
+      n.merged = true; n.m.scale.set(0.7, 0.7, 0.7);
+      // hop up and toward the nearest cube with the same new number, so chains can happen
+      var target = null, bd = 1e9;
+      cubes.forEach(function (o) { if (o !== n && o.alive && o.v === v && o !== held) { var d = o.b.position.distanceTo(n.b.position); if (d < bd) { bd = d; target = o; } } });
+      var vx = 0, vz = 0;
+      if (target) { var dx = target.b.position.x - x, dz = target.b.position.z - z, d = Math.max(0.5, Math.hypot(dx, dz)); vx = dx / d * Math.min(8, d * 2.2); vz = dz / d * Math.min(8, d * 2.2); }
+      n.b.velocity.set(vx, 9.5, vz);
+      n.b.angularVelocity.set((rnd() - 0.5) * 6, (rnd() - 0.5) * 6, (rnd() - 0.5) * 6);
+      score += v; if (v > top) top = v;
+      if (hooks.merge) hooks.merge(v);
+    });
+    pendingMerges = [];
+  }
+  function settled() {
+    for (var i = 0; i < cubes.length; i++) {
+      var c = cubes[i]; if (c === held || !c.b.world) continue;
+      if (c.b.velocity.lengthSquared() > 0.09 || c.b.angularVelocity.lengthSquared() > 0.2) return false;
+    }
+    return true;
+  }
+  function overLine() {
+    return cubes.some(function (c) { return c !== held && c.alive && c.b.world && c.b.position.z - SIZE / 2 < LINE - 0.05; });
+  }
+
+  // ---------------- loop ----------------
+  function frame(tms) {
+    raf = requestAnimationFrame(frame);
+    if (!running || !world) return;
+    var dt = Math.min(0.05, lastT ? (tms - lastT) / 1000 : 0); lastT = tms;
+    if (!(hooks.paused && hooks.paused())) {
+      acc += dt;
+      var n = 0;
+      while (acc >= 1 / 60 && n < 4) { world.step(1 / 60); doMerges(); acc -= 1 / 60; n++; }
+      if (n === 4) acc = 0;
+      var since = performance.now() - shotAt;
+      if (state !== 'over' && !held && since > 450) newHeld();
+      // once the last shot has settled: anything left behind the red line ends the game
+      if (checking && state !== 'over' && since > 900 && settled()) {
+        checking = false;
+        if (overLine()) { state = 'over'; if (hooks.over) hooks.over(); }
+        else if (hooks.save) hooks.save();
+      }
+    }
+    // draw
+    cubes.forEach(function (c) {
+      if (c === held) { c.m.position.set(heldX, SIZE / 2, START_Z); c.m.quaternion.set(0, 0, 0, 1); }
+      else { c.m.position.copy(c.b.position); c.m.quaternion.copy(c.b.quaternion); }
+      var s = c.m.scale.x; if (s < 1) { s = Math.min(1, s + dt * 5); c.m.scale.set(s, s, s); }
+    });
+    if (guide) { guide.visible = !!held && state !== 'over'; guide.position.x = heldX; }
+    renderer.render(scene, camera);
+  }
+
+  // ---------------- input: drag to line up, let go to shoot ----------------
+  function xFromClient(cx) {
+    var r = canvas.getBoundingClientRect(), f = (cx - r.left) / r.width;
+    return Math.max(-W / 2 + SIZE / 2 + 0.05, Math.min(W / 2 - SIZE / 2 - 0.05, (f - 0.5) * (W + 0.8)));
+  }
+  function onDown(e) {
+    if (!held || state === 'over' || (hooks.paused && hooks.paused())) return;
+    dragging = true; heldX = xFromClient(e.clientX);
+    try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+    if (hooks.unlock) hooks.unlock();
+  }
+  function onMove(e) { if (dragging) heldX = xFromClient(e.clientX); }
+  function onUp() { if (!dragging) return; dragging = false; if (held && state !== 'over') { state = 'aim'; shoot(); } }
+
+  // ---------------- public ----------------
+  function load() {
+    if (T && C) return Promise.resolve();
+    return Promise.all([import('../../shared/three.module.min.js'), import('../../shared/cannon-es.min.js')]).then(function (m) { T = m[0]; C = m[1]; });
+  }
+  function mount(el, h) {
+    host = el; hooks = h || {};
+    if (!canvas) {
+      canvas = document.createElement('canvas'); canvas.className = 'chaincv'; host.appendChild(canvas);
+      canvas.addEventListener('pointerdown', onDown); canvas.addEventListener('pointermove', onMove);
+      canvas.addEventListener('pointerup', onUp); canvas.addEventListener('pointercancel', onUp);
+      build();
+      if (window.ResizeObserver) new ResizeObserver(resize).observe(host);
+      raf = requestAnimationFrame(frame);
+    }
+    running = true; resize();
+  }
+  function stop() { running = false; }
+  function clear() { cubes.slice().forEach(removeCube); held = null; pendingMerges = []; }
+  function newGame() { clear(); state = 'idle'; checking = false; score = 0; top = 2; heldX = 0; nextVal = pick(); newHeld(); shotAt = 0; }
+  function snapshot() {
+    return { score: score, top: top, next: nextVal, held: held ? held.v : 2, cubes: cubes.filter(function (c) { return c !== held && c.alive; }).map(function (c) {
+      var p = c.b.position, q = c.b.quaternion; return [c.v, +p.x.toFixed(3), +p.y.toFixed(3), +p.z.toFixed(3), +q.x.toFixed(4), +q.y.toFixed(4), +q.z.toFixed(4), +q.w.toFixed(4)];
+    }) };
+  }
+  function restore(s) {
+    clear(); score = s.score || 0; top = s.top || 2; nextVal = s.next || pick();
+    (s.cubes || []).forEach(function (r) { var c = addCube(r[0], r[1], r[2], r[3], false); c.shot = true; c.b.quaternion.set(r[4], r[5], r[6], r[7]); c.b.sleep(); });
+    held = addCube(s.held || 2, 0, SIZE / 2, START_Z, true); heldX = 0; state = 'aim'; checking = false;
+  }
+  return {
+    load: load, mount: mount, stop: stop, newGame: newGame, snapshot: snapshot, restore: restore, resize: resize,
+    get score() { return score; }, get top() { return top; }, get next() { return nextVal; }, get heldValue() { return held ? held.v : 0; }, get state() { return state; },
+    label: label, colorOf: colorOf, inkOf: inkOf,
+    // for tests: shoot from a given x (-2 .. 2)
+    testShoot: function (x) { if (!held || state === 'over') return false; heldX = x; state = 'aim'; shoot(); return true; },
+    count: function () { return cubes.length; }
+  };
+})();
+</script>
 <script src="../../shared/ads.js"></script>
 <script>
 (function () {
@@ -451,7 +718,7 @@ var NNSound = (function () {
   var meta = store.get('meta', null) || {};
   var MD = { mode: 'classic', size: 4, seen: {}, finished: 0, lastAdAt: 0 };
   for (var mk in MD) if (meta[mk] === undefined) meta[mk] = MD[mk];
-  if (!MODES[meta.mode]) meta.mode = 'classic';
+  if (!MODES[meta.mode] && meta.mode !== 'chain') meta.mode = 'classic';
   if ([3, 4, 5, 6].indexOf(meta.size) < 0) meta.size = 4;
   function saveMeta() { store.set('meta', meta); }
   var stats = store.get('stats', null) || {};
@@ -459,6 +726,8 @@ var NNSound = (function () {
   if (!stats.trios) stats.trios = {};
   function blankStats(o) { var d = { best: 0, games: 0, total: 0, bestTile: 0, wins: 0 }; for (var k in d) if (typeof o[k] !== 'number') o[k] = d[k]; return o; }
   blankStats(stats.trios);
+  if (!stats.chain) stats.chain = {};
+  blankStats(stats.chain);
   function statsFor(mode, size) {
     if (mode === 'trios') return stats.trios;
     return blankStats(stats.classic[size] || (stats.classic[size] = {}));
@@ -477,6 +746,8 @@ var NNSound = (function () {
   function keyFor(mode, size) { return mode === 'trios' ? 'game.trios' : 'game.classic.' + size; }
   function saveGame() { if (game && !game.done) store.set(keyFor(game.mode, game.size), game); }
   function start(mode, size, fresh) {
+    if (mode === 'chain') { startChain(); return; }
+    leaveChain();
     flush();
     if (game && !game.done) saveGame();
     size = mode === 'trios' ? 4 : (size || meta.size);
@@ -556,7 +827,7 @@ var NNSound = (function () {
 
   // ================= moving =================
   function doMove(dir) {
-    if (!game || game.done || locked()) return false;
+    if (chainOn || !game || game.done || locked()) return false;
     flush();
     var snap = JSON.stringify(game.g), res = MODES[game.mode].move(game.g, dir);
     if (!res) { S.bump(); nudge(dir); return false; }
@@ -586,7 +857,7 @@ var NNSound = (function () {
   // ================= touch: swipe (Classic), drag-and-peek (Trios, like the original) =================
   var touch = null;
   function onDown(e) {
-    if (!game || locked()) return;
+    if (chainOn || !game || locked()) return;
     S.unlock();
     touch = { x: e.clientX, y: e.clientY, t: performance.now(), dir: -1, done: false, id: e.pointerId, movers: null, frac: 0 };
     try { $('board').setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
@@ -645,7 +916,8 @@ var NNSound = (function () {
     $('info').innerHTML = h;
   }
   function renderModes() {
-    Array.prototype.forEach.call($('modes').children, function (b) { b.classList.toggle('on', b.dataset.mode === game.mode); });
+    var cur = chainOn ? 'chain' : game.mode;
+    Array.prototype.forEach.call($('modes').children, function (b) { b.classList.toggle('on', b.dataset.mode === cur); });
     $('sizes').classList.toggle('hide', game.mode !== 'classic');
     Array.prototype.forEach.call($('sizes').children, function (b) { b.classList.toggle('on', +b.dataset.size === game.size); });
   }
@@ -746,6 +1018,13 @@ var NNSound = (function () {
 
   // ================= sheets =================
   var HELP = {
+    chain: ['Chain Cube', [
+      'A numbered cube waits at the near end of the tray. <b>Drag</b> left or right to line it up, then <b>let go</b> to shoot it forward.',
+      'Two cubes with the <b>same number</b> that touch merge into one cube worth double: 2+2 = 4, 4+4 = 8, and so on.',
+      'A new cube <b>hops</b> toward the nearest cube with its new number, so merges can <b>chain</b>. Each merge scores its new number.',
+      'The cube after this one shows as <b>Next</b>.',
+      'If a cube is left <b>behind the red line</b> once everything settles, the game is over. Keep the tray from filling up.',
+      'There\u2019s no undo in Chain Cube.']],
     classic: ['Classic 2048', [
       '<b>Swipe</b> up, down, left or right. Every tile slides as far as it can.',
       'Two tiles with the <b>same number</b> that bump together merge into one: 2+2 = 4, 4+4 = 8, and so on. A tile merges once per swipe.',
@@ -763,7 +1042,7 @@ var NNSound = (function () {
       '<b>Undo:</b> 3 per game. After that, each extra undo costs one quick ad.']]
   };
   function openHelp() {
-    var h = HELP[game.mode];
+    var h = HELP[chainOn ? 'chain' : game.mode];
     $('helpTitle').textContent = 'How to play ' + h[0];
     $('helpList').innerHTML = h[1].map(function (x) { return '<li>' + x + '</li>'; }).join('');
     $('ovHelp').classList.add('show');
@@ -781,8 +1060,79 @@ var NNSound = (function () {
       '<div class="tile"><b>' + games + '</b><span>Games</span></div></div>';
     h += '<div class="themelabel">Trios</div><div class="tiles"><div class="tile"><b>' + fmt(t.best) + '</b><span>Best</span></div>' +
       '<div class="tile"><b>' + fmt(t.bestTile) + '</b><span>Top card</span></div><div class="tile"><b>' + t.games + '</b><span>Games</span></div></div>' +
+      '<div class="themelabel">Chain Cube</div><div class="tiles"><div class="tile"><b>' + fmt(stats.chain.best) + '</b><span>Best</span></div>' +
+      '<div class="tile"><b>' + NNChainLabel(stats.chain.bestTile) + '</b><span>Top cube</span></div><div class="tile"><b>' + stats.chain.games + '</b><span>Games</span></div></div>' +
       '<p class="version">Trios average ' + fmt(t.games ? Math.round(t.total / t.games) : 0) + ' · 4&times;4 Classic average ' + fmt(c4.games ? Math.round(c4.total / c4.games) : 0) + '</p>';
     $('statsBody').innerHTML = h;
+  }
+
+  // ================= Chain Cube (3D; three.js and cannon-es load the first time) =================
+  var chainOn = false, chainReady = false, chainRecorded = false;
+  function NNChainLabel(v) { return window.NNChain ? NNChain.label(v || 0) : String(v || 0); }
+  function saveChain() { if (chainReady && NNChain.state !== 'over' && NNChain.score > 0) store.set('game.chain', NNChain.snapshot()); }
+  function leaveChain() {
+    if (!chainOn) return;
+    saveChain(); chainOn = false;
+    if (window.NNChain) NNChain.stop();
+    $('chainwrap').classList.remove('show'); document.querySelector('.app').classList.remove('chainmode');
+  }
+  function startChain() {
+    flush();
+    if (game && !game.done) saveGame();
+    chainOn = true; meta.mode = 'chain'; saveMeta();
+    document.querySelector('.app').classList.add('chainmode'); $('chainwrap').classList.add('show');
+    renderModes(); renderChainInfo();
+    NNChain.load().then(function () {
+      $('chainMsg').classList.add('hide');
+      NNChain.mount($('chainwrap'), {
+        paused: locked, unlock: function () { S.unlock(); },
+        change: renderChainInfo,
+        sound: function () { S.slide(); },
+        merge: function (v) { S.merge(v); chainFloat('+' + NNChainLabel(v)); var st = stats.chain; if (v > st.bestTile) { st.bestTile = v; saveStats(); } renderChainInfo(); },
+        save: saveChain,
+        over: chainOver
+      });
+      if (!chainReady) {
+        chainReady = true;
+        var sv = store.get('game.chain', null);
+        if (sv && sv.cubes) NNChain.restore(sv); else NNChain.newGame();
+        chainRecorded = false;
+      }
+      renderChainInfo();
+      if (!meta.seen.chain) openHelp();
+    }).catch(function () {
+      $('chainMsg').textContent = 'Couldn\u2019t load the 3D view. Connect to the internet once and reopen.';
+    });
+  }
+  function renderChainInfo() {
+    if (!chainOn) return;
+    var st = stats.chain, sc = chainReady ? NNChain.score : 0, nx = chainReady ? NNChain.next : 2;
+    $('info').innerHTML = '<div><div class="lbl">Score</div><div class="big">' + fmt(sc) + '</div></div>' +
+      '<div class="nextbox"><div class="lbl">Next</div><div class="nextcube" style="background:' + NNChain.colorOf(nx) + ';color:' + NNChain.inkOf(nx) + '">' + NNChainLabel(nx) + '</div></div>' +
+      '<div class="right"><div class="lbl">Best</div><div class="mid">' + fmt(Math.max(st.best, sc)) + '</div></div>';
+  }
+  function chainFloat(t) {
+    var f = document.createElement('div'); f.className = 'float'; f.textContent = t;
+    $('cfloats').appendChild(f); setTimeout(function () { f.remove(); }, 850);
+  }
+  function chainRecord() {
+    if (chainRecorded || !NNChain.score) return;
+    var st = stats.chain; st.games++; st.total += NNChain.score; if (NNChain.score > st.best) st.best = NNChain.score;
+    chainRecorded = true; saveStats(); meta.finished++; saveMeta();
+    store.del('game.chain');
+  }
+  function chainOver() {
+    var best = NNChain.score > stats.chain.best, sc = NNChain.score;
+    chainRecord(); S.over();
+    showCard('Over the line', 'Score: <b>' + fmt(sc) + '</b>' + (best ? '<br><span class="newbest">New best!</span>' : '<br>Best: ' + fmt(stats.chain.best)) + '<br>Top cube: ' + NNChainLabel(NNChain.top), [
+      { label: 'New game', red: true, go: function () { between(function () { chainRecorded = false; NNChain.newGame(); renderChainInfo(); }); } }]);
+  }
+  function chainNew() {
+    if (!chainReady) return;
+    var go = function () { chainRecord(); between(function () { chainRecorded = false; NNChain.newGame(); renderChainInfo(); }); };
+    if (!NNChain.score || NNChain.state === 'over') { chainRecorded = false; NNChain.newGame(); renderChainInfo(); return; }
+    showCard('Start a new game?', 'This game ends with ' + fmt(NNChain.score) + ' points.', [
+      { label: 'New game', red: true, go: go }, { label: 'Keep playing', go: function () {} }]);
   }
 
   // ================= wiring =================
@@ -816,9 +1166,10 @@ var NNSound = (function () {
       if (k !== undefined) { e.preventDefault(); doMove(k); }
     });
     ['pointerdown', 'touchend', 'click'].forEach(function (ev) { document.addEventListener(ev, function () { S.unlock(); }, { passive: true }); });
-    $('btnHome').addEventListener('click', function () { saveGame(); Goobs.home(); });
+    $('btnHome').addEventListener('click', function () { saveGame(); saveChain(); Goobs.home(); });
     $('btnUndo').addEventListener('click', undo);
     $('btnNew').addEventListener('click', function () {
+      if (chainOn) { chainNew(); return; }
       var started = game.moves > 0 && !game.done;
       var go = function () { finish(); between(function () { start(game.mode, game.size, true); }); };
       if (!started) { start(game.mode, game.size, true); return; }
@@ -829,7 +1180,7 @@ var NNSound = (function () {
     });
     $('modes').addEventListener('click', function (e) {
       var btn = e.target.closest('button');
-      if (!btn || btn.dataset.mode === game.mode) return;
+      if (!btn || (btn.dataset.mode === game.mode && !chainOn) || (btn.dataset.mode === 'chain' && chainOn)) return;
       start(btn.dataset.mode, meta.size);
     });
     $('sizes').addEventListener('click', function (e) {
@@ -842,9 +1193,10 @@ var NNSound = (function () {
     $('btnHelp').addEventListener('click', openHelp);
     $('btnCloseHelp').addEventListener('click', function () {
       $('ovHelp').classList.remove('show');
-      if (!meta.seen[game.mode]) { meta.seen[game.mode] = true; saveMeta(); }
+      var m = chainOn ? 'chain' : game.mode;
+      if (!meta.seen[m]) { meta.seen[m] = true; saveMeta(); }
     });
-    $('ovHelp').addEventListener('click', function (e) { if (e.target === this) { this.classList.remove('show'); meta.seen[game.mode] = true; saveMeta(); } });
+    $('ovHelp').addEventListener('click', function (e) { if (e.target === this) { this.classList.remove('show'); meta.seen[chainOn ? 'chain' : game.mode] = true; saveMeta(); } });
     $('btnSound').addEventListener('click', function () { settings.sound = !settings.sound; saveSettings(); syncSound(); S.ding(); });
     $('setSound').addEventListener('change', function () { settings.sound = this.checked; saveSettings(); syncSound(); S.ding(); });
     $('setAds').addEventListener('change', function () { Goobs.setAds(this.checked); syncAds(); });
@@ -855,11 +1207,11 @@ var NNSound = (function () {
     function onResize() { if (!game) return; var w = $('board').getBoundingClientRect().width; if (Math.abs(w - lastW) > 0.5) { lastW = w; flush(); renderBoard(); } }
     if (window.ResizeObserver) new ResizeObserver(onResize).observe($('board'));
     window.addEventListener('resize', onResize);
-    document.addEventListener('visibilitychange', function () { if (document.hidden) saveGame(); });
-    window.addEventListener('pagehide', saveGame);
+    document.addEventListener('visibilitychange', function () { if (document.hidden) { saveGame(); saveChain(); } });
+    window.addEventListener('pagehide', function () { saveGame(); saveChain(); });
     syncSound(); syncAds();
 
-    start(meta.mode, meta.size);
+    if (meta.mode === 'chain') { start('classic', meta.size); start('chain'); } else start(meta.mode, meta.size);
     Goobs.markPlayed('merge');
     Goobs.initUpdates({
       beforeReload: saveGame,
@@ -868,7 +1220,7 @@ var NNSound = (function () {
   }
 
   // hook for automated tests
-  window.__nn = { get game() { return game; }, move: doMove, start: start, undo: undo, stats: function () { return stats; }, meta: function () { return meta; }, flush: flush };
+  window.__nn = { get chain() { return window.NNChain; }, get game() { return game; }, move: doMove, start: start, undo: undo, stats: function () { return stats; }, meta: function () { return meta; }, flush: flush };
 
   init();
 })();
