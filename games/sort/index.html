@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#5a54f0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Goobs-Games">
+<link rel="manifest" href="../../manifest.json">
+<link rel="apple-touch-icon" href="../../icons/icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="../../icons/icon-192.png">
+<link rel="stylesheet" href="../../shared/goobs.css">
+<script src="../../shared/goobs.js"></script>
+<script>
+/* if Splash Sort can't open, say so on screen (never a blank page) and offer a fresh start */
+(function () {
+  var shown = false;
+  function fail(msg) {
+    if (shown || window.__ssReady) return; shown = true;
+    function put() {
+      var d = document.createElement('div');
+      d.style.cssText = 'position:fixed;inset:0;z-index:99;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;background:#eaf3ff;color:#1b1f33;font:600 16px -apple-system,system-ui,sans-serif;text-align:center';
+      d.innerHTML = '<b style="font-size:21px">Splash Sort didn\u2019t open</b><div style="max-width:320px;opacity:.75;font-size:13px">' + String(msg).replace(/[<>&]/g, '') + '</div>';
+      function btn(t, bg, go) { var b = document.createElement('button'); b.textContent = t; b.style.cssText = 'font:800 17px -apple-system,system-ui,sans-serif;padding:13px 24px;border-radius:14px;border:0;color:#fff;background:' + bg; b.onclick = go; d.appendChild(b); }
+      btn('Start fresh', '#5a54f0', function () { try { localStorage.removeItem('sort.game'); } catch (e) { /* ignore */ } location.reload(); });
+      btn('All games', '#6b7080', function () { location.href = '../../'; });
+      document.body.appendChild(d);
+    }
+    if (document.body) put(); else document.addEventListener('DOMContentLoaded', put);
+  }
+  window.addEventListener('error', function (e) { fail((e.message || 'Something went wrong') + (e.lineno ? ' (line ' + e.lineno + ')' : '')); });
+  setTimeout(function () { if (!window.__ssReady) fail('It took too long to start.'); }, 6000);
+})();
+</script>
+<title>Splash Sort</title>
+<style>
+/* Splash Sort styles (themes, UI kit and ad cards come from /shared/goobs.css) */
+.brand h1 { font-size: 22px; }
+.stagewrap { flex: 1 1 auto; min-height: 0; width: calc(100% + 20px); margin: 0 -10px; display: flex; align-items: stretch; justify-content: center; }
+.stage { position: relative; flex: 1; border-radius: 18px; overflow: hidden; touch-action: none; margin: 0 10px;
+  background: radial-gradient(120% 90% at 50% 0%, #cfe9ff 0%, #a9d2ff 45%, #7fa8f0 100%); box-shadow: var(--shadow); }
+[data-theme="dark"] .stage, [data-theme="blue"] .stage { background: radial-gradient(120% 90% at 50% 0%, #2a3f6a 0%, #1b2a4c 55%, #121b33 100%); }
+.stage canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+.toast { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); max-width: 92%; text-align: center; pointer-events: none; opacity: 0; transition: opacity .25s;
+  background: rgba(20,24,36,.82); color: #fff; font-weight: 700; font-size: 14px; padding: 8px 14px; border-radius: 14px; }
+.toast.show { opacity: 1; }
+.tool { position: relative; }
+.tool .cnt { position: absolute; top: 4px; right: 8px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: var(--gold); color: #3a2a00; font-style: normal; font-weight: 800; font-size: 12px; line-height: 20px; }
+.tool.red .cnt { background: #ffffff; color: var(--accent); }
+.cardicon svg { border-radius: 16px; }
+.lvbig { font-size: 30px; }
+</style>
+</head>
+<body>
+<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="ss-logo" viewBox="0 0 100 100"><defs><linearGradient id="ssbg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5ec8ff"/><stop offset="1" stop-color="#3a6ef0"/></linearGradient></defs>
+<rect width="100" height="100" rx="24" fill="url(#ssbg)"/>
+<g stroke="#ffffff" stroke-width="3.2" fill="rgba(255,255,255,.22)"><path d="M18 22v52a9 9 0 0 0 18 0V22z"/><path d="M41 22v52a9 9 0 0 0 18 0V22z"/><path d="M64 22v52a9 9 0 0 0 18 0V22z"/></g>
+<path d="M19.6 62h14.8v12a7.4 7.4 0 0 1-14.8 0z" fill="#ff4d6a"/><path d="M19.6 48h14.8v14H19.6z" fill="#ffd21e"/><path d="M19.6 36h14.8v12H19.6z" fill="#ff4d6a"/>
+<path d="M42.6 62h14.8v12a7.4 7.4 0 0 1-14.8 0z" fill="#ffd21e"/><path d="M42.6 48h14.8v14H42.6z" fill="#3ad07a"/>
+<path d="M65.6 62h14.8v12a7.4 7.4 0 0 1-14.8 0z" fill="#3ad07a"/><path d="M65.6 48h14.8v14H65.6z" fill="#3ad07a"/><path d="M65.6 36h14.8v12H65.6z" fill="#3ad07a"/><path d="M65.6 24h14.8v12H65.6z" fill="#3ad07a"/>
+<rect x="16" y="16" width="22" height="6" rx="2" fill="#ffffff"/><rect x="39" y="16" width="22" height="6" rx="2" fill="#ffffff"/><rect x="62" y="12" width="22" height="9" rx="3" fill="#b8793a"/></symbol>
+<symbol id="i-plus-tube" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3v14a3 3 0 0 0 6 0V3"/><path d="M5.5 3h9M18 8v6M15 11h6"/></g></symbol>
+<symbol id="i-pause" viewBox="0 0 24 24"><g fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1.3"/><rect x="14" y="5" width="4" height="14" rx="1.3"/></g></symbol>
+<symbol id="i-play" viewBox="0 0 24 24"><path d="M7 5.2v13.6a1 1 0 0 0 1.5.9l11-6.8a1 1 0 0 0 0-1.7l-11-6.8A1 1 0 0 0 7 5.2z" fill="currentColor"/></symbol>
+<symbol id="i-sound-on" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor" fill-opacity=".15"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19.3 5.7a9 9 0 0 1 0 12.6"/></g></symbol>
+<symbol id="i-sound-off" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor" fill-opacity=".15"/><path d="M16.5 9.5l5 5M21.5 9.5l-5 5"/></g></symbol>
+<symbol id="i-stats" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3"/></g></symbol>
+<symbol id="i-gear" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></g></symbol>
+<symbol id="i-undo" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></g></symbol>
+<symbol id="i-new" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 3v5h-5"/></g></symbol>
+<symbol id="i-levels" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5" fill="currentColor" fill-opacity=".35"/></g></symbol>
+<symbol id="i-help" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.3a2.6 2.6 0 0 1 5 .9c0 1.8-2.5 2.2-2.5 3.9M12 17.3v.2"/></g></symbol>
+</defs></svg>
+
+<div class="app" id="app">
+  <div class="top">
+    <button class="brand homebtn" id="btnHome" aria-label="Back to all games">
+      <span class="chev" aria-hidden="true">&#8249;</span>
+      <svg viewBox="0 0 100 100" aria-hidden="true"><use href="#ss-logo"/></svg>
+      <h1>Splash Sort</h1>
+    </button>
+    <div class="topbtns">
+      <button class="iconbtn" id="btnSound" aria-label="Sound"><svg viewBox="0 0 24 24"><use href="#i-sound-off"/></svg></button>
+      <button class="iconbtn" id="btnStats" aria-label="Stats"><svg viewBox="0 0 24 24"><use href="#i-stats"/></svg></button>
+      <button class="iconbtn" id="btnSettings" aria-label="Settings"><svg viewBox="0 0 24 24"><use href="#i-gear"/></svg></button>
+    </div>
+  </div>
+
+  <div class="modes" id="modes">
+    <button data-mode="water">Water</button>
+    <button data-mode="balls">Balls</button>
+  </div>
+
+  <div class="info" id="info"></div>
+
+  <div class="stagewrap" id="stagewrap">
+    <div class="stage" id="stage">
+      <canvas id="cv"></canvas>
+      <div class="toast" id="toast"></div>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <button class="tool" id="btnRestart"><svg viewBox="0 0 24 24"><use href="#i-new"/></svg><span>Restart</span></button>
+    <button class="tool" id="btnUndo"><svg viewBox="0 0 24 24"><use href="#i-undo"/></svg><span>Undo</span><i class="cnt" id="undoCnt">5</i></button>
+    <button class="tool red" id="btnTube"><svg viewBox="0 0 24 24"><use href="#i-plus-tube"/></svg><span>Tube</span><i class="cnt" id="tubeCnt">1</i></button>
+  </div>
+</div>
+
+<!-- Settings -->
+<div class="overlay" id="ovSettings">
+  <div class="sheet" role="dialog" aria-label="Settings">
+    <h2>Settings</h2>
+    <div class="sheetbody">
+      <div class="themelabel">Theme (all games)</div>
+      <div class="themes" id="themes"></div>
+      <label class="row"><div>Color symbols<small>A small shape on each color, so colors are easy to tell apart (bright sun, color blindness).</small></div>
+        <span class="switch"><input type="checkbox" id="setSymbols"><span></span></span></label>
+      <label class="row"><div>Sound<small>Pours, clinks and pops.</small></div>
+        <span class="switch"><input type="checkbox" id="setSound"><span></span></span></label>
+      <label class="row"><div>Old-time ads<small>Joke ads between levels. This switch is shared by all Goobs-Games.</small></div>
+        <span class="switch"><input type="checkbox" id="setAds"><span></span></span></label>
+      <div class="row" id="rowAdEvery"><div>Show an ad every<small>Counted in finished levels.</small></div>
+        <div class="stepper"><button id="adLess" aria-label="Fewer">&minus;</button><b id="adEvery">3</b><button id="adMore" aria-label="More">+</button></div></div>
+      <div class="version" id="version">Splash Sort</div>
+    </div>
+    <div class="actions"><button class="btn red" id="btnCloseSettings">Done</button></div>
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="overlay" id="ovStats">
+  <div class="sheet" role="dialog" aria-label="Stats">
+    <h2>Your Splash Sort records</h2>
+    <div class="sheetbody" id="statsBody"></div>
+    <div class="actions"><button class="btn red" id="btnCloseStats">Done</button></div>
+  </div>
+</div>
+
+<!-- How to play -->
+<div class="overlay" id="ovHelp">
+  <div class="sheet" role="dialog" aria-label="How to play">
+    <h2>How to play</h2>
+    <div class="sheetbody"><ol class="helplist" id="helpList"></ol></div>
+    <div class="actions"><button class="btn red" id="btnCloseHelp">Let's play</button></div>
+  </div>
+</div>
+
+<!-- Cards -->
+<div class="overlay center" id="ovEnd">
+  <div class="card" role="dialog">
+    <div class="cardicon" id="cardIcon"></div>
+    <h2 id="endTitle"></h2>
+    <p id="endText"></p>
+    <div class="actions" id="endActions"></div>
+  </div>
+</div>
+
+<script>
+/* Splash Sort rules (no DOM; runs in Node for the level tools and tests).
+   A level is a row of tubes, each holding up to CAP units of colour, listed bottom → top.
+   Water: a pour moves the whole top run of one colour, as much as fits. Balls: a move takes one ball.
+   You may only pour onto the same colour or into an empty tube. Solved = every tube empty or full of one colour.
+   Level strings: tubes joined by '.', colours as letters a-l, bottom first ("abca.bcab.cabc.."). */
+var SS = (function () {
+  'use strict';
+  var CAP = 4;
+  function top(t) { return t.length ? t[t.length - 1] : -1; }
+  function runLen(t) { var n = 0, c = top(t); for (var i = t.length - 1; i >= 0 && t[i] === c; i--) n++; return n; }
+  function done(t, cap) { return t.length === cap && runLen(t) === cap; }
+  function parse(str) { return str.split('.').map(function (s) { return s.split('').map(function (ch) { return ch.charCodeAt(0) - 97; }); }); }
+  function serial(tubes) { return tubes.map(function (t) { return t.map(function (c) { return String.fromCharCode(97 + c); }).join(''); }).join('.'); }
+  function colours(tubes) { var m = 0; tubes.forEach(function (t) { t.forEach(function (c) { if (c + 1 > m) m = c + 1; }); }); return m; }
+
+  function create(str, opts) {
+    opts = opts || {};
+    var tubes = parse(str);
+    return { start: str, tubes: tubes, cap: CAP, balls: !!opts.balls, moves: 0, hist: [], undos: opts.undos == null ? 5 : opts.undos, extra: opts.extra == null ? 1 : opts.extra, added: 0 };
+  }
+  // how many units a move a → b would carry (0 = not allowed)
+  function canMove(g, a, b) {
+    if (a === b || a < 0 || b < 0 || a >= g.tubes.length || b >= g.tubes.length) return 0;
+    var A = g.tubes[a], B = g.tubes[b];
+    if (!A.length || B.length >= g.cap) return 0;
+    if (B.length && top(B) !== top(A)) return 0;
+    return g.balls ? 1 : Math.min(runLen(A), g.cap - B.length);
+  }
+  function move(g, a, b) {
+    var n = canMove(g, a, b); if (!n) return null;
+    var A = g.tubes[a], B = g.tubes[b], c = top(A);
+    for (var i = 0; i < n; i++) B.push(A.pop());
+    g.moves++; g.hist.push([a, b, n]);
+    return { a: a, b: b, n: n, c: c, filled: done(B, g.cap), won: solved(g) };
+  }
+  function undo(g) {
+    if (!g.hist.length || g.undos <= 0) return null;
+    var h = g.hist.pop(), A = g.tubes[h[0]], B = g.tubes[h[1]];
+    for (var i = 0; i < h[2]; i++) A.push(B.pop());
+    g.undos--; g.moves++;
+    return { a: h[1], b: h[0], n: h[2], c: top(A) };
+  }
+  function addTube(g) { if (g.extra <= 0) return false; g.extra--; g.added++; g.tubes.push([]); return true; }
+  function restart(g) { var r = create(g.start, { balls: g.balls }); for (var k in r) g[k] = r[k]; return g; }
+  function solved(g) { return g.tubes.every(function (t) { return !t.length || done(t, g.cap); }); }
+  // moves that actually change something (not a finished tube, not a one-colour tube into an empty one)
+  function usefulMoves(g) {
+    var out = [];
+    for (var a = 0; a < g.tubes.length; a++) {
+      var A = g.tubes[a]; if (!A.length || done(A, g.cap)) continue;
+      var uniform = runLen(A) === A.length;
+      for (var b = 0; b < g.tubes.length; b++) { if (!canMove(g, a, b)) continue; if (uniform && !g.tubes[b].length) continue; out.push([a, b]); }
+    }
+    return out;
+  }
+
+  // ---------------- solver (water rules; a water-solvable level is also ball-solvable) ----------------
+  // depth-first with a visited set; returns { moves: [[a,b],...], nodes } or { moves: null, nodes }
+  function solve(str, limit, rnd) {
+    limit = limit || 200000;
+    var start = parse(str), cap = CAP, seen = new Set(), nodes = 0;
+    function key(ts) { return ts.map(function (t) { return t.join(','); }).sort().join('|'); }
+    function isSolved(ts) { return ts.every(function (t) { return !t.length || (t.length === cap && runLen(t) === cap); }); }
+    function options(ts) {
+      var out = [], emptyUsed = false;
+      for (var a = 0; a < ts.length; a++) {
+        var A = ts[a]; if (!A.length || (A.length === cap && runLen(A) === cap)) continue;
+        var rl = runLen(A), uniform = rl === A.length, c = top(A);
+        emptyUsed = false;
+        for (var b = 0; b < ts.length; b++) {
+          if (a === b) continue; var B = ts[b];
+          if (B.length >= cap) continue;
+          if (!B.length) { if (uniform || emptyUsed) continue; emptyUsed = true; out.push([a, b, 1 + (rnd ? rnd() : 0)]); continue; }
+          if (top(B) !== c) continue;
+          var n = Math.min(rl, cap - B.length);
+          // prefer moves that complete a run or empty the source's top run
+          out.push([a, b, (n === rl ? 3 : 2) + (B.length + n === cap && runLen(B) + n === cap ? 2 : 0) + (rnd ? rnd() : 0)]);
+        }
+      }
+      out.sort(function (x, y) { return y[2] - x[2]; });
+      return out;
+    }
+    var path = [], stack = [{ ts: start, opts: null, i: 0 }];
+    seen.add(key(start));
+    while (stack.length) {
+      var fr = stack[stack.length - 1];
+      if (!fr.opts) { if (isSolved(fr.ts)) return { moves: path.slice(), nodes: nodes }; fr.opts = options(fr.ts); }
+      if (fr.i >= fr.opts.length) { stack.pop(); path.pop(); continue; }
+      var o = fr.opts[fr.i++], ts = fr.ts.map(function (t) { return t.slice(); }), A = ts[o[0]], B = ts[o[1]];
+      var n = Math.min(runLen(A), cap - B.length); for (var k = 0; k < n; k++) B.push(A.pop());
+      var kk = key(ts); if (seen.has(kk)) continue; seen.add(kk);
+      if (++nodes > limit) return { moves: null, nodes: nodes, gaveUp: true };
+      path.push([o[0], o[1]]); stack.push({ ts: ts, opts: null, i: 0 });
+    }
+    return { moves: null, nodes: nodes };
+  }
+
+  // ---------------- level recipe and generator ----------------
+  // colours per level (the originals start tiny and reach 12 colours + 2 spare tubes)
+  function coloursFor(n) { return n <= 1 ? 2 : n <= 2 ? 3 : n <= 5 ? 4 : n <= 10 ? 5 : n <= 20 ? 6 : n <= 35 ? 7 : n <= 55 ? 8 : n <= 80 ? 9 : n <= 120 ? 10 : n <= 200 ? 11 : 12; }
+  function emptiesFor(n) { return n <= 1 ? 1 : 2; }
+  function rng(seed) { var s = (seed >>> 0) || 1; return function () { s ^= s << 13; s >>>= 0; s ^= s >>> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; }; }
+  // a well-mixed random fill: no tube starts finished, few same-colour neighbours
+  function generate(nc, empties, r) {
+    for (var tries = 0; tries < 500; tries++) {
+      var units = []; for (var c = 0; c < nc; c++) for (var k = 0; k < CAP; k++) units.push(c);
+      for (var i = units.length - 1; i > 0; i--) { var j = Math.floor(r() * (i + 1)), t = units[i]; units[i] = units[j]; units[j] = t; }
+      var tubes = [], pairs = 0, bad = false;
+      for (var q = 0; q < nc; q++) { var tb = units.slice(q * CAP, q * CAP + CAP); tubes.push(tb); for (var m = 1; m < CAP; m++) if (tb[m] === tb[m - 1]) pairs++; if (runLen(tb) === CAP) bad = true; }
+      if (bad || pairs > Math.max(1, Math.floor(nc / 3))) continue;
+      for (var e = 0; e < empties; e++) tubes.push([]);
+      return serial(tubes);
+    }
+    return null;
+  }
+  // levels past the shipped list are made on the device the same way (12 colours, checked solvable)
+  function levelBeyond(n) {
+    var r = rng(n * 2654435761);
+    for (var i = 0; i < 40; i++) { var s = generate(12, 2, r); if (s && solve(s, 60000).moves) return s; }
+    return generate(12, 3, r);
+  }
+  return { CAP: CAP, top: top, runLen: runLen, done: done, parse: parse, serial: serial, colours: colours, create: create, canMove: canMove, move: move, undo: undo, addTube: addTube, restart: restart,
+    solved: solved, usefulMoves: usefulMoves, solve: solve, coloursFor: coloursFor, emptiesFor: emptiesFor, rng: rng, generate: generate, levelBeyond: levelBeyond };
+})();
+if (typeof module !== 'undefined') module.exports = SS;
+</script>
+<script>
+window.SS_LEVELS = ["baba.abba.","cbca.babb.caca..","cadd.dacb.cbab.dbac..","adbc.ddcb.dcab.abac..","bdbc.bcac.aacd.dadb..","ecad.beeb.daec.dcad.abcb..","debe.bdba.dcce.baec.adac..","ecbd.bdea.bccd.abca.eaed..","cbad.cece.aceb.bade.bdda..","eaba.edad.bdec.dbce.bcac..","edba.adbe.baec.feff.cadd.cfbc..","cade.babf.cecf.afdd.ebfe.abdc..","bece.adbe.cbda.adff.dfeb.ccaf..","fcbe.caef.eacf.decd.abfb.dbad..","daec.faaf.cfcd.edfb.edeb.babc..","bffa.acea.bfce.dcdd.decb.feba..","bfab.ecfe.baed.dbda.cace.dcff..","bede.bbdf.dffd.acac.bafc.ecea..","ffdf.fbaa.aeab.ecde.bcec.dcdb..","cbdd.caeb.aaef.fcef.dafb.ecbd..","ecae.bbaa.fgcf.dgdg.cecb.degf.bfda..","eacg.cdga.dbbe.ffgd.aebd.geca.bfcf..","gdbg.fbda.daee.afcg.gbfc.ecbe.fcad..","bebd.caeg.egfd.ffca.daeg.gfdc.acbb..","fbde.cbcf.dbde.feba.fcge.cgag.gdaa..","cdad.gdag.fcfb.febc.dece.bfgg.aabe..","adde.dceb.ecfb.cgcf.aebf.gbga.dagf..","begg.cbff.fdec.cdba.ebag.dgea.acdf..","fega.bafd.edfd.faab.bcgc.cegb.gecd..","afbb.ecda.fage.bacg.gefd.bedc.cdfg..","cggf.eced.bdad.abag.cfbc.edba.gfef..","adcb.accf.bdad.agfe.gfee.fceb.gdgb..","gdbg.fged.bbeg.aacd.fece.acfc.dfba..","bbfe.fcae.gdca.dgae.fdcc.edaf.gbgb..","ffcd.fdbg.deca.cgcb.defe.gega.abba..","bebg.cefc.dafd.heda.hghb.ahag.bcfd.cegf..","abfd.bafe.hhag.gagh.decd.fecb.gdcc.fehb..","hcha.dcah.geab.bccg.ehfg.dgfb.dfab.edef..","adgb.ahdf.bcce.fhag.eaeb.dhgd.cbgf.hfce..","abcf.acgg.cebe.bfca.hhfb.dged.edfh.dgha..","abhe.gafe.ebha.dcfh.ggdc.fdaf.cbeh.bgdc..","eahc.hcfe.dgfe.gaab.cdhf.cedg.bghd.babf..","cecd.fhdg.cfhb.abae.dhdg.effa.ebhg.acgb..","dghc.cecd.gbah.feah.adag.heed.bfbf.fgbc..","fecb.abhe.fhga.gdba.cggh.dedf.fhba.cecd..","hfha.eghf.bfga.cgba.eged.bfbd.dhad.eccc..","aedd.fcbg.fefb.agag.dhdb.eghc.bcef.hcah..","bcgd.deeg.ahgc.fbag.defh.dbfh.hcaa.cfeb..","debe.gaef.egbd.badh.hcch.hgdf.cfbf.gaca..","bhdg.eeab.ghbd.ahfd.gaed.hfbc.caec.cfgf..","aaeh.fbhe.dagh.dadc.gefh.bcfc.ggfb.dbec..","cbcf.fgbf.dbeb.dchg.ehea.cadg.ahge.dhaf..","fdad.bgfg.eadb.adhg.eahc.fech.fceb.hgbc..","bfdb.cgfg.ahce.ahhe.bdea.edfd.hfbg.agcc..","dcgf.dfce.eaab.bdga.ghbh.hfbe.ccah.gefd..","ihfe.cehb.gefd.aafg.gabd.agci.hbbd.chdi.icfe..","ceah.bbci.fead.dhea.icib.cdhb.degg.hfgg.ifaf..","eafd.cage.bgah.dicg.ihfi.gebd.icbc.baff.hdeh..","aiah.acce.faih.ggdf.higb.cdhc.bege.fdbd.bief..","hfba.ffdh.bbid.cdcb.hdce.aihg.eecg.fagi.ieag..","ffca.ehdi.hghb.bgih.eebd.daai.acdc.gfcb.efgi..","gabh.eahi.egci.hbff.hffc.bagb.cdid.gaed.iecd..","baei.bgcg.dihd.haig.effa.gdce.bcfd.fahb.ihce..","gbac.cidg.agag.dhed.bfhb.fief.ehbh.efda.icci..","ggcb.aiad.beha.gbfi.dhhc.dhea.ecbi.ffec.ifdg..","dbdg.ahii.bace.hbae.ggeg.cfhb.chde.fiac.fidf..","fafb.eecc.aigd.bcac.ibfe.fgde.hbad.digh.ihgh..","dfgf.bade.ghga.ibcf.ihbb.hdfc.acde.aeih.geci..","bhdg.hfab.adih.ecfc.ghaf.ifdg.eacb.edbg.ieic..","dhbf.dehg.gfff.adgi.cbce.ciei.ibeg.hcaa.abdh..","dcfd.fiba.hefc.efgc.dgbd.aehi.cahb.ghib.giae..","agei.deic.cdfc.aggi.chbh.ebag.hbff.abhd.feid..","eaeh.cbge.dcif.gcag.bffh.ecda.difi.gbid.hhba..","fhgi.fdfg.aibd.eebi.fhbg.caie.bdac.chch.egad..","ihfg.cahd.adie.gigc.fefb.ahhc.fded.aebb.gbci..","gdii.gdef.acib.fhba.bicd.hcgd.ffee.caba.hgeh..","dhbi.bfch.igef.bfeh.acfc.debg.idhd.ggai.aeca..","afgh.idbf.bieh.egdd.aeia.bcif.fgga.edhc.cchb..","fcbc.dfca.ihff.gbig.eeid.hdga.hdae.bceg.haib..","acbd.fgdg.acih.debh.aiae.dfei.figf.hbgb.ehcc..","hega.jgfi.ciae.dhbf.ibda.bbgc.jfdi.eajg.chch.dfje..","jbdj.cdjg.fehd.cgai.eiaa.fifg.cjah.hbde.bbcg.efih..","bcbb.ahfe.jfei.hbae.igfd.dhhe.jgjj.cadc.dagf.gici..","jeff.iahd.cfba.acde.bcie.gggd.fihd.hjgj.ebjc.aibh..","jhig.jgbf.ecdd.iehc.fhag.acib.jdca.ejei.hfad.bgfb..","hihd.gech.acjh.cgff.jjad.beea.abgd.jbdf.icei.fbig..","ecjg.fbdb.edbh.hfcc.gfgb.fhjh.iaia.djea.cejd.gaii..","hgfd.ijha.ajed.gbjd.ceah.hfad.cibi.ccef.jegg.fbbi..","djab.jeae.hcfa.icde.ahhc.icdj.bfdf.igjg.igfe.gbhb..","cajj.icif.ejhb.jfgf.ebde.ahdd.gbic.dghg.ahae.icbf..","bcee.cgdj.idig.cica.hhfa.fbaj.gagd.bjei.fjdh.bhfe..","fjbd.ifgd.bhbf.jdag.bcgh.aeee.hfdi.ajah.icig.jcce..","hjhf.dhbe.ggad.jcia.hejg.igcd.cbaf.jbfe.ibcd.efai..","bche.edjd.jiff.faia.bedj.ihcj.hgcf.gbga.agce.hbid..","egjd.fgcb.haaj.cece.hbfj.cfdf.edgh.idha.ibga.jibi..","bafc.fdig.efcg.fjag.idej.jbhh.haje.bebg.hcdd.ciai..","jejj.fdic.ahgi.dcai.gjag.fbeb.fcdg.hehf.dbih.aceb..","ebdi.eajh.gbaa.fich.bdcj.hjdg.cjfi.fhca.dgbe.egfi..","dhih.febe.chac.hijb.eijf.djcf.jifg.geda.bbgc.gaad..","dgge.hbce.dfif.cbca.ijge.ihbj.ahid.jcde.fhbg.afaj..","agif.ejhf.jifc.eagj.gade.hjid.afic.bbdb.cdbe.chhg..","gjce.afej.cgdj.fbhd.ghji.cifc.ehaa.hbbi.egfi.dabd..","dfbd.aibe.adij.dcah.fhji.cfbc.ghfe.gbia.cgee.hjjg..","ghif.bajd.cbjc.faha.cdha.dgfb.jfjh.geeb.ciii.edge..","ibjc.iahj.abcd.fdfe.iahg.hfgd.eigd.ajbc.hefj.gecb..","efci.hijb.ehde.ihag.jibg.ejca.fgfg.hcab.jabd.cddf..","bcih.fcba.ehgd.jchj.aejd.gdag.cfge.fife.iiab.bhdj..","jbcf.agei.ijea.aagb.hiei.cbdj.egfh.gjdb.fdch.dfhc..","hdbi.ijje.ejhd.ghed.fgaj.ecbf.cbag.bfaa.icfg.chid..","cihc.fdag.djdb.jehh.jcea.ibfj.figd.abhe.begf.acig..","cigi.jeej.fhed.ehag.ifcc.acbg.dfja.bdaj.bhbg.fhdi..","ifid.aebh.ehdi.bcbf.gbcj.hjhc.ijad.deag.gcff.jgae..","igig.hjff.jhib.cfbd.dedi.gceh.dhbj.gcec.fbea.aaja..","abhc.fjig.abge.dehh.hcff.defj.bggi.dcid.jcba.eaji..","begc.fcai.ghdd.haea.cegi.bbef.jjid.hfgc.ijbf.dajh..","dbjg.hecd.bdac.gjee.hjba.ihji.abef.iagf.fdgc.cfhi..","idhf.gfdf.bbaj.dcjc.higi.afea.gcag.ibed.hjeb.jhce..","bjha.ibca.iefj.ejha.cadd.ifbc.gijh.dgdg.heef.gcfb..","gccf.dgad.debh.ijcj.gbgi.ehfa.eaaf.jhfb.icbe.hijd..","dbgg.icbf.hfid.eajf.cebg.gijd.eajj.hafd.hceh.aibc..","kjch.ebfb.heda.fgbi.kejd.kafj.eiia.dfhj.khgg.bcca.dcig..","ibdh.cihe.cdae.gkde.bifa.ikab.kgck.hffe.jhaj.jjbg.cfdg..","chce.idde.ekge.jhaj.baib.cjhf.ifgg.gaja.dkbh.ikfd.fbck..","bdhd.cbkh.jdfe.bkea.fcfh.ikaa.eegf.gbji.gija.jgdh.ikcc..","fcaj.hgcd.abbk.hcdk.hafj.jcfk.gbkd.eifg.iiaj.eegi.edhb..","igbd.jfce.bgcj.aagc.khee.kahf.jbdh.fibe.adif.kdhg.jick..","fjca.kkbc.gdbg.ceki.fhab.daah.jkei.icbh.ehgf.jdfi.dgej..","gfab.cdgd.hhkk.kcde.egij.kbej.iace.afgj.ihbb.fadf.hjic..","hgbh.ekff.cgib.faej.dbji.jdhd.keaf.kicd.khie.agaj.bcgc..","fhea.kcib.bgcd.ifba.kdki.dbga.ecje.jhag.jidj.hfhf.ckge..","badc.hcfa.kgjh.ceba.ifgg.eeii.gedj.fhak.fjck.dbhi.bdjk..","jfah.ccjg.ckjb.igeg.fbke.dkek.ihfc.ahfj.addd.bhgi.ibea..","dcfa.fgjj.hifb.edbd.igch.jaie.jeak.kchk.cgeh.bbdi.fgak..","jhkb.ebee.ahac.gfhc.eifj.fdjg.cjci.fbhg.kbak.diid.kagd..","ijab.kfge.fdci.hcbe.ghch.dhja.ajck.diea.gdkf.bijg.kebf..","ffih.haed.ebdc.cihj.dkie.bfdk.fgca.ikgh.bjja.bcgk.gaej..","gfai.jegc.kadc.acad.hegb.jjec.hkhb.gffi.khbj.dedi.fibk..","gcii.fdhj.bddb.fgbj.igha.fchj.cdjh.gkak.eace.bifk.aeke..","hedf.kbae.ejgh.afcf.higi.dcbd.kifg.gdaj.ciab.jhcj.bkke..","kjke.kcid.bkef.hgci.geaj.jhif.dbib.jhfc.agdf.dahg.cbea..","gafk.ihgk.bjcg.dhaf.feea.cacf.jjig.khij.ekcd.ebdi.dbbh..","kfje.ecac.aahg.ahgj.fehd.gkid.dicb.bcdb.ifkg.bfjk.hjei..","egac.fkai.bdji.ddkg.egfe.becj.khjh.idbj.khgh.ifac.bcaf..","jabk.jgci.agij.hdac.dekb.icdi.fffe.hbeb.haej.kgck.hdgf..","kjhf.bkeg.ccae.jhbb.edij.dckd.hcbf.jdai.igef.aggh.ikfa..","gbhg.aehc.gedb.dffi.kgac.dhci.bfje.jhji.jfik.aaek.dkbc..","jjak.dbdc.ikea.idef.hgbc.ceck.gfhj.kbif.feah.gibh.gjda..","jkcc.jfbf.dabi.aafj.ihbj.ddgc.ekhg.eikd.cghe.fkbh.geia..","icci.hbhi.dajh.fahb.eeki.dgbk.bajf.jcfk.eagk.cefg.dgdj..","cfgk.ifda.jiih.bhhc.hgje.idfe.gbek.dadb.kcej.jbga.akcf..","igab.kidf.cjch.bbcg.bkhf.aecd.ajjd.ghke.eihd.fefg.kjai..","ijda.hcgd.kfhc.eabf.cadj.hjdk.gkbb.igea.eefk.ibci.fhjg..","giac.fjeg.jcfh.edfh.biba.ijkh.bgak.edkd.ckgi.feha.bdcj..","khjb.eage.ghbk.ickb.ajed.aidg.fjji.feci.dhcf.dfcg.kahb..","cgac.hcbk.eadd.hkdj.jhdj.fgfa.iebb.aifb.ikhi.jfkc.gege..","bchb.gcde.gfhk.kiad.fejc.ijai.dgki.fkdj.feab.hjgb.ehca..","adib.abdi.efjc.hchg.egac.kigf.febe.ajfh.djij.kdck.hbkg..","fhgg.dcke.cihj.ebdg.gaci.adkh.fjii.ahbj.aebc.kdff.jbke..","afhh.kbec.bdec.bifb.ijjd.fiej.egca.kfka.agch.kgih.jgdd..","bjcf.eagf.kiid.dbje.gecb.fkkc.agia.fhdc.hjeh.kdjh.igab..","gkah.kejf.dbcj.hfaa.iheb.ibae.dfeg.ghjb.ckkc.gcid.dfij..","iecc.dkba.hkae.bfbh.cjib.jhdg.ggae.dcif.iafk.jjfh.egkd..","bdfg.hcea.ebkk.jgbe.bdad.gfak.cgcj.ifja.fiih.ehjd.ckhi..","cjij.fbad.jfcg.dibk.aekh.bgkd.dghh.keja.cgba.iehc.ffei..","bhgf.hjhc.kbih.iaba.ddig.bega.kegk.idjf.afke.cdce.jfcj..","jacd.igia.jecg.hhjc.eifk.fhhe.ajci.bgef.dkgk.fddb.bkba..","egid.geih.khfb.fkif.gajd.ekkd.bhgf.ccib.jaac.jdjb.ache..","ikch.bfdc.ceab.jfgh.iehk.eaad.eikb.cgdb.jfgg.fjij.adkh..","adbd.gikc.abai.ihjd.egbk.eabk.fjfe.jghc.cgjk.fcdh.hfei..","fhad.hbfk.bdjj.jegi.afik.jdcb.ahif.echg.ecge.agdc.ikbk..","beaf.jjeh.jdkd.dbbk.hacc.ckif.ahie.jgdk.hefb.gcai.igfg..","iefh.dbcj.ejid.kchj.ejch.fibe.aaak.kgdh.gabf.kigc.fdgb..","kbaj.hdib.faeg.gdge.jadb.ekhj.icei.dfac.bckh.figh.fckj..","edek.dbjf.gakb.ccdf.dkhi.jgeg.hbjc.ceai.kaha.ifif.gbjh..","baie.hiji.igjd.cbfa.hgfk.gdka.bfea.fhej.dbck.hjdc.kgce..","bebh.fgia.kaai.iijd.fhgd.hgkj.djef.ccdj.kcab.gehe.fbck..","jkch.dfbf.khha.fekd.bjke.acgg.iiab.acec.igjd.bide.jhgf..","dead.cjga.bkbk.cefk.hhjf.hkeb.cgif.fdgj.ciij.adba.gieh..","hfjg.ggib.kijb.aefc.fkch.eeei.bdck.gadb.kdfh.hcji.ajda..","gjig.ceii.bkad.acai.dkja.egfh.kbhf.kfcg.ejed.jchb.dfhb..","dhbj.cgfb.kjib.ccgf.fhad.kefd.jkgk.gaah.ciei.ieha.jdbe..","jdha.bhcf.eghe.fide.iejc.gkjc.ajkk.dahk.ggcf.bidb.aibf..","igfj.ecgb.fbgc.jake.hbjd.kcfa.dbki.dade.gihe.kcai.jfhh..","fgaa.hdib.eefj.fjkb.ehbj.chaa.dhif.dcki.igje.kbgk.cdcg..","kdag.ijjc.hgae.ajbb.kkhj.difd.bief.ghic.efhg.dceb.kfca..","abid.gijk.jcae.ebaf.fkcf.ddkd.aegj.hcei.jhgg.hcik.fhbb..","hjfi.fegd.bkic.eiki.gejd.hkgj.akah.gbaa.bdec.cfjc.fdbh..","bhhj.fkdi.ajbc.ajfi.ebdg.ajfa.eigd.dbge.kckh.fkig.chce..","ehba.bfcg.cjjk.jfeg.cgee.gdkj.hikd.hibf.diai.cbka.ahdf..","agch.bjia.fgkb.bfcg.edfj.hiaa.cchd.kedj.ighe.kdkf.jebi..","bbch.daib.khda.aejh.fcba.ifcj.cike.hdkf.ggkj.fgie.dgej..","dibb.hjed.hccg.cief.khbe.hfjk.debk.kfag.jgai.aajf.dcgi..","jdke.akih.fjei.hhkg.fgdf.iaah.acbc.jbki.gcej.defb.dgcb..","eiif.kjga.aihb.kejf.hhcb.bgcg.kidc.adah.ebdk.jfjf.dcge..","ekia.kgjh.ckee.hkfc.fbcb.ggih.jdbd.iadg.adje.aifb.jhfc..","hihe.acjd.akgd.jkfb.dghe.fabe.kiid.fecc.hjig.fjga.bckb..","bhkc.ebic.gkfi.gdbf.hckj.ghjj.akfj.bida.dfee.adgh.eaic..","dcgh.kecd.gbfc.cbej.ebaj.ihef.jkkk.dhfi.fdba.ihjg.gaai..","cjef.dgif.hbbe.ihbg.ifdk.gfcd.kaci.gjdk.ehaj.ckjh.aabe..","fkgi.bcjb.iefj.aahg.ihee.dabh.gkad.cekj.dfbk.fjhg.dicc..","eili.difc.hega.ccfk.iaae.hhdg.lcbg.galb.fbjd.lekj.jbfj.khdk..","gakh.blfa.kceg.fglc.bkgb.ejih.ifif.kleh.hjdc.bdac.jiej.adld..","gika.cghd.gcjf.bifl.blee.cbdh.jbhi.kcaf.kfdd.leja.khal.jegi..","hilk.jabf.glcd.khhe.hcge.alif.eila.kcbb.fgfk.ejgc.ddji.badj..","cbfg.cfhk.kidl.hjdh.dcfe.kaea.kiie.jajj.fgbd.llge.bbci.lgah..","fcce.hgai.dadf.jega.ifhg.dakk.bhjj.flcb.clei.lkhe.bkgj.bldi..","kbak.jjfe.cfga.llef.jlca.bddb.iech.fdjl.cggi.hkhe.igdh.kbai..","ggdh.hlcb.giki.klgl.ehil.kdab.ceja.cjad.bcfe.ieak.fjfj.dbhf..","ejid.albe.gdce.khlk.cfjd.khfi.daki.ggca.aljh.fjbb.iche.fglb..","hekl.afdj.ggde.hkhi.leje.fbcb.bafh.jlgc.kgkd.dcic.ajla.ifbi..","ifad.begd.hljf.leae.jjhh.idik.fcab.ebji.bggc.dakc.chkl.kgfl..","hibf.lgde.hehg.ljeg.fkkb.lfcb.jkba.lcea.addc.idjc.gkii.hjaf..","jdfj.kfge.kalk.bbhc.febh.badi.dgke.fecj.gljh.gila.laic.dihc..","ccik.ieie.bbjg.ackh.fdll.gglh.ecjf.kdif.jahd.hdag.ealf.jbkb..","chbb.ghid.dkkk.jeif.ijdc.gfal.aegl.ikjb.lceg.cjfh.haed.fbla..","bchl.adkj.ffja.jbgh.ilbh.iejl.fela.geid.gafe.gcdk.kkci.hdcb..","adbe.caef.blea.igcf.gcfj.khdd.ljjk.hikb.kchg.ijhi.bafl.ldge..","ghdi.hjdk.kbji.klib.kfba.dlcg.ffjf.gldg.aecc.eeba.jlch.iahe..","afbk.djgg.lceb.jkkd.blci.fjfd.dgag.ikhl.fhha.eljc.eaei.bcih..","ebec.fcea.jgkf.alhi.fkjc.lbch.hilk.hddj.fegl.bakd.igia.jgdb..","ajbl.kkcf.dagg.idjk.laji.fkbf.lghc.gbal.dehc.iedi.hjhc.febe..","ideb.hbjc.jgai.lagd.ebkk.fglj.gdea.hkac.jlff.fhce.chki.dlbi..","balg.aaej.bgck.ijlg.lifj.ekkd.iibk.afdc.ehcf.lhef.hjdg.dbhc..","bcli.gaad.fclc.beld.bkej.hfkg.kihf.jehk.fdda.jiic.bhle.gagj..","keji.chhb.ifdi.dcgh.feak.kdla.fgjk.bfaa.eblc.ggdi.cjel.hjbl..","djaf.llcd.akca.figd.lkjf.bgej.hgbc.gabi.lkfh.ceie.jhki.dbhe..","dgia.dgic.bklk.kaeh.lacb.bgjl.lhfj.ddef.iafh.ecih.jjce.fbgk..","efce.glfh.hbdj.djal.ccfg.bdka.khil.bdkh.klii.jagc.egaj.iefb..","cjjh.ebek.ckla.badd.fghf.jaga.ghff.lkce.bihe.kjli.gdld.biic..","bldh.adkj.jiej.bfif.ckcg.kgal.dhce.cilb.eegb.jhla.gdki.ahff..","abhl.cdga.cdle.bcjl.dajg.fceh.ilif.kkbh.kiie.jdeg.bjfh.gkaf..","hghj.keld.kekg.elgk.bfha.iajf.ibdf.bgje.fdli.jcih.blac.acdc..","jhie.lfgc.dkkj.fkce.bdbi.calg.efeb.ifah.hajk.jlla.dcgb.dhig..","gedk.cblh.gddi.jgel.cajh.adhi.khbj.kbfa.glie.ffjk.cbci.fela..","bhaa.khfi.bfgi.laee.djdl.bjkg.fgdc.jcee.akfj.hikl.clbi.hcdg..","dkbd.baki.hgkl.gcda.ccle.fafl.hlii.dghj.bgia.bfjf.jkec.ehje..","jell.kfja.agic.efid.hcgi.bfdh.hicc.llkg.kaek.bhbd.afgb.djje..","ghal.ikef.fkab.licb.chge.edhb.kcfj.jajc.ddgh.ldkj.bfia.lgie..","jakf.kefi.labb.ckjj.cdhk.jdgg.fdbi.eagh.ldfh.lheb.agci.ecil..","iaka.fgji.hdeg.hclb.cili.kdbb.lcgd.agfe.dhle.ejhf.afkj.jckb..","bihe.jfad.eglf.fikg.ekji.kbad.kcca.dbhf.ialg.hjbl.dchl.jgec..","fbel.ahcb.dghf.ablj.jege.ljkk.chei.dikg.dckg.alif.fijh.abcd..","dibc.kjkd.lbec.glig.haee.cbha.gcdl.kjgi.ajae.fffd.kjhh.lbif..","jbih.fcfj.jjah.llki.flka.ecfa.dggd.ebdc.aeci.bgki.hbke.ldgh..","jalc.jjgc.akee.khki.aclg.fhkb.hfbb.ildc.ideh.dfdg.fgie.jabl..","dagi.hbgc.dajd.gkck.fhle.clki.hali.dkcb.fhig.fabb.jjel.ejfe..","egkb.cjhf.ikjk.dgac.adjl.ffhg.edaj.fgib.lcid.iheh.bbla.clke..","jkli.jelg.afcj.igjb.iaki.lchl.bffh.deab.hcdc.kaed.bfge.kghd..","hglh.adbf.ghbi.acci.kiac.lgkf.kkdb.ejlf.ehib.jgda.lefj.edcj..","fica.eied.abdf.lbag.hgdh.ekjj.kkjj.blea.cchd.lclk.ifig.hbgf..","idhd.ajbf.gbfe.hkdf.beag.hjjl.jcic.cleh.aeab.kgkf.klid.cgli..","aekf.fbbj.fggl.ilja.hddb.ckgj.ehcl.kdde.hkif.cihb.ecij.alga..","khih.ifid.eajb.aahg.lfdf.jljg.ebkl.lhcf.babd.kgig.cjkd.cece..","fiaa.jdbb.gccb.jefi.dbli.lgke.edea.fjhk.jicg.kfdl.ghah.hlck..","fceg.ihhk.kljd.lbif.jefj.bgdc.cial.gfjh.akah.ceib.gdlb.adke..","jkfa.jbga.beje.cikf.glgc.cele.dkdb.lghj.fhkb.aiid.ihch.aldf..","jjkc.ieea.lgcf.dfib.fhaa.ikdb.iagc.gfeh.dllb.chle.jhkd.jbkg..","akih.afgf.jilb.lelc.ehjl.kgab.dfbg.ifkb.dhic.cjcg.hdae.kdej..","hedj.ebah.hadf.ecll.acfi.lgjk.ckid.gbgj.kkej.cffa.dgih.lbib..","labe.giie.bhdl.jbjc.kdib.face.gjha.elkk.gfkf.hljf.ihgc.dadc..","alje.kfef.hkce.aijh.chgd.biki.kgfa.hlfg.ddel.cbic.jdba.gjlb..","cdga.dihe.iejd.gdfg.ialj.ckbk.abga.llhj.kilb.hfbe.ccff.ejkh..","beli.hdfi.djkf.gake.blgh.ajja.ghfa.ldcl.jkfc.eikh.gcib.bcde..","dcej.face.lfhb.edhg.afjg.hklf.jcib.kilk.ikib.gegh.jcbd.aald..","ciel.ffie.bkai.fdfc.cbgj.adhk.dhbj.ldal.jjha.gkek.ilgh.gbce..","dlfc.icge.ihfl.jgdb.gbjb.kage.kcca.jahf.khji.ihbe.fdka.dlle..","gicg.daea.khea.cbjh.bikh.jflc.fieh.fblg.gijd.elja.dbld.kfck..","kdhd.hcfi.bfik.lich.glfc.adfj.bigk.gjce.ejlh.ekld.gaja.bbea..","blkd.lfhb.ldhe.gaic.gckc.hjdk.eefj.jahi.blfg.cafa.igdb.eijk..","ehcd.jbeb.elbh.blck.icia.gifd.hjdf.hgel.ijcf.aaad.kfgl.jgkk..","clgc.kdhc.kali.kfik.abbg.cgje.ijhd.hbhe.jleg.ebfd.liaj.dfaf..","agli.kdhd.abkb.iheg.dfhi.aijc.cgle.lljb.jbgk.cadf.fkje.cfeh..","flcd.faad.ejgi.fjkf.khid.jheh.lglg.begb.kbjc.ikae.idca.lhbc..","ghaf.fjik.fggi.ebdk.ehck.ijje.allb.acea.dcll.kdbj.gcdh.ihfb..","ghdd.hkbc.djli.glal.jfaf.gcje.bkjl.kcck.defg.ahii.bfia.hbee..","lfeb.afjj.igcd.hkhk.jdca.jfal.bkhl.kgel.diae.iebh.gfcg.ibdc..","ilej.beaj.akgi.hael.hcjj.hdgc.cblc.hbdk.dabf.fedg.filf.kigk..","jbgb.likg.abjd.ackj.ffid.fcca.eiil.fdec.elga.dhbk.hlhk.jegh..","bijl.kahf.fgcd.gdgh.flhk.aklc.eeij.ldij.bgej.cdic.fhbb.eaak..","akei.cjje.bcih.hddk.flfj.ldgb.kghf.ebdg.gicj.eaal.ifhb.kalc..","abie.eajl.lacd.dkdc.hbii.ccfg.lgjf.hkjk.efgb.bfde.lijh.ahkg..","babd.ccca.bjlf.ehdi.kehh.fcgl.igae.fajl.gebk.gfid.jhkk.dijl..","ghak.ijff.gahc.ljad.bieh.lida.hddb.celc.gifk.jfec.lkek.gjbb..","hjif.ghge.cdie.bgid.jkdh.jcfi.edlb.hjbc.lkca.labf.kgaa.ekfl..","ihlj.jjel.aici.ikad.kehg.kdbl.agld.accb.jheh.cgfb.efbf.fgkd..","bcfa.ccgk.bhag.dhkf.dgbc.hajd.jejf.ilik.flih.jale.ledi.bgek..","gldb.gacf.kfbd.dcbh.elbf.ahge.ikhj.gceh.cjji.ekif.dkaj.lial..","fheh.jjbf.dack.ajej.lgil.glef.daid.ifab.gkki.echg.dblh.kccb..","eldi.jfba.gcjh.kakc.gaih.glhi.adje.fjbg.edkb.ebil.lfkc.fchd..","djhe.hdbd.igie.beal.fckk.lgcg.hkga.cjlf.clfk.hbjb.aaij.iefd..","fgec.kgdj.celc.hkia.afhi.ffgg.blkd.kbbd.jlaa.dlbe.hjij.ihec..","fjlb.beic.laek.gdbd.kldc.khcg.hjil.hiec.jffg.jhbk.adig.afea..","ejil.dkgb.akfd.agla.dajb.lhkf.igce.chid.fhjl.fejb.ghbk.ecci..","abkf.fdak.jdeb.fjbb.jcde.llli.hajh.fcge.ckda.ggki.iceh.ighl..","fkhc.fkjj.lbek.jlbf.agla.cjcb.dbki.agei.gdfh.liae.hcgh.eidd..","jgja.lfjk.bikc.dblk.afdc.deij.kibh.lbec.ihgd.ehfa.ggce.hfal..","glgl.jfjf.gdkd.jleb.ddbe.hacl.hiic.aiie.fbhg.ceah.jfba.kkck..","bhea.aeld.ccdl.fbie.jfcg.khif.gdle.bdig.bgak.hkcj.ijjh.aflk..","lhcl.gdac.fcia.eaja.bdjf.jkdf.kgbk.bgii.eeid.hjlf.gkhe.lcbh..","cdab.bjhh.jljk.iaik.cike.leal.baeg.ggid.fjcd.befl.ffgc.hhdk..","kibd.hjfg.kiia.dlch.khkl.lddg.bgjj.cgeb.efal.ehcf.ciba.fjea..","ilkl.cgfh.jikf.efgd.ikhb.cldj.gjli.aefc.aejb.dbae.chbk.hagd..","hhfl.aebj.akic.ilab.ffdi.dikl.fggd.bhjk.lacb.cgej.hkje.dceg..","ajfl.adkf.kiah.iibj.cdbe.flge.glli.edjg.cahh.hbkc.dfjb.gkce..","cgic.jage.ckba.ichd.hkhl.bhjd.bklj.daif.elfe.gefj.akfd.iglb..","hlhk.klhd.fjbf.kaja.bici.bdig.flie.eaje.bggc.djef.akgc.ldhc..","ldja.hbeb.keca.hdli.kdgj.abih.dkik.cglc.efcf.hgjj.afeb.fgil..","jklf.deah.dgbl.bfgc.jale.aidi.gche.jikf.bicj.khdk.lech.bafg..","bhhf.idkg.lajd.kkal.dfff.acbe.ehcd.hgcj.egcb.igbl.aikj.jeil..","bgaf.bkkd.jjih.jfei.lhdh.gkbc.alcl.digk.lcde.feji.gaha.efcb..","bfee.ejlb.hdlc.bjhl.kggf.kikh.ikad.ijca.gdda.gfca.ecib.hjlf..","accb.jacj.dbfk.gekg.elle.aahb.bgcj.hied.hddl.kigh.flif.kjfi..","dabf.fejk.lgig.ecfg.ccik.hdib.kjka.chab.bgdl.afei.lhej.hldj..","igfb.khhb.gljf.ldaf.ekke.ijjb.igda.jckc.decf.degh.haci.llab..","jefa.kklh.dilj.ecfb.ggih.dedi.aeka.cbgj.cblf.kdfa.hhcl.gbji..","ekkb.iglj.didd.leak.fbgh.hgaj.ekgb.hclf.ffia.dcae.hcij.jcbl..","gbec.gjlg.jibi.ikfb.ldjh.afee.akjc.fhbd.daid.egch.alcf.klkh..","ligl.cejb.ikdb.hehc.jfge.agfd.hbli.dkfl.cgba.jeac.hkai.fkjd..","elck.bgce.djfd.lkid.bflg.hcgk.fich.eedg.aihk.bjja.jfai.ahlb..","kdif.efbg.chaf.idja.eage.lkgg.cjlb.ljjd.ifkc.ehbh.bach.dikl..","kdfd.ciba.ldji.ijij.bkdh.bgkc.acgl.jgkf.geef.hcfa.hbll.haee..","ajgd.lbfe.hhka.ebce.dckl.hfdi.igfa.blig.ljkk.jbac.cfhi.gdej..","elae.lcfk.giig.hebf.daic.eclb.kafj.hdgh.dhjc.dkil.fjgb.abkj..","fihh.fhdk.fecj.egce.flgd.lblg.aibg.lcih.kjcb.akaa.bjik.djed..","gbdj.abgi.klbh.gehf.alkj.elhc.fidd.fihj.ceaf.ikal.gckc.jedb..","hcfg.klif.dedf.aahh.kjlj.ijeb.gegl.bjkh.idke.gcbf.dabc.cial..","gfdg.lklj.fala.jeae.kddi.chki.ckbh.bbfe.daig.cibh.lfcj.jehg..","lgei.idhk.fdbj.jggc.hbag.kaaf.ceeh.ciik.lclk.hefl.fjdb.adbj..","egej.dbkg.dadk.fgfc.glch.iica.khlj.fkfd.ehlb.alcb.ejjb.ihai..","efkl.iecj.ckij.dkfk.haaa.agid.fedj.fbeb.digc.gbjh.lhhl.bglc..","ggka.fhdf.ccjb.debh.aeda.ikbf.kljh.hkil.jjle.faib.dilg.egcc..","clib.hgdf.hfik.gcek.elea.ejcd.ajgf.clai.ghhb.kjad.bkif.ldbj..","ffhk.cihj.dgad.jcif.gcaa.ekji.blda.blkh.elkl.jdce.hfbi.gbge..","dgad.cajg.hkhi.bbeh.feah.kdlc.ckjc.biea.egbk.jglf.ijif.dllf..","laia.jdce.gghb.ciec.bedf.dgjh.ikhb.fcfe.hlab.jadk.illj.kgfk..","keac.jjec.iffg.lbgh.bgka.dcdh.ilcj.fabl.geli.hkjd.aheb.ikfd..","bbcc.cfff.jgek.kagd.hgjk.ehdi.lebg.hjbj.lili.fcla.dhak.iade..","flda.jkei.efge.lbja.gcdd.lhhc.kich.gcjb.aide.bkbg.ajil.fkfh..","cebd.hggf.jhje.gaff.likh.cdjf.gcaj.ddea.hcik.kbbe.ailb.klil..","becd.clgh.fjka.kbhe.gdkc.jgha.lkda.cfbl.ifji.afeb.ieil.djhg..","kbll.ilea.elag.ghaj.iijd.iffc.dagk.kecb.dfdc.bjbh.egck.fhjh..","hcjk.edcf.bkle.jeca.dbbd.jlhg.ghkl.lgai.bhae.cafi.ijff.kidg..","dfkf.ache.dlgb.fbgi.lljk.hkag.ekaj.bfic.hdgl.diec.baje.jhci..","bkjg.hdde.bajl.ijlc.ikci.lcgd.ffae.kbfj.lgea.bcka.ghfi.hhed..","kjkb.bjeg.ehba.fckg.bfgd.jlca.dffc.gdih.llke.edci.hala.hjii..","hdbj.bfai.fhdc.legj.licj.cagi.kbih.ljeb.fdka.kefe.gglc.akdh..","bchc.eldj.alkh.hddc.ajkh.fabi.ieel.fkbi.jgbj.egkf.igad.gfcl..","eikd.ccgk.bfih.gibe.clla.kcfa.eejb.hhki.jlhd.jbaf.gdgf.jdla..","fihl.blfb.dfkk.lgcj.egha.edic.bcee.hcga.adgk.hlja.kfjj.diib..","gcia.blkd.kldb.ffbe.ljhj.faci.fgdl.aceg.ejbk.egki.ahid.hhjc..","iajc.gdgh.ebbh.bbfd.gigf.leif.aikc.ahhe.ecdj.jkfk.dlka.cllj..","ebab.aali.jbge.cldk.chdk.cbfk.hafi.jfee.diji.gjlc.gghd.fklh..","cdha.fgha.ieck.hlcb.gfbh.efkj.gkdf.ebcj.iikd.jjia.bdll.gael..","gcdd.ighb.fbeb.fcil.lglc.abjk.igff.kehe.hlck.hiaa.djka.jejd..","kjfe.hhjf.jbel.caff.bgki.adkh.gdgk.aecb.acil.cieb.lghl.didj..","cdlk.hgck.bhha.gaig.ecck.ejbf.bijj.ehib.fike.dfld.jfga.ldla..","ikkl.khgj.cfdg.hjja.eihc.dbef.egej.lccb.hfbg.kafa.llbd.iadi..","dbei.beld.kgib.cfcg.gjac.fajh.dlkh.flid.bkfj.achi.ajeh.lgek..","gble.jhec.dbdc.ebki.fjfh.dfdc.abgl.gajk.jegl.lafk.ahki.ihci..","jdgd.gbda.fjac.lgcl.kiei.flhc.eilj.bahi.febf.begk.kkad.hhjc..","bakf.egbe.bedh.gehl.jfhl.galk.jdca.bhfi.cafl.jijk.kidc.dgci..","gkji.hhji.dklk.jgji.cfbc.aebd.llbk.ddfg.eiaf.gehb.hcfl.caea..","gcak.febb.elab.ddia.gljb.fhgj.kcdf.liaj.fkhc.helk.ecij.gdih..","deei.hdcb.djcg.cajk.ihfg.akaf.ijff.eebk.hbkg.ljlc.ihgl.labd..","khgd.jjlk.hgfe.hckb.eclj.fibg.elbf.jega.cdia.dhdi.bfka.lcai..","ecjb.iagk.fcjb.idch.agce.ghef.fbkj.ajdk.llbl.dhfi.ikhe.dalg..","iggf.ebif.kbdl.ijch.ahkl.jlaj.eedc.jadl.hgff.cbkk.ebha.igcd..","fcfb.baig.edel.jgaa.fjdh.kdhl.laii.ckij.hcgg.kbef.lceb.kjdh..","bcea.ajhd.cfhi.cldl.egjg.aikf.kbkh.efli.kddf.ljhc.abig.gbje..","jcai.hfgg.kdlh.lbjd.hffe.cagb.flch.kcea.iieg.kijd.djae.bblk..","ibhh.lgie.iaeg.fkcl.flid.aedl.gffk.jkbc.hadb.egkb.hdjj.jacc..","ecig.gdhj.lfbg.laed.hlje.fdkb.ficc.fgdj.bbhk.jcka.aila.ehik..","hkdh.djce.jjgf.fhil.khdb.adle.abgi.gbfc.bcac.feel.jlki.aigk..","kljb.gjac.bjgh.faeb.flah.lifd.egef.ecdl.ikji.cgba.kidd.ckhh..","jije.aekl.hgib.dhke.ghli.aifb.clfg.akhd.dlfa.bcde.gkjc.bcjf..","aflf.deie.egbj.kdki.ahfc.gbcb.dgkc.kcbl.djie.hgia.ljhf.jlha..","bebi.ilhj.jkji.jead.fiek.hgff.ahcl.ackc.gldh.ekbl.gabf.dcdg..","ejgi.dgid.hfab.lckk.edkj.ildb.feac.hlck.ejcf.lbih.aahg.jfgb..","ehgj.klhc.ldba.feid.fhba.dicc.bbfj.igic.ejdk.khal.lagk.fejg..","ibbe.lhlj.fiif.glcf.gdlc.dhea.djbh.gjci.kaad.gkhk.abfk.jeec..","ehlc.gdbj.gaee.hbkd.cbli.jcaj.flig.lgci.fafh.jkdk.fbdk.iahe..","jahk.hcbi.gkjf.jaga.hfld.gidh.gbbf.llia.ckef.cice.djde.ebkl..","lflj.iecb.abji.icgl.fakb.khgk.kejc.dhbl.ifad.heha.ddfg.gejc..","leif.ajhc.khgh.eaib.cbgf.lidh.edgl.aklk.jajf.gckb.jbid.efcd..","jkeg.ajjf.beii.fldg.hfch.leha.ieib.ljhd.gbkc.clkd.cakd.bfga..","jlaa.elgh.ghbl.ejfg.jhci.fbil.kgjb.dkca.bddf.afik.eehc.idck..","jgdg.feka.jblg.baal.lcih.dhbj.dgci.kdje.iehf.acke.lfib.khfc..","iejk.gabk.cigg.hjdl.cifh.bkaa.deil.jehf.lkbe.fgca.dldh.fcjb..","aegb.hjfi.bhcg.clae.deik.beja.hlkh.kikc.fifj.gabl.dgdc.fljd..","bklb.dabg.ijki.djka.hhbk.ldcc.ciec.jefg.eefa.hilg.hdjl.affg..","cjia.giid.blge.bfcf.abjk.dclh.eeja.hkfe.ifjd.dhkg.calb.lkgh..","akcb.eife.gjjc.lcil.flag.beeg.khha.bihl.idjk.bkhd.dfcg.jdaf..","gjel.llke.kaki.jhag.chdf.djic.bbeh.idfb.iagj.eflk.cbhf.dagc..","dajl.egcf.jikb.giah.jhdh.ffek.jabh.edil.fekk.bbci.ggac.ldlc..","jeab.lhfb.bjdd.hibk.chgd.ejkf.cijl.iglh.ciad.ffae.gkkl.agce..","jegd.ffab.lhfj.ddhi.ecie.hbgj.cbik.giak.laka.jhfe.lclg.cdbk..","aheh.jdbi.dkba.gedi.aifg.flcd.jhcj.khjc.eeac.fgli.blkk.flbg..","fbhi.gagj.abdg.hlji.bjbl.kghk.dfka.klal.ccde.cihf.feie.cjed..","kfgd.jbck.dial.lgle.lfcc.bebf.fgeh.khih.ijag.kdae.hadc.bijj..","bjcd.flil.gchi.lgbf.hiek.dfaj.afgd.echd.jaij.eblb.ehac.kkkg..","cbca.iflh.kebh.aecb.ejgf.hgjf.ldkl.keij.caaj.ikdd.dbgf.gihl..","adfh.gahj.acla.chfk.ebdb.jbck.jgkf.fgjd.iell.ceki.diib.ghle..","ihlf.haba.lfed.bbfk.dcej.cldg.gejj.cgkc.kalk.igba.ihjf.ihed..","dfaa.hhgj.edkk.ibhj.elfg.ekfe.cgic.acbi.dfih.klcj.labg.djlb..","feli.egja.jjfh.lblf.dgjb.keak.fbig.cdea.khag.hldb.dchc.iick..","jdfj.cblg.ikbi.kccg.deja.dlab.ekcg.ehfh.dkah.ffal.jleh.igbi..","jbbi.dlei.hdfj.ebcf.haia.cfle.adjk.lhgk.gikg.hfca.dkgc.jleb..","ekll.ibdg.jbfa.cehg.hcdi.hjcg.aejf.lghk.iald.jiff.eabk.cdkb..","ahec.kdcb.jejb.kifl.hhdi.faij.lack.fgge.hdgj.gdab.ifbe.lckl..","cbll.alkk.ffbj.eaei.klif.cgif.jdak.hijg.gdja.ebhd.cehd.cghb..","cibl.afda.gejc.ggee.jfhh.afkk.fjbc.ilib.ikgd.acdh.kelj.dlbh..","hkfg.lekf.lagd.eech.jcib.fbki.iale.fhdk.hija.glgd.acjd.bjcb..","hkdb.khih.biec.jjka.faef.allh.gdjg.jfab.cgib.iedc.gled.clfk..","jfgg.bkhh.cleh.dfai.icaj.glhj.ekad.fiic.bdaj.bfle.ebkc.klgd..","lkdj.ekla.ldhe.adcb.djfk.gceb.cfbj.ekgi.hjif.gaic.gfah.lbhi..","kjkb.hkba.cbgc.dcid.gjcg.lhib.edlf.elfi.fdjf.gael.jkha.eiha..","daad.fbbl.jfki.jeai.dfkk.ehdf.gabc.bljg.cghg.jeil.hcce.hlki..","kgch.jjle.jhbd.chjb.abgi.flgc.fiae.ibka.hdfa.kfgc.edke.lldi..","ciib.kgkh.kebg.aedh.jjdl.fcld.cflk.edfg.lihf.ecaj.hbaj.bgai..","bhdb.hfbk.ahhk.cffd.ejif.iggi.alag.liel.ekcj.akgj.ecdd.jlbc..","cdjc.ieba.kjke.giej.igjl.gchf.lldf.bdhc.fkhk.fiba.agld.ebah..","gaja.gdel.dcgl.akfh.gfki.chjb.hhdj.idbl.kjlc.fefb.ekei.ibca..","jibf.ebac.ghdg.ahci.bkah.iejf.dhik.klfe.ccjg.klgl.deja.lbfd..","dkaj.klle.fled.acci.haba.cfeh.gkgh.cjid.fiib.bkdj.flgh.gjbe..","bebh.dahh.laal.iigk.cidk.gblj.kfdk.gcfc.jehc.beff.jdea.igjl..","delc.eilk.lljg.iabh.djkc.djaf.gbih.jkak.bcha.hedg.gcff.ebfi..","eckd.dfgc.behh.ajig.ledi.bfcc.jfhk.ljie.blka.lkaf.jdbi.aggh..","akgc.deld.lgce.jkli.ffgc.bfja.gbij.diha.abfk.kbhh.cjhi.leed..","jacc.ddfh.gekd.lfha.ibea.figi.jkek.bilh.ckjg.dhll.cgfb.ajbe..","dilk.jbhg.lahg.kdad.lekj.ecfc.hggb.kdaf.lcff.iiej.behi.jbac..","kigj.klai.dcfe.ahek.ekdg.gblc.fdha.icdf.ligj.hbaf.cjjh.lbeb..","ikhd.hkee.ahke.lflb.hcif.bgle.jdgf.bcli.cgig.jafa.bajk.djcd..","ckci.albe.bgbk.djia.fcfh.gcak.blei.gegf.jdhk.hlih.dadf.jelj..","alcc.blij.eekj.dadg.hkie.kgfi.dlje.gach.lfbk.ffhj.baig.dbhc..","jhek.hfdi.ikal.cegg.gcif.leah.lkdi.chdb.baaj.gdff.blcj.bkje..","ldgl.bafl.ghdj.babl.fkij.ckdc.aeik.ekge.cidb.hhej.gfhf.ajci..","hafa.iddh.gkek.jfcc.ebgg.dlje.digk.elhj.iblf.ahji.akcc.bfbl..","hgaj.chdb.ecff.aghj.chij.cfgj.kdki.lief.lkbe.blid.aleb.kadg..","eija.cjek.bkfi.bcbg.bkhk.glad.fecc.hjhd.fihe.ldgl.djga.ailf..","bfkc.efgd.jhfh.dgbg.leed.ckla.iada.bijk.bhle.lich.jjgk.icfa..","dllk.echf.caeb.dhkb.aggf.ahie.gkkb.fdfj.hecl.jcig.idaj.jlbi..","cfeg.ikjk.iadd.lbaj.cief.bick.dglg.kbje.jled.hghl.afhf.ahcb..","hbcf.cbji.kegk.ibkl.dgia.lfll.jffa.bheh.jiea.cejd.dcdh.aggk..","igld.clbb.hagl.ccfe.kjkd.ajfk.lkbe.jfea.ihhf.biji.edcd.hagg..","bfga.efde.ljde.ffcd.hclg.acic.alja.lhhk.gejd.gibk.ikbi.hjkb..","fdeb.lafj.chik.bckh.iagh.aefg.ldbc.dkjk.egjj.igda.ehil.clbf..","dkbh.gebk.dgkb.aegi.cdfe.ffga.clic.ldkl.ajbf.jjih.chla.jhei..","ldbf.bdee.gfdg.ikll.hcjd.cefe.jiak.aabc.fhig.hkbl.chji.agjk..","aefg.jbhh.caih.bflb.gkdj.cddi.ecai.klbg.akil.fhdl.ceeg.jfkj..","ecec.dabl.hlbl.ddki.ehaj.gbgg.kjfb.jfje.kcid.lihf.fcka.gaih..","bjdh.bkgl.ebhc.dfgg.dhlf.gjdj.ckfc.baci.klah.jkfi.aele.ieai..","jhed.ikga.hgba.ecbb.fdch.kael.kjcc.jjlk.gile.ifdf.gfab.hild..","gjjb.kbha.cfae.klik.gclh.deji.glfk.cdcb.eegd.bfdh.liaf.iahj..","ldah.hceg.ajei.kgcl.fbfd.jfli.dahb.bibj.jekh.gcdl.kike.cagf..","liff.hafl.ckba.klhj.lead.abje.bihc.ggke.dcfi.jbkg.ejih.cgdd..","clcl.jajb.kgfk.kabg.aaeh.igij.clkd.dcde.fhbg.eijd.hlib.hfef..","fljj.lded.bkha.bjka.ikla.lbdh.ghjc.fiei.ccfe.cakf.igge.bhgd..","chcd.ajgf.dilh.kbhf.ejel.gieg.cbci.fhjl.filb.kdgd.bakk.aeaj..","aggf.jhgd.bfji.ehch.biff.ecjl.akck.akde.dgha.cbik.edbj.lill..","dcdl.giak.jfag.ikih.eiel.jlfb.deaj.kkcj.fcfl.ghec.bbhd.ghab..","kclf.cfbf.accl.kiak.ajhd.bigk.baii.hehd.dhgl.eejf.jbgj.eldg..","djfd.ckck.chbg.iajl.biia.gefe.ecah.kbhd.idbf.ehlk.ljgj.lafg..","iack.ligi.effk.eecf.icha.bdfj.jlgl.alhg.hcbd.kdhg.bebd.ajkj..","hdck.jcga.ldbe.ligg.eikb.lahc.ceie.kgbj.khjd.lbfa.ihdf.fafj..","iafg.ccjb.lkjj.elgk.chfi.bddb.kjfb.deia.kacf.glha.eihg.dhel..","dkfg.hhij.acgi.agbe.acfd.bjgl.dllj.akii.befj.dcck.lhef.hbke..","gkda.elka.klia.dekc.dfcj.blhh.elec.bjhd.fbii.gfcg.jbih.jafg..","fdjl.cjhf.gaci.aige.eggd.chej.jkbk.bebl.ckik.hlif.aafd.hbdl..","jhhi.clce.geal.fbjl.jkkg.hkfj.gabd.cfei.ifdh.abkb.lgic.ddea..","klbg.hbfj.fedi.eghk.kdha.geil.bdaj.aiij.lkhj.flcc.gdcf.eacb..","calb.ifie.ihda.jckj.hegk.fidk.dceg.fbbh.abal.lgjj.fcde.ghkl..","fgkc.lgge.dkjj.lhef.kefg.bchi.ihbe.lhjc.kcaa.iabl.djdf.ibda..","eekf.efhg.jabf.cjhh.jddd.alcg.iblg.eaij.ifib.chkc.lgkb.dlka..","jabi.jfkb.fhjc.clal.glea.ikeg.gblc.ifkd.hbci.fede.djgh.kahd..","dkfh.dgag.babf.jekb.bcij.kfih.edig.ldlh.cgij.jcea.ehla.fclk..","fjia.glbl.kglc.jecb.dadi.fcbi.hkdf.libe.jkfa.dgke.hgaj.hech..","bdfh.lcbg.haik.leel.bccf.ilik.fkgc.jdaf.jkdh.jega.aghj.ebid..","aglc.gjef.ehid.bche.fjll.gdkg.bhke.hfji.adac.dbjf.kbal.kici..","lkke.iflh.jbij.aedh.adae.jaeg.cjic.bkck.glhg.dicf.fldb.bhgf..","eijh.bhll.hkea.ffda.clka.gcgi.bged.bdfj.ckcl.jgah.fieb.idkj..","gcid.flfk.cdhd.hfbb.cehk.ejjl.degf.ieji.lacj.ikaa.lgag.hbkb..","aikc.lckd.hedb.jgfd.blgl.gcdj.beai.lgfb.ifkj.hafh.heek.jcai..","ebhb.alcc.kkik.lhjf.igdk.eefb.hlfh.cjfg.gadc.ilbe.gajd.dija..","igde.jcfl.agjk.heff.cddb.ahkb.gdel.beic.jclh.kajl.iagi.kfbh..","didk.kchd.hahd.bjbg.bhcc.lfgk.iija.fgfe.eajf.jele.clag.lkib..","fjfd.bllj.ahji.hjda.fdha.kcci.beae.gikf.ceke.bigc.bhll.gdgk..","icde.jigi.bfjk.gdch.bhkb.laaj.fkfe.edie.kchg.daac.lglh.bljf..","ihce.hffj.agbg.jidj.eabe.cfkc.ldec.ghba.lkkf.ihli.ddal.bgjk..","fbbi.keec.bhlk.iehi.dkgl.gckc.fabj.dagj.ajfa.ldfi.hgec.lhdj..","jbeh.cdch.abhl.fjfa.bikc.kael.idfi.egbl.kgai.jglk.dcjh.edfg..","bgaf.fkdi.hggd.glje.ilbd.hdfa.icai.jfjk.lbac.helc.cejk.bhke..","fifg.jkhj.jjkh.khcl.bfaa.iaed.lbgh.dfdg.biee.lced.bcag.lcik..","hcka.lkbl.fdbd.jfli.deeg.khde.jhba.iceg.acjf.abkf.igcg.jhli..","blak.kbgb.cadg.ecik.ejjf.jgac.edij.hdfl.cibe.dkhi.llfh.hfag..","bhji.hefg.dclf.hefg.ckca.bjfk.jded.bllk.jlde.gaai.hicb.kiga..","gfee.hbhi.addi.jkbe.kccf.higd.gijg.bkcj.habf.lfel.jcaa.dlkl..","jgfi.baic.gcli.llji.beff.gedc.dkje.gfda.echa.bhkb.alkh.jkdh..","cbfd.ilad.jaab.kdil.bdch.higk.egck.gelk.lfhj.gfjb.fice.jahe..","bbgk.ikja.iecd.jhde.eild.jega.ifjb.hbfl.cgha.clfk.lagf.hkdc..","iefc.lefb.bclb.gdea.akjl.jhkl.hdkc.cijb.fgdh.hfid.ijeg.agak..","jhlb.cckc.dlhe.jega.cffl.jkdg.bgbf.jkbk.fahg.ihdd.ieli.iaae..","aice.leil.ghbc.didg.ldfk.ckjf.jbkd.fjjl.aeek.hfia.achg.bghb..","hbcd.efgl.ldka.ghli.kcce.gjjl.kiae.idhe.jkja.bacb.idfg.bffh..","libi.cdkg.jdcl.dkgf.bghb.caea.hkgd.fiee.fajf.bhle.jilk.acjh..","ekca.abdd.kfgl.jklg.fbkf.jade.bcec.ihbh.gfjd.liga.hjie.hicl..","fblf.eihf.igli.jlbe.gdkd.kaej.agjh.fkkd.aghc.ehjc.clab.bidc..","gbfa.khah.ifce.hdfb.gjab.ckjg.lhif.ided.jcal.leid.elbg.jckk..","iefc.efgi.ehlg.fhdk.iabe.jjkk.dicf.algh.bjba.ahbk.cjld.cdlg..","ecej.gike.hlib.afia.agdd.lhka.ghhg.jcjd.fcib.fdcl.fbek.lkjb..","iefh.hcce.bkba.difd.jjkj.cfih.icgd.gfal.llbe.dkel.gahj.bkag..","clbd.iabg.dabh.kilb.jale.fgfh.feja.ekdk.hicg.fdcj.jicl.kgeh..","dhlh.cigg.clhj.fbbj.acki.ddek.jfaf.aeba.kcjk.idie.lgfh.gbel..","cdbj.dhbi.lifk.ahbe.jjeg.dfkc.lgfc.kgkc.abed.aeig.afli.hhlj..","bebc.acil.fhca.alkd.ejfk.akfk.iddg.bggj.ilfh.ehdj.lhie.gbcj..","diaa.kggh.ekcf.cjbj.fbik.feld.lbgk.hihb.jhga.ecce.ailf.ljdd..","daef.bhlj.kgld.fjda.kllh.ijch.bece.ibeh.gkai.idcg.fbag.cfjk..","jlha.kdab.hdfj.gllh.aeic.kdji.ijcl.becf.fefk.digh.gaec.bbgk..","bbdb.kfaj.fhga.ekef.chji.ahgb.glgf.dlli.jkji.cdhk.eadl.eicc..","dbdj.gaia.hhfj.clgj.lgge.dbfi.ekck.ecde.bfkh.laji.hlbk.cfia..","aleb.bjgd.flac.kjhh.dafe.gkij.ijhh.dkff.becc.iabl.kgci.legd..","ehej.ckid.cacd.biff.hikj.hjbl.dhaa.ebab.klil.fgcl.gkej.ggdf..","jflj.aeba.hgib.fbgd.gfdc.eigd.chba.iclj.dkkk.eafe.klhj.ilhc..","dhjd.hlla.kfch.cfac.eblj.jgie.kbaf.kgbl.jkie.geib.ddhf.cgia..","kkck.hfgh.bdle.cfjd.gclh.ifdl.ikgd.igih.ebal.jcej.eaab.fbja..","bdfe.chie.hdfg.fdll.llbb.kjia.ajhc.cakg.ijgk.cdhj.biea.kegf..","egih.lhbj.flca.ldfg.ekhb.bdld.gibi.eaae.ffkh.kcjd.jcia.jkcg..","fbhf.fche.gjjk.dkae.llcg.cdka.dlba.iebi.ghkj.cbej.ifag.ihld..","dcfa.dhgg.kakf.dkcg.edgb.illj.cjif.bbel.akie.ahic.fjej.hlbh..","jabk.eekd.iigl.jacl.fhkc.hffl.bhgd.bhkg.gcli.cadj.afee.ibdj..","llij.igel.dfgb.eghj.bafg.kcbd.ahif.fejd.kchc.aibl.jeck.hakd..","gdil.gdkh.liia.kjeg.fcdf.cfbh.bjcg.hbjk.aalc.beke.dhai.jlef..","ijgd.hjbl.kaff.gjfh.cbke.kadc.cahb.ljld.gdif.cgei.lbeh.aeki..","eedf.cgdg.lfii.kcbg.liea.cjch.jila.dfgk.bjfj.ehbh.dkak.alhb..","cbce.ekgg.klih.jhlb.abai.elji.fdja.idfe.hdfl.kfdc.jcgk.gabh..","cblj.hglf.efhd.dlae.bfjh.cika.cele.kjbg.ghii.dcfg.ikab.adkj..","hgld.jlka.cbhi.kkbj.cgfl.iadi.kcbe.jaal.hfhd.icfb.ggef.ejed..","bjfi.ehgh.lhbe.celi.abcj.gfgd.dhdj.dkfc.bfia.aiea.kkkg.lcjl..","kajc.filf.kahb.edfi.egac.beib.hdlj.jacl.kidj.ckfd.ghbg.eglh..","hkca.hfii.fcba.bgjj.gkde.lakb.cdcl.fhkd.eabh.jfel.igdi.gjle..","kklf.ahji.cedd.glde.lgdi.bbcg.abbh.hcaf.ifej.cjgk.hlij.aefk..","ddga.gbkd.ceji.gbah.jkif.fieh.clbj.hibk.cfck.ajgl.ehdf.alel..","kjii.cifk.ccaa.fabj.elfe.ejlk.ghcd.bjgb.hbkd.dgid.flle.ghah..","jaag.begl.lkjf.dlcg.kddb.jcei.ceai.bedf.jkgl.iihc.ahbh.ffkh..","jihf.kbad.beae.chla.akge.llgh.cdig.fjdf.igle.bidj.hcfk.cbjk..","dchb.daha.ljbf.gkkd.ckfl.egli.eadi.hgbc.kihe.jcbj.falg.feij..","lkda.jiil.kadl.agfh.jifh.eilk.jjdc.daeb.gbbe.cfge.hfck.chgb..","jfkc.cdlj.hibd.gjlf.dhfg.cbld.haic.egfl.iaga.keeh.ajkb.ebik..","djba.kiba.jidc.ghkl.hajk.lgfe.daej.glff.cbig.cbil.hdce.hkfe..","cdfe.kafk.eiga.kllj.bfjd.cild.jlgi.ehhf.agjb.kbae.cbdh.gich..","lgaf.kjih.igeb.fjaa.lgle.eklc.khhi.jbdb.bcca.chdd.kgdi.fefj..","bebe.dkdc.cfki.eifh.jafl.aljg.fjla.cbhg.hghe.gdki.djki.cbla..","kkjl.facl.iklk.dgda.jaih.gfig.eeif.bbdj.jgeh.labh.ccbd.chfe..","kjlg.faca.flad.kihe.eill.bhgb.bagc.jedk.dijj.dgfe.khhf.cbci..","behc.ikka.dfii.ahlk.gbjd.flde.jceg.afdh.hbej.figc.jckl.lbga..","fgih.ailh.afgd.jjgj.bckc.eehd.cfjb.dgkb.dfel.ilie.bkka.lach..","cfea.eidj.aila.elgi.hkak.dbck.bjbc.dfld.ehfl.ckgf.jjgb.hihg..","ecci.gfhb.hehg.eadl.iial.fbkd.fdka.ljbg.ghki.adlf.bjck.ejcj..","deib.hcci.eilg.eflh.akdb.gdjg.ijjf.kaac.bhdf.kefl.ljbc.gkha..","fbdc.cake.iflh.khhg.gaik.jbfe.flka.blie.dbej.jgda.idcg.jhlc..","hfej.efhe.bfia.iklc.ghbl.ijcl.dkda.ghag.klai.dcjk.gjbf.becd..","hige.flad.akbe.jhcb.ellg.hgke.dhff.bkak.dcij.jgjd.aclf.bcii..","hcla.akel.dbgd.lief.bfah.cice.fhib.gkfh.jkbj.gdjk.igce.adjl..","gheb.fiai.cfjh.gegb.dhea.alie.bkcg.kcjf.addi.dkfl.jckl.lbhj..","efec.aclf.bkhh.kbij.llhi.cbfe.jkfd.daia.kggd.bgig.lhcd.jaej..","lgac.bdlb.iakk.chjf.geld.gfhk.fjdi.ecib.dgfl.ijcj.haha.ekbe..","gccj.eeaf.bibi.kgkh.fled.hjag.iiej.hajf.habb.lgdc.dklk.lfcd..","efda.kgce.fbde.cjdb.lajf.halk.iiba.hgce.fgjd.ilhj.hcgi.bklk..","figb.laal.lceb.hbif.bggd.fjic.jlkd.dejk.cjcf.aghk.ehhe.kdia..","fdke.dfek.afgj.kbbh.chgd.clae.iibg.liaj.ihhk.ljdf.glcj.ebca..","eglj.iecl.hdke.cljf.kbak.bkdf.iibg.hdgl.bich.faag.adce.fhjj..","bigh.gkdk.gefh.aefk.llif.hlji.decl.kjbc.jaac.fibd.ceab.dhjg..","gibg.cfkh.kjib.gekh.bhce.dgia.dhlj.bcee.afja.ldda.fkil.fjcl..","jeki.fdhc.jjaa.abce.hllj.afbk.giki.gecg.hlef.didg.klbh.cbfd..","fleh.bckj.aflh.ghke.dbji.kigi.eeac.igbg.fkbc.jfcl.hdla.jdad..","bedl.kacc.kihf.idgl.jcjf.ehgg.adck.hfae.lhal.ikjg.deib.jfbb..","fkcc.gchb.kaid.ljae.ljbg.fkhf.gbil.decb.eiih.adjg.ljek.fdha..","gabd.iejh.hall.hdgf.jlck.ekif.clia.hgjd.cicj.kefg.bkda.bfbe..","dkbh.dffe.jejb.lhha.ggci.kcca.gjfk.dkhl.biel.ajdf.geai.bicl..","jfaf.eiah.laik.beec.gdfk.glhc.jibb.icch.kljl.fjag.dked.dbhg..","cglh.hfba.jiil.bcaj.ffhb.aebj.kdce.adeg.lfkh.cddl.ikje.gigk..","hkeh.gflf.ibck.lcdc.jbde.fekd.kgia.lhha.gfla.digc.ajji.jebb..","bdia.hkjl.ffhd.blcg.kgil.ggfc.ajfd.ceci.heae.kjjb.dekh.ibal..","gdci.dedb.kaek.ijfl.aljf.hceg.gjhf.kkgf.baec.lahh.iibj.ldcb..","ifbj.ecdg.jahb.ikga.diih.hcbc.lked.gfbk.halj.eflg.lfkj.deca..","flaf.cdik.bghi.ehcd.ddge.bagi.jakh.abgl.elhj.klcc.ifkj.bjfe..","fbcj.clai.fjck.ddkb.fhia.gele.gfll.ajde.hibh.cgkj.bdgh.iaek..","fbel.eafc.dibj.lhhh.idlc.gbka.kfej.adgf.ekhl.cjdi.kajg.gcib..","delf.jdga.caal.fbcd.bgbh.gljd.kile.ciij.cfgh.jikh.bfea.khke..","ikal.calf.ehhd.kcjg.ckfg.jbfd.glcb.dedl.khfa.jeja.bbih.iieg..","ckjl.ebib.ceii.cfcl.iagf.hbhl.khaf.gekj.agkd.ahjd.bdde.jgfl..","gjkd.efbe.icaf.cahk.ghch.dead.feca.blig.lkdj.lbij.ifhb.lgkj..","kidf.kjlh.bcjb.iffl.gfhg.cdde.dkjc.jhel.ealk.aeia.ihag.cgbb..","dbfj.ahkd.gila.jeka.hcce.glfi.bcah.gdlj.ibkj.ekcf.fdhl.gieb..","lggj.dhdg.cffi.kdlb.eiaf.ikla.gejc.hhei.bcba.jkbk.cjed.hfal..","ljhg.bcii.djcd.gfbb.lfdk.hjah.elck.igbd.eeak.alfg.fkie.hajc..","flhi.bjca.ejbc.ibdg.hhlj.dhaa.lbic.ldkd.kfgf.fegk.gcje.eaik..","hcfi.lhee.gigk.dhkj.eafi.jced.jbdd.iacl.fgka.kgcj.afhb.lbbl..","gfbe.lfie.hjlc.lgfk.gckb.ikab.dfha.ajcg.edjh.ikdh.djac.ible..","hllc.bajf.cegd.fhed.alke.ihbi.hgab.lecd.fkig.dbcj.kgia.fjjk..","jidg.ehlb.kdae.jicg.lafh.fgdg.fick.bbik.hlhb.eaek.jajc.fdcl..","edgi.cchd.bgcl.fafj.aaig.jdlk.ahef.kcje.flik.gjhh.bide.klbb..","diik.cega.jibj.cjkd.hekh.eleh.acba.lkgd.fclf.jbbi.fdgg.flha..","dahk.jafk.dfcg.ecei.agli.lbjl.bhbh.figj.dabg.clec.ikhj.kdef..","abjg.ledc.acil.kbkf.hkde.jebc.ickh.iiel.jjag.dbhg.dfgh.laff..","eeke.ibdj.ijlk.calf.kbgb.ccla.hfdd.kfjf.aghh.bgai.deic.lghj..","jbbl.ggei.dljd.fcef.ieeg.caif.iakf.kjhh.ahcl.dkal.bckj.gbdh..","dage.gjia.fiib.kdih.chek.jhgj.ldhb.ceaa.cjfb.lcef.gbkf.lkdl..","leie.hdfc.gjia.bhel.dkcb.cajf.lgji.hlgd.ekij.kabd.fhak.cbgf..","ckaj.kihk.ejgk.ldad.ijhj.eghf.lfhd.abbc.igia.cffb.delc.gble..","cjlh.efbe.klkd.cgbi.ficb.fldc.ghkh.dgae.iglk.haej.abij.jfad..","lkcd.hjbh.lbkc.ejaa.didf.geji.kalj.cgea.fgfk.gfli.icdb.hebh..","gejg.fijh.lkeh.fgdf.bfdk.iihk.cbjg.dejc.aclb.lkdc.ibea.ahal..","jbag.ihik.eegk.cilj.jhlf.bleh.hdgb.ejgd.cafa.fkfi.ldcc.dakb..","dcic.kkhe.egad.blcc.ifhl.fafe.akib.kdgb.ajjf.bije.dhgl.ghjl..","lcbl.ehgf.eiij.leal.bijd.jdke.gcak.kbba.dhij.kgcf.cfhh.agfd..","gllj.lbia.ccbh.ljae.diak.ejgg.fghh.edbf.dikd.ckcf.khfa.beji..","ffaf.gbja.bicj.lelh.hdae.ldbd.cgai.ehdc.gjkc.lkij.gbhf.eikk..","idhl.kdbh.cbcg.cakg.ajef.ebla.fkjd.jiel.hdgi.jlcf.giaf.kbeh..","edhc.ggff.igbd.aikc.geda.efkj.aehc.lhbb.jkhc.ljlj.bfli.kaid..","gkdk.clia.giai.bkge.feaj.jfgh.ckbc.bdjd.ellb.dfje.hhhi.flca..","hbaa.jeel.clfc.ahgd.ilic.kgjd.dfjj.ielb.hdgi.chkg.bfka.efbk..","ldhj.afie.gbji.clak.clkl.bhaf.ecig.ehef.jddf.ggij.bdab.kchk..","delc.gcjh.bjjl.lhak.igfe.cdha.cibb.ldef.fkai.jhad.igkf.gebk..","alge.jdbf.bekc.efkb.kjgl.hdfd.ghai.aihl.cbgl.kicj.cead.ijfh..","jkbf.gbdj.gcid.jegi.bfda.clhl.iadc.gkhe.jeia.lblh.hefc.kfak..","cfhb.cdel.dafl.ghlh.fkgj.kiih.deke.gblj.jfjc.aaib.gdak.ebci..","fakh.acjf.hakj.elgc.ejii.ieab.hljl.kceg.bilb.ddgk.bfcf.ghdd..","aghl.gbfd.jgfc.ilke.ahhf.jlie.deic.bfdj.ghce.kdik.jbca.balk..","hkeb.hadi.afel.gckc.cdff.jjll.dajc.lifb.ibeb.iggk.kjed.hgah..","hald.fbjd.iahl.fcgj.eebl.jikc.gibg.kccj.kdaf.ebfa.ield.khhg..","dfhe.kblf.acdb.higa.cjbg.kclj.ckei.hked.jifg.gbha.ejld.ifal..","cece.flcg.idik.bgkd.kdaj.ihjb.jlef.chld.ajhl.ffbe.iggb.khaa..","ckic.llfc.hdhb.jdjh.ggff.beed.iglk.fhad.iecb.elik.abaj.jgak..","dkcb.klkg.jlbh.ehhd.cfje.iejk.ddfi.caab.bjfa.eial.glfh.gcig..","bgbl.jbcl.cdie.hadc.kike.ibad.hljg.fhjj.klgc.ifff.aekg.ahde..","dgga.ejle.efib.hlhd.kaji.ilga.bkce.ckhc.dbgb.dcka.fhfj.lfij..","jjkj.ckie.edik.hbhb.kfae.ladg.faaf.jbgg.cgdh.lcif.hcde.ibll..","cicc.klcj.degj.aiaf.bjkg.dfjl.hfhl.fgba.eddk.bkgl.iahe.hebi..","ghfl.ldjh.flkb.eikk.adge.kcji.jbcc.fegf.ahbh.ldii.ajae.bgcd..","celc.djjf.kjgg.gcab.hhkl.hiai.kefa.hbdk.bijd.figb.lled.afce..","daih.ckdf.hgff.bclb.aleg.klig.cddg.ieea.jkjj.lhbe.kaic.fhjb..","ajbg.bick.hgfd.idba.klkd.lcie.cail.adge.hbgj.hcfl.fjhe.ejkf..","hjda.giaa.fgbl.gakd.jjde.flch.file.hkhg.ecce.ljbf.bibd.kkci..","hicf.gbeg.kfge.lkdi.abjc.lfhd.ejah.dcak.blei.laic.jkdb.jfgh..","jecl.gkhi.ldik.eehb.kcif.cbci.dakd.fabf.gagh.lghe.jjaf.ldjb..","aacl.kbgg.ihhc.ebkd.cije.dfhl.gjkh.lajf.iefd.elbg.fjka.ibcd..","eahh.dkjc.glid.bfec.biie.lgfb.cihf.legf.kgdk.jabl.dack.jjah..","aegh.akhd.dijk.fibc.bdca.cfle.kjjk.ldgf.eabi.hlhj.iegb.fglc..","eged.aiaf.klcf.fkbe.jbka.fgld.ebbi.achd.jcij.hldi.hggc.jlkh..","jhbc.gklj.fbfc.ejgd.gjfa.lcdi.lhlb.aeda.gfhb.kihc.iekk.aedi..","ajkf.dafd.ijij.glak.lcic.lihe.dhhh.lgab.bfdb.cgbk.kcge.eefj..","gbdd.djik.gigc.chee.jfkc.gkhb.iaeh.bkda.bfla.hejj.flli.acfl..","labk.fgaf.ckah.dbce.hjlf.chii.gijc.hfjl.kela.deib.gdde.gbkj..","dfaf.hebj.glkj.kcab.cidi.ikgg.ahef.ical.jbhh.klge.eddc.jblf..","ijkl.hahg.blfe.bcji.bglf.dejk.kkia.dfla.ggdd.ceie.jcah.fbhc..","ibeh.jlec.hijf.ddka.ibkk.aebg.feda.clgl.bjka.cfdf.chji.ghlg..","heak.dkkj.accj.iefh.cefl.bljh.fcgb.glfg.alid.ahgd.bibk.jedi..","biic.jhdj.ggab.kael.beia.lagc.kefj.ldhf.hlhi.dkfj.egkd.fcbc..","kbkg.lcae.hchl.kbih.dceg.hfib.jdeg.dgdj.ialf.fckf.eabi.jjla..","kedj.abae.laik.kela.cdlc.hhfk.dhff.igjj.cgbe.gdjg.bich.lfbi..","gcac.dakj.llja.dbfb.hebk.ljke.idja.gbcg.efeg.kcfd.ihih.fhli..","fbkc.fjef.jjdi.clgg.klhf.iabe.lgcg.ible.dihj.dhaa.eckh.kadb..","agge.kfbc.eabd.lclb.fhbc.cidk.ihie.ajdl.kjfh.jigl.jdah.kfge..","aieg.jgbl.hkbj.kdeg.hfgj.lcif.jelc.iedi.fbcf.bkhc.haka.adld..","dgjk.hcel.acka.kffc.jbkg.geef.hbaa.flie.ldjh.bjli.ddih.icgb..","ccfg.ldjb.fkge.jgdc.aehd.kbed.lcfi.bjae.kjib.haal.hikl.hgfi..","hebc.lbed.iajd.flck.bkha.jgcf.iefj.gdhg.laci.bikh.dlaf.gjke..","eegc.dhah.bfid.gjjk.ckbb.aiga.dljl.hfcl.blgk.efek.chfi.idaj..","ldaa.fbil.jedd.hkif.ecbj.dgef.cjca.khgb.hjkg.ikge.bifl.halc..","ekgb.hcfa.iefg.fdgb.hicc.ejdb.fkka.dldl.ljec.alhg.hbjk.aiji..","gjhe.dlda.cdag.ebge.ckih.ckac.fkel.bkbi.lhja.fgff.hiij.lbdj..","fckk.kagi.biff.ehab.ehcj.hllc.bjlj.ddei.agld.bifc.jdeg.kagh..","cljj.cgla.ihcl.ihbb.lhgi.jakb.deff.jbea.hkfd.kadg.kfed.cige..","gcbi.gfhh.fidd.hihl.gelc.jafa.aflc.ceeg.bkkj.aelb.jbik.djdk..","fled.daje.dbhb.kfcj.ieca.ikci.acgg.hkkf.fgge.ldhj.jbil.ablh..","lffj.gckd.hhal.lbie.ekih.fjkg.aecd.dcfg.albb.dijh.jgac.ekib..","cdhi.icja.bdfh.fbli.ckfj.begd.eaae.glhg.hejl.gckl.dbaj.kifk..","klii.bikj.heaj.dfhi.ekbh.begf.ladd.clcf.fgke.djbc.hjgg.caal..","ekkl.djfg.cejd.afdf.bkae.bglh.iegi.jbia.jcgh.lhkl.hfic.bdca..","bkkc.begg.hdhl.gafl.efik.ffjh.jile.bejb.lchi.gdja.caic.kadd..","ebci.gkck.ejbj.aiki.hfha.bhdk.ldgf.bdhj.iaff.glle.dcce.galj..","cgag.lhei.bdkh.kcjd.ffei.glda.baie.cjlj.fkih.lhbc.kjag.bdef..","gaii.fbak.lfcl.hjdj.ecij.begk.jhhd.hgcg.kbff.cked.elal.abdi..","lffl.cblc.fhch.eija.agaj.gheg.kijf.bijg.dicl.eddk.abbh.dekk..","eidj.lakk.ijfi.hhbe.bcka.gdif.bcde.lhla.kdbc.cjhg.jgga.eflf..","iecg.bldd.khdb.ijdk.ialk.ecaf.hggf.fgbj.khla.jcfl.eice.bjah..","efeb.diej.laka.cdjg.hbij.hcfl.fgik.hbdl.adgg.kbke.hjla.cfic..","ajhb.iejh.dlll.kcfg.jbek.ichf.dgea.kghi.ljdk.gbca.ibfd.aecf..","cjcf.dgbf.cbja.hgcd.ebhi.iked.kjkl.dagh.fiji.hgea.llka.lfeb..","ajhj.hhba.dack.biel.igig.khac.ebgf.efcf.elbg.ddkj.cdjk.fill..","ebjb.eiij.affj.gfal.kcac.kgce.blgh.gahd.lkhd.cbji.dilf.hedk..","aelc.icle.dlfj.kfeg.jhka.bbej.kiga.fbhg.fcik.dhic.jhdd.gbla..","hjai.akbb.jidf.clld.jlek.gblf.cchg.idag.kfca.hdji.ekeh.gefb..","lkif.cjbb.lhkj.fkal.gfec.hged.dkjg.abad.cega.bjii.lcih.dfhe..","dkbi.cjil.balk.ldbe.aedc.hjji.bffl.igje.hfak.ekag.hcch.ggfd..","kdfd.abeh.jkhk.ljaf.bcgl.eleb.iggf.kacd.chii.fdgb.ajhl.cije..","fclb.iigl.bdik.hjdg.jjff.hdca.eikk.behg.ajed.gkha.cbla.lfec..","ajbk.cifg.ache.kcji.hgif.eked.lfdd.bdbc.ahhe.lkfg.glil.jbja..","eecj.jlgf.lfbi.ailk.dajj.kfch.bahk.ibgl.dfea.kcih.bcdh.gdge..","iflc.hdfk.hdkc.fjbi.aedg.egej.kgbk.hldb.aljl.fhic.cbae.iagj..","illb.hdda.dckh.jhec.igib.bfgj.ebac.liae.flkh.dgfk.kcfj.agje..","bjke.iagl.hglk.jlch.figc.dbfd.ecfh.kjai.dlkb.ihcd.beaj.agfe..","eghb.lfcj.fake.gfhe.dcji.lajl.ifja.hcdb.dhbg.igec.lkdi.kbka..","feid.lhbc.dlhi.kgej.jfci.acik.lhae.gdbd.keaj.bkca.gfjg.flbh..","acbh.djcf.fiak.flch.kkgj.begj.egji.ilib.hhca.lebf.kdde.glda..","dgee.ckki.jlhc.lcjl.ikad.glfj.cgbe.bafa.hhja.bigh.edfk.difb..","hljd.bjcd.ccla.jabg.dfgd.jleg.gikc.khia.ffek.bhai.ebhf.ekil..","ddll.jfaf.kfek.aegj.iehb.hgbb.dici.bdfh.akhk.cceg.ljgc.jali..","idda.kkhj.alhb.jilf.iecb.gegd.kdkl.efbl.cfca.baih.hgjf.gejc..","akjf.jgil.bidf.cdbl.bkhj.deke.galc.gebh.kgac.fdca.fehl.jiih..","hlbc.dldk.hjjd.glke.begi.ghig.kcff.acee.abia.cblh.kfaj.jfid..","jffk.ladd.chil.jehi.djci.kjff.iahb.egge.lgcb.cakb.gbak.ledh..","kjik.kcbd.klfi.igeg.chch.glbj.djae.hlae.edjd.fhga.albb.ficf..","ifgf.ilbd.ebhf.ceka.acka.echk.hdli.gdab.fgjj.ildc.lhgb.jjek..","jhjk.iddb.edeb.gaej.klje.chag.fchk.kgla.cbif.filf.ghci.adbl..","aebb.hcae.fhcd.laff.jged.ijhk.jbak.lfgg.ckgk.llib.hdie.cidj..","cbhc.kljb.haaa.digi.dkeb.hicl.jhgj.dekl.fflg.keaj.bcfi.efdg..","jedg.eklh.aije.feak.ghdd.fihg.accb.hkkc.ialj.clgd.bffb.lbij..","lkce.dkdj.fabc.gejj.cfca.ijag.deha.bghl.fhig.ibdl.kihl.bfke..","cgbl.fcgj.eild.ckkf.bfeb.dbdj.hfil.jahj.lkhh.gdee.aiga.iack..","gfki.iafg.heah.ckgj.dbli.bljb.jaaf.ckdd.hcgc.bile.eekl.hfdj..","fhek.dbid.hjbc.gaeh.dfii.fjlk.kcbl.jlaj.ccag.ghid.bkea.efgl..","cefe.ihil.ijdk.abhj.befk.hklg.gidf.dllh.cade.acga.bgjb.jkfc..","akjd.ljkc.hbgc.libl.fkje.ifad.fahh.cblg.gjac.igdb.hdef.ekie..","fibi.ldjg.lihi.eada.kggb.caha.ldcf.jbej.dkjk.hbcf.fglc.ehke..","fafg.hjih.ekba.glkg.acle.adjd.edfi.bfcd.kklj.eilb.jhic.cgbh..","baki.kjdd.lafe.bfci.jija.elkc.gkfg.egge.fldl.bdhc.jihb.cahh..","behf.adjd.cglb.kibi.jbah.eigf.ceji.chak.edkg.jfda.cfhl.lglk..","ikkb.cfkl.behi.gbad.djag.aiah.gelh.ljjf.bdcl.cikg.fced.hfej..","kbhj.ajia.cbde.hebd.dfjb.elfe.hcgg.iklk.glja.ciga.klff.ihcd..","fdba.lhdj.ackb.gchg.bhae.cfkl.deld.giak.jcii.fehe.bfjj.klig..","cjle.iaak.kgdi.cbde.ffje.lkhk.jbfc.gfba.bcih.gjad.ehig.hlld..","klhc.djjl.khck.ahlf.elbc.jgdd.igbi.fkdg.eiff.heja.ebba.cgia..","ckkj.bgib.lbca.kilh.aegc.ljdi.feei.kgcd.jbhf.ahlj.hgfe.ddfa..","gldh.fhli.cjhc.jggi.kkll.efje.fdki.icab.acea.adgb.fdjh.kbbe..","elkd.kjlh.kbfe.ecid.gjfc.dbaf.efbk.gjli.aacj.abci.ghid.hhgl..","ikbb.klgg.fkej.fcdl.daeb.gfae.jida.jcka.blfh.lghc.chij.ihed..","ekfd.iegg.hfkd.kjij.ecai.ahcj.glce.gdbl.hbih.cjbd.bffl.klaa..","lbgg.cjib.ccba.geak.lefh.jkdf.jkcd.jkfl.diha.dhae.ilgb.iehf..","lcjd.bgaf.ceej.hlgi.djia.khkl.kfae.bhja.iccf.dhfd.beli.ggbk..","lghj.aace.hfeb.fkli.hhbc.jbic.ekkb.fdak.jjal.gdil.cedf.dgig..","leda.dcgi.bhbi.lefj.celg.fkdf.hgbl.ghfj.iach.bjda.iakj.ekck..","kbgj.adfe.gihb.iihl.ldca.jcah.jgfg.ejli.cckk.fakb.hldb.fede..","kbce.cijf.ijlk.ljag.hblh.ckeh.cddf.bdaa.afbj.ihge.kfie.lggd..","kdjb.fflj.leib.echc.gfeb.jadg.caeg.ijil.bdkh.dafc.iahh.kklg..","iakc.bdjk.lgkb.ldha.ejdk.ldbf.egie.helf.hfgh.ficc.cija.agjb..","ccbg.bfgj.djkj.lgei.kali.hlec.hide.ihkj.acad.hfek.bbfl.fagd..","gbfc.cdlk.dbgd.ijek.jkae.ehjh.ldba.hifh.eafc.bflg.ilgj.cika..","eljg.hlka.gcik.bjcd.dccf.afdf.bfjk.gedj.hhib.eiig.alhl.aekb..","gbhb.cjff.aebk.fjji.kfaa.cdhl.gbcj.hdll.lkdg.kcei.ieih.deag..","gejb.hkll.dfbj.cega.hdda.bcah.elkf.lcgg.ecdi.jikf.jifh.kiab..","ihbl.jkgh.klfd.fejj.lcic.gkga.diab.dfbk.gfdb.hhae.lije.acce..","cbkh.ikfc.feae.jgbd.djab.aegh.eiib.hfll.ijjk.cdgh.lagc.ldfk..","acib.djgd.kcli.dbia.hife.ahfl.jldk.ecee.fgbh.cjkk.lbfg.jgha..","kacd.kdgb.gefk.fbge.dbef.igaf.hljh.hhdj.aclj.jcil.klci.eaib..","efcd.hibh.ehhg.afic.gcjj.dajl.bkbd.gfkc.laej.igkl.efak.ldib..","dcjk.jefl.hbgi.aeji.aacg.cghd.lfkl.aidf.hbkk.jcle.gbhi.ebdf..","hfej.liba.beab.jhfk.hgge.iccb.dldk.gila.ikgj.dceh.akfd.jlfc..","fjch.ghfa.ebka.ikad.cjle.kihd.hkic.clil.fedg.jbjg.bfle.dbag..","ghda.bcec.jfec.igaf.fjdh.ekij.habl.kcag.bili.hkbg.fklj.deld..","afch.fkai.dgdi.jegk.fdkd.jika.lelf.gcib.cceb.jhel.bbal.hhjg..","gldd.jahf.edhk.kkjl.laac.ikec.hbji.dcba.bgli.gghc.fefi.befj..","ackh.icgb.cdle.gjkd.hilk.ijea.fgbf.ddka.ejbf.lbfh.aljh.gcie..","acgk.cccf.fbdh.fbba.elgd.behg.jhje.kdik.hled.iifj.kila.jagl..","geda.beli.kbki.fgjf.cljh.dcjj.hile.bdah.gelk.caad.cgbi.kffh..","kelh.jiii.akfa.ckbc.clbd.bega.hdhd.fhla.legc.jfji.dekg.bfjg..","fikd.ahga.acah.kchb.gifg.ekhl.bjdj.lcdg.dlie.flje.jfbi.cebk..","gdjl.bcag.bafl.iela.bgfj.kjie.fadg.jdhf.cehd.ikhc.hckb.leki..","fige.alai.lffg.badh.fddc.ecll.bjcj.ikkj.gkhb.eikb.hadj.hgce..","aeab.jelj.gedd.cgfi.dkgf.ilbg.ikcj.bfic.ahbe.hdlc.fahk.hljk..","hilc.eheg.lifa.begd.fkdj.gjhf.ildb.dkcc.jcfa.kbba.eglh.iajk..","jkkg.bigh.alej.clel.acfg.hbdj.dhfh.lfii.akge.bcib.fdda.kjce..","hklj.dlja.bkfa.hlfi.giie.ebfj.blac.gebg.adch.khji.fccd.kedg..","jahc.edfl.deli.kahf.glbb.clhg.ggaf.cfia.hkjd.eiec.bjkd.kijb..","ihkg.faeh.clgb.jacc.lkik.gbbe.idfd.ehje.cijf.kbla.dhga.fldj..","fihc.ilkg.jcib.ahfe.dkbf.cbgd.eakg.edgi.ajjf.bdeh.khll.ajcl..","lbjl.iabi.ckbc.hghk.aflj.lihe.dfij.dkaf.addc.febc.egke.jhgg..","hklc.bfae.gjjf.hdgk.clik.baad.iggk.eflc.cjhi.ehbe.badl.jidf..","jdeg.klif.fbla.cgfa.kdij.cihg.iekd.efah.gjdl.khlc.cbae.bbjh..","clfc.kafc.jjcg.ijhg.bgaj.edfa.efbk.kaih.ebei.dlld.hlbk.hdgi..","cfaj.lfhi.eldc.kghd.jlba.gkib.efii.cgkg.acdj.fhda.bblh.keej..","ahif.hkdg.fhih.delc.faje.fgga.bkld.kkbb.liae.jcli.cjdj.egbc..","ggke.hfck.igaf.laad.kjbb.ldhe.fcbe.iacd.ihgk.hiec.dbjl.ljjf..","jjhl.afdk.eici.iajf.bchf.behf.chjl.ikdd.blak.dgec.abgk.gelg..","dhbc.dlje.aeka.ajfe.kbce.kljl.ihfa.gidb.gigh.jkhf.gldf.ibcc..","hkai.agbc.dega.bfaf.elkd.ibef.jekh.idih.lhlj.kgfg.clcc.bjjd..","akik.bgge.jbdh.eclf.kbhk.afle.hlcj.afal.diji.ejgg.ccid.hfbd..","keah.iaka.gfcc.egla.djlb.jibd.egce.hdif.cjjf.ihkd.bflk.hblg..","bajk.hgef.djkc.cgbh.ifdc.ejkg.aehc.kdef.falb.iall.hlid.bjig..","jbaj.fidc.efck.efeh.hbjg.aikl.digf.lcke.bbda.gigj.akhd.llhc..","deeh.adci.djil.glbl.ihki.kbdf.jeea.fklf.bbhc.agac.hkgj.cfgj..","eafi.hjcd.gljh.lekj.abjb.kbig.deff.cfgc.lhke.akgd.lcib.hida..","jkdi.eelg.igbi.bicj.jlbh.cbef.glac.eaac.fflk.dkhd.fkaj.hghd..","jefl.eldl.jdch.kfhi.jhcg.gddi.jfbb.alae.ghek.kafk.icab.bicg..","cjfd.dabk.cjbi.flhe.ecgb.kahc.ileg.glaf.fikg.lhja.hked.ibdj..","gcfj.hcek.gbij.ehjd.lcld.gbii.laaf.kbfc.ideh.afjg.kbhe.dkla..","hccj.llic.bakf.fjbi.lgbk.hfhd.gjdb.ieeg.dcka.ahji.kgfd.eale..","ijji.kbad.glil.feke.cfac.lhah.kflg.ghkd.ifja.cdej.dceb.bghb..","ffig.ceji.gldb.adie.lbka.gjkf.hehd.bjjg.ccla.cfdi.blkh.kahe..","hcae.hlfc.bgel.lijk.daeb.ggdi.bhjg.jbad.kdif.cjla.iffk.ekch..","dgfh.lkhc.lcjk.dbce.giej.fbbk.gdak.heca.ifja.jiag.hilf.dleb..","dgbd.kjlb.fgie.hell.kkef.ajhc.gjaf.abfj.hgic.hcae.ilkb.dcdi..","acdc.lifk.ebag.hdbj.hcie.lcje.kdlf.hgkf.gaba.ebii.jjgh.kfld..","edbc.hjkd.eeii.bjag.khgi.cbfl.hfgc.eacf.bjgl.ldda.lafh.kijk..","jdbh.ahbi.jaif.adfb.defa.efej.clcg.hlic.eljh.kggk.gibk.klcd..","gihl.aeak.ekcj.dbjg.kchd.jcgf.hded.keib.hfab.clli.fjbg.flai..","faca.chbk.fifj.ebgg.bali.efhl.ljgi.gckh.dcle.djdi.dkje.abhk..","iaac.dkfk.ddgj.chic.leed.eelb.jglg.ifag.jikh.kbch.hblf.afbj..","hbgi.acle.gadi.cief.ldfa.fjij.lbhk.hdeg.akcg.fbck.klej.jdbh..","gdbl.jkfc.ehik.dlch.fcji.ildg.fafg.cjkh.ebea.eaha.jbgk.dbil..","kcea.hlfg.kiad.fdel.jeag.fdfb.lahb.jjle.bhdc.cihk.ijcg.ikgb..","kjil.clje.kfkc.lbdi.dkgd.chie.hacl.ahfa.jhfb.eegg.jbgi.dfba..","jjda.jdka.blce.fgch.eibj.kakl.bgff.eedh.fhag.ikcc.ldih.ilgb..","kicf.jecl.hjgg.eaki.edbg.fklf.bahd.bhgi.hdil.cbca.jdlk.feja..","elkb.cjjc.daja.chbi.eild.fele.fkai.bhac.ghgb.difd.hkgj.lkfg..","bgid.iflb.bcge.lajd.kgkj.elhd.ckce.kahi.fgch.djah.eajf.flib..","igbi.lfcg.gceh.cfhd.fche.blhk.dlld.agkf.jaea.dkkj.abji.jbei..","cagd.dcea.kfkh.ciaf.ijdh.hldl.gebj.bfib.kfla.gcjb.elki.ejgh..","jbce.clcj.jcak.kdlk.gjai.iddh.galg.ffeb.bhad.fbek.egli.hfhi..","lagg.dfia.eche.ebkf.eajf.jhdh.kgjb.lacj.cihf.lbdi.lckb.gkdi..","jdha.gbbk.jegi.deel.eccj.fcbj.afig.khfb.klaa.lchd.fdih.ilgk..","kacc.bgch.kgae.ldfi.dfei.chbb.jbkg.ifad.jlih.dlfk.hjal.ejge..","jgck.liah.edlf.blce.bkca.hdfj.bieb.kgli.jafg.agej.cdhi.kdhf..","eigd.abic.lebh.jhki.glbg.glfj.faae.bajd.clih.fdjk.fekc.chkd..","blfi.acad.beli.ghga.jbjd.iafk.chjk.flch.edkl.hkfe.igce.gbdj..","gefh.lbjf.lgia.ejij.dlgl.kbki.cjge.abhd.edca.kicc.fbha.dkfh..","kbfe.ccig.igek.ckgg.ajhl.fbch.dfhb.jbhd.jlja.dked.lefa.ilai..","ecif.kjae.jgdd.ljca.hdbb.bkbd.jflh.kffe.ilkc.iahg.clha.igeg..","ajbg.blkk.cgeb.gjjl.ifhc.icfh.gjde.ddhi.kblc.lhea.iadf.ekfa..","jkef.hcdg.lbhg.kceb.ljeg.iccd.flbf.lihk.adad.iiej.hbja.kgfa..","jfbf.aldg.alii.hiae.kelb.edgg.gdia.ckjf.hbkl.fhcj.kcec.hdbj..","ebkk.ahdi.idll.jije.egcg.lbad.fjch.gflc.hajb.akfk.bgei.dhfc..","ildi.bkik.cigb.cgah.badj.hlaf.jeec.gfaj.hklh.ffld.jeed.gcbk..","hibe.flki.gjed.jlac.dbbg.hlhk.idfk.feji.chab.ckej.gfld.aacg..","lhfj.bgef.kbga.kegd.jfel.clii.ckca.adib.fjje.khdg.bhdl.ciah..","jchi.aigb.facf.eekc.aghk.dlei.gbcg.jhad.jbjh.ellf.ddik.bkfl..","ceeb.fjdg.kall.cblj.gici.edda.fbkk.bgjh.cgil.hfah.kjeh.fdai..","jlke.lfgb.bjaj.hgdg.adca.dieg.hlfb.bcia.dcji.khhf.kefc.ikel..","dlhi.ellc.fhag.dafk.dakc.cjje.kflg.begb.ihek.iaij.bbgj.cdhf..","gfel.ahbe.ccgl.lick.ifkb.fdgi.kbig.ckle.ajda.edab.hfhj.jhjd..","eiha.jlgc.bkaa.cldj.gkdf.gbfl.bjfk.edhe.kacd.fibi.ehjc.higl..","dhac.cjhe.kiej.giff.ahkc.lgbc.lglj.ilab.kdki.djbe.aefg.fbhd..","bcke.fdgi.kghb.lakd.lehe.iljf.bhai.ejgc.daif.gfkc.bjhc.ljda..","hfea.befe.jlia.hljf.jebg.hkcd.bida.lkgd.acji.dilb.ghck.gcfk..","jdfc.ikah.hgki.jked.jall.cheb.fejg.dagc.dhai.kblf.bigf.bcel..","baij.hllc.gejc.hfde.djgj.kfdh.khbe.gdfk.cfai.liel.bbck.agia..","fahi.fjci.bghk.dadb.eckh.hjae.blgl.idfk.eggj.bikc.fcal.dlje..","lgde.jgeh.ddci.haji.ilbl.jfga.bagc.bhik.ckfk.ehlc.deba.kfjf..","ijbg.bgca.ajlc.egdk.lkdh.iigc.ffek.celf.daeh.ljbj.ahkf.bhid..","ldcf.agfh.lghc.fjeg.lake.ckbi.jgkd.ibcl.bkah.aieb.jfhd.iedj..","ahle.lacd.lfgh.caje.ibji.fhgb.bdji.cadf.ekhg.cgbf.kkij.ldke..","gkbb.hjel.kefa.idkj.elhc.agic.lfcb.dgfd.hdkg.jhif.jcea.bila..","lggb.ahhg.ahde.chfd.ebik.idcl.ecaa.kefk.klji.dbfi.bljj.cjfg..","edbl.kgkl.jekc.dicl.ahie.fdgf.ehjk.dgjb.fhga.fjah.clbi.bcia..","djae.biec.flga.khfa.lejj.lckf.gcbg.fklh.kddj.bihg.adih.cebi..","lhlk.dgbh.jchg.feaf.bbcf.ilea.fekj.dgcj.gcel.idki.ibdj.ahak..","ggkf.kbad.ldil.cbkd.gcjh.dhfa.agbe.eifk.hlfj.ilcj.ejhe.bica..","jldb.ceha.hkjf.flgf.jbea.gech.jaeb.ikil.gifd.kbkd.idhg.accl..","jeck.fkbf.eagl.fiib.jgba.lcgh.ikjd.ghei.hdle.adcc.jalk.dfbh..","cfhc.ahdg.begh.cgif.klie.bbhd.kajl.iejc.dkfl.befa.glij.ajkd..","alha.abgb.fdjc.dfeh.kgej.hljf.dkih.kibl.jick.bglg.iefa.cedc..","ahhg.lfhc.kbhj.igke.gjef.ldac.jfia.jfkl.ckca.ebie.ddgd.ibbl..","dbhc.gjhe.jlel.clhb.gcbi.fkfa.leka.jigk.gdbd.afik.jace.idfh..","bdhc.fggh.kdbj.gcka.alfl.jlia.afed.igjf.ehid.lkkj.ecei.hcbb..","eijf.hkia.jhgd.bdlj.bgbd.efah.dbje.gghi.lfkk.llck.caci.efca..","hfgl.hibl.gfie.kglj.abaj.kack.ehbb.fdkj.iclc.hdge.deai.fjdc..","eejh.fijg.ckia.kcge.ahfl.blhj.dbba.ighf.edal.bigd.kfcl.jcdk..","dgbl.ehjl.eahc.kcaj.hiji.lfce.kfbf.jkdc.ghdi.abeb.glgd.akif..","eclg.edig.gbkb.dfjh.decj.aaic.igfd.ahhk.kejc.bhji.flka.flbl..","dhah.igea.kdhi.djbj.blbe.alib.jklg.jkia.leef.fffc.ccgd.ckgh..","ihhb.eelg.cale.hlhd.bjkd.jfib.ejif.faci.kcdj.ckkl.agfa.bgdg..","dhci.lkbc.lkif.dcdc.hjeh.jada.abik.akfg.bfig.lgfg.hjee.jelb..","cdhd.feeb.ikdk.lhjk.gjbh.dcfa.cgfa.bhji.eklj.gfba.ecll.aiig..","degg.jglj.dbbk.heag.fich.ljil.cceb.aifk.kabe.fadl.ichk.hjdf..","legh.adfe.edjc.chjc.clif.adib.jiaf.khal.gglk.kihd.gbbj.ekfb..","cfda.bjbd.jkge.gdbj.ejia.laid.ghlh.ciki.ecfl.khfk.lbha.fegc..","hgjh.aklb.ajjl.dajl.hgck.fdee.cbfe.bgea.chci.dlkf.gdik.ibif..","kefi.cdbd.jilc.jbfc.flha.dgeg.cehb.ealk.ahhi.dbji.fglk.gajk..","dajb.dcdi.ifgf.jgai.klch.lfje.ehbl.kbck.cgdb.ajlf.aehk.iehg..","libk.ggej.dcfi.lkdj.daei.ecif.hgah.fjga.bade.khch.ckjl.fblb..","fcci.klkj.kahg.faja.ehbl.gbdc.lhge.gjed.akhi.dibj.ecbf.ildf..","cgah.jfab.hjif.dija.clld.kekb.gcla.egid.kfhj.ebhe.cldg.kibf..","laij.kicc.hfej.ahgd.fgch.fbbl.jlbh.ekbj.dkac.ekgd.iafi.gedl..","kijk.fehf.fgce.kaij.eacj.bghf.dhkb.lagc.blhe.bcdd.lgji.iadl..","dike.lebg.gdkb.alii.fcfg.dhje.hkfg.jakf.hlcb.ljac.jaie.hbcd..","ikaj.heai.icdb.lkgl.lbki.cebd.ffhc.degd.abjl.ghjg.jfkh.fcea..","hlgh.daeb.fkai.bbkj.fgkl.ejli.cacc.kdhf.hieb.jgdj.caif.dleg..","ghjl.icfg.hahj.jbea.idif.bhcd.eldl.bgcg.icke.kjff.kkab.ldae..","dkah.bglk.biji.djch.jdll.jhie.cflb.geef.gkid.hcak.fbcf.agae..","gdhk.cdhe.liei.aedg.fcal.fjbf.jbak.hibg.jjcl.haic.kgeb.dlkf..","cbkh.djja.clge.ekfc.eigb.hial.gadg.hiab.fhkd.jfci.blkj.elfd..","ijcg.jfba.agkf.lfel.hibd.hbca.bjge.kdel.jccg.dkkl.ihdf.heai..","leie.efgj.ebal.hlfh.kagh.cgfd.ckbg.cbha.lbkf.kjja.diic.djdi..","jled.cifk.cdig.digh.fgef.bbjl.aeak.jcdh.acbj.hafh.kgle.bilk..","fjbf.alba.ajdc.leif.edib.aihk.gfgh.jdek.ckjb.dlgi.echc.hkgl..","gkba.iafg.hega.fjhl.bcgd.ckil.kebj.adjh.ildc.cbke.hdlf.jife..","jikd.cbai.afjc.lbdf.hhag.kdie.laeb.dele.jkgi.hfgh.fcgk.jclb..","kjcg.bfed.akhi.dckj.fbbh.hbie.dilf.aekg.fllh.iajg.ccle.gjad..","hifh.ceki.ebcc.addh.ffeg.lbck.lgdf.hgkb.ikjb.laaj.jgje.dail..","adbk.ikaf.gfjj.helh.dide.bgjc.hcdh.bljl.cgek.aifc.befg.lika..","dblc.ldbh.efik.ikde.agla.kjjc.hifb.fcla.ghcb.gjhe.ifkd.eagj..","acda.fibf.dhbb.kgji.aill.jdei.klkk.fjge.bhlc.egfe.jacc.hdgh..","jhed.dhig.hkeb.aigj.djac.gkci.jflb.fhbk.ella.caef.dklf.bcgi..","klcf.cahi.fili.dgek.bcdb.kifl.jghf.hhej.ljbg.aeda.dkaj.bgec..","ikch.ajcg.hbji.lfdg.lfhl.edka.dgji.eaha.cfdk.becj.kbgl.iebf..","cflj.kajk.lfca.defk.cedl.eaib.diig.bfjk.hggl.ahbh.ijdh.bceg..","egjb.kgde.elka.lfld.bhca.hcik.deii.bkhi.fbdj.lfcg.jfaj.hacg..","iafc.kbfi.lagl.hbec.hlgj.bgdj.ailf.hiad.kkej.kdbf.eech.jcdg..","bhlg.hcie.kiab.kfgf.cehg.dabh.ejeb.lkcd.lafi.kfdc.jgja.jidl..","ldbg.fiea.ljae.lhck.kabg.icej.flcb.jhkd.iced.hkjd.fgfi.hbga..","hfhk.ckif.igdc.ahdl.feac.bjgh.cllb.ikdf.galb.ekgd.eaje.bjij..","fhkj.kake.dgci.gccl.jhbd.ifgi.bkll.afda.gbei.bech.ealj.djhf..","fbeg.fked.heje.idac.laka.llcc.cbfb.kgkh.jijg.iilh.fbdj.ahgd..","chik.kjed.cgfd.jhkd.ebhc.aack.lfba.flgh.aleg.fdej.iilb.bijg..","blkg.eigj.lffk.dhci.dgch.jaja.cfjl.cefk.lkbh.edib.aiab.ehdg..","jkfg.jeak.lgda.bjge.ihkc.gdeh.icai.elfl.bhcd.jbdf.cahl.fibk..","clcd.aidc.fjeg.bafg.jiil.hfhe.akeh.ckkh.dgjb.faed.bllb.ikgj..","kcjc.flde.klij.hcde.aalh.hkdf.bfij.ajkh.iaeg.gefb.dgcl.gibb..","hcgf.kdbk.lijk.icai.fcjd.hfek.eajd.abfl.jebg.gedl.agbc.ihhl..","bgih.aikb.aicl.eecl.bacj.jckl.gjfd.egjd.khhf.aekg.dihd.bflf..","ebjh.aidi.kgal.bdja.jffc.eheb.dggj.gbel.lckc.iikf.hcld.fhak..","lkgd.bhkd.gaih.bfic.ddbl.caik.ejeg.ehlb.ejjj.kgla.cfcf.hfia..","kekd.alfa.gbjh.ichd.ilal.decc.ekkb.glcb.hjfd.ggjh.eifi.bjfa..","fafc.lgle.iebk.ejdc.gchi.kdhb.eklc.habg.ldaj.iifb.jakg.hfdj..","dbck.egca.dffl.flhi.hkab.jgjc.lhjb.iief.cdal.bekh.kiag.gjed..","clgl.ijfk.flkb.fabc.dchk.aibe.afge.aicj.gkle.ehbi.djhj.gddh..","eakf.hldh.kdef.bijg.fajk.lbia.blke.icda.cgcc.ijeg.dhbl.fhjg..","gahc.jjhb.ljhb.caih.dagl.ifkl.ibeg.ikfg.kcfd.dkeb.caje.lefd..","jeid.cbil.fbgb.ijgg.kfha.cade.jfac.dgek.hadl.klhh.kjbl.feic..","kbhe.lcfc.bdgj.aghl.ajdf.gilc.jaac.ikbi.jehf.ehed.ikfg.bkdl..","jlbh.hhec.elil.cfdg.gdke.falj.higa.fikb.edia.jfbk.gcbd.ckaj..","call.dhkb.ifhe.ikei.gchf.aigj.ajld.bjfd.kkge.egch.jadl.bcfb..","ghll.gbgl.dbha.dicj.afkd.ikej.eiek.abfk.hfjg.jieh.dccc.labf..","ejgf.ehci.ghjd.fahf.cecb.fkac.jbli.biel.klkg.aiag.dldj.bkhd..","geih.fhbl.ecag.hlea.igil.aefc.djcj.jbkh.fddg.dkck.kjab.blfi..","bcba.jgdc.legd.kice.aehb.hlfd.eikj.gifh.faci.aljh.dfgk.blkj..","gakl.iejl.cfba.fldk.gbje.dchg.dgeb.lbcf.caaj.hihe.kkfi.idhj..","gfbl.licf.bkhg.ijji.cdae.eacf.ajdh.glfk.ckbd.hgka.ildb.jhee..","cjfj.acka.ghai.ecbf.dlgf.dhgd.fgbl.ilkb.hiek.jcee.kbih.jald..","aagb.cbha.ildj.lgdb.ealj.hekh.dkel.iffe.ghfb.jijc.kckd.fcgi..","dbid.fbbj.bjej.jkha.hcia.cghl.illc.fkdk.dgge.hela.afig.fcek..","gkig.hcch.abld.fdge.bgbj.aeii.iekb.kcdc.hdlh.jfkl.lffa.jaej..","ekcg.bllf.cgkj.dhed.kikh.gial.cbdb.jjha.cfia.dfhb.eegf.laji..","ebkl.kgfb.baji.gcjf.dikc.bhfl.hcje.kaic.eadi.hjgf.elhl.ddag..","jlfc.falk.ahbd.aecg.eikb.jjgd.kbcl.jdeg.hicl.fbhe.ifia.hgkd..","ebgh.iclh.gaie.lfbf.jacj.bhad.cdef.glik.dklc.eihb.fkaj.kdjg..","fleh.jhid.bcch.cgej.jdgk.fefd.gldb.bafh.kaic.eabi.jklk.gali..","idgf.kbhl.lakd.khbi.lefg.dejc.kjca.bgla.baie.fihd.ejjh.fcgc..","ilki.gafl.hbge.kgda.fecc.kjfk.ibld.bcac.jdai.gjhj.fhbe.edlh..","ibgd.dgbg.lcjg.hdhk.jcdb.icbl.khai.kfaf.flae.ehja.jlfi.ekce..","gbdi.hdjg.fbai.kala.eiea.chcl.kjld.clgf.kcef.gbef.ikjj.hhbd..","ifgh.calc.jdkh.kfhd.djhb.gibj.ealb.bjkc.lcek.iadl.gfea.eifg..","kfib.igec.khak.bged.adbk.cjlf.jldc.jfjg.ehla.dcih.ifla.bgeh..","khaj.aihk.fdcj.eehb.aedg.gjfc.fdll.ihlk.iacj.ldfg.bbkb.gcei..","eecb.cilj.abgf.khei.cdlg.ldjd.adfh.ifci.bbjk.hhak.klag.gefj..","clgd.heia.klhf.clkb.bhlj.hjbg.gcjf.gcdd.adae.eeka.fjbk.ifii..","jgld.hkak.elhc.cica.jlce.fbii.ehfa.bbgg.lbdd.fgkj.adfe.kjih..","lddd.hiha.ldgj.aijh.eibe.lcba.fbel.kgbc.hkgi.cfjc.keaf.jgfk..","jicf.clei.ihkh.jhle.bjig.egdb.bcjf.dcag.flfa.kkld.dake.bgah..","eklg.bhdl.bgda.fjcc.iebf.bhaa.lfdh.dikk.icfj.cljj.gakh.eieg..","kfek.cgcj.labd.clle.gabg.cdfh.kbjk.hiae.ijgl.edih.fibf.dahj..","icbi.hifl.bakj.bdei.jbkh.hecg.ehcg.edaa.fljd.ldja.kkfc.glgf..","ilae.icgi.flbe.lfbj.fkgj.dgek.acbd.jkid.fheh.cbhj.ghla.dcak..","eigf.dfck.ajlb.cekl.ceic.hagh.fjkl.blbe.jifh.gdih.addj.bkga..","hakd.ihad.ceaj.flfc.hiei.cbfk.jjlg.kggc.djdb.bgeh.iafk.blle..","gldl.gcej.kjif.ckak.dhfh.jgfa.bbic.efci.hbdh.jlea.kaeb.lidg..","bfjj.gkdf.ccia.igcf.bjdg.deld.eakl.lcki.ahje.aehh.lhbf.kbgi..","beae.ggjb.fcfa.hjhc.cbla.aldf.dibk.ijdk.ijhf.kged.lelh.kgic..","abdc.ghgl.lhci.ebel.dkbk.lfjj.gfga.abhc.fike.cdjd.jiia.fkhe..","ejgj.igal.jlae.fcdf.acbb.cidh.ihhf.jdgh.cibl.abfk.dekk.gkle..","lalh.dbgk.leih.djff.hjce.alii.hadj.bkgc.fike.gkcf.bbgc.edaj..","eilb.khlk.chjj.efgl.kbdf.habk.hjac.egaj.dfbg.ecdl.cdii.ifga..","cehi.hgfj.dgkk.afal.glfj.bbdl.djac.iikc.abcl.bgei.hkef.djhe..","bfif.ljce.kilf.dlki.ihbh.cjdb.gflg.adck.jake.dgeb.eaag.hjch..","dlgc.bbid.lgek.ejie.bljd.aifi.cejb.fhkk.jdca.ghff.kach.hgla..","ilhd.egci.lbck.fekb.jdhj.eell.hbdg.dgaa.gbaf.fjcj.aikf.khci..","gdhk.ieal.kjej.dhcb.hbif.glae.gkci.fchb.afde.djla.fklg.bjic..","ecij.bjgf.flgg.lfid.adlk.lajc.ihhb.bacf.ekij.agkc.ekhh.dbde..","ljkc.alke.bhgh.keib.jada.flki.hgjc.ghef.fjad.ccdf.ldbg.eibi..","hegl.effb.cbkk.gkdi.ebal.ajhc.iidf.jdeg.bjfh.cdhk.jaci.lagl..","bijb.gclk.dlef.hiif.cdfb.akck.dgaj.jkjl.bdea.hefh.egia.lcgh..","keck.jdlj.hidd.lccf.ahdi.abfg.fikg.hgif.bjjk.bacl.ebla.gehe..","djgd.cikg.iahb.cleg.hlae.lbkb.hacj.hbkf.ljeg.ifei.djfd.fack..","ldfi.glce.efkb.iaci.gdbh.ilba.klah.ffkj.egja.chje.kbjc.ddhg..","kljb.ehdh.echa.fbbd.gjid.ljfl.hikk.gcee.kgia.fagc.fabi.jdlc..","jbjh.igbb.jaec.fegl.klch.khdc.adlf.gcgi.bjdd.kafk.ieai.lfhe..","ldlf.ijfd.difc.cgbj.aekb.edkg.fjil.khce.behg.igak.jach.lbha..","hdgh.bfbk.iklh.ieei.kaaf.djac.kacb.icdf.lfcl.ghjj.dbel.egjg..","jchi.affi.hagc.lidc.ldge.hgbe.hkil.jjec.bedk.akbf.lkdf.bjag..","chab.eegc.hjfi.bjdh.abik.fldj.fdbd.acgk.ljal.eckk.fhlg.eiig..","fbjk.hagi.ebhl.jick.kdbf.agei.ddhe.kjha.clbf.lejl.gacg.idfc..","kjhe.bhei.abbh.felc.gcjd.ehbg.dcjg.klff.ciad.jlfk.klii.gada..","ahke.liid.ckkl.ebjb.ejfj.afhk.cdag.geii.bhga.fjcd.ldgc.fhbl..","bdci.lghj.jlkk.gckf.ihhe.dbla.beci.figj.aefc.baad.jkgf.dhel..","hieg.hkli.fcdf.dcka.kbjf.bjgg.ilbc.bgej.afec.keal.hdjd.lahi..","gakj.adlc.gdke.eghe.dica.cjba.cgfb.jffe.bfhk.bilk.iidh.jhll..","dkjf.adac.hjhj.bccb.hhle.elig.fcil.ikdg.balf.akjb.efeg.gkdi..","chhf.dfia.dach.kcjd.laif.fegb.aggk.ibkj.iekj.elbe.jdlg.lchb..","ghca.lilf.kffj.edjh.gbek.lfad.akah.dkej.ciie.dgbi.gjch.lbbc..","chfh.ahgd.jlbj.eelg.lddi.bdek.khbc.gifi.gcaa.fjie.bjla.kfck.."];
+</script>
+<script>
+/* Splash Sort sounds: synthesized with Web Audio (no audio files). */
+var SSSound = (function () {
+  'use strict';
+  var ac = null, master = null, on = false;
+  function ctx() {
+    if (!on) return null;
+    if (!ac) {
+      var AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null;
+      try { ac = new AC(); } catch (e) { return null; }
+      master = ac.createGain(); master.gain.value = 0.5; master.connect(ac.destination);
+    }
+    if (ac.state === 'suspended') { try { ac.resume(); } catch (e) { /* ignore */ } }
+    return ac;
+  }
+  function tone(type, f0, f1, dur, gain, delay) {
+    var a = ctx(); if (!a) return;
+    var t = a.currentTime + (delay || 0), o = a.createOscillator(), g = a.createGain();
+    o.type = type; o.frequency.setValueAtTime(f0, t); if (f1) o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(gain, t + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + 0.02);
+  }
+  function noise(freq, q, dur, gain, delay, f1) {
+    var a = ctx(); if (!a) return;
+    var t = a.currentTime + (delay || 0), len = Math.floor(a.sampleRate * dur), buf = a.createBuffer(1, len, a.sampleRate), d = buf.getChannelData(0);
+    for (var i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.sin(Math.PI * i / len);
+    var s = a.createBufferSource(); s.buffer = buf;
+    var bp = a.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.setValueAtTime(freq, t); if (f1) bp.frequency.exponentialRampToValueAtTime(f1, t + dur); bp.Q.value = q;
+    var g = a.createGain(); g.gain.value = gain; s.connect(bp); bp.connect(g); g.connect(master); s.start(t);
+  }
+  return {
+    setEnabled: function (v) { on = !!v; if (on) ctx(); },
+    unlock: function () { if (on) ctx(); },
+    pick: function () { if (on) tone('sine', 620, 760, 0.07, 0.1); },
+    drop: function () { if (on) tone('sine', 520, 420, 0.07, 0.08); },
+    pour: function (n) { if (!on) return; noise(500, 1.2, 0.3 + n * 0.08, 0.35, 0, 1300); for (var i = 0; i < 3 + n; i++) tone('sine', 300 + Math.random() * 500, 0, 0.05, 0.05, 0.05 + i * 0.07); },
+    clack: function () { if (on) { tone('triangle', 1400, 900, 0.05, 0.14); noise(3000, 5, 0.03, 0.2); } },
+    cap: function () { if (!on) return; tone('square', 880, 1320, 0.07, 0.07); tone('sine', 1760, 0, 0.3, 0.12, 0.05); },
+    nope: function () { if (on) tone('sine', 300, 220, 0.1, 0.1); },
+    undo: function () { if (on) tone('sine', 700, 440, 0.12, 0.09); },
+    tube: function () { if (on) { tone('triangle', 520, 1040, 0.18, 0.12); tone('sine', 1560, 0, 0.2, 0.06, 0.12); } },
+    win: function () { if (!on) return; [523, 659, 784, 1047, 1319].forEach(function (f, i) { tone('triangle', f, 0, i === 4 ? 0.6 : 0.18, 0.24, i * 0.1); }); noise(4000, 0.8, 0.5, 0.12, 0.45); },
+    ding: function () { if (on) { tone('sine', 1319, 0, 0.4, 0.25); tone('sine', 1568, 0, 0.5, 0.2, 0.12); } },
+    sign: function () { if (on) noise(900, 3, 0.07, 0.3); }
+  };
+})();
+</script>
+<script src="../../shared/ads.js"></script>
+<script>
+/* Splash Sort app: drawing the tubes (water that stays level as a tube tips, or glossy balls), taps, pour and ball
+   animations, undo, the spare tube, level flow for Water and Balls (separate progress), saves, stats, house ads. */
+(function () {
+  'use strict';
+  var S = SSSound, LEVELS = window.SS_LEVELS || [];
+  var COLORS = ['#ef3b4f', '#ff8f1f', '#ffd21e', '#97e03a', '#1fa653', '#2fd3e3', '#2f6ef0', '#8a4ae8', '#ff72c6', '#8d5a2b', '#a3a9b6', '#23306e'];
+  var LIGHT = ['#ff8a96', '#ffc07a', '#fff08a', '#cff78e', '#6fe39a', '#a6f3fa', '#8fb4ff', '#c4a0ff', '#ffb6e3', '#c8955f', '#dfe3ea', '#5a6ab8'];
+
+  // ================= storage =================
+  var store = Goobs.store('sort');
+  var settings = { sound: false, adEvery: 3, symbols: false };
+  (function () { var s = store.get('settings', {}) || {}; for (var k in settings) if (typeof s[k] === typeof settings[k]) settings[k] = s[k]; settings.adEvery = Math.min(10, Math.max(1, settings.adEvery | 0)); })();
+  function saveSettings() { store.set('settings', settings); }
+  var meta = store.get('meta', null) || {};
+  var MD = { mode: 'water', level: { water: 1, balls: 1 }, seen: false, finished: 0, lastAdAt: 0 };
+  for (var mk in MD) if (meta[mk] === undefined) meta[mk] = MD[mk];
+  if (meta.mode !== 'water' && meta.mode !== 'balls') meta.mode = 'water';
+  ['water', 'balls'].forEach(function (m) { if (!(meta.level[m] >= 1)) meta.level[m] = 1; });
+  function saveMeta() { store.set('meta', meta); }
+  var stats = store.get('stats', null) || {};
+  ['water', 'balls'].forEach(function (m) { var o = stats[m] || (stats[m] = {}); ['solved', 'moves', 'fewest', 'undos', 'tubes'].forEach(function (k) { if (typeof o[k] !== 'number') o[k] = 0; }); });
+  if (typeof stats.capped !== 'number') stats.capped = 0;
+  function saveStats() { store.set('stats', stats); }
+
+  // ================= helpers =================
+  function $(id) { return document.getElementById(id); }
+  function isOpen(id) { return $(id).classList.contains('show'); }
+  function sheetOpen() { return isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || GoobsAds.isOpen(); }
+  function fmt(n) { return (n || 0).toLocaleString(); }
+  function levelString(n) { return n <= LEVELS.length ? LEVELS[n - 1] : SS.levelBeyond(n); }
+
+  // ================= game =================
+  var g = null, levelNo = 1, sel = -1, anims = [], parts = [], caps = {}, ending = false, lifts = [];
+  function startLevel(n) {
+    levelNo = n; meta.level[meta.mode] = n; saveMeta();
+    g = SS.create(levelString(n), { balls: meta.mode === 'balls' });
+    g.level = n; sel = -1; anims = []; parts = []; caps = {}; ending = false; lifts = [];
+    save(); layout(); renderInfo();
+  }
+  function save() { if (g && !ending) store.set('game.' + meta.mode, g); }
+  function load() {
+    var r = store.get('game.' + meta.mode, null);
+    if (!r || !Array.isArray(r.tubes) || typeof r.start !== 'string' || r.level !== meta.level[meta.mode] || !!r.balls !== (meta.mode === 'balls')) return false;
+    if (!r.tubes.every(function (t) { return Array.isArray(t) && t.length <= SS.CAP; }) || SS.solved(r)) return false;
+    g = r; levelNo = r.level; sel = -1; anims = []; parts = []; caps = {}; ending = false; lifts = [];
+    g.tubes.forEach(function (t, i) { if (SS.done(t, g.cap)) caps[i] = 1; });
+    layout(); renderInfo(); return true;
+  }
+  function busy(i) { return anims.some(function (a) { return a.a === i || a.b === i; }); }
+  function tap(i) {
+    if (!g || ending || sheetOpen()) return;
+    S.unlock();
+    if (i < 0) { if (sel >= 0) { sel = -1; S.drop(); } return; }
+    if (busy(i)) return;
+    if (sel < 0) {
+      if (!g.tubes[i].length || SS.done(g.tubes[i], g.cap)) { S.nope(); shake(i); return; }
+      sel = i; S.pick(); return;
+    }
+    if (sel === i) { sel = -1; S.drop(); return; }
+    var from = sel, n = SS.canMove(g, from, i);
+    if (!n) {
+      // not allowed: pick up the tapped tube instead if it has something to move
+      if (g.tubes[i].length && !SS.done(g.tubes[i], g.cap)) { sel = i; S.pick(); shake(from); return; }
+      S.nope(); shake(i); sel = -1; return;
+    }
+    var r = SS.move(g, from, i); sel = -1;
+    stats[meta.mode].moves++; saveStats();
+    anims.push({ a: from, b: i, n: r.n, c: r.c, t: 0, dur: g.balls ? 340 : 760, filled: r.filled, won: r.won });
+    if (g.balls) S.clack(); else setTimeout(function () { S.pour(r.n); }, 190);
+    save(); renderInfo();
+  }
+  function finishAnim(a) {
+    if (a.filled) { caps[a.b] = performance.now(); S.cap(); stats.capped++; saveStats(); burst(a.b, 14, COLORS[a.c]); }
+    if (a.won && SS.solved(g)) { win(); return; }
+    if (!anims.length && !SS.solved(g) && !SS.usefulMoves(g).length) stuck();
+  }
+  function stuck() {
+    if (g.undos > 0 && g.hist.length) toast('No moves left. Undo, add a tube, or restart.');
+    else if (g.extra > 0) toast('No moves left. Add a tube, or restart.');
+    else showCard('Out of moves', 'Nothing can move anymore. Try this level again?', [{ label: 'Restart', red: true, go: function () { restart(); } }]);
+  }
+  function win() {
+    ending = true; store.del('game.' + meta.mode);
+    var st = stats[meta.mode]; st.solved++; if (!st.fewest || g.moves < st.fewest) st.fewest = st.fewest ? Math.min(st.fewest, g.moves) : g.moves; saveStats();
+    meta.finished++; meta.level[meta.mode] = levelNo + 1; saveMeta();
+    S.win(); for (var i = 0; i < 90; i++) confetti();
+    setTimeout(function () {
+      showCard('Level ' + levelNo + ' sorted!', 'Done in <b>' + g.moves + '</b> moves.' + (levelNo === LEVELS.length ? ' That was the last hand-checked level; new ones are made on the phone from here on.' : ''), [
+        { label: 'Next level', red: true, go: function () { between(function () { startLevel(levelNo + 1); }); } }]);
+    }, 1100);
+  }
+  function undo() {
+    if (!g || ending || anims.length || sheetOpen()) return;
+    if (!g.hist.length) { toast('Nothing to undo'); S.nope(); return; }
+    if (g.undos <= 0) { toast('No undos left on this level'); S.nope(); return; }
+    var r = SS.undo(g); sel = -1; delete caps[r.a]; stats[meta.mode].undos++; saveStats(); S.undo(); save(); renderInfo();
+  }
+  function addTube() {
+    if (!g || ending || sheetOpen()) return;
+    if (!SS.addTube(g)) { toast('One spare tube per level'); S.nope(); return; }
+    stats[meta.mode].tubes++; saveStats(); S.tube(); save(); layout(); renderInfo();
+  }
+  function restart() { if (!g) return; SS.restart(g); g.level = levelNo; sel = -1; anims = []; caps = {}; ending = false; save(); layout(); renderInfo(); }
+  function switchMode(m) {
+    if (m === meta.mode) return;
+    save(); meta.mode = m; saveMeta(); syncModes();
+    if (!load()) startLevel(meta.level[m]);
+  }
+
+  // ================= layout =================
+  var cv, cx, W = 300, H = 400, DPR = 1, L = { tw: 40, th: 160, u: 30, hr: 18, pos: [] };
+  function fit() {
+    var st = $('stage'), r = st.getBoundingClientRect(); DPR = Math.min(3, window.devicePixelRatio || 1);
+    W = Math.max(100, r.width); H = Math.max(100, r.height);
+    cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR); layout();
+  }
+  function layout() {
+    if (!g) return;
+    var n = g.tubes.length, rows = n <= 6 ? 1 : n <= 16 ? 2 : 3, per = Math.ceil(n / rows);
+    // a tube is tw wide and about 4.1 tw tall; leave room above each row for the lift and the pour
+    var byW = W / (per * 1.34 + 0.3), byH = H / (rows * 5.35 + 0.3);
+    var tw = Math.min(byW, byH, 64), u = tw * 0.86, hr = tw * 0.62, th = hr + u * SS.CAP;
+    var rowH = H / rows, pos = [];
+    for (var i = 0; i < n; i++) {
+      var row = Math.floor(i / per), inRow = Math.min(per, n - row * per), k = i - row * per;
+      var gap = Math.min(tw * 0.75, (W - inRow * tw) / (inRow + 1));
+      var total = inRow * tw + (inRow - 1) * gap, x0 = (W - total) / 2;
+      var cxp = x0 + k * (tw + gap) + tw / 2, top = row * rowH + (rowH - th) / 2 + tw * 0.55;
+      pos.push({ x: cxp, y: top });
+    }
+    L = { tw: tw, th: th, u: u, hr: hr, pos: pos };
+    while (lifts.length < n) lifts.push(0);
+  }
+  function hit(px, py) {
+    var best = -1, bd = 1e9;
+    L.pos.forEach(function (p, i) {
+      if (px < p.x - L.tw * 0.9 || px > p.x + L.tw * 0.9 || py < p.y - L.tw * 1.4 || py > p.y + L.th + L.tw * 0.4) return;
+      var d = Math.abs(px - p.x); if (d < bd) { bd = d; best = i; }
+    });
+    return best;
+  }
+
+  // ================= drawing =================
+  var shakes = {};
+  function shake(i) { shakes[i] = performance.now(); }
+  // runs of colour bottom → top: [{c, amt}]
+  function runs(t) { var out = []; t.forEach(function (c) { var l = out[out.length - 1]; if (l && l.c === c) l.amt++; else out.push({ c: c, amt: 1 }); }); return out; }
+  function adjust(rs, c, d) { // add d units of colour c on top (d may be negative)
+    rs = rs.map(function (r) { return { c: r.c, amt: r.amt }; });
+    if (d > 0) { var l = rs[rs.length - 1]; if (l && l.c === c) l.amt += d; else rs.push({ c: c, amt: d }); }
+    else { var rem = -d; while (rem > 1e-6 && rs.length) { var t = rs[rs.length - 1], take = Math.min(t.amt, rem); t.amt -= take; rem -= take; if (t.amt <= 1e-6) rs.pop(); } }
+    return rs;
+  }
+  // tube outline in tube coords: mouth centre at (0,0), body going down (+y)
+  function tubePath(x, tw, th, inset) {
+    var w = tw / 2 - inset, r = w, top = 2 + inset, bot = th - inset;
+    x.beginPath(); x.moveTo(-w, top); x.lineTo(-w, bot - r); x.arc(0, bot - r, r, Math.PI, 0, true); x.lineTo(w, top); x.closePath();
+  }
+  // water stays level: find the world-space height that holds a given volume in the tipped tube (tube ≈ a rectangle)
+  function levelFor(corners, vol) {
+    var ys = corners.map(function (p) { return p[1]; }), lo = Math.min.apply(null, ys), hi = Math.max.apply(null, ys);
+    if (vol <= 0) return hi;
+    function area(h) { // area of the polygon below the line y = h (larger y = lower)
+      var out = [];
+      for (var i = 0; i < corners.length; i++) {
+        var A = corners[i], B = corners[(i + 1) % corners.length], ia = A[1] >= h, ib = B[1] >= h;
+        if (ia) out.push(A);
+        if (ia !== ib) { var t = (h - A[1]) / (B[1] - A[1]); out.push([A[0] + (B[0] - A[0]) * t, h]); }
+      }
+      var s = 0; for (var j = 0; j < out.length; j++) { var P = out[j], Q = out[(j + 1) % out.length]; s += P[0] * Q[1] - Q[0] * P[1]; }
+      return Math.abs(s) / 2;
+    }
+    var a = lo, b = hi;
+    for (var k = 0; k < 22; k++) { var m = (a + b) / 2; if (area(m) > vol) a = m; else b = m; }
+    return (a + b) / 2;
+  }
+  function drawSymbol(c, sx, sy, s) {
+    cx.save(); cx.translate(sx, sy); cx.fillStyle = 'rgba(255,255,255,.9)'; cx.strokeStyle = 'rgba(0,0,0,.25)'; cx.lineWidth = s * 0.08; cx.beginPath();
+    var k = c % 12;
+    if (k === 0) cx.arc(0, 0, s * 0.3, 0, Math.PI * 2);
+    else if (k === 1) cx.rect(-s * 0.26, -s * 0.26, s * 0.52, s * 0.52);
+    else if (k === 2) { cx.moveTo(0, -s * 0.34); cx.lineTo(s * 0.32, s * 0.24); cx.lineTo(-s * 0.32, s * 0.24); cx.closePath(); }
+    else if (k === 3) { cx.moveTo(0, -s * 0.34); cx.lineTo(s * 0.3, 0); cx.lineTo(0, s * 0.34); cx.lineTo(-s * 0.3, 0); cx.closePath(); }
+    else if (k === 4) for (var i = 0; i < 10; i++) { var a = i / 10 * Math.PI * 2 - Math.PI / 2, r = i % 2 ? s * 0.14 : s * 0.34; cx.lineTo(Math.cos(a) * r, Math.sin(a) * r); }
+    else if (k === 5) { cx.rect(-s * 0.1, -s * 0.32, s * 0.2, s * 0.64); cx.rect(-s * 0.32, -s * 0.1, s * 0.64, s * 0.2); }
+    else if (k === 6) cx.ellipse(0, 0, s * 0.36, s * 0.18, 0, 0, Math.PI * 2);
+    else if (k === 7) for (var h = 0; h < 6; h++) { var a2 = h / 6 * Math.PI * 2; cx.lineTo(Math.cos(a2) * s * 0.3, Math.sin(a2) * s * 0.3); }
+    else if (k === 8) { cx.moveTo(0, s * 0.3); cx.bezierCurveTo(-s * 0.5, -s * 0.05, -s * 0.2, -s * 0.4, 0, -s * 0.14); cx.bezierCurveTo(s * 0.2, -s * 0.4, s * 0.5, -s * 0.05, 0, s * 0.3); }
+    else if (k === 9) { cx.moveTo(-s * 0.32, s * 0.26); cx.lineTo(s * 0.32, -s * 0.26); cx.lineTo(s * 0.32, s * 0.26); cx.closePath(); }
+    else if (k === 10) { cx.arc(0, 0, s * 0.3, 0, Math.PI * 2); cx.moveTo(s * 0.14, 0); cx.arc(0, 0, s * 0.14, 0, Math.PI * 2, true); }
+    else { cx.moveTo(-s * 0.3, -s * 0.1); cx.lineTo(0, s * 0.24); cx.lineTo(s * 0.3, -s * 0.1); cx.lineTo(s * 0.18, -s * 0.28); cx.lineTo(0, -s * 0.04); cx.lineTo(-s * 0.18, -s * 0.28); cx.closePath(); }
+    cx.fill('evenodd'); cx.stroke(); cx.restore();
+  }
+  // a water tube with its mouth at (mx, my), tipped by ang (radians, clockwise), holding runs rs
+  function drawWaterTube(mx, my, ang, rs, glow, capT) {
+    var tw = L.tw, th = L.th, u = L.u, hr = L.hr, iw = tw - 6;
+    cx.save(); cx.translate(mx, my); cx.rotate(ang);
+    if (glow) { cx.shadowColor = 'rgba(255,255,255,.9)'; cx.shadowBlur = 16; }
+    tubePath(cx, tw, th, 0); cx.fillStyle = 'rgba(255,255,255,.22)'; cx.fill(); cx.shadowBlur = 0;
+    cx.restore();
+    // liquid: clip to the tipped tube, fill level bands in world space
+    var total = rs.reduce(function (s, r) { return s + r.amt; }, 0);
+    if (total > 0.001) {
+      var ca = Math.cos(ang), sa = Math.sin(ang);
+      function w2(px, py) { return [mx + px * ca - py * sa, my + px * sa + py * ca]; }
+      var corners = [w2(-iw / 2, hr), w2(iw / 2, hr), w2(iw / 2, hr + u * SS.CAP + 3), w2(-iw / 2, hr + u * SS.CAP + 3)];
+      cx.save(); cx.translate(mx, my); cx.rotate(ang); tubePath(cx, tw, th, 3); cx.restore();
+      cx.save(); cx.clip();
+      var vol = 0, prev = levelFor(corners, 0), unitA = iw * u;
+      rs.forEach(function (r) {
+        vol += r.amt; var h = levelFor(corners, vol * unitA);
+        var grad = cx.createLinearGradient(mx - tw, 0, mx + tw, 0);
+        grad.addColorStop(0, COLORS[r.c]); grad.addColorStop(0.55, COLORS[r.c]); grad.addColorStop(0.8, LIGHT[r.c]); grad.addColorStop(1, COLORS[r.c]);
+        cx.fillStyle = grad; cx.fillRect(mx - th - 10, h, (th + 10) * 2, prev - h + 0.6);
+        if (settings.symbols && Math.abs(ang) < 0.05 && r.amt > 0.55) { for (var k = 0; k < Math.floor(r.amt + 0.001); k++) drawSymbol(r.c, mx, prev - (k + 0.5) * u, u * 0.62); }
+        prev = h;
+      });
+      cx.fillStyle = 'rgba(255,255,255,.45)'; cx.fillRect(mx - th - 10, prev, (th + 10) * 2, Math.max(1.5, u * 0.07));
+      cx.restore();
+    }
+    // glass
+    cx.save(); cx.translate(mx, my); cx.rotate(ang);
+    tubePath(cx, tw, th, 0); cx.lineWidth = Math.max(2, tw * 0.06); cx.strokeStyle = 'rgba(255,255,255,.92)'; cx.stroke();
+    cx.beginPath(); cx.moveTo(-tw * 0.26, hr * 0.8); cx.lineTo(-tw * 0.26, th - tw * 0.6); cx.lineWidth = tw * 0.08; cx.strokeStyle = 'rgba(255,255,255,.35)'; cx.lineCap = 'round'; cx.stroke();
+    cx.fillStyle = 'rgba(255,255,255,.95)'; roundRect(-tw / 2 - tw * 0.1, -tw * 0.02, tw * 1.2, tw * 0.16, tw * 0.07); cx.fill();
+    if (capT) drawCap(capT);
+    cx.restore();
+  }
+  function roundRect(x, y, w, h, r) { cx.beginPath(); cx.moveTo(x + r, y); cx.arcTo(x + w, y, x + w, y + h, r); cx.arcTo(x + w, y + h, x, y + h, r); cx.arcTo(x, y + h, x, y, r); cx.arcTo(x, y, x + w, y, r); cx.closePath(); }
+  function drawCap(capT) { // a cork pops on a finished tube
+    var tw = L.tw, age = (performance.now() - capT) / 1000, s = capT === 1 ? 1 : Math.min(1, age * 4) * (1 + Math.max(0, 0.25 - Math.abs(age - 0.25)) * 1.2);
+    cx.save(); cx.translate(0, -tw * 0.1); cx.scale(s, s);
+    var g2 = cx.createLinearGradient(0, -tw * 0.4, 0, tw * 0.1); g2.addColorStop(0, '#e2a868'); g2.addColorStop(1, '#9a6230');
+    cx.fillStyle = g2; roundRect(-tw * 0.4, -tw * 0.42, tw * 0.8, tw * 0.5, tw * 0.12); cx.fill(); cx.strokeStyle = 'rgba(80,40,10,.5)'; cx.lineWidth = 1.2; cx.stroke();
+    cx.fillStyle = 'rgba(80,40,10,.35)'; [-0.18, 0.05, 0.2].forEach(function (d, i) { cx.beginPath(); cx.arc(tw * d, -tw * (0.28 - i * 0.05), tw * 0.035, 0, Math.PI * 2); cx.fill(); });
+    cx.restore();
+  }
+  function drawBall(c, x, y, r) {
+    var g2 = cx.createRadialGradient(x - r * 0.35, y - r * 0.4, r * 0.1, x, y, r);
+    g2.addColorStop(0, LIGHT[c]); g2.addColorStop(0.45, COLORS[c]); g2.addColorStop(1, shade(COLORS[c]));
+    cx.fillStyle = g2; cx.beginPath(); cx.arc(x, y, r, 0, Math.PI * 2); cx.fill();
+    cx.lineWidth = 1; cx.strokeStyle = 'rgba(0,0,0,.18)'; cx.stroke();
+    cx.fillStyle = 'rgba(255,255,255,.8)'; cx.beginPath(); cx.ellipse(x - r * 0.32, y - r * 0.42, r * 0.28, r * 0.17, -0.5, 0, Math.PI * 2); cx.fill();
+    if (settings.symbols) drawSymbol(c, x, y + r * 0.08, r * 1.2);
+  }
+  function shade(hex) { var n = parseInt(hex.slice(1), 16), r = (n >> 16) * 0.62, g2 = ((n >> 8) & 255) * 0.62, b = (n & 255) * 0.62; return 'rgb(' + (r | 0) + ',' + (g2 | 0) + ',' + (b | 0) + ')'; }
+  function ballR() { return Math.min(L.tw * 0.42, L.u * 0.47); }
+  function ballY(i, k) { var p = L.pos[i]; return p.y + L.th - 3 - ballR() - k * (L.u) - (L.u - 2 * ballR()) * 0.5 * 0; }
+  function drawBallTube(i, x, y, contents, glow, capT, hideTop) {
+    var tw = L.tw, th = L.th;
+    cx.save(); cx.translate(x, y);
+    if (glow) { cx.shadowColor = 'rgba(255,255,255,.9)'; cx.shadowBlur = 16; }
+    tubePath(cx, tw, th, 0); cx.fillStyle = 'rgba(255,255,255,.22)'; cx.fill(); cx.shadowBlur = 0;
+    cx.restore();
+    var r = ballR();
+    for (var k = 0; k < contents.length - (hideTop || 0); k++) drawBall(contents[k], x, y + th - 3 - r - k * L.u, r);
+    cx.save(); cx.translate(x, y);
+    tubePath(cx, tw, th, 0); cx.lineWidth = Math.max(2, tw * 0.06); cx.strokeStyle = 'rgba(255,255,255,.92)'; cx.stroke();
+    cx.fillStyle = 'rgba(255,255,255,.95)'; roundRect(-tw / 2 - tw * 0.1, -tw * 0.02, tw * 1.2, tw * 0.16, tw * 0.07); cx.fill();
+    if (capT) drawCap(capT);
+    cx.restore();
+  }
+  function ease(t) { return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; }
+  function draw(now) {
+    cx.setTransform(DPR, 0, 0, DPR, 0, 0); cx.clearRect(0, 0, W, H);
+    if (!g) return;
+    var n = g.tubes.length, tw = L.tw;
+    // display contents per tube, adjusted by moves still animating
+    var disp = g.tubes.map(function (t) { return runs(t); }), hold = {}, moving = [];
+    anims.forEach(function (a) {
+      var s = g.balls ? (a.t >= 1 ? 1 : 0) : Math.max(0, Math.min(1, (a.t - 0.3) / 0.42));
+      disp[a.a] = adjust(disp[a.a], a.c, a.n * (1 - s)); disp[a.b] = adjust(disp[a.b], a.c, -a.n * (1 - s));
+    });
+    for (var i = 0; i < n; i++) {
+      var p = L.pos[i]; if (!p) continue;
+      var target = (i === sel && !g.balls) ? tw * 0.55 : 0; lifts[i] += (target - lifts[i]) * 0.35;
+      var sx = 0; if (shakes[i] && now - shakes[i] < 300) sx = Math.sin((now - shakes[i]) / 25) * tw * 0.08 * (1 - (now - shakes[i]) / 300);
+      var an = anims.filter(function (a) { return a.a === i; })[0];
+      if (an && !g.balls) { moving.push([i, an]); continue; }
+      var capT = caps[i] && SS.done(g.tubes[i], g.cap) && !busy(i) ? caps[i] : 0;
+      if (g.balls) {
+        var flat = []; disp[i].forEach(function (r2) { for (var k = 0; k < Math.round(r2.amt); k++) flat.push(r2.c); });
+        drawBallTube(i, p.x + sx, p.y, flat, false, capT, i === sel ? 1 : 0);
+        if (i === sel) { var r = ballR(), bob = Math.sin(now / 160) * tw * 0.05; drawBall(flat[flat.length - 1], p.x, p.y - r * 1.25 + bob, r); }
+      } else drawWaterTube(p.x + sx, p.y - lifts[i], 0, disp[i], i === sel, capT);
+    }
+    // pours: the source tube swings over the target, tips, and pours a stream
+    moving.forEach(function (m) {
+      var i = m[0], a = m[1], P = L.pos[a.a], Q = L.pos[a.b], side = P.x >= Q.x ? 1 : -1;
+      var mx = Q.x + side * tw * 0.28, my = Q.y - tw * 0.75, len = g.tubes[a.a].length + a.n;
+      var tilt = side * -(1.05 + (SS.CAP - len) * 0.2), t = a.t, k, ang, x, y;
+      if (t < 0.3) { k = ease(t / 0.3); x = P.x + (mx - P.x) * k; y = (P.y - tw * 0.55) + (my - P.y + tw * 0.55) * k; ang = tilt * k; }
+      else if (t < 0.72) { k = (t - 0.3) / 0.42; x = mx; y = my; ang = tilt + side * -0.35 * k; }
+      else { k = ease((t - 0.72) / 0.28); x = mx + (P.x - mx) * k; y = my + (P.y - my) * k; ang = (tilt + side * -0.35) * (1 - k); }
+      if (t >= 0.3 && t < 0.72) { // the stream
+        var ly = Q.y + L.th - 3 - disp[a.b].reduce(function (s2, r2) { return s2 + r2.amt; }, 0) * L.u;
+        cx.fillStyle = COLORS[a.c]; var sw = tw * 0.14 * Math.min(1, (0.72 - t) * 10, (t - 0.3) * 12);
+        cx.fillRect(Q.x - sw / 2, my - 2, sw, ly - my + 3);
+      }
+      drawWaterTube(x, y, ang, disp[i], false, 0);
+    });
+    // balls in flight
+    if (g.balls) anims.forEach(function (a) {
+      var P = L.pos[a.a], Q = L.pos[a.b], r = ballR(), t = a.t, k;
+      var y0 = P.y - r * 1.25, y1 = Q.y - r * 1.25, yEnd = Q.y + L.th - 3 - r - (g.tubes[a.b].length - 1) * L.u, x, y;
+      if (t < 0.55) { k = ease(t / 0.55); x = P.x + (Q.x - P.x) * k; y = y0 + (y1 - y0) * k - Math.sin(k * Math.PI) * L.tw * 0.8; }
+      else { k = (t - 0.55) / 0.45; x = Q.x; y = y1 + (yEnd - y1) * k * k; }
+      drawBall(a.c, x, y, r);
+    });
+    drawParts();
+  }
+  // ================= particles =================
+  function burst(i, n, col) { var p = L.pos[i]; for (var k = 0; k < n; k++) { var a = Math.random() * Math.PI * 2, s = 1.5 + Math.random() * 3; parts.push({ x: p.x, y: p.y - L.tw * 0.2, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 2, life: 40, t: 0, c: k % 3 ? col : '#ffffff', r: 2 + Math.random() * 2.5, star: k % 3 === 0 }); } }
+  function confetti() { var cols = COLORS; parts.push({ x: Math.random() * W, y: -10 - Math.random() * H * 0.4, vx: (Math.random() - 0.5) * 2, vy: 2 + Math.random() * 3, life: 160, t: 0, c: cols[Math.floor(Math.random() * cols.length)], r: 3 + Math.random() * 3, rot: Math.random() * 6, vr: (Math.random() - 0.5) * 0.3, flake: true }); }
+  function stepParts() { parts = parts.filter(function (p) { p.t++; p.x += p.vx; p.y += p.vy; p.vy += p.flake ? 0.03 : 0.15; if (p.flake) { p.vx *= 0.99; p.rot += p.vr; } return p.t < p.life && p.y < H + 20; }); }
+  function drawParts() {
+    parts.forEach(function (p) {
+      cx.globalAlpha = Math.max(0, 1 - p.t / p.life); cx.fillStyle = p.c;
+      if (p.flake) { cx.save(); cx.translate(p.x, p.y); cx.rotate(p.rot); cx.fillRect(-p.r, -p.r * 0.5, p.r * 2, p.r); cx.restore(); }
+      else { cx.beginPath(); cx.arc(p.x, p.y, p.r, 0, Math.PI * 2); cx.fill(); }
+    });
+    cx.globalAlpha = 1;
+  }
+
+  // ================= loop =================
+  var lastT = 0;
+  function frame(now) {
+    requestAnimationFrame(frame);
+    var dt = lastT ? Math.min(60, now - lastT) : 16; lastT = now;
+    var done = [];
+    anims.forEach(function (a) { a.t += dt / a.dur; if (a.t >= 1) done.push(a); });
+    done.forEach(function (a) { anims.splice(anims.indexOf(a), 1); finishAnim(a); });
+    stepParts(); draw(now);
+  }
+
+  // ================= info, cards, sheets =================
+  function renderInfo() {
+    if (!g) return;
+    $('info').innerHTML = '<div><div class="lbl">' + (meta.mode === 'balls' ? 'Balls' : 'Water') + ' level</div><div class="big">' + levelNo + '</div></div>' +
+      '<div class="right"><div class="lbl">Moves</div><div class="mid">' + g.moves + '</div></div>';
+    $('undoCnt').textContent = g.undos; $('tubeCnt').textContent = g.extra;
+    $('btnUndo').disabled = g.undos <= 0; $('btnTube').disabled = g.extra <= 0;
+  }
+  function syncModes() { Array.prototype.forEach.call($('modes').children, function (b) { b.classList.toggle('on', b.dataset.mode === meta.mode); }); }
+  var toastT = 0;
+  function toast(t) { var el = $('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(function () { el.classList.remove('show'); }, 2200); }
+  function showCard(title, html, buttons) {
+    $('cardIcon').innerHTML = '<svg viewBox="0 0 100 100"><use href="#ss-logo"/></svg>';
+    $('endTitle').textContent = title; $('endText').innerHTML = html;
+    var box = $('endActions'); box.innerHTML = '';
+    buttons.forEach(function (b) { var el = document.createElement('button'); el.className = 'btn' + (b.red ? ' red' : ''); el.textContent = b.label; el.addEventListener('click', function () { $('ovEnd').classList.remove('show'); b.go(); }); box.appendChild(el); });
+    $('ovEnd').classList.add('show');
+  }
+  function showAd(done2) { GoobsAds.show({ onShow: function () { S.ding(); }, onStep: function () { S.sign(); } }, done2); }
+  function between(next) {
+    if (Goobs.adsOn() && meta.finished > 0 && meta.finished % settings.adEvery === 0 && meta.lastAdAt !== meta.finished) { meta.lastAdAt = meta.finished; saveMeta(); next(); showAd(function () {}); return; }
+    next();
+  }
+  function openHelp() {
+    $('helpList').innerHTML = [
+      '<b>Tap a tube</b> to pick it up, then <b>tap another</b> to pour into it. Tap the same tube again to put it down.',
+      'You can only pour onto the <b>same color</b> or into an <b>empty tube</b>, and only as much as fits. <b>Water</b> pours the whole top color at once; in <b>Balls</b> one ball moves at a time.',
+      'Sort it so every tube holds <b>one color</b>. A full tube gets a cork.',
+      'Stuck? <b>Undo</b> (5 per level), add <b>one spare tube</b> per level, or <b>Restart</b>. Every level has been checked to be solvable.',
+      '<b>Water</b> and <b>Balls</b> each keep their own level. 1,000 levels are built in; after that new ones are made on the phone.',
+      'Settings: <b>color symbols</b> put a small shape on each color, handy in bright sun.'
+    ].map(function (x) { return '<li>' + x + '</li>'; }).join('');
+    $('ovHelp').classList.add('show');
+  }
+  function renderStats() {
+    var w = stats.water, b = stats.balls;
+    $('statsBody').innerHTML = '<div class="tiles"><div class="tile"><b>' + fmt(w.solved) + '</b><span>Water levels</span></div><div class="tile"><b>' + fmt(b.solved) + '</b><span>Ball levels</span></div><div class="tile"><b>' + fmt(stats.capped) + '</b><span>Tubes corked</span></div></div>' +
+      '<div class="tiles"><div class="tile"><b>' + fmt(w.moves + b.moves) + '</b><span>Moves</span></div><div class="tile"><b>' + fmt(w.undos + b.undos) + '</b><span>Undos</span></div><div class="tile"><b>' + fmt(w.tubes + b.tubes) + '</b><span>Spare tubes</span></div></div>' +
+      '<p style="color:var(--muted);text-align:center;margin:4px 0 0">Next up: Water level ' + meta.level.water + ', Balls level ' + meta.level.balls + '.</p>';
+  }
+
+  // ================= wiring =================
+  function syncSound() { $('btnSound').innerHTML = '<svg viewBox="0 0 24 24"><use href="#i-sound-' + (settings.sound ? 'on' : 'off') + '"/></svg>'; $('btnSound').classList.toggle('on', settings.sound); $('setSound').checked = settings.sound; S.setEnabled(settings.sound); }
+  function syncAds() { $('setAds').checked = Goobs.adsOn(); $('adEvery').textContent = settings.adEvery; $('rowAdEvery').classList.toggle('off', !Goobs.adsOn()); }
+  function sheet(btn, ov, close, onOpen) {
+    if (btn) $(btn).addEventListener('click', function () { if (onOpen) onOpen(); $(ov).classList.add('show'); });
+    $(close).addEventListener('click', function () { $(ov).classList.remove('show'); });
+    $(ov).addEventListener('click', function (e) { if (e.target === this) this.classList.remove('show'); });
+  }
+  function init() {
+    Goobs.themePicker($('themes'));
+    cv = $('cv'); cx = cv.getContext('2d');
+    cv.addEventListener('pointerdown', function (e) { var r = cv.getBoundingClientRect(); tap(hit(e.clientX - r.left, e.clientY - r.top)); e.preventDefault(); });
+    ['pointerdown', 'touchend', 'click'].forEach(function (ev) { document.addEventListener(ev, function () { S.unlock(); }, { passive: true }); });
+    $('btnHome').addEventListener('click', function () { save(); Goobs.home(); });
+    $('modes').addEventListener('click', function (e) { var b = e.target.closest('button'); if (b) { S.unlock(); switchMode(b.dataset.mode); } });
+    $('btnRestart').addEventListener('click', function () { if (!g || ending) return; if (g.moves) showCard('Restart this level?', 'It goes back to how it started.', [{ label: 'Restart', red: true, go: restart }, { label: 'Keep playing', go: function () {} }]); });
+    $('btnUndo').addEventListener('click', undo);
+    $('btnTube').addEventListener('click', addTube);
+    sheet('btnSettings', 'ovSettings', 'btnCloseSettings');
+    sheet('btnStats', 'ovStats', 'btnCloseStats', renderStats);
+    function closeHelp() { $('ovHelp').classList.remove('show'); if (!meta.seen) { meta.seen = true; saveMeta(); } }
+    $('btnCloseHelp').addEventListener('click', closeHelp);
+    $('ovHelp').addEventListener('click', function (e) { if (e.target === this) closeHelp(); });
+    $('info').addEventListener('click', openHelp);
+    $('btnSound').addEventListener('click', function () { settings.sound = !settings.sound; saveSettings(); syncSound(); S.ding(); });
+    $('setSound').addEventListener('change', function () { settings.sound = this.checked; saveSettings(); syncSound(); S.ding(); });
+    $('setSymbols').checked = settings.symbols;
+    $('setSymbols').addEventListener('change', function () { settings.symbols = this.checked; saveSettings(); });
+    $('setAds').addEventListener('change', function () { Goobs.setAds(this.checked); syncAds(); });
+    $('adLess').addEventListener('click', function () { settings.adEvery = Math.max(1, settings.adEvery - 1); saveSettings(); syncAds(); });
+    $('adMore').addEventListener('click', function () { settings.adEvery = Math.min(10, settings.adEvery + 1); saveSettings(); syncAds(); });
+    if (window.ResizeObserver) new ResizeObserver(fit).observe($('stagewrap'));
+    window.addEventListener('resize', fit);
+    document.addEventListener('visibilitychange', function () { if (document.hidden) save(); });
+    window.addEventListener('pagehide', save);
+    syncSound(); syncAds(); syncModes(); fit();
+    if (!load()) startLevel(meta.level[meta.mode]);
+    fit();
+    if (!meta.seen) openHelp();
+    requestAnimationFrame(frame);
+    window.__ssReady = true;
+    Goobs.markPlayed('sort');
+    Goobs.initUpdates({ beforeReload: save, onVersions: function (v) { $('version').textContent = 'Splash Sort ' + (v.sort || '?') + ' · Goobs-Games ' + (v.shell || '?'); } });
+  }
+  // hook for automated tests
+  window.__ss = { get g() { return g; }, tap: tap, startLevel: startLevel, switchMode: switchMode, undo: undo, addTube: addTube, get anims() { return anims; }, meta: function () { return meta; }, SS: SS, get L() { return L; } };
+  init();
+})();
+</script>
+</body>
+</html>

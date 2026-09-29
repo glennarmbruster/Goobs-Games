@@ -599,6 +599,20 @@
       }
     },
     {
+      id: 'sort', name: 'Splash Sort', blurb: 'Pour colors into order', path: 'games/sort/',
+      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="ssT" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8fd6ff"/><stop offset="1" stop-color="#4a7cf0"/></linearGradient></defs><rect width="100" height="100" fill="url(#ssT)"/>' +
+        '<g stroke="#fff" stroke-width="3" fill="rgba(255,255,255,.22)"><path d="M16 26v48a8 8 0 0 0 16 0V26z"/><path d="M42 26v48a8 8 0 0 0 16 0V26z"/><path d="M68 26v48a8 8 0 0 0 16 0V26z"/></g>' +
+        '<path d="M17.5 64h13v10a6.5 6.5 0 0 1-13 0z" fill="#ef3b4f"/><path d="M17.5 52h13v12h-13z" fill="#ffd21e"/><path d="M17.5 40h13v12h-13z" fill="#2f6ef0"/>' +
+        '<path d="M43.5 64h13v10a6.5 6.5 0 0 1-13 0z" fill="#2f6ef0"/><path d="M43.5 52h13v12h-13z" fill="#ef3b4f"/>' +
+        '<path d="M69.5 64h13v10a6.5 6.5 0 0 1-13 0z" fill="#1fa653"/><path d="M69.5 52h13v12h-13z" fill="#1fa653"/><path d="M69.5 40h13v12h-13z" fill="#1fa653"/><path d="M69.5 28h13v12h-13z" fill="#1fa653"/>' +
+        '<rect x="67" y="17" width="18" height="9" rx="3" fill="#b8793a"/><rect x="13" y="22" width="22" height="5" rx="2" fill="#fff"/><rect x="39" y="22" width="22" height="5" rx="2" fill="#fff"/></svg>',
+      status: function () {
+        var m = readLS('sort.meta'); if (!m || !m.level) return 'Pour colors into order';
+        var w = (m.level.water || 1) - 1, b = (m.level.balls || 1) - 1; if (!w && !b) return 'Pour colors into order';
+        return 'Water ' + w + ' · Balls ' + b + ' levels sorted';
+      }
+    },
+    {
       id: 'beacon', name: 'Beacon Bound', blurb: 'Run, jump, light the way', path: 'games/beacon/',
       art: '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="bbS" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4fa9f5"/><stop offset="1" stop-color="#c9ecff"/></linearGradient><radialGradient id="bbG"><stop offset="0" stop-color="#fff6c0"/><stop offset=".45" stop-color="#ffd24a" stop-opacity=".7"/><stop offset="1" stop-color="#ffd24a" stop-opacity="0"/></radialGradient></defs>' +
         '<rect width="100" height="100" fill="url(#bbS)"/><path d="M0 70q25-14 50-4t50-6v40H0z" fill="#6cc24a"/><path d="M0 78q30-8 60 0t40-2v24H0z" fill="#4fa83a"/>' +
