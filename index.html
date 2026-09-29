@@ -613,6 +613,20 @@
       }
     },
     {
+      id: 'triple', name: 'Triple Treat', blurb: 'Match three treats', path: 'games/triple/',
+      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="ttT" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffc27a"/><stop offset="1" stop-color="#ff7a92"/></linearGradient></defs><rect width="100" height="100" fill="url(#ttT)"/>' +
+        '<g stroke="#a86a34" stroke-width="2"><rect x="10" y="20" width="26" height="30" rx="6" fill="#e9d2ac"/><rect x="64" y="20" width="26" height="30" rx="6" fill="#e9d2ac"/><rect x="37" y="14" width="26" height="30" rx="6" fill="#fff8ec"/></g>' +
+        '<circle cx="50" cy="30" r="8" fill="#e8282e"/><path d="M50 22l2-5" stroke="#5a3a14" stroke-width="2.4" stroke-linecap="round"/><circle cx="23" cy="36" r="7" fill="#ffd21e"/><circle cx="77" cy="36" r="7" fill="#8a4ae8"/>' +
+        '<rect x="8" y="64" width="84" height="24" rx="12" fill="rgba(110,60,30,.5)"/>' +
+        '<g stroke="#a86a34" stroke-width="1.6"><rect x="14" y="67" width="15" height="18" rx="4" fill="#fff8ec"/><rect x="31" y="67" width="15" height="18" rx="4" fill="#fff8ec"/><rect x="48" y="67" width="15" height="18" rx="4" fill="#fff8ec"/></g>' +
+        '<circle cx="21.5" cy="76" r="5" fill="#e8282e"/><circle cx="38.5" cy="76" r="5" fill="#e8282e"/><circle cx="55.5" cy="76" r="5" fill="#e8282e"/></svg>',
+      status: function () {
+        var m = readLS('triple.meta'); if (!m || !(m.open > 1)) return 'Match three treats';
+        var st = 0; for (var k in (m.stars || {})) st += m.stars[k];
+        return (m.open - 1) + ' levels cleared · ' + st + ' stars';
+      }
+    },
+    {
       id: 'beacon', name: 'Beacon Bound', blurb: 'Run, jump, light the way', path: 'games/beacon/',
       art: '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="bbS" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4fa9f5"/><stop offset="1" stop-color="#c9ecff"/></linearGradient><radialGradient id="bbG"><stop offset="0" stop-color="#fff6c0"/><stop offset=".45" stop-color="#ffd24a" stop-opacity=".7"/><stop offset="1" stop-color="#ffd24a" stop-opacity="0"/></radialGradient></defs>' +
         '<rect width="100" height="100" fill="url(#bbS)"/><path d="M0 70q25-14 50-4t50-6v40H0z" fill="#6cc24a"/><path d="M0 78q30-8 60 0t40-2v24H0z" fill="#4fa83a"/>' +
