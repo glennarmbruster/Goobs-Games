@@ -2,7 +2,7 @@
    Each part has its own version and its own cache. To publish an update, bump ONLY the
    version of the part that changed; unchanged parts are not downloaded again. */
 const VERSIONS = {
-  shell: '2.25.0',     // menu, manifest, icons, /shared (ads, themes, storage)
+  shell: '2.26.0',     // menu, manifest, icons, /shared (ads, themes, storage)
   zoodoku: '1.8.1',
   woodpile: '1.1.2',
   patchwork: '2.1.1',
@@ -11,7 +11,7 @@ const VERSIONS = {
   skeehop: '1.1.0',
   merge: '1.1.2',
   tapaway: '1.1.0',
-  homerun: '1.3.0',
+  homerun: '1.4.0',
   match3: '1.0.2',
   snake: '1.0.0',
   solitaire: '1.0.0',
@@ -80,8 +80,14 @@ self.addEventListener('install', (event) => {
     const cache = await caches.open(cacheName(g));
     const missing = [];
     for (const url of GROUPS[g]) if (!(await cache.match(url))) missing.push(url);
-    // cache: 'reload' skips the browser's HTTP cache so updated files are fetched fresh
-    if (missing.length) await cache.addAll(missing.map((u) => new Request(u, { cache: 'reload' })));
+    // Fetch each file fresh: cache: 'reload' skips the phone's HTTP cache, and the ?v= query skips GitHub's web cache,
+    // which can hand out the old copy of a file for a few minutes after an upload (that once left a phone with a new
+    // menu and an old goobs.js stored together). Stored under the plain address. Any failure = try again next time.
+    if (missing.length) await Promise.all(missing.map(async (u) => {
+      const res = await fetch(new Request(u + (u.indexOf('?') < 0 ? '?' : '&') + 'v=' + VERSIONS[g] + '-' + Date.now(), { cache: 'reload' }));
+      if (!res.ok) throw new Error('fetch ' + u + ' ' + res.status);
+      await cache.put(u, res);
+    }));
   })));
   // no skipWaiting: the page shows "Update available" and the player chooses when to reload
 });

@@ -14,6 +14,41 @@
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <link rel="stylesheet" href="shared/goobs.css">
+<script>
+/* Safety net: if the menu can't start (an error, or nothing after 8 seconds), show a message with Repair instead of
+   a blank page. Repair throws away the app's stored copy of the files (service worker and caches) and loads fresh.
+   Saved games, stars and settings (localStorage) are kept. Plain old JavaScript on purpose, so it runs anywhere. */
+(function () {
+  var shown = false;
+  function fresh() { location.replace(location.pathname + '?fresh=' + Date.now()); }
+  function repair(btn) {
+    if (btn) { btn.disabled = true; btn.textContent = 'Repairing…'; }
+    var jobs = [];
+    try { if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) jobs.push(navigator.serviceWorker.getRegistrations().then(function (rs) { return Promise.all(rs.map(function (r) { return r.unregister(); })); })); } catch (e) { /* ignore */ }
+    try { if (window.caches) jobs.push(caches.keys().then(function (ks) { return Promise.all(ks.filter(function (k) { return k.indexOf('goobs-') === 0; }).map(function (k) { return caches.delete(k); })); })); } catch (e) { /* ignore */ }
+    var done = false; function go() { if (!done) { done = true; fresh(); } }
+    Promise.all(jobs).then(go, go); setTimeout(go, 4000);
+  }
+  function show(msg) {
+    if (shown || window.__goobsReady) return; shown = true;
+    function put() {
+      var d = document.createElement('div');
+      d.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:28px;background:#f1f0fb;color:#1b1f33;font:600 16px -apple-system,system-ui,sans-serif;text-align:center';
+      d.innerHTML = '<div style="font-size:22px;font-weight:900">Goobs-Games didn\u2019t start</div>' +
+        '<div style="max-width:320px;line-height:1.4">Its stored copy on this device looks damaged. <b>Repair</b> gets a fresh copy. Your games, stars and settings are kept.</div>' +
+        '<div style="max-width:320px;font-size:12px;opacity:.6">' + String(msg).replace(/[<>&]/g, '') + '</div>';
+      function btn(t, bg, fn) { var b = document.createElement('button'); b.textContent = t; b.style.cssText = 'font:800 17px -apple-system,system-ui,sans-serif;min-width:200px;padding:14px 24px;border-radius:14px;border:0;color:#fff;background:' + bg; b.onclick = function () { fn(b); }; d.appendChild(b); }
+      btn('Repair', '#5a54f0', repair);
+      btn('Try again', '#6b7080', function () { location.reload(); });
+      document.body.appendChild(d);
+    }
+    if (document.body) put(); else document.addEventListener('DOMContentLoaded', put);
+  }
+  window.addEventListener('error', function (e) { show((e.message || 'Error') + (e.filename ? ' · ' + String(e.filename).split('/').pop() : '') + (e.lineno ? ':' + e.lineno : '')); });
+  setTimeout(function () { if (!window.__goobsReady) show('It didn\u2019t finish starting.'); }, 8000);
+  window.__goobsRepair = repair;
+})();
+</script>
 <script src="shared/goobs.js"></script>
 <title>Goobs-Games</title>
 <style>
@@ -622,6 +657,7 @@
       $('foot').textContent = parts[0];
     }
   });
+  window.__goobsReady = true;
 })();
 </script>
 </body>

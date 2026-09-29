@@ -313,7 +313,7 @@ var MS = (function () {
   }
   var FT = 3.28084, G = 9.8, DRAG = 0.0042;
   var RELEASE = [0, 1.55, 17.8];        // where the machine lets go
-  var ZONE = { near: -0.45, far: 0.75 }; // the ball can be hit while its z is in here
+  var ZONE = { near: -0.9, far: 2.4 };   // the ball can be hit while its z is in here (1.4.0: wider, about 0.1 s for a Straight)
   var BALL_R = 0.085;                    // drawn a little big, like the original, so it's easy to follow
 
   // ---------- the field ----------
@@ -328,7 +328,7 @@ var MS = (function () {
     fast: { name: 'Heater', speed: 36, face: 'fire', color: '#ff7a59' },
     slow: { name: 'Floater', speed: 17, face: 'sleepy', color: '#bfe3ff' },
     curve: { name: 'Hook', speed: 25, face: 'wink', color: '#7bd88f', curve: 1.1 },
-    drop: { name: 'Dropper', speed: 26, face: 'frown', color: '#b58cff', dropY: 0.9 },
+    drop: { name: 'Dropper', speed: 26, face: 'frown', color: '#b58cff', dropY: 0.7 },
     stop: { name: 'Stopper', speed: 26, face: 'shock', color: '#ffe066', stop: 0.55 },
     loopy: { name: 'Wobbler', speed: 22, face: 'dizzy', color: '#ff9ed1', loopy: 0.45 },
     heavy: { name: 'Anvil', speed: 24, face: 'grumpy', color: '#8a8f9e', heavy: 0.6, size: 1.25 },
@@ -340,9 +340,9 @@ var MS = (function () {
   // A pitch: { kind, T (seconds to the plate), target [x, y] at the plate, c (curve side), m (gold multiplier), fakes }
   function makePitch(kind, R, speedMul) {
     var p = PITCHES[kind], sp = p.speed * (speedMul || 1) * (0.94 + R() * 0.12);
-    var pitch = { kind: kind, T: RELEASE[2] / sp, target: [(R() - 0.5) * 0.5, 0.7 + R() * 0.5], c: R() < 0.5 ? -1 : 1 };
+    var pitch = { kind: kind, T: RELEASE[2] / sp, target: [(R() - 0.5) * 0.3, 0.88 + R() * 0.3], c: R() < 0.5 ? -1 : 1 }; // 1.4.0: always about waist high
     if (p.gold) pitch.m = 2 + Math.floor(R() * 4);
-    if (p.ninja) pitch.fakes = [[pitch.target[0] - 0.55, pitch.target[1] + 0.25], [pitch.target[0] + 0.55, pitch.target[1] - 0.15]];
+    if (p.ninja) pitch.fakes = [[pitch.target[0] - 0.55, pitch.target[1] + 0.2], [pitch.target[0] + 0.55, pitch.target[1] - 0.1]];
     if (R() < 0.5 && p.ninja) { var t = pitch.fakes[0]; pitch.fakes[0] = pitch.target; pitch.target = t; }
     return pitch;
   }
@@ -366,7 +366,7 @@ var MS = (function () {
     var arc = 4 * uu * (1 - uu);
     if (p.curve) x += -pitch.c * p.curve * arc * (1 - uu * 0.3);
     if (p.dropY) y += p.dropY * arc * (1 - uu);
-    if (p.loopy) { x += p.loopy * Math.sin(uu * Math.PI * 3) * (1 - uu) * pitch.c; y += p.loopy * 0.6 * Math.sin(uu * Math.PI * 4) * (1 - uu); }
+    if (p.loopy) { x += p.loopy * Math.sin(uu * Math.PI * 3) * (1 - uu) * pitch.c; y += p.loopy * 0.35 * Math.sin(uu * Math.PI * 4) * (1 - uu); }
     if (ext) { // past the plate: carry on toward the backstop
       var dx = (tg[0] - RELEASE[0]), dy = (tg[1] - RELEASE[1]) - (p.dropY ? p.dropY * 0 : 0);
       x = tg[0] + dx * ext; y = Math.max(0.05, tg[1] + dy * ext); z = -RELEASE[2] * ext;
@@ -386,7 +386,7 @@ var MS = (function () {
     var launch = 8 + 36 * up + 22 * swing.off; // under the ball = higher, over it = a grounder
     launch = Math.max(-15, Math.min(62, launch));
     // timing: meeting the ball early (still in front of the plate) pulls it to left field
-    var timing = (swing.z - 0.15) / 0.55;
+    var timing = Math.max(-1, Math.min(1, (swing.z - 0.15) / 1.2));
     var spray = -timing * 38 + swing.dirX * 8;
     return { v: v, launch: launch, spray: spray };
   }
@@ -468,7 +468,7 @@ var MS = (function () {
   function xpForLevel(lv) { return Math.round(1500 * lv + 350 * lv * lv); } // total experience to reach level lv+1
   function levelFromXp(xp) { var lv = 0; while (xp >= xpForLevel(lv + 1) && lv < 99) lv++; return lv; }
   var MAX_SKILL = 15;
-  function contactRadius(skills) { return 30 + 3 * (skills.contact || 0); } // px, on a 390 px wide screen
+  function contactRadius(skills) { return 40 + 3 * (skills.contact || 0); } // px, on a 390 px wide screen
   function previews(skills) { return 3 + (skills.eye || 0); }                 // sunglasses uses per step
 
   return {
@@ -807,7 +807,7 @@ var MSSide = (function () {
       bgCache = null;
     }
     // world (metres) -> screen (px). Sideways movement (curves, wobbles, the Triplet's two fakes) shows as up/down, as if seen from a little above.
-    function project(p) { return [L.plateX + p[2] * L.sx, L.groundY - (p[1] - 0.6 * p[0]) * L.sy]; }
+    function project(p) { return [L.plateX + p[2] * L.sx, L.groundY - (p[1] - 0.25 * p[0]) * L.sy]; } // a little of the sideways movement shows as height (1.4.0: less, so curves don't look like dips)
 
     // ---------- the backdrop (drawn once per size and sky) ----------
     var SKIES = {
@@ -1151,8 +1151,9 @@ var MSSound = (function () {
     var side = sideOn(), sz = R3.size(), sizeK = MS.PITCHES[live.pitch.kind].size || 1;
     var Rpx = MS.contactRadius(meta.skills) * (Math.min(sz[0], sz[1]) / 390) * sizeK;
     if (side) Rpx = Math.max(Rpx, SV.radius() * sizeK * 1.3);
-    for (var s = 0; s <= 4; s++) {
-      var t = A.t + (B.t - A.t) * s / 4, tb = (t - live.t0) / 1000, bp = MS.pitchPos(live.pitch, tb);
+    // 1.4.0: a little forgiving on timing too: the ball is checked from 35 ms before to 35 ms after each bit of the stroke
+    for (var s = 0; s <= 8; s++) {
+      var t = A.t - 35 + (B.t - A.t + 70) * s / 8, tb = (t - live.t0) / 1000, bp = MS.pitchPos(live.pitch, tb);
       if (bp[2] > MS.ZONE.far || bp[2] < MS.ZONE.near) continue;
       var sc = side ? SV.project(bp) : R3.project(bp), dx = B.x - A.x, dy = B.y - A.y, L2 = dx * dx + dy * dy || 1;
       var u = Math.max(0, Math.min(1, ((sc[0] - A.x) * dx + (sc[1] - A.y) * dy) / L2));
