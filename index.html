@@ -606,8 +606,9 @@
         '<circle cx="72" cy="26" r="20" fill="url(#bbG)"/><rect x="70" y="24" width="4" height="52" rx="2" fill="#f4efe6" stroke="#2b1f3a" stroke-width="2"/><rect x="64" y="14" width="16" height="15" rx="3" fill="#ffe07a" stroke="#2b1f3a" stroke-width="2.5"/><path d="M62 15l10-8 10 8z" fill="#e04a3a" stroke="#2b1f3a" stroke-width="2.5" stroke-linejoin="round"/>' +
         '<g transform="translate(44 62)"><path d="M-7-2q-12 2-18-4q8 8 18 8z" fill="#ea4336" stroke="#2b1f3a" stroke-width="2"/><rect x="-6" y="-4" width="12" height="16" rx="4" fill="#1fa79f" stroke="#2b1f3a" stroke-width="2.5"/><circle cx="1" cy="-12" r="9" fill="#ffd3b3" stroke="#2b1f3a" stroke-width="2.5"/><path d="M-9-13q1-10 10-9q9 0 9 7q-5-4-9-2q-4-3-10 4z" fill="#8b4a26" stroke="#2b1f3a" stroke-width="2"/><circle cx="5" cy="-12" r="1.8" fill="#2a1d3a"/></g></svg>',
       status: function () {
-        var m = readLS('beacon.meta'); if (!m || !m.best) return 'Art test: World 1-1';
-        return 'Art test · best ' + m.best.toLocaleString();
+        var pr = readLS('beacon.progress') || {}, n = 0; for (var k in pr) if (pr[k] && pr[k].beaten) n++;
+        var m = readLS('beacon.meta'); if (!n && !(m && m.best)) return 'Run, jump, light the way';
+        return 'World 1: ' + n + ' of 4 levels' + (m && m.best ? ' · best ' + m.best.toLocaleString() : '');
       }
     }
   ];
