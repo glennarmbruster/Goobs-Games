@@ -608,7 +608,7 @@
       status: function () {
         var pr = readLS('beacon.progress') || {}, n = 0; for (var k in pr) if (pr[k] && pr[k].beaten) n++;
         var m = readLS('beacon.meta'); if (!n && !(m && m.best)) return 'Run, jump, light the way';
-        return 'World 1: ' + n + ' of 4 levels' + (m && m.best ? ' · best ' + m.best.toLocaleString() : '');
+        return n + ' of 16 levels lit' + (m && m.best ? ' · best ' + m.best.toLocaleString() : '');
       }
     }
   ];
