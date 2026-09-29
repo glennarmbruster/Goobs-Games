@@ -627,6 +627,18 @@
       }
     },
     {
+      id: 'pinball', name: 'Harbor Lights', blurb: 'Flip, bump and light the way', path: 'games/pinball/',
+      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="hlT" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b2a6b"/><stop offset="1" stop-color="#0a5c7a"/></linearGradient></defs><rect width="100" height="100" fill="url(#hlT)"/>' +
+        '<path d="M50 34L4 16v26z" fill="#fff6b0" opacity=".3"/><path d="M45 72l2-38h6l2 38z" fill="#fff"/><path d="M46 50h8l.5 7h-9z" fill="#e8354a"/><rect x="45" y="28" width="10" height="7" rx="1.5" fill="#ffe07a"/>' +
+        '<circle cx="24" cy="30" r="8" fill="#e8354a"/><circle cx="24" cy="30" r="3.5" fill="#ffd24a"/><circle cx="76" cy="36" r="8" fill="#e8354a"/><circle cx="76" cy="36" r="3.5" fill="#ffd24a"/>' +
+        '<path d="M14 88l22-6" stroke="#fff" stroke-width="6" stroke-linecap="round"/><path d="M86 88l-22-6" stroke="#fff" stroke-width="6" stroke-linecap="round"/>' +
+        '<circle cx="60" cy="64" r="5" fill="#dfe4ee"/><circle cx="58.5" cy="62.5" r="1.8" fill="#fff"/></svg>',
+      status: function () {
+        var m = readLS('pinball.meta'); if (!m || !m.scores || !m.scores.length) return 'Flip, bump and light the way';
+        return 'High score ' + m.scores[0].s.toLocaleString();
+      }
+    },
+    {
       id: 'beacon', name: 'Beacon Bound', blurb: 'Run, jump, light the way', path: 'games/beacon/',
       art: '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="bbS" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4fa9f5"/><stop offset="1" stop-color="#c9ecff"/></linearGradient><radialGradient id="bbG"><stop offset="0" stop-color="#fff6c0"/><stop offset=".45" stop-color="#ffd24a" stop-opacity=".7"/><stop offset="1" stop-color="#ffd24a" stop-opacity="0"/></radialGradient></defs>' +
         '<rect width="100" height="100" fill="url(#bbS)"/><path d="M0 70q25-14 50-4t50-6v40H0z" fill="#6cc24a"/><path d="M0 78q30-8 60 0t40-2v24H0z" fill="#4fa83a"/>' +
