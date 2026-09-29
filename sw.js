@@ -23,7 +23,7 @@ const VERSIONS = {
   maze: '1.0.0',
   mahjong: '1.1.0',
   dice: '1.0.0',
-  daily: '1.0.0',
+  daily: '1.0.4',
   mines: '1.0.1',
   bubbles: '1.0.0',
   bricks: '1.0.0',
