@@ -597,6 +597,18 @@
         if (!at) return 'Flick it in the pool hoop';
         return mk + ' of ' + at + ' made' + (best ? ' · best lap ' + (best / 1000).toFixed(1) + 's' : '');
       }
+    },
+    {
+      id: 'beacon', name: 'Beacon Bound', blurb: 'Run, jump, light the way', path: 'games/beacon/',
+      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="bbS" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4fa9f5"/><stop offset="1" stop-color="#c9ecff"/></linearGradient><radialGradient id="bbG"><stop offset="0" stop-color="#fff6c0"/><stop offset=".45" stop-color="#ffd24a" stop-opacity=".7"/><stop offset="1" stop-color="#ffd24a" stop-opacity="0"/></radialGradient></defs>' +
+        '<rect width="100" height="100" fill="url(#bbS)"/><path d="M0 70q25-14 50-4t50-6v40H0z" fill="#6cc24a"/><path d="M0 78q30-8 60 0t40-2v24H0z" fill="#4fa83a"/>' +
+        '<rect x="14" y="44" width="14" height="14" rx="3" fill="#ffbd2e" stroke="#7a4308" stroke-width="2"/><path d="M21 51m-3 0a3 3 0 1 0 6 0a4.5 4.5 0 1 0-9 0" fill="none" stroke="#b8600c" stroke-width="1.6"/>' +
+        '<circle cx="72" cy="26" r="20" fill="url(#bbG)"/><rect x="70" y="24" width="4" height="52" rx="2" fill="#f4efe6" stroke="#2b1f3a" stroke-width="2"/><rect x="64" y="14" width="16" height="15" rx="3" fill="#ffe07a" stroke="#2b1f3a" stroke-width="2.5"/><path d="M62 15l10-8 10 8z" fill="#e04a3a" stroke="#2b1f3a" stroke-width="2.5" stroke-linejoin="round"/>' +
+        '<g transform="translate(44 62)"><path d="M-7-2q-12 2-18-4q8 8 18 8z" fill="#ea4336" stroke="#2b1f3a" stroke-width="2"/><rect x="-6" y="-4" width="12" height="16" rx="4" fill="#1fa79f" stroke="#2b1f3a" stroke-width="2.5"/><circle cx="1" cy="-12" r="9" fill="#ffd3b3" stroke="#2b1f3a" stroke-width="2.5"/><path d="M-9-13q1-10 10-9q9 0 9 7q-5-4-9-2q-4-3-10 4z" fill="#8b4a26" stroke="#2b1f3a" stroke-width="2"/><circle cx="5" cy="-12" r="1.8" fill="#2a1d3a"/></g></svg>',
+      status: function () {
+        var m = readLS('beacon.meta'); if (!m || !m.best) return 'Art test: World 1-1';
+        return 'Art test · best ' + m.best.toLocaleString();
+      }
     }
   ];
   var byId = {};
