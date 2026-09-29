@@ -639,6 +639,17 @@
       }
     },
     {
+      id: 'parking', name: 'Lot Escape', blurb: 'Clear the jammed parking lot', path: 'games/parking/',
+      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" fill="#7cc86a"/><rect x="8" y="8" width="84" height="84" rx="14" fill="#4a4f5c"/><rect x="16" y="16" width="68" height="68" rx="6" fill="#6a7080"/>' +
+        '<g stroke="rgba(255,255,255,.4)" stroke-width="1.5"><path d="M33 18v64M50 18v64M67 18v64"/></g>' +
+        '<g stroke="#1f1a26" stroke-width="2"><rect x="19" y="20" width="12" height="28" rx="4" fill="#ff4d4d"/><rect x="36" y="44" width="28" height="12" rx="4" fill="#ffd21e"/><rect x="69" y="30" width="12" height="40" rx="4" fill="#f4f6fa"/><rect x="19" y="56" width="12" height="24" rx="4" fill="#3a8cff"/></g>' +
+        '<g fill="#bfe6ff"><rect x="21" y="24" width="8" height="5" rx="1.5"/><rect x="21" y="60" width="8" height="5" rx="1.5"/><rect x="38" y="46" width="5" height="8" rx="1.5"/></g><rect x="69" y="30" width="12" height="11" rx="4" fill="#3ab0ff" stroke="#1f1a26" stroke-width="2"/></svg>',
+      status: function () {
+        var m = readLS('parking.meta'); if (!m || !(m.level > 1)) return 'Clear the jammed parking lot';
+        return (m.level - 1) + ' lots cleared';
+      }
+    },
+    {
       id: 'beacon', name: 'Beacon Bound', blurb: 'Run, jump, light the way', path: 'games/beacon/',
       art: '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="bbS" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4fa9f5"/><stop offset="1" stop-color="#c9ecff"/></linearGradient><radialGradient id="bbG"><stop offset="0" stop-color="#fff6c0"/><stop offset=".45" stop-color="#ffd24a" stop-opacity=".7"/><stop offset="1" stop-color="#ffd24a" stop-opacity="0"/></radialGradient></defs>' +
         '<rect width="100" height="100" fill="url(#bbS)"/><path d="M0 70q25-14 50-4t50-6v40H0z" fill="#6cc24a"/><path d="M0 78q30-8 60 0t40-2v24H0z" fill="#4fa83a"/>' +
