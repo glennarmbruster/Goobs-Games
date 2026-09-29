@@ -580,6 +580,23 @@
         var st = 0, lv = 0; for (var k in p) { lv++; var m = 0; for (var d in p[k]) m = Math.max(m, p[k][d]); st += m; }
         return lv ? lv + ' level' + (lv === 1 ? '' : 's') + ' won \u00b7 ' + st + ' \u2605' : 'Tower defense, two ways';
       }
+    },
+    {
+      id: 'hoops', name: 'Pool Party Hoops', blurb: 'Flick it in the pool hoop', path: 'games/hoops/',
+      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="hpSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4fb4f7"/><stop offset="1" stop-color="#bfe6ff"/></linearGradient><linearGradient id="hpW" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3fd3e8"/><stop offset="1" stop-color="#1596c9"/></linearGradient></defs>' +
+        '<rect width="100" height="100" fill="url(#hpSky)"/><circle cx="82" cy="16" r="9" fill="#fff4b0"/><rect y="46" width="100" height="54" fill="#f1e2c3"/><path d="M8 54H92L100 100H0Z" fill="url(#hpW)"/>' +
+        '<path d="M14 66q10-4 20 0t20 0 20 0 20 0M6 82q12-4 24 0t24 0 24 0 24 0" stroke="#bff4ff" stroke-width="2" fill="none" opacity=".8"/>' +
+        '<ellipse cx="50" cy="66" rx="17" ry="5" fill="#ff5a6e"/><ellipse cx="50" cy="64" rx="17" ry="5" fill="#ffffff"/><rect x="48.5" y="30" width="3" height="34" fill="#dfe6ee"/>' +
+        '<rect x="36" y="20" width="28" height="17" rx="2" fill="#fff" stroke="#1b6fd8" stroke-width="2"/><rect x="45" y="27" width="10" height="7" fill="none" stroke="#ff5a6e" stroke-width="1.6"/>' +
+        '<ellipse cx="50" cy="38" rx="8" ry="2.4" fill="none" stroke="#ff7a1a" stroke-width="2.4"/><path d="M42.5 38.5l2 8M50 40.5v7M57.5 38.5l-2 8M45 44h10" stroke="#fff" stroke-width="1" opacity=".9"/>' +
+        '<g transform="translate(30 20)"><circle r="9" fill="#fff"/><path d="M0-9A9 9 0 0 1 9 0L0 0Z" fill="#ff5a6e"/><path d="M0 9A9 9 0 0 1-9 0L0 0Z" fill="#2f8cff"/><path d="M9 0A9 9 0 0 1 0 9L0 0Z" fill="#ffd23a"/><circle r="2" fill="#fff"/></g>' +
+        '<path d="M14 90q10-8 24 0" fill="none" stroke="#ff69b4" stroke-width="5" stroke-linecap="round"/><ellipse cx="80" cy="84" rx="10" ry="4.5" fill="none" stroke="#ffcf3a" stroke-width="4"/></svg>',
+      status: function () {
+        var p = readLS('hoops.stats'); if (!p) return 'Flick it in the pool hoop';
+        var mk = 0, at = 0, best = 0; for (var k in p) { mk += p[k].makes || 0; at += p[k].att || 0; if (p[k].atpBest && (!best || p[k].atpBest < best)) best = p[k].atpBest; }
+        if (!at) return 'Flick it in the pool hoop';
+        return mk + ' of ' + at + ' made' + (best ? ' · best lap ' + (best / 1000).toFixed(1) + 's' : '');
+      }
     }
   ];
   var byId = {};
