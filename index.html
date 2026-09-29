@@ -662,6 +662,17 @@
       }
     },
     {
+      id: 'board', name: 'Game Chest', blurb: 'Checkers, chess and four in a row', path: 'games/board/',
+      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" fill="#3f7d5a"/><rect x="10" y="10" width="80" height="80" rx="8" fill="#f3e9d2"/>' +
+        '<g fill="#6f9e84"><rect x="10" y="10" width="20" height="20"/><rect x="50" y="10" width="20" height="20"/><rect x="30" y="30" width="20" height="20"/><rect x="70" y="30" width="20" height="20"/><rect x="10" y="50" width="20" height="20"/><rect x="50" y="50" width="20" height="20"/><rect x="30" y="70" width="20" height="20"/><rect x="70" y="70" width="20" height="20"/></g>' +
+        '<circle cx="30" cy="70" r="16" fill="#a8232e"/><circle cx="30" cy="68" r="15" fill="#e8434f"/><circle cx="30" cy="68" r="10" fill="none" stroke="#ff7a82" stroke-width="2.2"/><circle cx="73" cy="74" r="13" fill="#d19b00"/><circle cx="73" cy="73" r="12" fill="#ffd21e"/>' +
+        '<path d="M50 62 L53 50 C48 46 49 41 53 37 L46 41 C43 42 40 39 42 36 L54 23 C56 19 59 17 63 16 L65 10 L68 16 C79 19 84 31 81 45 C80 52 77 57 78 62 Z" fill="#fdfbf4" stroke="#2b2f3a" stroke-width="3" stroke-linejoin="round"/><circle cx="57" cy="28" r="2.2" fill="#2b2f3a"/></svg>',
+      status: function () {
+        var m = readLS('board.meta'); if (!m || !m.finished) return 'Checkers, chess and four in a row';
+        return (m.wins || 0) + ' win' + (m.wins === 1 ? '' : 's') + ' vs the phone';
+      }
+    },
+    {
       id: 'beacon', name: 'Beacon Bound', blurb: 'Run, jump, light the way', path: 'games/beacon/',
       art: '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="bbS" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4fa9f5"/><stop offset="1" stop-color="#c9ecff"/></linearGradient><radialGradient id="bbG"><stop offset="0" stop-color="#fff6c0"/><stop offset=".45" stop-color="#ffd24a" stop-opacity=".7"/><stop offset="1" stop-color="#ffd24a" stop-opacity="0"/></radialGradient></defs>' +
         '<rect width="100" height="100" fill="url(#bbS)"/><path d="M0 70q25-14 50-4t50-6v40H0z" fill="#6cc24a"/><path d="M0 78q30-8 60 0t40-2v24H0z" fill="#4fa83a"/>' +
