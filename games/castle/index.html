@@ -622,18 +622,35 @@ var CCScene = (function () {
     [[-120, -150, 50], [40, -170, 60], [150, -120, 40]].forEach(function (h) { var m = new T.Mesh(new T.SphereGeometry(h[2], 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), hillM); m.scale.y = 0.22; m.position.set(h[0], CC.WATER, h[1]); scene.add(m); });
 
     // ---------------- castle materials ----------------
-    // stone: light grey courses of bricks with mortar lines, drawn for one unit of wall and repeated
-    var stoneTex = tex(128, 128, function (x, w, h) {
-      x.fillStyle = '#9ea3ab'; x.fillRect(0, 0, w, h);
-      for (var r = 0; r < 2; r++) for (var c = -1; c < 2; c++) {
-        var ox = c * 64 + (r % 2 ? 32 : 0) + 3, oy = r * 64 + 3, l = rnd(0.92, 1.06);
-        x.fillStyle = 'rgb(' + Math.round(208 * l) + ',' + Math.round(211 * l) + ',' + Math.round(216 * l) + ')'; x.fillRect(ox, oy, 58, 58);
-        x.fillStyle = 'rgba(255,255,255,.18)'; x.fillRect(ox, oy, 58, 5); x.fillStyle = 'rgba(0,0,0,.08)'; x.fillRect(ox, oy + 52, 58, 6);
-      }
-      for (var i = 0; i < 300; i++) { x.fillStyle = R() < 0.5 ? 'rgba(0,0,0,.05)' : 'rgba(255,255,255,.06)'; x.fillRect(rnd(0, w), rnd(0, h), 2, 2); }
-    });
-    stoneTex.wrapS = stoneTex.wrapT = T.RepeatWrapping;
-    var stoneM = std({ map: stoneTex, roughness: 0.92 });
+    // stone (1.5.0): each physics brick is drawn as ONE brick (Glenn: "the bricks ... aren't breaking apart as individual
+    // bricks but instead as large sections"): before, every unit of wall was painted with four little bricks, so one
+    // falling physics brick looked like a chunk of four to eight. Now the texture is a single stone block with a mortar
+    // border and bevel, stretched once over each face, and every brick gets its own shade, so what you see come apart is
+    // exactly what the physics moves: brick by brick.
+    function brickTex(wu) { // wu: face width in units (1 or 2), so the mortar border stays even on a long brick
+      return tex(128 * wu, 128, function (x, w, h) {
+        var b = 7;
+        x.fillStyle = '#8d929a'; x.fillRect(0, 0, w, h); // mortar
+        x.fillStyle = '#d3d6db'; x.fillRect(b, b, w - 2 * b, h - 2 * b);
+        var g = x.createLinearGradient(0, b, 0, h - b); g.addColorStop(0, 'rgba(255,255,255,.28)'); g.addColorStop(0.18, 'rgba(255,255,255,0)'); g.addColorStop(0.8, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.16)');
+        x.fillStyle = g; x.fillRect(b, b, w - 2 * b, h - 2 * b);
+        x.fillStyle = 'rgba(255,255,255,.22)'; x.fillRect(b, b, 4, h - 2 * b); x.fillStyle = 'rgba(0,0,0,.12)'; x.fillRect(w - b - 5, b, 5, h - 2 * b);
+        for (var i = 0; i < 90 * wu; i++) { x.fillStyle = R() < 0.5 ? 'rgba(0,0,0,.06)' : 'rgba(255,255,255,.08)'; x.fillRect(rnd(b, w - b), rnd(b, h - b), rnd(2, 5), rnd(2, 4)); }
+        x.strokeStyle = 'rgba(0,0,0,.10)'; x.lineWidth = 2; x.beginPath(); x.moveTo(rnd(20, w - 40), rnd(20, 60)); x.lineTo(rnd(20, w - 20), rnd(60, 110)); x.stroke(); // a hairline crack
+      });
+    }
+    var stoneTex = brickTex(1), stoneTex2 = brickTex(2);
+    var stoneM = std({ map: stoneTex, roughness: 0.92 }), stoneM2 = std({ map: stoneTex2, roughness: 0.92 });
+    // one brick per face: a long face (2 units) takes the long brick picture, a square face the square one
+    function brickBox(sx, sy, sz) {
+      var g = new T.BoxGeometry(sx, sy, sz), dims = [[sz, sy], [sz, sy], [sx, sz], [sx, sz], [sx, sy], [sx, sy]];
+      g.clearGroups();
+      for (var f = 0; f < 6; f++) g.addGroup(f * 6, 6, Math.max(dims[f][0], dims[f][1]) >= 1.5 * Math.min(dims[f][0], dims[f][1]) ? 1 : 0);
+      // a tall face (the long brick standing on end) turns its picture so the brick runs the long way
+      var uv = g.attributes.uv;
+      for (var f2 = 0; f2 < 6; f2++) if (dims[f2][1] >= 1.5 * dims[f2][0]) for (var v = 0; v < 4; v++) { var i = f2 * 4 + v, u = uv.getX(i), w = uv.getY(i); uv.setXY(i, w, 1 - u); }
+      return g;
+    }
     var roofM = std({ color: 0x3a4f5c, roughness: 0.7, flatShading: true });
     var woodTex = tex(128, 128, function (x, w, h) { x.fillStyle = '#8a5a2e'; x.fillRect(0, 0, w, h); for (var i = 0; i < 4; i++) { x.fillStyle = i % 2 ? '#94633a' : '#7e5028'; x.fillRect(i * 32 + 2, 0, 28, h); } x.fillStyle = '#3a3f48'; x.fillRect(0, 20, w, 10); x.fillRect(0, h - 30, w, 10); });
     var woodM = std({ map: woodTex, roughness: 0.85 });
@@ -657,7 +674,7 @@ var CCScene = (function () {
       else if (p[0] === 'pyr') { geo = new T.ConeGeometry(p[4] * 0.72, p[5], 4); geo.rotateY(Math.PI / 4); mat = roofM; }
       else if (p[0] === 'door') { geo = unitBox(p[4], p[5], p[6]); mat = woodM; }
       else if (p[0] === 'tnt') { geo = new T.BoxGeometry(p[4], p[5], p[6]); mat = tntM; }
-      else { geo = unitBox(p[4], p[5], p[6]); mat = stoneM; }
+      else { geo = brickBox(p[4], p[5], p[6]); mat = [stoneM, stoneM2]; }
       groups[key] = { geo: geo, mat: mat, list: [] };
       return key;
     }
@@ -668,7 +685,7 @@ var CCScene = (function () {
       Object.keys(groups).forEach(function (k) {
         var G = groups[k]; if (!G.list.length) return;
         var m = new T.InstancedMesh(G.geo, G.mat, G.list.length); m.castShadow = fancy; m.receiveShadow = fancy; m.userData.key = k;
-        G.list.forEach(function (pi, j) { var l = G.mat === stoneM ? rnd(0.88, 1.06) : 1; m.setColorAt(j, col.setRGB(l, l, l * rnd(0.98, 1.03))); });
+        G.list.forEach(function (pi, j) { var l = Array.isArray(G.mat) ? rnd(0.8, 1.08) : 1; m.setColorAt(j, col.setRGB(l, l, l * rnd(0.98, 1.03))); });
         G.mesh = m; castle.add(m);
       });
       pieces.forEach(function (p, i) { tmpQ.identity(); place(i, p[1], p[2], p[3], tmpQ, 1); });
