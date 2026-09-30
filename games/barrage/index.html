@@ -20,14 +20,25 @@
 .brand svg { border-radius: 10px; }
 .brand h1 { font-size: 21px; }
 .modes button { font-size: 15px; }
-/* full screen (1.1.0): the wrap reaches past the page gutters so the field can be as wide as the screen */
-.stagewrap { flex: 1 1 auto; min-height: 0; width: calc(100% + 16px); margin: 0 -8px; display: flex; align-items: center; justify-content: center; }
-.stage { position: relative; border-radius: 18px; overflow: hidden; box-shadow: var(--shadow); background: #151b3d; touch-action: none; display: flex; flex-direction: column; }
+/* full screen (1.3.0): Glenn: "not full screen yet". The field's navy covers the whole phone (behind the notch and the home
+   bar), the kit floats back / Sound / Menu over it with the counters as pills between them, the field is centred in the
+   free space as big as it fits (fit() in app.js) and the booster bar floats at the bottom, clear of the home bar. */
+html.gg-fs-over, html.gg-fs-over body { background: #151b3d; }
+.stagewrap { position: fixed; inset: 0; background: #151b3d; touch-action: none; overflow: hidden; }
+/* the walls: a thin line round the field so the edges the balls bounce off stay visible on the same navy */
+.stage { position: absolute; left: 0; top: 0; background: #151b3d; box-shadow: 0 0 0 1.5px rgba(160,175,255,.28); touch-action: none; }
 .stage canvas { display: block; touch-action: none; }
-.bar { display: flex; align-items: center; gap: 6px; padding: 6px 8px; background: #0f1430; }
+.bar { position: absolute; left: calc(env(safe-area-inset-left, 0px) + 10px); right: calc(env(safe-area-inset-right, 0px) + 10px);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 8px); display: flex; align-items: center; gap: 8px; }
+.hud { flex: 1 1 auto; min-width: 0; display: flex; justify-content: center; gap: 5px; }
+.hud .ggpill { height: 44px; box-sizing: border-box; min-width: 50px; padding: 3px 9px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  line-height: 1.05; font-size: 17px; border-radius: 22px; }
+.hud .ggpill small { font-size: 10px; font-weight: 800; color: #6b7080; letter-spacing: .4px; text-transform: uppercase; }
+.hud .ggpill .st { color: #e0a800; font-size: 14px; letter-spacing: -1px; }
+.ggmenu .modes { margin: 4px 0 2px; }
 .bar .grow { flex: 1; }
-.boost { position: relative; width: 46px; height: 40px; border-radius: 12px; border: 0; background: #262f66; color: #fff; display: flex; align-items: center; justify-content: center; }
-.boost svg { width: 24px; height: 24px; }
+.boost { position: relative; width: 50px; height: 44px; border-radius: 14px; box-shadow: 0 3px 10px rgba(0,0,0,.25); border: 0; background: #262f66; color: #fff; display: flex; align-items: center; justify-content: center; }
+.boost svg { width: 25px; height: 25px; }
 .boost b { position: absolute; right: -3px; bottom: -3px; min-width: 18px; height: 18px; border-radius: 9px; background: #ffc53d; color: #1b1f33; font-size: 11px; font-weight: 900; line-height: 18px; padding: 0 4px; }
 .boost:disabled { opacity: .35; }
 .boost.on { background: #ffc53d; color: #1b1f33; }
@@ -45,7 +56,7 @@
 .stars { font-size: 26px; color: #ffc83d; letter-spacing: 2px; }
 .stars .off { color: var(--line-strong); }
 .cardicon svg { border-radius: 16px; }
-@media (max-width: 385px) { .brand h1 { font-size: 19px; } .modes button { font-size: 14px; } }
+@media (max-width: 385px) { .brand h1 { font-size: 19px; } .modes button { font-size: 14px; } .hud { gap: 4px; } .hud .ggpill { padding: 3px 7px; min-width: 46px; } }
 </style>
 </head>
 <body>
@@ -79,6 +90,7 @@
       <svg viewBox="0 0 100 100" aria-hidden="true"><use href="#bb-logo"/></svg>
       <h1>Ball Barrage</h1>
     </button>
+    <div class="hud" id="hud"></div>
     <div class="topbtns">
       <button class="iconbtn" id="btnSound" aria-label="Sound"><svg viewBox="0 0 24 24"><use href="#i-sound-off"/></svg></button>
       <button class="iconbtn" id="btnStats" aria-label="Stats"><svg viewBox="0 0 24 24"><use href="#i-stats"/></svg></button>
@@ -91,20 +103,19 @@
     <button data-mode="endless">Endless</button>
   </div>
 
-  <div class="info" id="info"></div>
-
+  <!-- 1.3.0: the field's navy fills the whole screen; the field is centred in it and the booster bar floats at the bottom -->
   <div class="stagewrap" id="stagewrap">
     <div class="stage" id="stage">
       <canvas id="cv"></canvas>
       <div class="toast" id="toast"></div>
-      <div class="bar" id="bar">
-        <button class="boost" id="bRocket" aria-label="Rocket"><svg viewBox="0 0 24 24"><use href="#i-rocket"/></svg><b id="nRocket">0</b></button>
-        <button class="boost" id="bFreeze" aria-label="Freeze"><svg viewBox="0 0 24 24"><use href="#i-snow"/></svg><b id="nFreeze">0</b></button>
-        <button class="boost" id="bPower" aria-label="Power"><svg viewBox="0 0 24 24"><use href="#i-bolt"/></svg><b id="nPower">0</b></button>
-        <span class="grow"></span>
-        <button class="boost ctl" id="bFast" aria-label="Faster"><svg viewBox="0 0 24 24"><use href="#i-fast"/></svg></button>
-        <button class="boost ctl" id="bRecall" aria-label="Bring the balls back"><svg viewBox="0 0 24 24"><use href="#i-down"/></svg></button>
-      </div>
+    </div>
+    <div class="bar" id="bar">
+      <button class="boost" id="bRocket" aria-label="Rocket"><svg viewBox="0 0 24 24"><use href="#i-rocket"/></svg><b id="nRocket">0</b></button>
+      <button class="boost" id="bFreeze" aria-label="Freeze"><svg viewBox="0 0 24 24"><use href="#i-snow"/></svg><b id="nFreeze">0</b></button>
+      <button class="boost" id="bPower" aria-label="Power"><svg viewBox="0 0 24 24"><use href="#i-bolt"/></svg><b id="nPower">0</b></button>
+      <span class="grow"></span>
+      <button class="boost ctl" id="bFast" aria-label="Faster"><svg viewBox="0 0 24 24"><use href="#i-fast"/></svg></button>
+      <button class="boost ctl" id="bRecall" aria-label="Bring the balls back"><svg viewBox="0 0 24 24"><use href="#i-down"/></svg></button>
     </div>
   </div>
 
@@ -656,12 +667,16 @@ var BBSound = (function () {
   function allHome() { if (!shot || !shot.done) return false; var tx = shot.firstX === null ? g.x : shot.firstX; return shot.balls.every(function (b, i) { return landVis[i] === tx; }); }
 
   // ================= drawing =================
-  var cv, cx, dpr = 1, k = 30;
+  var cv, cx, dpr = 1, k = 30, FS = null;
   function fit() {
-    var wrap = $('stagewrap').getBoundingClientRect(), barH = $('bar').getBoundingClientRect().height || 52;
-    // full screen: as big as the width or height allows (half-pixel steps; the cap keeps it sane on an iPad)
-    k = Math.max(16, Math.floor(2 * Math.min(wrap.width / COLS, (wrap.height - barH) / FIELD_H, 56)) / 2);
-    var st = $('stage'); st.style.width = (COLS * k) + 'px';
+    // full screen (1.3.0): the free space is the whole screen width between the floating top row and the floating booster
+    // bar; the field is as big as it fits there (half-pixel steps; the cap keeps it sane on an iPad), centred in it
+    var wrap = $('stagewrap').getBoundingClientRect(), topB = document.querySelector('.top').getBoundingClientRect().bottom;
+    var y0 = topB + 8, fh = $('bar').getBoundingClientRect().top - 8 - y0;
+    k = Math.max(16, Math.floor(2 * Math.min((wrap.width - 2) / COLS, fh / FIELD_H, 56)) / 2);
+    var st = $('stage'), w = COLS * k, h = FIELD_H * k;
+    st.style.width = w + 'px'; st.style.height = h + 'px';
+    st.style.left = Math.round((wrap.width - w) / 2) + 'px'; st.style.top = Math.round(y0 + Math.max(0, (fh - h) / 2)) + 'px';
     cv.style.width = (COLS * k) + 'px'; cv.style.height = (FIELD_H * k) + 'px';
     dpr = Math.min(3, window.devicePixelRatio || 1);
     cv.width = Math.round(COLS * k * dpr); cv.height = Math.round(FIELD_H * k * dpr);
@@ -770,10 +785,12 @@ var BBSound = (function () {
     if (p[1] > ROWS - 0.25) return { a: Math.PI / 2, ok: false };
     var a = Math.atan2(dy, dx); return { a: BB.clampAim(a), ok: true };
   }
+  // 1.3.0: the whole screen takes the drag (not just the field), so a finger can aim from the navy around the field too;
+  // the positions are still measured from the field (local), the booster bar keeps its own taps
   function onDown(e) {
-    if (!g || g.over || phase !== 'aim' || sheetOpen()) return;
+    if (!g || g.over || phase !== 'aim' || sheetOpen() || e.target.closest('.bar')) return;
     S.unlock();
-    try { cv.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+    try { $('stagewrap').setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
     ptr = { id: e.pointerId }; aim = aimFrom(local(e));
   }
   function onMove(e) { if (!ptr || e.pointerId !== ptr.id) return; aim = aimFrom(local(e)); }
@@ -784,20 +801,18 @@ var BBSound = (function () {
   }
 
   // ================= info and sheets =================
+  function pill(lbl, v) { return '<div class="ggpill"><small>' + lbl + '</small>' + v + '</div>'; }
   function renderInfo() {
     if (!g) return;
     var h;
+    // 1.3.0: the counters are pills in the floating top row (the old info row above the field is gone)
     if (g.mode === 'levels') {
       var bot = (LEVELS[levelNo - 1] && LEVELS[levelNo - 1].bot) || 0, t = g.turn;
-      h = '<div><div class="lbl">Level</div><div class="big">' + levelNo + '</div></div>' +
-        '<div style="text-align:center"><div class="lbl">Bricks</div><div class="mid">' + BB.bricksLeft(g) + '</div></div>' +
-        '<div class="right"><div class="lbl">Turn ' + t + '</div><div class="mid">' + (t <= bot ? '★★★' : t <= bot + 3 ? '★★' : '★') + '</div></div>';
+      h = pill('Level', levelNo) + pill('Bricks', BB.bricksLeft(g)) + pill('Turn ' + t, '<span class="st">' + (t <= bot ? '★★★' : t <= bot + 3 ? '★★' : '★') + '</span>');
     } else {
-      h = '<div><div class="lbl">Turn</div><div class="big">' + g.turn + '</div></div>' +
-        '<div style="text-align:center"><div class="lbl">Balls</div><div class="mid">' + g.balls + '</div></div>' +
-        '<div class="right"><div class="lbl">Best</div><div class="mid">' + Math.max(meta.endlessBest, g.turn - 1) + '</div></div>';
+      h = pill('Turn', g.turn) + pill('Balls', g.balls) + pill('Best', Math.max(meta.endlessBest, g.turn - 1));
     }
-    $('info').innerHTML = h;
+    $('hud').innerHTML = h;
     Array.prototype.forEach.call($('modes').children, function (b) { b.classList.toggle('on', b.dataset.mode === g.mode); });
     $('btnLevels').style.display = g.mode === 'levels' ? '' : 'none';
   }
@@ -873,19 +888,24 @@ var BBSound = (function () {
   }
   function inGame() { return g && !g.over && g.turn > 1; }
   function init() {
-    // full screen: How to, Levels, Stats, Settings and Restart live in the Menu; the balls stop while it is open
-    Goobs.fullscreen({ menu: ['btnHelp', 'btnLevels', 'btnStats', 'btnSettings', 'btnNew'], info: function () {
+    // full screen: How to, Levels, Stats, Settings and Restart live in the Menu; the balls stop while it is open.
+    // 1.3.0: overlay mode (the top row floats on the navy) and the Levels / Endless tabs move to the top of the Menu
+    FS = Goobs.fullscreen({ overlay: true, menu: ['btnHelp', 'btnLevels', 'btnStats', 'btnSettings', 'btnNew'], info: function () {
       if (!g) return '';
       return g.mode === 'levels' ? 'Level <b>' + levelNo + '</b> of ' + LEVELS.length + ' &middot; ' + BB.bricksLeft(g) + ' bricks left &middot; turn ' + g.turn : 'Endless &middot; turn <b>' + g.turn + '</b> &middot; best ' + Math.max(meta.endlessBest, g.turn - 1);
     } });
+    FS.list.parentNode.insertBefore($('modes'), FS.list);
     Goobs.themePicker($('themes'));
     cv = $('cv'); cx = cv.getContext('2d');
-    cv.addEventListener('pointerdown', onDown); cv.addEventListener('pointermove', onMove); cv.addEventListener('pointerup', onUp);
-    cv.addEventListener('pointercancel', function () { ptr = null; aim = null; });
+    var sw = $('stagewrap');
+    sw.addEventListener('pointerdown', onDown); sw.addEventListener('pointermove', onMove); sw.addEventListener('pointerup', onUp);
+    sw.addEventListener('pointercancel', function () { ptr = null; aim = null; });
     ['pointerdown', 'touchend', 'click'].forEach(function (ev) { document.addEventListener(ev, function () { S.unlock(); }, { passive: true }); });
     $('btnHome').addEventListener('click', function () { save(); Goobs.home(); });
     $('modes').addEventListener('click', function (e) {
-      var b = e.target.closest('button'); if (!b || !g || b.dataset.mode === g.mode) return;
+      var b = e.target.closest('button'); if (!b || !g) return;
+      FS.close();
+      if (b.dataset.mode === g.mode) return;
       var go = b.dataset.mode === 'endless' ? startEndless : function () { startLevel(meta.level); };
       if (inGame() && phase !== 'over') { showCard('Leave this game?', 'It ends here.', [{ label: 'Leave it', red: true, go: go }, { label: 'Keep playing', go: function () {} }]); return; }
       go();
@@ -931,7 +951,7 @@ var BBSound = (function () {
 
   // hook for automated tests
   window.__bb = { get g() { return g; }, get phase() { return phase; }, fire: fire, BB: BB, startLevel: startLevel, startEndless: startEndless, meta: function () { return meta; },
-    bot: function () { return phase === 'aim' && g && !g.over ? fire(BB.botAngle(g)) : false; }, get k() { return k; }, useBoost: useBoost, stats: function () { return stats; } };
+    bot: function () { return phase === 'aim' && g && !g.over ? fire(BB.botAngle(g)) : false; }, get k() { return k; },  get shot() { return shot; }, useBoost: useBoost, stats: function () { return stats; } };
 
   init();
 })();

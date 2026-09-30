@@ -19,10 +19,22 @@
 /* Fizz Pop styles (themes, UI kit and ad cards come from /shared/goobs.css) */
 .brand svg { border-radius: 10px; }
 .modes button { font-size: 15px; }
-/* full screen (1.1.0): the wrap reaches past the page gutters so the field can be as wide as the screen */
-.stagewrap { flex: 1 1 auto; min-height: 0; width: calc(100% + 16px); margin: 0 -8px; display: flex; align-items: center; justify-content: center; }
-.stage { position: relative; border-radius: 18px; overflow: hidden; box-shadow: var(--shadow); background: #1e2a5a; touch-action: none; }
+/* full screen (1.2.0): Glenn: "not full screen yet". The soda blue covers the whole phone (behind the notch and the home
+   bar), the kit floats back / Sound / Menu over it with the counters as pills between them, and the field (launcher and
+   next bubble included) is centred in the free space as big as it fits (fit() in app.js). The canvas is see-through, so
+   the field and the space round it are the same backdrop; a thin line marks the walls the bubbles bounce off. */
+html.gg-fs-over, html.gg-fs-over body { background: #1e2a5a; }
+.stagewrap { position: fixed; inset: 0; background: linear-gradient(#26336b, #1a2350); touch-action: none; overflow: hidden; }
+.stage { position: absolute; left: 0; top: 0; box-shadow: 0 0 0 1.5px rgba(170,185,255,.3); touch-action: none; }
 .stage canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+/* the free space the field may use (read by fit(); CSS knows the safe areas, JS doesn't) */
+.fitbox { position: absolute; left: env(safe-area-inset-left, 0px); right: env(safe-area-inset-right, 0px); top: 0; bottom: calc(env(safe-area-inset-bottom, 0px) + 6px); visibility: hidden; pointer-events: none; }
+.hud { flex: 1 1 auto; min-width: 0; display: flex; justify-content: center; gap: 5px; }
+.hud .ggpill { height: 44px; box-sizing: border-box; min-width: 50px; padding: 3px 10px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  line-height: 1.05; font-size: 17px; border-radius: 22px; }
+.hud .ggpill small { font-size: 10px; font-weight: 800; color: #6b7080; letter-spacing: .4px; text-transform: uppercase; }
+.ggmenu .modes { margin: 4px 0 2px; }
+@media (max-width: 385px) { .hud { gap: 4px; } .hud .ggpill { padding: 3px 8px; min-width: 46px; } }
 .toast { position: absolute; left: 50%; top: 42%; transform: translateX(-50%); text-align: center; pointer-events: none; opacity: 0; transition: opacity .25s;
   background: rgba(10,14,36,.78); color: #fff; font-weight: 800; font-size: 16px; padding: 8px 15px; border-radius: 14px; white-space: nowrap; }
 .toast.show { opacity: 1; }
@@ -62,6 +74,7 @@
       <svg viewBox="0 0 100 100" aria-hidden="true"><use href="#fp-logo"/></svg>
       <h1>Fizz Pop</h1>
     </button>
+    <div class="hud" id="hud"></div>
     <div class="topbtns">
       <button class="iconbtn" id="btnSound" aria-label="Sound"><svg viewBox="0 0 24 24"><use href="#i-sound-off"/></svg></button>
       <button class="iconbtn" id="btnStats" aria-label="Stats"><svg viewBox="0 0 24 24"><use href="#i-stats"/></svg></button>
@@ -74,9 +87,9 @@
     <button data-mode="endless">Endless</button>
   </div>
 
-  <div class="info" id="info"></div>
-
+  <!-- 1.2.0: the soda blue fills the whole screen; the field (with its launcher) is centred in it -->
   <div class="stagewrap" id="stagewrap">
+    <div class="fitbox" id="fitbox"></div>
     <div class="stage" id="stage">
       <canvas id="cv"></canvas>
       <div class="toast" id="toast"></div>
@@ -543,12 +556,15 @@ var FPSound = (function () {
   }
 
   // ================= drawing =================
-  var cv, cx, dpr = 1, k = 40, W = 8, H = 13.4, ox = 0;
+  var cv, cx, dpr = 1, k = 40, W = 8, H = 13.4, ox = 0, FS = null;
   function fit() {
-    var wrap = $('stagewrap').getBoundingClientRect();
-    // full screen: as big as the width or height allows (half-pixel steps; the cap keeps it sane on an iPad)
-    k = Math.max(10, Math.floor(2 * Math.min(wrap.width / W, wrap.height / H, 60)) / 2);
-    var st = $('stage'); st.style.width = (W * k) + 'px'; st.style.height = (H * k) + 'px';
+    // full screen (1.2.0): the free space is the screen below the floating top row, clear of the notch and the home bar
+    // (#fitbox); the field is as big as it fits there (half-pixel steps; the cap keeps it sane on an iPad), centred in it
+    var box = $('fitbox').getBoundingClientRect(), y0 = document.querySelector('.top').getBoundingClientRect().bottom + 8, fh = box.bottom - y0;
+    k = Math.max(10, Math.floor(2 * Math.min((box.width - 2) / W, fh / H, 60)) / 2);
+    var st = $('stage'), w = W * k, h = H * k;
+    st.style.width = w + 'px'; st.style.height = h + 'px';
+    st.style.left = Math.round(box.left + (box.width - w) / 2) + 'px'; st.style.top = Math.round(y0 + Math.max(0, (fh - h) / 2)) + 'px';
     dpr = Math.min(3, window.devicePixelRatio || 1);
     cv.width = Math.round(W * k * dpr); cv.height = Math.round(H * k * dpr);
     bubCache = {};
@@ -589,7 +605,8 @@ var FPSound = (function () {
     cx.setTransform(dpr, 0, 0, dpr, 0, 0);
     var jolt = shake ? Math.sin(shake * 1.7) * 3 : 0;
     // background
-    var bg = cx.createLinearGradient(0, 0, 0, H * k); bg.addColorStop(0, '#26336b'); bg.addColorStop(1, '#1a2350'); cx.fillStyle = bg; cx.fillRect(0, 0, W * k, H * k);
+    // 1.2.0: see-through, so the field shows the same soda blue as the screen round it (.stagewrap)
+    cx.clearRect(0, 0, W * k, H * k);
     // rising fizz
     cx.fillStyle = 'rgba(255,255,255,.06)';
     var t = performance.now() / 1000;
@@ -649,11 +666,13 @@ var FPSound = (function () {
   var ptr = null;
   function local(e) { var r = cv.getBoundingClientRect(); return [(e.clientX - r.left) / k, (e.clientY - r.top) / k]; }
   function angleTo(p) { var a = Math.atan2(p[0] - FP.WIDTH / 2, FP.LAUNCH_Y - p[1]); return Math.max(-MAXA, Math.min(MAXA, a)); }
+  // 1.2.0: the whole screen takes the drag (not just the field), so a finger can aim from the blue round the field too;
+  // positions are still measured from the field (local), so the swap spots and the aim are unchanged
   function onDown(e) {
     if (!g || g.over || done || sheetOpen()) return;
     S.unlock();
     var p = local(e);
-    try { cv.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+    try { $('stagewrap').setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
     // the next bubble or the launcher: swap
     if (Math.hypot(p[0] - (FP.WIDTH / 2 - 2), p[1] - (FP.LAUNCH_Y + 0.25)) < 0.7 || Math.hypot(p[0] - FP.WIDTH / 2, p[1] - FP.LAUNCH_Y) < 0.55) {
       if (!flight) { FP.swap(g); S.swap(); save(); } ptr = null; return;
@@ -671,15 +690,12 @@ var FPSound = (function () {
   }
 
   // ================= info and sheets =================
+  function pill(lbl, v) { return '<div class="ggpill"><small>' + lbl + '</small>' + v + '</div>'; }
   function renderInfo() {
     if (!g) return;
-    var h;
-    if (meta.mode === 'levels') h = '<div><div class="lbl">Level</div><div class="big">' + levelNo + '</div></div>' +
-      '<div style="text-align:center"><div class="lbl">Bubbles</div><div class="mid">' + FP.count(g) + '</div></div>' +
-      '<div class="right"><div class="lbl">Score</div><div class="mid">' + fmt(g.score) + '</div></div>';
-    else h = '<div><div class="lbl">Score</div><div class="big">' + fmt(g.score) + '</div></div>' +
-      '<div class="right"><div class="lbl">Best</div><div class="mid">' + fmt(Math.max(meta.endlessBest, g.score)) + '</div></div>';
-    $('info').innerHTML = h;
+    // 1.2.0: the counters are pills in the floating top row (the old info row above the field is gone)
+    $('hud').innerHTML = meta.mode === 'levels' ? pill('Level', levelNo) + pill('Bubbles', FP.count(g)) + pill('Score', fmt(g.score))
+      : pill('Score', fmt(g.score)) + pill('Best', fmt(Math.max(meta.endlessBest, g.score)));
     Array.prototype.forEach.call($('modes').children, function (b) { b.classList.toggle('on', b.dataset.mode === meta.mode); });
     $('btnLevels').style.display = meta.mode === 'levels' ? '' : 'none';
   }
@@ -744,19 +760,24 @@ var FPSound = (function () {
   }
   function inGame() { return g && !g.over && g.shots > 0; }
   function init() {
-    // full screen: How to, Stats, Settings, Levels and Restart live in the Menu (a bubble in flight waits while it is open)
-    Goobs.fullscreen({ menu: ['btnHelp', 'btnLevels', 'btnStats', 'btnSettings', 'btnNew'], info: function () {
+    // full screen: How to, Stats, Settings, Levels and Restart live in the Menu (a bubble in flight waits while it is open).
+    // 1.2.0: overlay mode (the top row floats on the soda blue) and the Levels / Endless tabs move to the top of the Menu
+    FS = Goobs.fullscreen({ overlay: true, menu: ['btnHelp', 'btnLevels', 'btnStats', 'btnSettings', 'btnNew'], info: function () {
       if (!g) return '';
       return meta.mode === 'levels' ? 'Level <b>' + levelNo + '</b> of ' + LEVELS.length + ' &middot; ' + FP.count(g) + ' bubbles left' : 'Endless &middot; score <b>' + fmt(g.score) + '</b> &middot; best ' + fmt(Math.max(meta.endlessBest, g.score));
     } });
+    FS.list.parentNode.insertBefore($('modes'), FS.list);
     Goobs.themePicker($('themes'));
     cv = $('cv'); cx = cv.getContext('2d');
-    cv.addEventListener('pointerdown', onDown); cv.addEventListener('pointermove', onMove); cv.addEventListener('pointerup', onUp);
-    cv.addEventListener('pointercancel', function () { ptr = null; aim = null; });
+    var sw = $('stagewrap');
+    sw.addEventListener('pointerdown', onDown); sw.addEventListener('pointermove', onMove); sw.addEventListener('pointerup', onUp);
+    sw.addEventListener('pointercancel', function () { ptr = null; aim = null; });
     ['pointerdown', 'touchend', 'click'].forEach(function (ev) { document.addEventListener(ev, function () { S.unlock(); }, { passive: true }); });
     $('btnHome').addEventListener('click', function () { save(); Goobs.home(); });
     $('modes').addEventListener('click', function (e) {
-      var b = e.target.closest('button'); if (!b || b.dataset.mode === meta.mode) return;
+      var b = e.target.closest('button'); if (!b) return;
+      FS.close();
+      if (b.dataset.mode === meta.mode) return;
       var go = b.dataset.mode === 'endless' ? startEndless : function () { startLevel(meta.level); };
       if (inGame()) { showCard('Leave this game?', 'It ends here.', [{ label: 'Leave it', red: true, go: go }, { label: 'Keep playing', go: function () {} }]); return; }
       go();

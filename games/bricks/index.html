@@ -18,19 +18,31 @@
 <style>
 /* Brickyard styles (themes, UI kit and ad cards come from /shared/goobs.css) */
 .brand svg { border-radius: 10px; }
-.app { gap: 8px; }
-.info .lives { display: flex; gap: 4px; justify-content: center; margin-top: 3px; }
-.info .lives i { width: 22px; height: 7px; border-radius: 4px; background: #7c5cff; }
-/* full screen (1.1.0): .playcol is the free space under the info row. fit() sizes the field to the full screen width (or
-   the height, on short phones) and the slide strip under it takes the rest of the height, so nothing is left blank. */
-.playcol { flex: 1 1 0; min-height: 0; width: 100%; display: flex; flex-direction: column; gap: 6px; }
-.stagewrap { flex: none; width: calc(100% + 16px); margin: 0 -8px; display: flex; align-items: center; justify-content: center; }
-.stage { position: relative; border-radius: 14px; overflow: hidden; box-shadow: var(--shadow); background: #1c1f3a; touch-action: none; }
-.stage canvas { display: block; width: 100%; height: 100%; touch-action: none; }
-.dragzone { flex: 1 1 auto; width: 100%; min-height: 46px; border-radius: 16px; background: var(--surface-2); color: var(--muted); font-weight: 700; font-size: 14px;
-  display: flex; align-items: center; justify-content: center; touch-action: none; -webkit-user-select: none; user-select: none; }
-.ready { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; padding: 18px; color: #fff;
-  background: rgba(14,16,40,.72); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
+.cardicon svg { border-radius: 16px; }
+
+/* Full screen (1.2.0, Glenn: "not full screen yet"): the canvas covers the whole phone, edge to edge behind the status bar
+   and the home bar, painted with the level's backdrop; the field sits in it with its walls (fit() in app.js). The kit's
+   html.gg-fs-over floats the back / Sound / Pause / Menu buttons; the counters are pills. --bk-bg is the level's color. */
+html.gg-fs-over, html.gg-fs-over body { background: var(--bk-bg, #1c1f3a); }
+.stage { position: fixed; inset: 0; background: var(--bk-bg, #1c1f3a); touch-action: none; }
+.stage canvas { position: absolute; left: 0; top: 0; display: block; width: 100%; height: 100%; touch-action: none; }
+.playarea { position: fixed; visibility: hidden; pointer-events: none;
+  top: calc(env(safe-area-inset-top, 0px) + 92px); bottom: calc(env(safe-area-inset-bottom, 0px) + 6px);
+  left: env(safe-area-inset-left, 0px); right: env(safe-area-inset-right, 0px); }
+/* the score pill sits in the top row between the back button and the round buttons; touches go through to the game */
+.scorepill { pointer-events: none !important; height: 44px; box-sizing: border-box; display: flex; align-items: baseline; justify-content: center; gap: 6px;
+  padding: 0 14px; line-height: 44px; font-size: 22px; font-weight: 900; min-width: 0; overflow: hidden; letter-spacing: -.3px; }
+.scorepill small, .hud small { font-size: 11px; font-weight: 800; color: #6b7080; letter-spacing: .3px; text-transform: uppercase; }
+/* level (with the paddles left) and best, just under the top row */
+.hud { position: fixed; left: 0; right: 0; top: calc(env(safe-area-inset-top, 0px) + 56px); z-index: 5; pointer-events: none;
+  display: flex; justify-content: center; gap: 8px; padding: 0 10px; }
+.hud .ggpill { height: 30px; box-sizing: border-box; padding: 0 12px; font-size: 15px; line-height: 30px; display: flex; align-items: center; gap: 6px; }
+.hud .of { color: #6b7080; font-weight: 700; }
+.hud .lives { display: flex; gap: 3px; margin-left: 2px; }
+.hud .lives i { width: 14px; height: 6px; border-radius: 3px; background: #7c5cff; }
+html.gg-fs-over .top #btnPause:disabled { opacity: .5; }
+.ready { position: absolute; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; padding: 18px; color: #fff;
+  border-radius: 12px; background: rgba(14,16,40,.72); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
 .ready.show { display: flex; }
 .ready h2 { margin: 0; font-size: 28px; font-weight: 800; }
 .ready p { margin: 0; color: #d6daf2; font-size: 15px; line-height: 1.4; max-width: 270px; }
@@ -38,9 +50,6 @@
 .ready .caps { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; text-align: left; font-size: 13px; color: #d6daf2; }
 .ready .caps b { display: inline-block; width: 30px; text-align: center; border-radius: 8px; color: #fff; font-size: 12px; padding: 1px 0; }
 .ready.compact .caps { display: none; }
-.cardicon svg { border-radius: 16px; }
-/* the top-row Pause button is an icon button; the info row is a little tighter */
-html.gg-fs .info { min-height: 0; }
 </style>
 </head>
 <body>
@@ -62,12 +71,19 @@ html.gg-fs .info { min-height: 0; }
 </defs></svg>
 
 <div class="app" id="app">
+  <!-- full screen (1.2.0): the canvas fills the whole phone with the level's backdrop; the field (with its walls) sits in
+       it, and the round buttons and counter pills float on top. Slide anywhere to move the paddle. -->
+  <div class="stage" id="stage">
+    <canvas id="cv"></canvas>
+    <div class="ready" id="ready"></div>
+  </div>
   <div class="top">
     <button class="brand homebtn" id="btnHome" aria-label="Back to all games">
       <span class="chev" aria-hidden="true">&#8249;</span>
       <svg viewBox="0 0 100 100" aria-hidden="true"><use href="#bk-logo"/></svg>
       <h1>Brickyard</h1>
     </button>
+    <div class="ggpill scorepill" id="pillScore"></div>
     <div class="topbtns">
       <button class="iconbtn" id="btnSound" aria-label="Sound"><svg viewBox="0 0 24 24"><use href="#i-sound-off"/></svg></button>
       <button class="iconbtn" id="btnPause" aria-label="Pause"><svg viewBox="0 0 24 24"><use href="#i-pause"/></svg></button>
@@ -75,19 +91,9 @@ html.gg-fs .info { min-height: 0; }
       <button class="iconbtn" id="btnSettings" aria-label="Settings"><svg viewBox="0 0 24 24"><use href="#i-gear"/></svg></button>
     </div>
   </div>
-
-  <div class="info" id="info"></div>
-
-  <!-- full screen: the field takes all the width it can; the slide strip under it gets whatever height is left -->
-  <div class="playcol" id="playcol">
-    <div class="stagewrap" id="stagewrap">
-      <div class="stage" id="stage">
-        <canvas id="cv"></canvas>
-        <div class="ready" id="ready"></div>
-      </div>
-    </div>
-    <div class="dragzone" id="dragzone">Slide here to move the paddle</div>
-  </div>
+  <div class="hud" id="info"></div>
+  <!-- not drawn: marks the free space for the field (under the pills, above the home bar); fit() reads it -->
+  <div class="playarea" id="playarea"></div>
 
   <div class="toolbar">
     <button class="tool" id="btnHelp"><svg viewBox="0 0 24 24"><use href="#i-help"/></svg><span>How to</span></button>
@@ -573,33 +579,70 @@ var BKSound = (function () {
 
   // ================= drawing =================
   var cv, cx, dpr = 1, k = 28, W = BK.FW, H = BK.FH;
+  // full screen (1.2.0): the canvas is the whole screen (CSS px VW x VH); the field is W x H cells of k px at (OX, OY),
+  // with WALL px walls on its sides and the ceiling band on top. Nothing about the rules changes, only where it's drawn.
+  var VW = 390, VH = 844, OX = 0, OY = 0, WALL = 4, bgCache = null, bgKey = '';
   function fit() {
-    // full screen: the field may use the whole screen width (the wrap reaches past the page gutters) and the height of
-    // the play column less a slide strip of at least 46px. Half-pixel steps keep the drawing crisp enough and stable.
-    var col = $('playcol').getBoundingClientRect(), wrap = $('stagewrap').getBoundingClientRect();
-    k = Math.max(10, Math.floor(2 * Math.min(wrap.width / W, (col.height - 52) / H)) / 2);
-    var st = $('stage'); st.style.width = (W * k) + 'px'; st.style.height = (H * k) + 'px';
-    $('ready').classList.toggle('compact', H * k < 460);
+    // the free space is the .playarea box (under the pills, above the home bar). The field takes all the width it can
+    // (less its walls) or the height, on short phones; quarter-pixel steps keep the size stable. It sits
+    // low in that space ("the field reaching down near the bottom"), with a thumb margin under it of up to 96 px; any
+    // height left over goes above it.
+    var st = $('stage').getBoundingClientRect(), pa = $('playarea').getBoundingClientRect();
+    VW = st.width; VH = st.height;
+    k = Math.max(10, Math.floor(4 * Math.min((pa.width - 2 * WALL) / W, (pa.height - 24) / H)) / 4);
+    var fw = W * k, fh = H * k, spare = Math.max(0, pa.height - fh);
+    OX = Math.round(pa.left + (pa.width - fw) / 2);
+    OY = Math.round(pa.bottom - Math.min(spare, 96) - fh);
+    var r = $('ready').style; r.left = OX + 'px'; r.top = (OY + (BK.TOP - 1.4) * k) + 'px'; r.width = fw + 'px'; r.height = (fh - (BK.TOP - 1.4) * k) + 'px';
+    $('ready').classList.toggle('compact', fh < 460);
     dpr = Math.min(3, window.devicePixelRatio || 1);
-    cv.width = Math.round(W * k * dpr); cv.height = Math.round(H * k * dpr);
+    cv.width = Math.round(VW * dpr); cv.height = Math.round(VH * dpr);
+    bgKey = '';
   }
   function rr(x, y, w, h, r) { cx.beginPath(); cx.moveTo(x + r, y); cx.arcTo(x + w, y, x + w, y + h, r); cx.arcTo(x + w, y + h, x, y + h, r); cx.arcTo(x, y + h, x, y, r); cx.arcTo(x, y, x + w, y, r); cx.closePath(); }
   var BGS = [['#1c1f3a', '#262a52'], ['#132b3a', '#1b3d52'], ['#2a1a3a', '#3a2452'], ['#1a3326', '#244a36']];
+  // the backdrop: the level's color and its quiet diamond pattern over the WHOLE screen, lined up with the field's cells
+  // so the field and the space around it read as one. Drawn once per size and level into a spare canvas.
+  function backdrop(bg) {
+    var key = VW + 'x' + VH + ':' + k + ':' + OX + ',' + OY + ':' + bg[0] + ':' + dpr;
+    if (bgKey === key && bgCache) return bgCache;
+    bgKey = key; bgCache = bgCache || document.createElement('canvas');
+    bgCache.width = cv.width; bgCache.height = cv.height;
+    var c = bgCache.getContext('2d'), s2 = 1.2 * k;
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    c.fillStyle = bg[0]; c.fillRect(0, 0, VW, VH);
+    c.fillStyle = bg[1];
+    var j0 = Math.floor(-OY / s2) - 1, j1 = Math.ceil((VH - OY) / s2) + 1, i0 = Math.floor(-OX / s2) - 1, i1 = Math.ceil((VW - OX) / s2) + 1;
+    for (var j = j0; j <= j1; j++) for (var i = i0; i <= i1; i++) {
+      var x = OX + i * s2 + (((j % 2) + 2) % 2) * 0.6 * k, y = OY + j * s2, d = 0.25 * k;
+      c.beginPath(); c.moveTo(x, y - d); c.lineTo(x + d, y); c.lineTo(x, y + d); c.lineTo(x - d, y); c.fill();
+    }
+    document.documentElement.style.setProperty('--bk-bg', bg[0]); // the page behind the canvas matches (overscroll, rotation)
+    return bgCache;
+  }
   function draw() {
     if (!cx || !g) return;
+    var bg = BGS[(g.level - 1) % BGS.length], now = performance.now(), fw = W * k, fh = H * k, ceil = (BK.TOP - 1.4) * k;
+    cx.setTransform(1, 0, 0, 1, 0, 0);
+    cx.drawImage(backdrop(bg), 0, 0);
     cx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    var bg = BGS[(g.level - 1) % BGS.length], now = performance.now();
-    cx.fillStyle = bg[0]; cx.fillRect(0, 0, W * k, H * k);
-    // a quiet diamond pattern behind
-    cx.fillStyle = bg[1];
-    for (var py = 0; py < H; py += 1.2) for (var px = ((py / 1.2) % 2) * 0.6; px < W; px += 1.2) { cx.beginPath(); cx.moveTo(px * k, (py - 0.25) * k); cx.lineTo((px + 0.25) * k, py * k); cx.lineTo(px * k, (py + 0.25) * k); cx.lineTo((px - 0.25) * k, py * k); cx.fill(); }
-    // the frame at the top
-    cx.fillStyle = '#3a3f6b'; cx.fillRect(0, 0, W * k, (BK.TOP - 1.4) * k);
-    // the Break door
+    // the walls the ball bounces off: the ceiling band and the two sides, fading out under the paddle (the bottom is open)
+    var wg = cx.createLinearGradient(0, OY + BK.PADY * k, 0, OY + fh);
+    wg.addColorStop(0, '#3a3f6b'); wg.addColorStop(1, 'rgba(58,63,107,0)');
+    cx.fillStyle = '#3a3f6b';
+    rr(OX - WALL, OY, fw + 2 * WALL, ceil, Math.min(8, ceil / 2)); cx.fill();
+    cx.fillRect(OX - WALL, OY + ceil / 2, WALL, BK.PADY * k - ceil / 2); cx.fillRect(OX + fw, OY + ceil / 2, WALL, BK.PADY * k - ceil / 2);
+    cx.fillStyle = wg; cx.fillRect(OX - WALL, OY + BK.PADY * k, WALL, fh - BK.PADY * k); cx.fillRect(OX + fw, OY + BK.PADY * k, WALL, fh - BK.PADY * k);
+    cx.fillStyle = 'rgba(255,255,255,.10)'; cx.fillRect(OX - 1, OY + ceil, 1, BK.PADY * k - ceil); cx.fillRect(OX + fw, OY + ceil, 1, BK.PADY * k - ceil); cx.fillRect(OX, OY + ceil, fw, 1);
+    // the Break door: a glowing gap in the right wall at paddle height
     if (g.breakOpen) {
       var gl = 0.5 + 0.5 * Math.sin(now / 150);
-      cx.fillStyle = 'rgba(230,73,128,' + (0.4 + 0.5 * gl).toFixed(2) + ')'; cx.fillRect(W * k - 5, (BK.PADY - 1.2) * k, 5, 2.4 * k);
+      cx.fillStyle = bg[0]; cx.fillRect(OX + fw, OY + (BK.PADY - 1.2) * k, WALL, 2.4 * k);
+      cx.fillStyle = 'rgba(230,73,128,' + (0.4 + 0.5 * gl).toFixed(2) + ')'; cx.fillRect(OX + fw, OY + (BK.PADY - 1.2) * k, WALL, 2.4 * k);
     }
+    // everything in the field is drawn in field coordinates, clipped to the field (plus the way out through the door)
+    cx.save(); cx.translate(OX, OY);
+    cx.beginPath(); cx.rect(0, ceil, fw + (g.breakOpen ? 4 * k : 0), fh - ceil); cx.clip();
     // bricks
     g.bricks.forEach(function (b) {
       var x = b.x * k + 1, y = b.y * k + 1, w = k - 2, h = BK.BH * k - 2, col = BCOL[b.kind];
@@ -638,18 +681,20 @@ var BKSound = (function () {
     // messages
     if (banner && now - banner.t < 1600) { txt(banner.text, H * 0.55, '#ffd43b', 0.75); }
     if (capToast && now - capToast.t < 1800) { txt(CAPNAME[capToast.k].split(':')[0] + '!', H * 0.62, CAPCOL[capToast.k], 0.6); }
+    cx.restore();
   }
   function txt(t, y, col, size) {
     cx.font = '900 ' + Math.round(k * size) + 'px -apple-system, system-ui, sans-serif'; cx.textAlign = 'center'; cx.textBaseline = 'middle';
     cx.lineWidth = 4; cx.strokeStyle = 'rgba(0,0,0,.5)'; cx.strokeText(t, W * k / 2, y * k); cx.fillStyle = col; cx.fillText(t, W * k / 2, y * k);
   }
 
-  // ================= touch: slide anywhere on the field or the strip under it; tap to launch; hold to fire =================
+  // ================= touch: slide anywhere on the screen; tap to launch; hold to fire =================
   var drag = null, held = false;
   function onDown(e) {
     if (!g || sheetOpen()) return;
+    // full screen (1.2.0): the whole screen is the slide area (the field and the backdrop around it), except the buttons
     if (e.target.closest('button, .overlay, .top, .toolbar, .ready.show')) return;
-    if (!e.target.closest('#stagewrap, #dragzone')) return;
+    if (!e.target.closest('#stage')) return;
     S.unlock();
     if (phase === 'ready') { begin(); }
     else if (phase === 'paused') { resume(); }
@@ -674,10 +719,11 @@ var BKSound = (function () {
   // ================= info and panels =================
   function renderInfo() {
     if (!g) return;
-    var lives = ''; for (var i = 0; i < Math.min(6, g.lives - 1); i++) lives += '<i></i>';
-    $('info').innerHTML = '<div><div class="lbl">Score</div><div class="big">' + fmt(g.score) + '</div></div>' +
-      '<div style="text-align:center"><div class="lbl">Level ' + g.level + ' of ' + LAST + '</div><div class="lives">' + (lives || '<small class="lbl">last paddle</small>') + '</div></div>' +
-      '<div class="right"><div class="lbl">Best</div><div class="mid">' + fmt(Math.max(meta.best, g.score)) + '</div></div>';
+    // full screen (1.2.0): score in a pill in the top row; level (with the spare paddles) and best in pills under it
+    var lives = ''; for (var i = 0; i < Math.min(5, g.lives - 1); i++) lives += '<i></i>';
+    $('pillScore').innerHTML = '<small>Score</small>' + fmt(g.score);
+    $('info').innerHTML = '<div class="ggpill"><small>Level</small><span>' + g.level + '<span class="of">/' + LAST + '</span></span>' + (lives ? '<span class="lives" aria-label="' + (g.lives - 1) + ' spare paddles">' + lives + '</span>' : '<small>last paddle</small>') + '</div>' +
+      '<div class="ggpill"><small>Best</small>' + fmt(Math.max(meta.best, g.score)) + '</div>';
   }
   function renderTools() {
     var p = $('btnPause'), paused = phase === 'paused';
@@ -715,7 +761,7 @@ var BKSound = (function () {
   function openHelp() {
     $('helpTitle').textContent = 'How to play Brickyard';
     $('helpList').innerHTML = [
-      '<b>Slide</b> your finger anywhere on the field, or on the strip under it, to move the paddle (it follows the slide, so your finger doesn’t have to cover the ball). <b>Tap</b> to launch the ball; it goes by itself after 3 seconds.',
+      '<b>Slide</b> your finger anywhere on the screen (under the paddle is handy) to move the paddle (it follows the slide, so your finger doesn’t have to cover the ball). <b>Tap</b> to launch the ball; it goes by itself after 3 seconds.',
       'Keep the ball in play and break every brick. Where the ball lands on the paddle sets its angle: the ends send it off at a slant. It gets faster as you go.',
       'Colored bricks break with one hit. <b>Silver</b> ones take a few hits (more on later levels) and score 50 × the level. <b>Gold</b> ones can’t be broken.',
       'Catch the falling capsules: ' + BK.CAPS.map(function (c) { return '<b>' + c + '</b> ' + CAPNAME[c].split(': ')[1]; }).join('; ') + '. Only one of Slow, Catch, Expand or Laser works at a time; a new one replaces it. No capsules fall while three balls are in play.',
@@ -743,8 +789,9 @@ var BKSound = (function () {
     $(ov).addEventListener('click', function (e) { if (e.target === this) this.classList.remove('show'); });
   }
   function init() {
-    // full screen: How to, Stats, Settings and Restart live in the Menu; opening it pauses (tap the field to go on)
-    Goobs.fullscreen({ menu: ['btnHelp', 'btnStats', 'btnSettings', 'btnNew'], onOpen: pause,
+    // full screen: How to, Stats, Settings and Restart live in the Menu; opening it pauses (tap the field to go on).
+    // 1.2.0: overlay mode, the game fills the screen and the buttons float on it; Pause stays in the top row.
+    Goobs.fullscreen({ overlay: true, menu: ['btnHelp', 'btnStats', 'btnSettings', 'btnNew'], onOpen: pause,
       info: function () { return g ? 'Level <b>' + g.level + '</b> of ' + LAST + ' &middot; score <b>' + fmt(g.score) + '</b> &middot; best ' + fmt(Math.max(meta.best, g.score)) : ''; } });
     Goobs.themePicker($('themes'));
     cv = $('cv'); cx = cv.getContext('2d');
@@ -778,7 +825,7 @@ var BKSound = (function () {
     $('setAds').addEventListener('change', function () { Goobs.setAds(this.checked); syncAds(); });
     $('adLess').addEventListener('click', function () { settings.adEvery = Math.max(1, settings.adEvery - 1); saveSettings(); syncAds(); });
     $('adMore').addEventListener('click', function () { settings.adEvery = Math.min(10, settings.adEvery + 1); saveSettings(); syncAds(); });
-    if (window.ResizeObserver) new ResizeObserver(function () { fit(); draw(); }).observe($('playcol'));
+    if (window.ResizeObserver) new ResizeObserver(function () { fit(); draw(); }).observe($('stage'));
     window.addEventListener('resize', function () { fit(); draw(); });
     document.addEventListener('visibilitychange', function () { if (document.hidden) { pause(); save(); } });
     window.addEventListener('pagehide', function () { pause(); save(); });
@@ -791,7 +838,7 @@ var BKSound = (function () {
   }
 
   // hook for automated tests
-  window.__bk = { get g() { return g; }, get phase() { return phase; }, BK: BK, begin: begin, newRun: newRun, meta: function () { return meta; }, get k() { return k; } };
+  window.__bk = { get g() { return g; }, get phase() { return phase; }, BK: BK, begin: begin, newRun: newRun, meta: function () { return meta; }, get k() { return k; }, field: function () { return { x: OX, y: OY, w: W * k, h: H * k, k: k }; } };
 
   init();
 })();

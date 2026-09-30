@@ -101,6 +101,36 @@ html.gg-fs .top .info .mid { font-size: 15px; letter-spacing: -.3px; }
 html.gg-fs .top .info .of { font-size: 12px; }
 /* no room for a Pause button next to the score: the Menu button pauses the game (the board then shows Resume) */
 html.gg-fs .top #btnPause { display: none; }
+
+/* Full screen, take two (1.2.0, Glenn: "not full screen yet"): the kit's overlay mode (html.gg-fs-over). The well's color
+   covers the whole phone, edge to edge behind the status bar and the home bar; the back button, the counters (one pill)
+   and Sound / Menu float on it; the hold / next strip and the well take all the space under that row. */
+html.gg-fs-over, html.gg-fs-over body { background: var(--td-well); }
+html.gg-fs-over .app { background: var(--td-well); }
+html.gg-fs-over .stagewrap { position: fixed; z-index: 1;
+  top: calc(env(safe-area-inset-top, 0px) + 56px); bottom: calc(env(safe-area-inset-bottom, 0px) + 6px);
+  left: calc(env(safe-area-inset-left, 0px) + 6px); right: calc(env(safe-area-inset-right, 0px) + 6px); }
+html.gg-fs-over .stage { background: transparent; box-shadow: none; border-radius: 0; overflow: visible; }
+html.gg-fs-over .ready { border-radius: 12px; }
+/* the counters: one white pill between the back button and the round buttons */
+html.gg-fs-over .top .info { height: 44px; padding: 0 11px; border-radius: 22px; gap: 6px; color: #1b1f33; justify-content: space-between; overflow: hidden; }
+html.gg-fs-over .top .info .lbl, html.gg-fs-over .top .info .of { color: #6b7080; }
+html.gg-fs-over .top .info .big { font-size: 18px; letter-spacing: -.5px; }
+html.gg-fs-over .top .info .mid { font-size: 15px; }
+html.gg-fs-over .top .info .of { font-size: 11px; }
+html.gg-fs-over .top .homebtn { min-width: 44px; }
+/* the on-screen buttons (Settings) sit at the bottom; the well makes room for them */
+html.gg-fs-over .pad { position: fixed; z-index: 2; left: 50%; transform: translateX(-50%); width: calc(100% - 20px);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 6px); }
+html.gg-fs-over .pad button { background: rgba(255,255,255,.9); color: #1b1f33; border: 0; }
+html.gg-fs-over .app.padon .stagewrap { bottom: calc(env(safe-area-inset-bottom, 0px) + 118px); }
+/* the Marathon / Sprint / Ultra tabs live in the Menu sheet */
+.ggmenu .modes { margin: 4px 0 2px; }
+@media (max-width: 385px) {
+  html.gg-fs-over .top .info { padding: 0 8px; gap: 4px; }
+  html.gg-fs-over .top .info .big { font-size: 17px; }
+  html.gg-fs-over .top .info .mid { font-size: 14px; }
+}
 </style>
 </head>
 <body>
@@ -648,10 +678,11 @@ var TDSound = (function () {
     ['--td-well', '--td-well-2', '--td-grid', '--td-edge', '--td-strip', '--td-label'].forEach(function (k) { colors[k] = cs.getPropertyValue(k).trim(); });
   }
   function fit() {
+    // full screen (1.2.0): #stagewrap is the whole free space under the floating top row (above the buttons when they're on)
     var wrap = $('stagewrap').getBoundingClientRect(), maxW = Math.min(wrap.width, 460), maxH = wrap.height;
     // the stage: a strip (hold and next pieces) over the 10 x 20 well, or, when that makes the well bigger
     // (shorter screens), hold on the left and next on the right of the well
-    var top = Math.floor(Math.min(maxW / W, maxH / (VIS + 2.6))), side = Math.floor(Math.min(maxW / (W + 6.4), maxH / VIS));
+    var top = Math.floor(Math.min(maxW / W, maxH / (VIS + 2.25))), side = Math.floor(Math.min(maxW / (W + 6.4), maxH / VIS));
     L.side = side > top;
     cell = Math.max(10, L.side ? side : top);
     L.bw = cell * W; L.bh = cell * VIS;
@@ -659,7 +690,8 @@ var TDSound = (function () {
       L.col = Math.round(cell * 3.2); L.strip = 0; L.gap = 0;
       L.bx = L.col; L.by = 0; L.w = L.bw + 2 * L.col; L.h = L.bh;
     } else {
-      L.strip = Math.round(cell * 2.3); L.gap = Math.round(cell * 0.3);
+      // 1.2.0: a slimmer strip (2 cells + a quarter-cell gap, was 2.3 + 0.3) gives the well one more pixel per cell
+      L.strip = Math.round(cell * 2); L.gap = Math.round(cell * 0.25);
       L.bx = 0; L.by = L.strip + L.gap; L.w = L.bw; L.h = L.by + L.bh;
     }
     var st = $('stage');
@@ -861,19 +893,22 @@ var TDSound = (function () {
   }
 
   // ================= info, panels, tools =================
+  // 1.2.0: the counters share one pill with the round buttons in the top row, so a score of a million or more shows as
+  // 1.23M there (the full score is on the cards and in Stats)
+  function short(n) { return n >= 1e6 ? (Math.floor(n / 1e4) / 100).toFixed(2) + 'M' : fmt(n); }
   function renderInfo() {
     if (!s) return;
     var m = s.mode, h;
     if (m === 'marathon') {
-      h = '<div><div class="lbl">Score</div><div class="big">' + fmt(s.score) + '</div></div>' +
+      h = '<div><div class="lbl">Score</div><div class="big">' + short(s.score) + '</div></div>' +
         '<div style="text-align:center"><div class="lbl">Level</div><div class="mid">' + s.level + '</div></div>' +
-        '<div class="right"><div class="lbl">Lines</div><div class="mid">' + s.lines + (s.endless ? '' : '<span class="of"> / 150</span>') + '</div></div>';
+        '<div class="right"><div class="lbl">Lines</div><div class="mid">' + s.lines + (s.endless ? '' : '<span class="of">/150</span>') + '</div></div>';
     } else if (m === 'sprint') {
       h = '<div><div class="lbl">Time</div><div class="big">' + clock(s.frames, true) + '</div></div>' +
         '<div style="text-align:center"><div class="lbl">Lines</div><div class="mid">' + Math.min(40, s.lines) + '<span class="of"> / 40</span></div></div>' +
         '<div class="right"><div class="lbl">Best</div><div class="mid">' + (stats.sprint.best ? clock(stats.sprint.best, true) : '–') + '</div></div>';
     } else {
-      h = '<div><div class="lbl">Score</div><div class="big">' + fmt(s.score) + '</div></div>' +
+      h = '<div><div class="lbl">Score</div><div class="big">' + short(s.score) + '</div></div>' +
         '<div style="text-align:center"><div class="lbl">Time</div><div class="mid">' + clock(s.timeLeft + 59, false) + '</div></div>' +
         '<div class="right"><div class="lbl">Best</div><div class="mid">' + (stats.ultra.best ? fmt(stats.ultra.best) : '–') + '</div></div>';
     }
@@ -1004,7 +1039,7 @@ var TDSound = (function () {
       'The <b>ghost</b> outline shows where the piece will land. The strip at the top shows the <b>next</b> pieces and the one on <b>hold</b>; you can hold once per piece.',
       'A piece that lands still has a moment to slide or turn before it locks.',
       '<b>Points</b> (times the level): 1 line 100, 2 lines 300, 3 lines 500, 4 lines (a <b>Quad</b>) 800. A <b>T-spin</b> (turning the T into a tight slot) scores more: 800, 1,200, 1,600. Quads and T-spins in a row are <b>back-to-back</b>: half as much again. Clearing lines with piece after piece is a <b>combo</b> (+50 each). Clear the whole well for an <b>all clear</b> bonus. Dropping scores 1 point a row, flicking down 2.',
-      '<b>Marathon</b>: 150 lines, 15 levels, faster each level (pick a starting level). <b>Sprint</b>: 40 lines against the clock. <b>Ultra</b>: the best score in 2 minutes.'
+      '<b>Marathon</b>: 150 lines, 15 levels, faster each level (pick a starting level). <b>Sprint</b>: 40 lines against the clock. <b>Ultra</b>: the best score in 2 minutes. Switch modes at the top of the <b>Menu</b>.'
     ].map(function (x) { return '<li>' + x + '</li>'; }).join('');
     $('ovHelp').classList.add('show');
   }
@@ -1023,7 +1058,7 @@ var TDSound = (function () {
     $('btnSound').classList.toggle('on', settings.sound); $('setSound').checked = settings.sound; S.setEnabled(settings.sound);
   }
   function syncAds() { $('setAds').checked = Goobs.adsOn(); $('adEvery').textContent = settings.adEvery; $('rowAdEvery').classList.toggle('off', !Goobs.adsOn()); }
-  function syncPad() { $('setPad').checked = settings.pad; $('pad').classList.toggle('show', settings.pad); $('setGhost').checked = settings.ghost; requestAnimationFrame(function () { fit(); draw(); }); }
+  function syncPad() { $('setPad').checked = settings.pad; $('pad').classList.toggle('show', settings.pad); $('app').classList.toggle('padon', settings.pad); $('setGhost').checked = settings.ghost; requestAnimationFrame(function () { fit(); draw(); }); }
   function sheet(btn, ov, close, onOpen) {
     if (btn) $(btn).addEventListener('click', function () { pause(); if (onOpen) onOpen(); $(ov).classList.add('show'); });
     $(close).addEventListener('click', function () { $(ov).classList.remove('show'); });
@@ -1084,6 +1119,7 @@ var TDSound = (function () {
     $('modes').addEventListener('click', function (e) {
       var btn = e.target.closest('button');
       if (!btn || btn.dataset.mode === meta.mode) return;
+      $('ggMenu').classList.remove('show'); // the tabs live in the Menu sheet (1.2.0): close it first
       switchMode(btn.dataset.mode);
     });
     sheet('btnSettings', 'ovSettings', 'btnCloseSettings');
@@ -1096,10 +1132,16 @@ var TDSound = (function () {
     // the score row moves up into the top row in place of the name (the Menu shows the name): the well is limited by the
     // height on every phone, so those 50 points make the blocks bigger (30 -> 32 points on an iPhone 15, 22 -> 24 on an SE)
     $('btnHome').parentNode.insertBefore($('info'), $('btnSound').parentNode);
-    Goobs.fullscreen({
+    // 1.2.0 (Glenn: "not full screen yet"): overlay mode. The well's color covers the whole screen, edge to edge; back,
+    // the counters pill, Sound and Menu float on it. The Marathon / Sprint / Ultra tabs move into the Menu sheet.
+    var FS = Goobs.fullscreen({
+      overlay: true,
       menu: ['btnNew', 'btnHelp', 'btnStats', 'btnSettings'],
-      onOpen: function () { pause(); }
+      onOpen: function () { pause(); },
+      info: function () { return s ? MODE_NAMES[s.mode] + (s.mode === 'marathon' ? ' &middot; level <b>' + s.level + '</b>' : '') : ''; }
     });
+    FS.list.parentNode.insertBefore($('modes'), FS.list);
+    $('info').classList.add('ggpill');
     $('btnHelp').addEventListener('click', function () { pause(); openHelp(); });
     function closeHelp() { $('ovHelp').classList.remove('show'); if (!meta.seen) { meta.seen = true; saveMeta(); } }
     $('btnCloseHelp').addEventListener('click', closeHelp);
