@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#5a54f0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Goobs-Games">
+<link rel="manifest" href="../../manifest.json">
+<link rel="apple-touch-icon" href="../../icons/icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="../../icons/icon-192.png">
+<link rel="stylesheet" href="../../shared/goobs.css">
+<script src="../../shared/goobs.js"></script>
+<title>Castle Crumble</title>
+<style>
+/* Castle Crumble styles (themes, UI kit and ad cards come from /shared/goobs.css) */
+.brand svg { border-radius: 10px; }
+.stagewrap { flex: 1 1 auto; min-height: 0; width: 100%; display: flex; align-items: stretch; justify-content: center; }
+.stage { position: relative; flex: 1 1 auto; max-width: 620px; border-radius: 18px; overflow: hidden; box-shadow: var(--shadow); touch-action: none;
+  background: linear-gradient(#5fa9ea 0%, #a8d9f7 55%, #2f97d6 55.1%, #2f97d6 100%); }
+.stage canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; touch-action: none; }
+.hud { position: absolute; left: 10px; right: 10px; top: 10px; pointer-events: none; display: flex; flex-direction: column; gap: 7px; }
+/* the progress bar: this level's castle badge, how much has crumbled (the notch is the goal), the next level */
+.bar { display: flex; align-items: center; }
+.badge { position: relative; z-index: 1; min-width: 40px; height: 40px; padding: 8px 4px 0; box-sizing: border-box; text-align: center; font-weight: 900; font-size: 17px; color: #3a2a00;
+  background: #ffd23f; border: 3px solid #3a2a00; clip-path: polygon(0 18%, 20% 18%, 20% 0, 40% 0, 40% 18%, 60% 18%, 60% 0, 80% 0, 80% 18%, 100% 18%, 100% 100%, 0 100%); }
+.badge.next { background: #3a3f48; color: #fff; border-color: #1b1f24; }
+.track { position: relative; flex: 1; height: 22px; margin: 0 -3px; background: #3a3f48; border: 3px solid #1b1f24; overflow: hidden; }
+.track .fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: linear-gradient(#ffe27a, #ffc21e); transition: width .25s; }
+.track .goal { position: absolute; top: -2px; bottom: -2px; width: 3px; background: #fff; box-shadow: 0 0 4px rgba(0,0,0,.4); }
+.balls { align-self: flex-start; display: flex; align-items: center; gap: 4px; background: rgba(255,255,255,.88); border-radius: 14px; padding: 4px 10px 4px 7px; font-weight: 900; font-size: 18px; color: #1b1f33; box-shadow: 0 2px 0 rgba(0,0,0,.12); }
+.balls i { width: 18px; height: 18px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #9aa2ae 0 12%, #3a3f48 45%, #15181d 100%); display: inline-block; }
+.balls.low { background: #ffe1e5; color: #c81e3a; }
+.loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; color: #1b3a6b; pointer-events: none; }
+.loading.hide { display: none; }
+.toast { position: absolute; left: 50%; top: 30%; transform: translateX(-50%); text-align: center; pointer-events: none; opacity: 0; transition: opacity .25s;
+  background: rgba(10,14,36,.78); color: #fff; font-weight: 800; font-size: 16px; padding: 8px 15px; border-radius: 14px; white-space: nowrap; }
+.toast.show { opacity: 1; }
+.lvgrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.lv { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); height: 52px; font-weight: 800; font-size: 16px; color: var(--ink); display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1; }
+.lv small { font-size: 11px; color: #e0a800; letter-spacing: -1px; }
+.lv.cur { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+.lv:disabled { opacity: .35; }
+.stars { font-size: 26px; color: #ffc83d; letter-spacing: 2px; }
+.stars .off { color: var(--line-strong); }
+.cardicon svg { border-radius: 16px; }
+.brand h1 { font-size: 21px; }
+@media (max-width: 385px) { .brand h1 { font-size: 19px; } }
+.lvpages { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+.lvpages button { font: inherit; font-weight: 800; font-size: 13px; border: 0; border-radius: 10px; padding: 7px 9px; background: var(--surface-2); color: var(--muted); }
+.lvpages button.on { background: var(--accent); color: #fff; }
+.lvpages button[disabled] { opacity: .35; }
+</style>
+</head>
+<body>
+<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="cc-logo" viewBox="0 0 100 100"><defs><linearGradient id="ccbg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd23f"/><stop offset="1" stop-color="#ff9a2e"/></linearGradient></defs>
+<rect width="100" height="100" rx="24" fill="url(#ccbg)"/>
+<g fill="#3b3fd6"><rect x="16" y="46" width="16" height="42"/><rect x="68" y="46" width="16" height="42"/><rect x="30" y="58" width="40" height="30"/><rect x="40" y="30" width="20" height="40"/>
+<path d="M14 46l10-16 10 16z"/><path d="M66 46l10-16 10 16z"/><path d="M38 30l12-18 12 18z"/></g>
+<rect x="45" y="72" width="10" height="16" rx="5" fill="#1d1f7a"/>
+<circle cx="70" cy="30" r="9" fill="#fff4b0"/><circle cx="70" cy="30" r="5" fill="#fff"/>
+<g fill="#fff4b0"><rect x="78" y="18" width="5" height="5" transform="rotate(20 80 20)"/><rect x="60" y="14" width="4" height="4"/><rect x="82" y="36" width="4" height="4"/></g></symbol>
+<symbol id="i-pause" viewBox="0 0 24 24"><g fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1.3"/><rect x="14" y="5" width="4" height="14" rx="1.3"/></g></symbol>
+<symbol id="i-play" viewBox="0 0 24 24"><path d="M7 5.2v13.6a1 1 0 0 0 1.5.9l11-6.8a1 1 0 0 0 0-1.7l-11-6.8A1 1 0 0 0 7 5.2z" fill="currentColor"/></symbol>
+<symbol id="i-sound-on" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor" fill-opacity=".15"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19.3 5.7a9 9 0 0 1 0 12.6"/></g></symbol>
+<symbol id="i-sound-off" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor" fill-opacity=".15"/><path d="M16.5 9.5l5 5M21.5 9.5l-5 5"/></g></symbol>
+<symbol id="i-stats" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3"/></g></symbol>
+<symbol id="i-gear" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></g></symbol>
+<symbol id="i-undo" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></g></symbol>
+<symbol id="i-new" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 3v5h-5"/></g></symbol>
+<symbol id="i-levels" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5" fill="currentColor" fill-opacity=".35"/></g></symbol>
+<symbol id="i-help" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.3a2.6 2.6 0 0 1 5 .9c0 1.8-2.5 2.2-2.5 3.9M12 17.3v.2"/></g></symbol>
+</defs></svg>
+
+<div class="app" id="app">
+  <div class="top">
+    <button class="brand homebtn" id="btnHome" aria-label="Back to all games">
+      <span class="chev" aria-hidden="true">&#8249;</span>
+      <svg viewBox="0 0 100 100" aria-hidden="true"><use href="#cc-logo"/></svg>
+      <h1>Castle Crumble</h1>
+    </button>
+    <div class="topbtns">
+      <button class="iconbtn" id="btnSound" aria-label="Sound"><svg viewBox="0 0 24 24"><use href="#i-sound-off"/></svg></button>
+      <button class="iconbtn" id="btnStats" aria-label="Stats"><svg viewBox="0 0 24 24"><use href="#i-stats"/></svg></button>
+      <button class="iconbtn" id="btnSettings" aria-label="Settings"><svg viewBox="0 0 24 24"><use href="#i-gear"/></svg></button>
+    </div>
+  </div>
+
+  <div class="info" id="info"></div>
+
+  <div class="stagewrap" id="stagewrap">
+    <div class="stage" id="stage">
+      <canvas id="cv"></canvas>
+      <div class="hud" id="hud">
+        <div class="bar"><div class="badge" id="lvNow">1</div><div class="track"><div class="fill" id="barFill"></div><div class="goal" id="barGoal"></div></div><div class="badge next" id="lvNext">2</div></div>
+        <div class="balls" id="balls"></div>
+      </div>
+      <div class="loading" id="loading">Building the castle&hellip;</div>
+      <div class="toast" id="toast"></div>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <button class="tool" id="btnHelp"><svg viewBox="0 0 24 24"><use href="#i-help"/></svg><span>How to</span></button>
+    <button class="tool" id="btnLevels"><svg viewBox="0 0 24 24"><use href="#i-levels"/></svg><span>Levels</span></button>
+    <button class="tool red" id="btnNew"><svg viewBox="0 0 24 24"><use href="#i-new"/></svg><span>Restart</span></button>
+  </div>
+</div>
+
+<!-- Level picker -->
+<div class="overlay" id="ovLevels">
+  <div class="sheet" role="dialog" aria-label="Levels">
+    <h2>Levels</h2>
+    <div class="sheetbody"><div id="lvpagesBox"></div><div class="lvgrid" id="lvgrid"></div></div>
+    <div class="actions"><button class="btn" id="btnCloseLevels">Close</button></div>
+  </div>
+</div>
+
+<!-- Settings -->
+<div class="overlay" id="ovSettings">
+  <div class="sheet" role="dialog" aria-label="Settings">
+    <h2>Settings</h2>
+    <div class="sheetbody">
+      <div class="themelabel">Theme (all games)</div>
+      <div class="themes" id="themes"></div>
+      <label class="row"><div>Shadows<small>Soft shadows from the sun. Turn off if the game feels slow.</small></div>
+        <span class="switch"><input type="checkbox" id="setFancy"><span></span></span></label>
+      <label class="row"><div>Sound<small>Cannon booms, crumbling stone, explosions.</small></div>
+        <span class="switch"><input type="checkbox" id="setSound"><span></span></span></label>
+      <label class="row"><div>Old-time ads<small>Joke ads between games. This switch is shared by all Goobs-Games.</small></div>
+        <span class="switch"><input type="checkbox" id="setAds"><span></span></span></label>
+      <div class="row" id="rowAdEvery"><div>Show an ad every<small>Counted in finished games.</small></div>
+        <div class="stepper"><button id="adLess" aria-label="Fewer">&minus;</button><b id="adEvery">3</b><button id="adMore" aria-label="More">+</button></div></div>
+      <div class="version" id="version">Castle Crumble</div>
+    </div>
+    <div class="actions"><button class="btn red" id="btnCloseSettings">Done</button></div>
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="overlay" id="ovStats">
+  <div class="sheet" role="dialog" aria-label="Stats">
+    <h2>Your Castle Crumble records</h2>
+    <div class="sheetbody" id="statsBody"></div>
+    <div class="actions"><button class="btn red" id="btnCloseStats">Done</button></div>
+  </div>
+</div>
+
+<!-- How to play -->
+<div class="overlay" id="ovHelp">
+  <div class="sheet" role="dialog" aria-label="How to play">
+    <h2 id="helpTitle">How to play</h2>
+    <div class="sheetbody"><ol class="helplist" id="helpList"></ol></div>
+    <div class="actions"><button class="btn red" id="btnCloseHelp">Let's play</button></div>
+  </div>
+</div>
+
+<!-- Cards -->
+<div class="overlay center" id="ovEnd">
+  <div class="card" role="dialog">
+    <div class="cardicon" id="cardIcon"></div>
+    <h2 id="endTitle"></h2>
+    <p id="endText"></p>
+    <div class="actions" id="endActions"></div>
+  </div>
+</div>
+
+<script>
+/* Castle Crumble logic: castles of stone bricks on a grassy island; fire cannonballs to knock them down. Knock down
+   enough of the castle (the bar at the top) before the cannonballs run out. cannon-es does the physics (passed in
+   with CC.use, so this file runs in the browser and in Node for the level checks).
+   Castles are built from the level number (seeded): towers with cone roofs, walls with battlements, a keep with a
+   pyramid roof, gatehouses with wooden doors, and TNT crates that blow up. Bricks are laid like real masonry
+   (joints staggered), start asleep so a castle stands perfectly still, and wake when hit or when what holds them
+   up goes (a moving brick wakes the ones near it). tools/gen.mjs proves every level: a bot knocks it down with the
+   game's physics and the level gets more cannonballs than the bot needed. */
+var CC = (function () {
+  'use strict';
+  var C = null;
+  var GRAV = -18, ISLAND = 13, WATER = -1.2, BALLR = 0.55, BALLM = 40, SPEED = 38, BALL_LIFE = 4.5;
+  var CAM = { D: 26, H: 14, LOOK: 3 };      // the camera orbits the island; the cannon fires from just below it
+  var TYPES = {
+    b2: { mass: 3.2, w: 2, mat: 'stone' },  // long brick (2 x 1 x 1)
+    b1: { mass: 1.6, w: 1, mat: 'stone' },  // square brick
+    m: { mass: 0.8, w: 0.5, mat: 'stone' }, // battlement (merlon)
+    cone: { mass: 2.5, w: 3, mat: 'roof' }, // a tower's pointed roof (a box in the physics)
+    pyr: { mass: 4, w: 5, mat: 'roof' },    // a keep's pyramid roof
+    door: { mass: 1.2, w: 1.5, mat: 'wood' },
+    tnt: { mass: 1.2, w: 1, mat: 'tnt' }
+  };
+  function use(c) { C = c; }
+  function rng(seed) { var s = seed >>> 0 || 1; return function () { s = (s + 0x6D2B79F5) | 0; var t = Math.imul(s ^ (s >>> 15), s | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+
+  // ---------------- castle parts ----------------
+  // a piece: [type, x, y, z, sx, sy, sz] (center and full size). Everything stands on the island (top at y = 0).
+  function P(t, x, y, z, sx, sy, sz) { return [t, +x.toFixed(3), +y.toFixed(3), +z.toFixed(3), sx, sy, sz]; }
+  // a hollow square ring n cells wide (n odd), h rows high, centered at (cx, cz); long bricks in a pinwheel that
+  // turns the other way every row, so no joint sits on the one below
+  function ring(out, cx, cz, n, h, y0) {
+    var half = (n - 1) / 2, side = n - 1; // cells per side (even)
+    for (var r = 0; r < h; r++) {
+      var y = (y0 || 0) + 0.5 + r, flip = r % 2;
+      // walk the four sides; each side covers "side" cells starting at a corner
+      var corners = [[-half, -half, 1, 0], [half, -half, 0, 1], [half, half, -1, 0], [-half, half, 0, -1]];
+      corners.forEach(function (c) {
+        var sx = c[0], sz = c[1], dx = c[2], dz = c[3];
+        if (flip) { sx += dx; sz += dz; } // start one cell later: the pinwheel turns
+        for (var k = 0; k < side; k += 2) {
+          var ax = sx + dx * k, az = sz + dz * k, bx = ax + dx, bz = az + dz;
+          // wrap past the next corner onto the next side (only when flipped: the last brick turns the corner)
+          if (Math.abs(bx) > half || Math.abs(bz) > half) { out.push(P('b1', cx + ax, y, cz + az, 1, 1, 1)); continue; }
+          var mx = (ax + bx) / 2, mz = (az + bz) / 2;
+          out.push(P('b2', cx + mx, y, cz + mz, dx ? 2 : 1, 1, dz ? 2 : 1));
+        }
+      });
+      if (flip) { // with the pinwheel shifted, each corner cell is left: fill it with a square brick
+        [[-half, -half], [half, -half], [half, half], [-half, half]].forEach(function (c) { var taken = out.some(function (p) { return Math.abs(p[1] - (cx + c[0])) < 0.51 && Math.abs(p[3] - (cz + c[1])) < 0.51 && Math.abs(p[2] - y) < 0.1; }); if (!taken) out.push(P('b1', cx + c[0], y, cz + c[1], 1, 1, 1)); });
+      }
+    }
+  }
+  function tower(out, cx, cz, h, roof, R) {
+    ring(out, cx, cz, 3, h);
+    if (roof) out.push(P('cone', cx, h + 1.25, cz, 3.4, 2.5, 3.4));
+    else [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(function (c) { out.push(P('m', cx + c[0], h + 0.3, cz + c[1], 0.8, 0.6, 0.8)); });
+    void R;
+  }
+  function keep(out, cx, cz, h, roof) {
+    ring(out, cx, cz, 5, h);
+    if (roof) out.push(P('pyr', cx, h + 1.4, cz, 5.4, 2.8, 5.4));
+    else for (var i = -2; i <= 2; i += 2) [[i, -2], [i, 2], [-2, i], [2, i]].forEach(function (c) { if (!out.some(function (p) { return p[0] === 'm' && Math.abs(p[1] - cx - c[0]) < 0.1 && Math.abs(p[3] - cz - c[1]) < 0.1; })) out.push(P('m', cx + c[0], h + 0.3, cz + c[1], 0.8, 0.6, 0.8)); });
+  }
+  // a straight wall from cell a to cell b (inclusive), one brick thick, h rows, battlements on top; "door" leaves
+  // a gap in the middle two rows high with a wooden door in it
+  function wall(out, ax, az, bx, bz, h, door, tnt, R) {
+    var dx = Math.sign(bx - ax), dz = Math.sign(bz - az), L = Math.abs(bx - ax) + Math.abs(bz - az) + 1, mid = Math.floor(L / 2);
+    for (var r = 0; r < h; r++) {
+      var y = 0.5 + r, k = r % 2 ? 1 : 0;
+      if (r % 2) out.push(P('b1', ax, y, az, 1, 1, 1)); // odd rows start with a square brick (staggered joints)
+      for (; k < L; k += 2) {
+        var inDoor = door && r < 2 && (k === mid - 1 || k === mid || k + 1 === mid - 1 || k + 1 === mid);
+        if (inDoor) continue;
+        if (k + 1 >= L) { out.push(P('b1', ax + dx * k, y, az + dz * k, 1, 1, 1)); continue; }
+        out.push(P('b2', ax + dx * (k + 0.5), y, az + dz * (k + 0.5), dx ? 2 : 1, 1, dz ? 2 : 1));
+      }
+      if (door && r < 2) { // bricks either side of the doorway, where a long brick was skipped
+        for (var q = mid - 2; q <= mid + 1; q++) {
+          if (q === mid - 1 || q === mid || q < 0 || q >= L) continue;
+          var cxq = ax + dx * q, czq = az + dz * q;
+          if (!out.some(function (p) { return Math.abs(p[2] - y) < 0.1 && Math.abs(p[1] - cxq) < (p[4] / 2) + 0.01 && Math.abs(p[3] - czq) < (p[6] / 2) + 0.01; })) out.push(P('b1', cxq, y, czq, 1, 1, 1));
+        }
+      }
+    }
+    if (door) { var cx = ax + dx * (mid - 0.5), cz = az + dz * (mid - 0.5); out.push(P('door', cx, 1, cz, dx ? 1.9 : 0.4, 2, dz ? 1.9 : 0.4)); }
+    // battlements on every other cell, a TNT crate sometimes sits between them
+    for (var c = 0; c < L; c += 2) out.push(P('m', ax + dx * c, h + 0.3, az + dz * c, 0.8, 0.6, 0.8));
+    if (tnt) { var t = 1 + 2 * Math.floor(R() * Math.floor((L - 1) / 2)); if (t < L) out.push(P('tnt', ax + dx * t, h + 0.45, az + dz * t, 0.9, 0.9, 0.9)); }
+  }
+
+  // ---------------- levels ----------------
+  function levelMax(n) { return n <= 1 ? 60 : n <= 5 ? 150 : n <= 15 ? 190 : n <= 40 ? 240 : 280; }
+  function target(n) { return n <= 3 ? 0.65 : n <= 15 ? 0.7 : n <= 60 ? 0.75 : 0.8; }
+  var TEMPLATES = ['gatehouse', 'fort', 'rect', 'keepyard', 'citadel', 'twin', 'tall', 'watch'];
+  // a walled yard: towers at the front corners (and at the back ones if "back"), a wall with a gate at the front
+  function yard(out, xl, xr, zb, zf, back, wh, gate, R, tnt, th, roofs) {
+    tower(out, xl, zf, th(4, 8), roofs, R); tower(out, xr, zf, th(4, 8), roofs, R);
+    wall(out, xl + 2, zf, xr - 2, zf, wh, gate, tnt(), R);
+    if (back) {
+      tower(out, xl, zb, th(4, 8), roofs, R); tower(out, xr, zb, th(4, 8), roofs, R);
+      wall(out, xl + 2, zb, xr - 2, zb, wh, false, tnt(), R);
+      wall(out, xl, zb + 2, xl, zf - 2, wh, false, tnt(), R); wall(out, xr, zb + 2, xr, zf - 2, wh, false, tnt(), R);
+    } else {
+      wall(out, xl, zb, xr, zb, wh, false, tnt(), R);
+      wall(out, xl, zb + 1, xl, zf - 2, wh, false, false, R); wall(out, xr, zb + 1, xr, zf - 2, wh, false, false, R);
+    }
+  }
+  function makeLevel(n, seed) {
+    var R = rng(seed || n * 9973 + 7), out = [], s = Math.min(1, (n - 1) / 40);
+    var th = function (lo, hi) { return Math.round(lo + (hi - lo) * (0.35 + 0.65 * s) * (0.75 + R() * 0.25)); };
+    var tnt = function () { return n >= 3 && R() < 0.25 + s * 0.4; };
+    var pool = n < 8 ? ['watch', 'gatehouse', 'tall'] : n < 16 ? ['watch', 'gatehouse', 'fort', 'keepyard', 'tall'] : TEMPLATES;
+    var tpl = n === 1 ? 'watch' : n === 2 ? 'gatehouse' : n === 3 ? 'watch' : n === 4 ? 'tall' : n === 5 ? 'gatehouse' : pool[Math.floor(R() * pool.length)];
+    var roofs = R() < 0.75, g, d;
+    if (tpl === 'watch') { // a tower with walls running off two ways (an open corner of a castle)
+      tower(out, -2, -2, th(4, 8), roofs, R);
+      wall(out, 0, -2, 0 + th(3, 7), -2, th(2, 4), n > 5 && R() < 0.5, tnt(), R);
+      wall(out, -2, 0, -2, 0 + th(3, 6), th(2, 4), false, tnt(), R);
+      if (n > 3 && R() < 0.6) tower(out, 3, 3, th(3, 6), roofs, R);
+    } else if (tpl === 'gatehouse') { // two towers and a gate at the front, a walled yard behind
+      g = 3 + Math.floor(R() * (1 + 2 * s)); d = 2 + Math.floor(R() * (1 + 2 * s));
+      yard(out, -g, g, -d, d, false, th(2, 4), true, R, tnt, th, roofs);
+    } else if (tpl === 'fort') { // four towers and four walls, something inside when it's big enough
+      g = 4 + Math.floor(R() * (1 + 2 * s)); d = g;
+      yard(out, -g, g, -d, d, true, th(2, 4), true, R, tnt, th, roofs);
+      if (g >= 5 && R() < 0.6) keep(out, 0, 0, th(3, 6), R() < 0.7); else tower(out, 0, 0, th(4, 8), roofs, R);
+    } else if (tpl === 'rect') { // a long fort with a tower in the middle
+      g = 6 + Math.floor(R() * 2); d = 3;
+      yard(out, -g, g, -d, d, true, th(2, 3), true, R, tnt, th, roofs);
+      tower(out, 0, 0, th(5, 9), roofs, R);
+    } else if (tpl === 'keepyard') { // a keep at the back, a yard with a gatehouse in front of it
+      keep(out, 0, -3, th(4, 7), R() < 0.75);
+      tower(out, -5, 3, th(4, 7), roofs, R); tower(out, 5, 3, th(4, 7), roofs, R);
+      wall(out, -3, 3, 3, 3, th(2, 3), true, tnt(), R);
+      var sw = th(2, 3);
+      wall(out, -5, 1, -5, -3, sw, false, tnt(), R); wall(out, 5, 1, 5, -3, sw, false, false, R);
+      wall(out, -4, -3, -3, -3, sw, false, false, R); wall(out, 3, -3, 4, -3, sw, false, false, R);
+    } else if (tpl === 'twin') { // two keeps behind a gate
+      keep(out, -4, -2, th(4, 7), R() < 0.6); keep(out, 4, -2, th(4, 7), R() < 0.6);
+      tower(out, -5, 4, th(3, 6), roofs, R); tower(out, 5, 4, th(3, 6), roofs, R);
+      wall(out, -3, 4, 3, 4, th(2, 3), true, tnt(), R);
+      wall(out, -5, 2, -5, 1, th(2, 3), false, false, R); wall(out, 5, 2, 5, 1, th(2, 3), false, false, R);
+    } else if (tpl === 'tall') { // one tall keep with little towers round it
+      keep(out, 0, 0, th(5, 9), R() < 0.8);
+      var tk = s > 0.3 ? 4 : 2;
+      [[-5, -5], [5, -5], [5, 5], [-5, 5]].slice(0, tk).forEach(function (c) { tower(out, c[0], c[1] > 0 ? 4 : -4, th(3, 6), roofs, R); });
+      if (n >= 3) wall(out, -3, 5, 3, 5, th(1, 2), false, tnt(), R);
+    } else { // citadel: a keep inside four towers and walls
+      var hc = 7;
+      [[-hc, -hc], [hc, -hc], [hc, hc], [-hc, hc]].forEach(function (c) { tower(out, c[0], c[1], th(4, 7), roofs, R); });
+      wall(out, -hc + 2, hc, hc - 2, hc, 2, true, tnt(), R); wall(out, -hc + 2, -hc, hc - 2, -hc, 2, false, tnt(), R);
+      wall(out, -hc, -hc + 2, -hc, hc - 2, 2, false, false, R); wall(out, hc, -hc + 2, hc, hc - 2, 2, false, false, R);
+      keep(out, 0, 0, th(4, 6), true);
+    }
+    // a few TNT crates on the grass next to the walls (from level 6)
+    if (n >= 6 && R() < 0.4 + s * 0.3) { var bx0 = out[Math.floor(R() * out.length)]; out.push(P('tnt', Math.round(bx0[1]), 0.45, Math.round(bx0[3]) + (R() < 0.5 ? 2 : -2), 0.9, 0.9, 0.9)); }
+    // keep it light enough for a phone: lower everything until it fits
+    if (out.length > levelMax(n)) return null;
+    // parts must not overlap (walls meeting towers); a TNT crate that would sit inside something is left out
+    for (var i = 0; i < out.length; i++) for (var j = i + 1; j < out.length; j++) { var p1 = out[i], p2 = out[j]; if (p1[0] !== 'tnt' && p2[0] !== 'tnt' && Math.abs(p1[1] - p2[1]) < (p1[4] + p2[4]) / 2 - 0.02 && Math.abs(p1[2] - p2[2]) < (p1[5] + p2[5]) / 2 - 0.02 && Math.abs(p1[3] - p2[3]) < (p1[6] + p2[6]) / 2 - 0.02) return null; }
+    out = out.filter(function (p, i) { return p[0] !== 'tnt' || !out.some(function (q, j) { return j !== i && Math.abs(p[1] - q[1]) < (p[4] + q[4]) / 2 - 0.02 && Math.abs(p[2] - q[2]) < (p[5] + q[5]) / 2 - 0.02 && Math.abs(p[3] - q[3]) < (p[6] + q[6]) / 2 - 0.02; }); });
+    return { n: n, seed: seed || n * 9973 + 7, name: tpl, pieces: out, target: target(n) };
+  }
+  // the level the game plays: the layout roll that tools/gen.mjs proved (LEVELS[n-1] = [attempt, balls, bot])
+  // (LEVELS[n-1] = [the level number it was built as, layout roll, cannonballs, bot's shots]; inside each ten the
+  // easier castles come first, so a level may be built as a neighbour's number)
+  function level(n, table) {
+    var row = table && table[n - 1], src = row ? row[0] : n, k = row ? row[1] : 0, L = makeLevel(src, src * 9973 + 7 + k * 31337);
+    for (var j = k + 1; !L && j < k + 40; j++) L = makeLevel(src, src * 9973 + 7 + j * 31337);
+    if (!L) return null;
+    L.n = n; L.balls = row ? row[2] : 20; L.bot = row ? row[3] : 12; return L;
+  }
+  function weight(t) { return t === 'b2' ? 2 : t === 'b1' || t === 'tnt' ? 1 : t === 'm' ? 0.5 : t === 'cone' ? 2 : t === 'pyr' ? 4 : 1.5; }
+
+  // ---------------- the physics world ----------------
+  function create(level, opts) {
+    opts = opts || {};
+    var world = new C.World({ gravity: new C.Vec3(0, GRAV, 0) });
+    world.allowSleep = true;
+    world.broadphase = new C.NaiveBroadphase(); // sweep-and-prune misses some hits (seen in Topple Fair)
+    world.solver.iterations = 9;
+    world.defaultContactMaterial.friction = 0.6; world.defaultContactMaterial.restitution = 0.04;
+    world.defaultContactMaterial.contactEquationStiffness = 1e7; world.defaultContactMaterial.contactEquationRelaxation = 4;
+    var island = new C.Body({ mass: 0, shape: new C.Box(new C.Vec3(ISLAND, 1, ISLAND)) }); island.position.set(0, -1, 0); island.isGround = true; world.addBody(island);
+    var sim = { world: world, pieces: [], balls: [], ballsLeft: level.balls || 99, shots: 0, t: 0, lastShotT: -99, events: [], level: level, total: 0, down: 0, R: rng((level.seed || 1) + 99) };
+    level.pieces.forEach(function (p, idx) {
+      var T = TYPES[p[0]], half = new C.Vec3(p[4] / 2, p[5] / 2, p[6] / 2);
+      var b = new C.Body({ mass: T.mass, shape: new C.Box(half), linearDamping: 0.05, angularDamping: 0.1, allowSleep: true, sleepSpeedLimit: 0.3, sleepTimeLimit: 0.5 });
+      b.position.set(p[1], p[2], p[3]); world.addBody(b); b.sleep();
+      var pc = { t: p[0], b: b, idx: idx, x0: p[1], y0: p[2], z0: p[3], size: [p[4], p[5], p[6]], w: weight(p[0]), down: false, gone: false, goneT: 0 };
+      b.piece = pc; sim.pieces.push(pc); sim.total += pc.w;
+      if (p[0] === 'tnt') b.addEventListener('collide', function (e) {
+        var v = 0; try { v = Math.abs(e.contact.getImpactVelocityAlongNormal()); } catch (err) { v = 0; }
+        if ((e.body && e.body.isBall) || v > 6) pc.boom = true;
+      });
+      b.addEventListener('collide', function (e) {
+        if (e.body && e.body.isBall && !sim.hitWake) sim.hitWake = [e.body.position.x, e.body.position.y, e.body.position.z]; // wake what's round the hit
+        if (sim.events.length > 40) return;
+        var v = 0; try { v = Math.abs(e.contact.getImpactVelocityAlongNormal()); } catch (err) { v = 0; }
+        if (v > 3) sim.events.push({ t: 'hit', m: TYPES[p[0]].mat, v: v, x: b.position.x, y: b.position.y, z: b.position.z });
+      });
+    });
+    return sim;
+  }
+  // where the camera (and so the cannon) is for a given turn of the view
+  function camAt(yaw) { return [Math.sin(yaw) * CAM.D, CAM.H, Math.cos(yaw) * CAM.D]; }
+  function launchAt(yaw) { var c = camAt(yaw); return [c[0] * 0.9, c[1] - 2.2, c[2] * 0.9]; }
+  // fire at a point from the cannon at this view angle (the arc allows for gravity)
+  function shoot(sim, yaw, p) {
+    if (sim.ballsLeft <= 0) return null;
+    var L = launchAt(yaw), dx = p[0] - L[0], dy = p[1] - L[1], dz = p[2] - L[2], d = Math.sqrt(dx * dx + dy * dy + dz * dz), t = d / SPEED;
+    var b = new C.Body({ mass: BALLM, shape: new C.Sphere(BALLR), linearDamping: 0.01, angularDamping: 0.1 });
+    b.position.set(L[0], L[1], L[2]); b.velocity.set(dx / t, dy / t - 0.5 * GRAV * t, dz / t); b.isBall = true;
+    sim.world.addBody(b);
+    var ball = { b: b, born: sim.t, gone: false };
+    sim.balls.push(ball); sim.ballsLeft--; sim.shots++; sim.lastShotT = sim.t;
+    return ball;
+  }
+  // blow up a TNT crate: everything near is thrown outward and up
+  function explode(sim, pc) {
+    var c = pc.b.position, R = 3.4, ex = c.x, ey = c.y, ez = c.z;
+    sim.events.push({ t: 'boom', x: ex, y: ey, z: ez });
+    remove(sim, pc);
+    sim.pieces.forEach(function (q) {
+      if (q.gone) return; var p = q.b.position, dx = p.x - ex, dy = p.y - ey, dz = p.z - ez, d = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      if (d > R) return; var k = 16 * (1 - d / R) / Math.max(0.4, d);
+      q.b.wakeUp(); q.b.velocity.x += dx * k; q.b.velocity.y += dy * k + 5 * (1 - d / R); q.b.velocity.z += dz * k;
+      var f = 6 * (1 - d / R); q.b.angularVelocity.set((sim.R() - 0.5) * f, (sim.R() - 0.5) * f, (sim.R() - 0.5) * f);
+      if (q.t === 'tnt' && d < R * 0.8) q.boom = true;
+    });
+  }
+  function remove(sim, pc) { if (pc.gone) return; pc.gone = true; pc.goneT = sim.t; if (pc.b.world) sim.world.removeBody(pc.b); markDown(sim, pc); }
+  function markDown(sim, pc) { if (!pc.down) { pc.down = true; sim.down += pc.w; sim.events.push({ t: 'down', p: pc }); } }
+  // bricks near a moving one wake up (so a brick whose support was knocked away falls)
+  function wakeNear(sim) {
+    var movers = sim.pieces.filter(function (q) { return !q.gone && q.b.sleepState !== 2 && (q.b.velocity.lengthSquared() > 0.25 || q.b.angularVelocity.lengthSquared() > 0.5); });
+    sim.balls.forEach(function (bl) { if (!bl.gone) movers.push({ b: bl.b }); });
+    if (!movers.length) return;
+    sim.pieces.forEach(function (q) {
+      if (q.gone || q.b.sleepState !== 2) return; var p = q.b.position;
+      for (var i = 0; i < movers.length; i++) { var m = movers[i].b.position; if (Math.abs(m.x - p.x) < 1.8 && Math.abs(m.z - p.z) < 1.8 && Math.abs(m.y - p.y) < 1.8) { q.b.wakeUp(); break; } }
+    });
+  }
+  function step(sim, dt) {
+    dt = dt || 1 / 60;
+    sim.world.step(dt); sim.t += dt; sim.frame = (sim.frame || 0) + 1;
+    // a cannonball hit wakes every brick near it at once (a sleeping brick is as solid as the ground)
+    if (sim.hitWake) { var hw = sim.hitWake; sim.hitWake = null; sim.pieces.forEach(function (q) { if (q.gone || q.b.sleepState !== 2) return; var p = q.b.position; if (Math.abs(p.x - hw[0]) < 2.6 && Math.abs(p.y - hw[1]) < 3.2 && Math.abs(p.z - hw[2]) < 2.6) q.b.wakeUp(); }); }
+    if (sim.frame % 2 === 0) wakeNear(sim);
+    sim.pieces.forEach(function (pc) {
+      if (pc.gone) return;
+      if (pc.boom) { pc.boom = false; explode(sim, pc); return; }
+      var p = pc.b.position;
+      if (p.y < WATER || Math.abs(p.x) > ISLAND + 3 || Math.abs(p.z) > ISLAND + 3) { remove(sim, pc); sim.events.push({ t: 'splash', x: p.x, z: p.z }); return; }
+      if (!pc.down && pc.b.sleepState !== 2) { var dx = p.x - pc.x0, dy = p.y - pc.y0, dz = p.z - pc.z0, qw = Math.abs(pc.b.quaternion.w); if (dy < -0.5 || dx * dx + dy * dy + dz * dz > 0.4 || qw < 0.97) markDown(sim, pc); } // moved or tipped over
+      // a TNT crate that falls blows up
+      if (pc.t === 'tnt' && pc.down && !pc.boomed) { pc.boomed = true; pc.boom = true; }
+    });
+    sim.balls.forEach(function (bl) {
+      if (!bl.gone && (sim.t - bl.born > BALL_LIFE || bl.b.position.y < WATER - 1)) { bl.gone = true; bl.goneT = sim.t; if (bl.b.world) sim.world.removeBody(bl.b); }
+    });
+    sim.balls = sim.balls.filter(function (bl) { return !bl.gone || sim.t - bl.goneT < 0.5; });
+  }
+  function progress(sim) { return sim.total ? sim.down / sim.total : 0; }
+  function won(sim) { return progress(sim) >= sim.level.target; }
+  function flying(sim) { return sim.balls.some(function (b) { return !b.gone; }); }
+  function settled(sim) {
+    if (flying(sim)) return false;
+    return sim.pieces.every(function (pc) { if (pc.gone) return true; var b = pc.b; return b.sleepState === 2 || (b.velocity.lengthSquared() < 0.05 && b.angularVelocity.lengthSquared() < 0.1); });
+  }
+  function takeEvents(sim) { var e = sim.events; sim.events = []; return e; }
+
+  // ---------------- bot ----------------
+  // Aim at the bottom of whatever still stands tallest (or at a TNT crate), from the side it is on.
+  function botAim(sim, R) {
+    var up = sim.pieces.filter(function (pc) { return !pc.gone && !pc.down; });
+    if (!up.length) return null;
+    var best = null, bs = -1e9;
+    up.forEach(function (pc) {
+      var p = pc.b.position, above = 0;
+      up.forEach(function (q) { var o = q.b.position; if (Math.abs(o.x - p.x) < 2.2 && Math.abs(o.z - p.z) < 2.2 && o.y > p.y) above += q.w; });
+      var s = above - p.y * 1.5 + (pc.t === 'tnt' ? 6 : 0) + (R ? R() * 3 : 0);
+      if (s > bs) { bs = s; best = pc; }
+    });
+    var p = best.b.position, yaw = Math.atan2(p.x, p.z) + (R ? (R() - 0.5) * 0.5 : 0);
+    if (Math.hypot(p.x, p.z) < 1.5) yaw = R ? R() * Math.PI * 2 : 0;
+    return { yaw: yaw, p: [p.x, Math.max(0.5, p.y), p.z] };
+  }
+  function botPlay(level, max, seed) {
+    var lv = { n: level.n, seed: level.seed, pieces: level.pieces, balls: max || 30, target: level.target }, sim = create(lv), R = rng(seed || 5), guard = 0;
+    while (!won(sim) && guard < 60 * 150) {
+      if (sim.ballsLeft > 0 && sim.t - sim.lastShotT > 1.1) { var a = botAim(sim, R); if (a) shoot(sim, a.yaw, a.p); } // a shot every second or so, like a player
+      if (sim.ballsLeft <= 0 && !flying(sim) && (settled(sim) || sim.t - sim.lastShotT > 5)) break;
+      step(sim); guard++;
+    }
+    return { won: won(sim), shots: sim.shots, t: sim.t, progress: progress(sim) };
+  }
+
+  return { use: use, rng: rng, TYPES: TYPES, CAM: CAM, ISLAND: ISLAND, WATER: WATER, BALLR: BALLR, GRAV: GRAV, SPEED: SPEED, makeLevel: makeLevel, level: level, create: create, camAt: camAt, launchAt: launchAt,
+    shoot: shoot, step: step, progress: progress, won: won, flying: flying, settled: settled, takeEvents: takeEvents, botAim: botAim, botPlay: botPlay, target: target };
+})();
+if (typeof module !== 'undefined') module.exports = CC;
+</script>
+<script>
+window.CC_LEVELS = [[1,0,6,3],[2,0,12,6],[3,0,6,3],[4,0,15,8],[5,0,12,8],[6,0,7,4],[7,0,7,3],[8,0,7,4],[9,2,14,9],[10,0,7,3],[11,0,5,2],[13,0,11,7],[12,0,14,9],[17,0,14,9],[15,0,21,10],[14,0,17,11],[20,0,24,12],[16,0,23,12],[18,0,21,13],[19,0,20,13],[26,0,14,9],[21,0,15,10],[28,0,17,10],[24,0,26,14],[23,0,29,14],[27,0,32,19],[25,0,29,19],[30,0,38,19],[29,0,33,21],[22,0,35,23],[33,0,9,5],[40,0,8,5],[36,3,24,11],[32,0,23,11],[37,1,32,13],[35,0,30,16],[34,0,26,17],[38,1,29,19],[39,1,32,19],[31,0,35,20],[43,0,8,4],[45,0,8,4],[44,0,24,14],[47,0,27,15],[41,0,30,18],[42,0,33,19],[48,0,30,20],[46,0,30,20],[49,1,35,22],[50,0,39,26],[53,0,9,6],[56,0,14,9],[57,0,26,12],[55,0,21,14],[52,0,23,14],[58,0,26,15],[60,0,32,19],[59,0,30,20],[51,1,41,21],[54,0,33,22],[65,0,7,4],[67,0,17,11],[70,0,33,13],[63,1,23,15],[69,0,36,15],[68,0,24,16],[62,0,36,16],[61,0,29,19],[66,0,29,19],[64,0,32,21],[71,0,18,12],[80,0,21,13],[79,0,20,13],[72,0,23,15],[73,0,29,15],[78,1,24,16],[76,0,26,17],[77,0,30,19],[74,2,36,23],[75,0,42,23],[87,0,18,8],[81,0,14,9],[88,2,20,13],[83,0,20,13],[85,0,21,14],[90,0,24,16],[86,0,32,20],[84,0,32,21],[82,0,32,21],[89,0,42,28],[92,0,12,7],[98,0,18,12],[94,0,18,12],[91,0,35,14],[99,0,26,14],[100,0,23,15],[97,0,27,18],[93,0,39,23],[96,0,39,25],[95,0,42,28],[105,0,9,6],[101,0,20,13],[103,0,26,13],[102,0,21,14],[107,0,26,14],[110,0,36,20],[104,0,32,21],[108,0,44,22],[109,0,38,25],[106,0,44,26],[120,0,12,8],[117,0,15,10],[114,0,21,14],[112,0,23,14],[111,0,36,14],[116,0,24,15],[118,0,23,15],[115,0,23,15],[113,0,39,21],[119,0,38,25],[123,0,17,8],[126,0,17,11],[125,0,21,12],[122,0,20,13],[130,0,26,14],[129,0,29,15],[121,0,23,15],[124,0,27,18],[127,0,38,24],[128,0,44,29],[138,0,23,9],[133,0,20,11],[131,0,18,12],[132,0,20,13],[140,0,29,14],[134,0,29,15],[135,0,26,17],[137,0,27,18],[139,0,29,19],[136,0,39,25],[143,0,8,4],[141,0,9,5],[148,0,8,5],[150,0,9,6],[144,0,12,6],[149,0,11,6],[146,0,14,9],[145,0,21,14],[147,0,38,25],[142,0,44,29],[156,0,8,5],[160,0,12,7],[153,0,17,9],[158,0,14,9],[154,0,15,9],[159,0,18,12],[152,0,21,14],[151,1,21,14],[155,0,29,16],[157,0,47,21],[167,0,8,5],[165,0,20,13],[168,0,23,14],[161,0,26,15],[164,0,24,16],[163,0,32,17],[166,0,38,19],[170,0,36,24],[162,0,41,26],[169,0,51,34],[174,0,12,7],[177,0,17,11],[172,0,24,13],[179,0,20,13],[173,0,20,13],[178,0,29,16],[175,0,26,17],[176,0,26,17],[171,0,32,21],[180,0,39,26],[184,0,8,4],[188,0,18,7],[189,0,18,12],[181,0,26,12],[185,0,32,15],[187,0,26,17],[190,0,26,17],[186,0,26,17],[183,0,41,25],[182,1,45,30],[200,0,11,6],[193,0,15,10],[197,0,17,11],[198,0,23,12],[199,0,24,15],[196,0,24,16],[192,0,27,18],[195,0,33,21],[191,0,38,25],[194,0,38,25],[207,0,9,6],[204,0,11,7],[202,0,14,9],[210,0,30,15],[209,0,30,16],[208,0,29,17],[201,0,41,22],[203,0,35,23],[206,0,44,26],[205,0,41,26],[213,0,11,7],[215,0,11,7],[214,0,23,13],[219,0,29,17],[212,0,27,18],[218,0,35,19],[217,0,36,21],[216,0,42,23],[211,0,41,24],[220,0,41,26],[229,1,9,6],[227,0,12,6],[230,0,23,13],[221,0,21,13],[225,0,21,14],[228,0,33,17],[222,1,36,18],[224,0,39,20],[226,0,41,22],[223,0,39,24],[239,0,9,6],[234,1,20,13],[240,0,24,16],[232,0,36,20],[235,0,44,23],[231,0,44,24],[236,0,38,25],[233,1,39,26],[238,0,39,26],[237,0,48,29],[247,0,15,8],[241,0,20,13],[245,0,20,13],[243,1,27,14],[246,1,21,14],[250,0,23,15],[248,0,24,16],[244,0,32,18],[249,0,29,19],[242,0,39,26],[251,0,7,4],[253,0,7,4],[257,0,12,8],[254,0,27,13],[258,0,21,14],[255,0,36,16],[252,0,35,16],[259,0,32,19],[260,0,33,22],[256,0,38,25],[264,0,8,5],[261,0,12,7],[270,0,18,9],[263,0,20,10],[269,0,26,13],[266,0,32,16],[262,0,35,17],[268,0,26,17],[267,0,26,17],[265,0,32,21],[278,0,7,4],[279,0,15,10],[277,0,17,11],[275,1,26,14],[274,0,24,15],[271,0,30,20],[273,0,35,23],[280,0,38,25],[272,0,39,25],[276,1,45,27],[286,0,17,11],[281,1,27,13],[290,0,23,15],[282,0,38,15],[289,0,29,19],[288,0,36,21],[284,0,39,21],[285,0,33,22],[283,0,36,22],[287,0,39,26],[294,0,8,5],[300,0,14,9],[297,0,21,14],[292,0,23,14],[298,0,24,16],[293,0,27,18],[291,0,29,19],[299,0,33,22],[295,1,35,23],[296,0,45,25],[309,0,8,4],[302,0,15,10],[301,0,27,13],[304,0,24,16],[305,0,29,19],[308,0,36,20],[303,0,35,23],[306,0,44,24],[307,0,42,26],[310,0,41,27],[314,0,21,14],[312,0,24,14],[315,0,24,16],[317,0,24,16],[311,0,30,20],[316,1,32,21],[319,0,32,21],[318,0,39,23],[320,0,36,24],[313,0,44,26],[329,0,7,4],[328,0,11,7],[325,0,24,15],[321,0,26,16],[323,0,29,16],[330,0,29,19],[324,0,42,22],[322,0,35,23],[327,1,41,25],[326,0,39,26],[331,0,9,6],[340,0,12,8],[332,0,20,13],[339,0,26,15],[334,0,29,15],[335,0,27,17],[337,0,30,17],[338,0,48,22],[336,0,41,23],[333,1,44,28],[346,0,14,7],[343,0,21,10],[344,0,20,13],[347,1,26,17],[345,0,27,18],[341,0,35,19],[349,0,38,21],[348,0,50,23],[342,0,42,28],[350,0,47,31],[355,0,9,4],[360,0,17,11],[353,0,21,13],[357,0,23,13],[354,0,29,15],[359,0,26,17],[351,0,29,19],[352,0,38,25],[356,0,38,25],[358,1,45,28],[369,1,11,6],[362,0,14,6],[365,0,11,7],[363,0,14,8],[370,0,23,15],[364,0,30,17],[368,0,32,18],[367,0,27,18],[361,0,32,20],[366,0,38,25],[379,0,9,4],[377,0,8,5],[380,0,14,9],[375,0,17,11],[374,0,21,12],[372,0,20,13],[371,0,26,17],[378,0,41,17],[373,0,29,19],[376,0,36,20],[385,0,11,7],[386,0,18,12],[389,0,18,12],[381,0,29,16],[384,0,24,16],[387,0,26,17],[383,0,26,17],[382,0,30,20],[390,0,35,22],[388,0,36,24],[397,0,7,4],[392,0,8,4],[400,1,21,9],[393,1,27,12],[394,0,32,14],[391,0,23,15],[395,0,23,15],[396,0,26,16],[398,0,27,18],[399,0,51,24]];
+</script>
+<script>
+/* Castle Crumble sounds: synthesized with Web Audio (no audio files). */
+var CCSound = (function () {
+  'use strict';
+  var ac = null, master = null, on = false, lastHit = 0;
+  function ctx() {
+    if (!on) return null;
+    if (!ac) {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      try { ac = new AC(); } catch (e) { return null; }
+      master = ac.createGain(); master.gain.value = 0.5; master.connect(ac.destination);
+    }
+    if (ac.state === 'suspended') { try { ac.resume(); } catch (e) { /* ignore */ } }
+    return ac;
+  }
+  function tone(type, f0, f1, dur, gain, delay) {
+    var a = ctx(); if (!a) return;
+    var t = a.currentTime + (delay || 0), o = a.createOscillator(), g = a.createGain();
+    o.type = type; o.frequency.setValueAtTime(f0, t);
+    if (f1) o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(gain, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + 0.02);
+  }
+  function noise(freq, q, dur, gain, delay) {
+    var a = ctx(); if (!a) return;
+    var t = a.currentTime + (delay || 0), len = Math.floor(a.sampleRate * dur);
+    var buf = a.createBuffer(1, len, a.sampleRate), d = buf.getChannelData(0);
+    for (var i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.5);
+    var s = a.createBufferSource(); s.buffer = buf;
+    var bp = a.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = freq; bp.Q.value = q;
+    var g = a.createGain(); g.gain.value = gain;
+    s.connect(bp); bp.connect(g); g.connect(master); s.start(t);
+  }
+  return {
+    setEnabled: function (v) { on = !!v; if (on) ctx(); },
+    unlock: function () { if (on) ctx(); },
+    // the cannon: a deep boom
+    shoot: function () { if (on) { noise(180, 0.8, 0.35, 0.9); tone('sine', 110, 40, 0.3, 0.5); } },
+    // stone knocking stone, wood knocking (limited so a big collapse isn't a wall of noise)
+    hit: function (m, v) {
+      if (!on) return;
+      var now = performance.now(); if (now - lastHit < 55) return; lastHit = now;
+      var vol = Math.min(0.35, 0.05 + v * 0.02);
+      if (m === 'wood') { tone('triangle', 260 + Math.random() * 60, 160, 0.08, vol); noise(900, 3, 0.06, vol * 0.8); }
+      else { noise(500 + Math.random() * 500, 1.5, 0.12, vol); tone('sine', 120 + Math.random() * 60, 70, 0.1, vol * 0.5); }
+    },
+    rumble: function () { if (on) noise(160, 0.7, 0.8, 0.35); },
+    boom: function () { if (!on) return; noise(120, 0.6, 1.1, 1.0); noise(900, 1, 0.3, 0.5); tone('sine', 70, 30, 0.6, 0.6); },
+    splash: function () { if (on) { noise(1800, 0.8, 0.35, 0.3); noise(600, 1, 0.25, 0.2, 0.05); } },
+    win: function () { if (!on) return; [523, 659, 784, 1047, 1319, 1568].forEach(function (f, i) { tone('triangle', f, 0, i === 5 ? 0.6 : 0.18, 0.26, i * 0.09); }); noise(5000, 1, 0.5, 0.12, 0.4); },
+    lose: function () { if (on) [440, 392, 330, 262].forEach(function (f, i) { tone('triangle', f, 0, 0.25, 0.2, i * 0.18); }); },
+    ding: function () { if (on) { tone('sine', 1319, 0, 0.4, 0.25); tone('sine', 1568, 0, 0.5, 0.2, 0.12); } },
+    sign: function () { if (on) noise(900, 3, 0.07, 0.3); }
+  };
+})();
+</script>
+<script>
+/* Castle Crumble scenery (three.js): sky, sea with ripples, a grassy island with a sandy beach and cliffs, low-poly
+   trees, far islands and hills, and the castle itself: stone bricks with mortar lines (instanced, a few draw calls
+   for hundreds of bricks), dark slate cone and pyramid roofs, wooden doors, red TNT crates; cannonballs, dust,
+   splashes and explosions. CCScene.build(THREE, canvas, CC, { fancy }) returns what the app needs. */
+var CCScene = (function () {
+  'use strict';
+  function build(T, canvas, CC, opts) {
+    var fancy = !opts || opts.fancy !== false;
+    var R = CC.rng(20260930);
+    function rnd(a, b) { return a + (b - a) * R(); }
+    function tex(w, h, draw, srgb) { var c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h); var t = new T.CanvasTexture(c); if (srgb !== false) t.colorSpace = T.SRGBColorSpace; t.anisotropy = 4; return t; }
+    function std(o) { return new T.MeshStandardMaterial(o); }
+
+    // ---------------- renderer, camera, light ----------------
+    var renderer = new T.WebGLRenderer({ canvas: canvas, antialias: true, powerPreference: 'high-performance' });
+    renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    renderer.toneMapping = T.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+    if (fancy) { renderer.shadowMap.enabled = true; renderer.shadowMap.type = T.PCFShadowMap; }
+    var scene = new T.Scene(), HORIZON = new T.Color('#cfe9f7');
+    scene.background = HORIZON; scene.fog = new T.Fog(HORIZON, 70, 190);
+    var camera = new T.PerspectiveCamera(50, 1, 0.5, 500);
+    var skyMat = new T.ShaderMaterial({ side: T.BackSide, depthWrite: false, fog: false,
+      uniforms: { top: { value: new T.Color('#2f7fdc') }, mid: { value: new T.Color('#7cc0f2') }, bot: { value: HORIZON.clone() } },
+      vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: 'uniform vec3 top; uniform vec3 mid; uniform vec3 bot; varying vec3 vP; void main(){ float h = vP.y; vec3 c = mix(mid, top, smoothstep(0.05, 0.6, h)); c = mix(bot, c, smoothstep(-0.02, 0.18, h)); gl_FragColor = vec4(c, 1.0);\n#include <tonemapping_fragment>\n#include <colorspace_fragment>\n}' });
+    scene.add(new T.Mesh(new T.SphereGeometry(400, 32, 16), skyMat));
+    scene.add(new T.HemisphereLight(0xdcefff, 0x6a8f4a, 1.15));
+    var sun = new T.DirectionalLight(0xfff2de, 2.6); sun.position.set(14, 30, 18); scene.add(sun); scene.add(sun.target);
+    if (fancy) { sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); var sc = sun.shadow.camera; sc.left = -18; sc.right = 18; sc.top = 18; sc.bottom = -18; sc.near = 5; sc.far = 80; sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.04; }
+
+    // clouds
+    var cloudTex = tex(256, 128, function (x) { for (var i = 0; i < 24; i++) { var cx = rnd(40, 216), cy = rnd(55, 88), r = rnd(18, 36), g = x.createRadialGradient(cx, cy, 0, cx, cy, r); g.addColorStop(0, 'rgba(255,255,255,.95)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.beginPath(); x.arc(cx, cy, r, 0, 7); x.fill(); } });
+    var clouds = [];
+    for (var ci = 0; ci < 10; ci++) { var cl = new T.Sprite(new T.SpriteMaterial({ map: cloudTex, transparent: true, depthWrite: false, fog: false })), a0 = rnd(0, 6.28), d0 = rnd(150, 220), sw = rnd(40, 70); cl.scale.set(sw, sw / 2, 1); cl.position.set(Math.cos(a0) * d0, rnd(40, 70), Math.sin(a0) * d0); scene.add(cl); clouds.push(cl); }
+
+    // ---------------- the sea ----------------
+    var waterTex = tex(256, 256, function (x, w, h) { x.fillStyle = '#2f97d6'; x.fillRect(0, 0, w, h); for (var i = 0; i < 160; i++) { x.strokeStyle = 'rgba(255,255,255,' + rnd(0.06, 0.2).toFixed(2) + ')'; x.lineWidth = rnd(1, 2.5); var px = rnd(0, w), py = rnd(0, h), l = rnd(8, 26); x.beginPath(); x.moveTo(px, py); x.quadraticCurveTo(px + l / 2, py - 3, px + l, py); x.stroke(); } });
+    waterTex.wrapS = waterTex.wrapT = T.RepeatWrapping; waterTex.repeat.set(40, 40);
+    var water = new T.Mesh(new T.PlaneGeometry(600, 600), std({ map: waterTex, color: 0xffffff, roughness: 0.25, metalness: 0.1 })); water.rotation.x = -Math.PI / 2; water.position.y = CC.WATER + 0.3; water.receiveShadow = fancy; scene.add(water);
+
+    // ---------------- the island ----------------
+    var I = CC.ISLAND;
+    var grassTex = tex(256, 256, function (x, w, h) { x.fillStyle = '#76c043'; x.fillRect(0, 0, w, h); for (var i = 0; i < 2600; i++) { var l = rnd(0.8, 1.2); x.fillStyle = 'rgba(' + Math.round(90 * l) + ',' + Math.round(170 * l) + ',' + Math.round(60 * l) + ',.5)'; x.fillRect(rnd(0, w), rnd(0, h), rnd(1, 3), rnd(2, 5)); } });
+    grassTex.wrapS = grassTex.wrapT = T.RepeatWrapping; grassTex.repeat.set(8, 8);
+    var grassM = std({ map: grassTex, roughness: 1 }), dirtM = std({ color: 0x9a6a3e, roughness: 1, flatShading: true }), sandM = std({ color: 0xf0d9a0, roughness: 1 });
+    // the top: a slightly rounded square of grass
+    var topShape = new T.Shape(), rc = 2.2;
+    topShape.moveTo(-I + rc, -I); topShape.lineTo(I - rc, -I); topShape.quadraticCurveTo(I, -I, I, -I + rc); topShape.lineTo(I, I - rc); topShape.quadraticCurveTo(I, I, I - rc, I); topShape.lineTo(-I + rc, I); topShape.quadraticCurveTo(-I, I, -I, I - rc); topShape.lineTo(-I, -I + rc); topShape.quadraticCurveTo(-I, -I, -I + rc, -I);
+    var topGeo = new T.ExtrudeGeometry(topShape, { depth: 0.6, bevelEnabled: true, bevelThickness: 0.25, bevelSize: 0.35, bevelSegments: 2, curveSegments: 8 });
+    topGeo.rotateX(Math.PI / 2); topGeo.translate(0, -0.27, 0);
+    var top = new T.Mesh(topGeo, [grassM, grassM]); top.receiveShadow = fancy; top.castShadow = false; scene.add(top);
+    var cliffGeo = new T.ExtrudeGeometry(topShape, { depth: 2.6, bevelEnabled: true, bevelThickness: 0.2, bevelSize: 0.7, bevelSegments: 1, curveSegments: 8 });
+    cliffGeo.rotateX(Math.PI / 2); cliffGeo.translate(0, -0.7, 0);
+    var cliff = new T.Mesh(cliffGeo, dirtM); cliff.receiveShadow = fancy; scene.add(cliff);
+    var beach = new T.Mesh(new T.CylinderGeometry(I * 1.62, I * 1.75, 0.3, 40), sandM); beach.position.y = CC.WATER + 0.22; beach.receiveShadow = fancy; scene.add(beach);
+    // low-poly trees round the edge (not in the castle's area) and far islands
+    var leafM = [std({ color: 0x3f9a3a, roughness: 0.9, flatShading: true }), std({ color: 0x57b041, roughness: 0.9, flatShading: true }), std({ color: 0x2f7d3a, roughness: 0.9, flatShading: true })];
+    var trunkM = std({ color: 0x7a5232, roughness: 1 });
+    function tree(x, z, s, pine) {
+      var g = new T.Group(), tr = new T.Mesh(new T.CylinderGeometry(0.12 * s, 0.18 * s, 1.2 * s, 6), trunkM); tr.position.y = 0.6 * s; g.add(tr);
+      if (pine) { for (var i = 0; i < 3; i++) { var c = new T.Mesh(new T.ConeGeometry((1 - i * 0.22) * s, 1.3 * s, 7), leafM[2]); c.position.y = (1.3 + i * 0.7) * s; g.add(c); } }
+      else { var b = new T.Mesh(new T.IcosahedronGeometry(0.95 * s, 0), leafM[Math.floor(R() * 2)]); b.position.y = 1.8 * s; b.scale.y = 1.1; g.add(b); var b2 = new T.Mesh(new T.IcosahedronGeometry(0.6 * s, 0), leafM[0]); b2.position.set(0.5 * s, 1.5 * s, 0.2 * s); g.add(b2); }
+      g.traverse(function (o) { if (o.isMesh) o.castShadow = fancy; });
+      g.position.set(x, 0, z); g.rotation.y = rnd(0, 6); scene.add(g); return g;
+    }
+    // trees only in the island's corners, small, so they never hide the castle
+    for (var ti = 0; ti < 16; ti++) { var tx, tz, guard = 0; do { tx = rnd(-I + 0.8, I - 0.8); tz = rnd(-I + 0.8, I - 0.8); guard++; } while (guard < 80 && Math.min(Math.abs(tx), Math.abs(tz)) < 9.8); tree(tx, tz, rnd(0.6, 0.95), R() < 0.4); }
+    function farIsland(x, z, r, h) {
+      var g = new T.Group(), m = new T.Mesh(new T.CylinderGeometry(r * 0.8, r, h, 9), std({ color: 0x6fb845, roughness: 1, flatShading: true })); m.position.y = CC.WATER + h / 2; g.add(m);
+      var s0 = new T.Mesh(new T.CylinderGeometry(r * 1.1, r * 1.2, 0.3, 12), sandM); s0.position.y = CC.WATER + 0.2; g.add(s0);
+      g.position.set(x, 0, z); scene.add(g);
+      for (var k = 0; k < Math.floor(r / 2); k++) { var a = rnd(0, 6.28), d = rnd(0, r * 0.6), t = tree(x + Math.cos(a) * d, z + Math.sin(a) * d, rnd(1.2, 2), R() < 0.5); t.position.y = CC.WATER + h; }
+    }
+    [[-60, -70, 9, 3], [70, -60, 12, 5], [-85, 30, 10, 4], [80, 50, 8, 3], [10, -110, 16, 7], [-30, 95, 9, 3]].forEach(function (f) { farIsland(f[0], f[1], f[2], f[3]); });
+    var hillM = std({ color: 0x5c9f47, roughness: 1, flatShading: true });
+    [[-120, -150, 50], [40, -170, 60], [150, -120, 40]].forEach(function (h) { var m = new T.Mesh(new T.SphereGeometry(h[2], 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), hillM); m.scale.y = 0.45; m.position.set(h[0], CC.WATER, h[1]); scene.add(m); });
+
+    // ---------------- castle materials ----------------
+    // stone: light grey courses of bricks with mortar lines, drawn for one unit of wall and repeated
+    var stoneTex = tex(128, 128, function (x, w, h) {
+      x.fillStyle = '#9ea3ab'; x.fillRect(0, 0, w, h);
+      for (var r = 0; r < 2; r++) for (var c = -1; c < 2; c++) {
+        var ox = c * 64 + (r % 2 ? 32 : 0) + 3, oy = r * 64 + 3, l = rnd(0.92, 1.06);
+        x.fillStyle = 'rgb(' + Math.round(208 * l) + ',' + Math.round(211 * l) + ',' + Math.round(216 * l) + ')'; x.fillRect(ox, oy, 58, 58);
+        x.fillStyle = 'rgba(255,255,255,.18)'; x.fillRect(ox, oy, 58, 5); x.fillStyle = 'rgba(0,0,0,.08)'; x.fillRect(ox, oy + 52, 58, 6);
+      }
+      for (var i = 0; i < 300; i++) { x.fillStyle = R() < 0.5 ? 'rgba(0,0,0,.05)' : 'rgba(255,255,255,.06)'; x.fillRect(rnd(0, w), rnd(0, h), 2, 2); }
+    });
+    stoneTex.wrapS = stoneTex.wrapT = T.RepeatWrapping;
+    var stoneM = std({ map: stoneTex, roughness: 0.92 });
+    var roofM = std({ color: 0x3a4f5c, roughness: 0.7, flatShading: true });
+    var woodTex = tex(128, 128, function (x, w, h) { x.fillStyle = '#8a5a2e'; x.fillRect(0, 0, w, h); for (var i = 0; i < 4; i++) { x.fillStyle = i % 2 ? '#94633a' : '#7e5028'; x.fillRect(i * 32 + 2, 0, 28, h); } x.fillStyle = '#3a3f48'; x.fillRect(0, 20, w, 10); x.fillRect(0, h - 30, w, 10); });
+    var woodM = std({ map: woodTex, roughness: 0.85 });
+    var tntTex = tex(128, 128, function (x, w, h) { x.fillStyle = '#d42a2a'; x.fillRect(0, 0, w, h); x.fillStyle = '#8a1414'; x.fillRect(0, 0, w, 10); x.fillRect(0, h - 10, w, 10); x.fillRect(0, 0, 10, h); x.fillRect(w - 10, 0, 10, h); x.fillStyle = '#fff3d0'; x.fillRect(10, 42, w - 20, 44); x.fillStyle = '#1b1b1b'; x.font = 'bold 38px sans-serif'; x.textAlign = 'center'; x.fillText('TNT', w / 2, 78); });
+    var tntM = std({ map: tntTex, roughness: 0.6 });
+    // a box whose texture repeats once per unit on every face
+    function unitBox(sx, sy, sz) {
+      var g = new T.BoxGeometry(sx, sy, sz), uv = g.attributes.uv, dims = [[sz, sy], [sz, sy], [sx, sz], [sx, sz], [sx, sy], [sx, sy]];
+      for (var f = 0; f < 6; f++) for (var v = 0; v < 4; v++) { var i = f * 4 + v; uv.setXY(i, uv.getX(i) * dims[f][0], uv.getY(i) * dims[f][1]); }
+      return g;
+    }
+
+    // ---------------- pieces (instanced by shape) ----------------
+    var castle = new T.Group(); scene.add(castle);
+    var groups = {}, slots = [], tmpM = new T.Matrix4(), tmpQ = new T.Quaternion(), tmpV = new T.Vector3(), tmpS = new T.Vector3(), col = new T.Color();
+    function shapeFor(p) {
+      var key = p[0] + ':' + p[4] + 'x' + p[5] + 'x' + p[6];
+      if (groups[key]) return key;
+      var geo, mat;
+      if (p[0] === 'cone') { geo = new T.ConeGeometry(p[4] * 0.56, p[5], 8); mat = roofM; }
+      else if (p[0] === 'pyr') { geo = new T.ConeGeometry(p[4] * 0.72, p[5], 4); geo.rotateY(Math.PI / 4); mat = roofM; }
+      else if (p[0] === 'door') { geo = unitBox(p[4], p[5], p[6]); mat = woodM; }
+      else if (p[0] === 'tnt') { geo = new T.BoxGeometry(p[4], p[5], p[6]); mat = tntM; }
+      else { geo = unitBox(p[4], p[5], p[6]); mat = stoneM; }
+      groups[key] = { geo: geo, mat: mat, list: [] };
+      return key;
+    }
+    function setPieces(pieces) {
+      Object.keys(groups).forEach(function (k) { if (groups[k].mesh) { castle.remove(groups[k].mesh); groups[k].mesh.dispose(); groups[k].mesh = null; } groups[k].list = []; });
+      slots = [];
+      pieces.forEach(function (p, i) { var k = shapeFor(p); slots[i] = { key: k, idx: groups[k].list.length, scale: 1, gone: false }; groups[k].list.push(i); });
+      Object.keys(groups).forEach(function (k) {
+        var G = groups[k]; if (!G.list.length) return;
+        var m = new T.InstancedMesh(G.geo, G.mat, G.list.length); m.castShadow = fancy; m.receiveShadow = fancy; m.userData.key = k;
+        G.list.forEach(function (pi, j) { var l = G.mat === stoneM ? rnd(0.88, 1.06) : 1; m.setColorAt(j, col.setRGB(l, l, l * rnd(0.98, 1.03))); });
+        G.mesh = m; castle.add(m);
+      });
+      pieces.forEach(function (p, i) { tmpQ.identity(); place(i, p[1], p[2], p[3], tmpQ, 1); });
+      Object.keys(groups).forEach(function (k) { var G = groups[k]; if (G.mesh) { G.mesh.instanceMatrix.needsUpdate = true; if (G.mesh.instanceColor) G.mesh.instanceColor.needsUpdate = true; G.mesh.computeBoundingSphere(); } });
+    }
+    function place(i, x, y, z, q, s) { var sl = slots[i], G = groups[sl.key]; tmpV.set(x, y, z); tmpS.set(s, s, s); tmpM.compose(tmpV, q, tmpS); G.mesh.setMatrixAt(sl.idx, tmpM); }
+    // copy the physics into the instances; pieces that are gone shrink away
+    function syncPieces(sim, dt) {
+      var dirty = {};
+      sim.pieces.forEach(function (pc, i) {
+        var sl = slots[i]; if (!sl) return;
+        if (pc.gone) { if (sl.scale <= 0) return; sl.scale = Math.max(0, sl.scale - dt * 3); }
+        else if (pc.b.sleepState === 2 && sl.synced) return;
+        sl.synced = pc.b.sleepState === 2;
+        var b = pc.b.position; tmpQ.set(pc.b.quaternion.x, pc.b.quaternion.y, pc.b.quaternion.z, pc.b.quaternion.w);
+        place(i, b.x, b.y, b.z, tmpQ, sl.scale); dirty[sl.key] = 1;
+      });
+      Object.keys(dirty).forEach(function (k) { groups[k].mesh.instanceMatrix.needsUpdate = true; groups[k].mesh.computeBoundingSphere(); });
+    }
+    // which piece a ray hits (for aiming at a brick)
+    function pickPiece(ray) {
+      var meshes = Object.keys(groups).map(function (k) { return groups[k].mesh; }).filter(Boolean);
+      var hit = ray.intersectObjects(meshes, false)[0];
+      return hit ? hit.point : null;
+    }
+
+    // ---------------- cannonballs and effects ----------------
+    var ballGeo = new T.SphereGeometry(CC.BALLR, 20, 14), ballM = std({ color: 0x2a2d33, roughness: 0.35, metalness: 0.6 });
+    function ballMesh() { var m = new T.Mesh(ballGeo, ballM); m.castShadow = fancy; scene.add(m); return m; }
+    function soft(inner, outer) { return tex(64, 64, function (x, w, h) { var g = x.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, inner); g.addColorStop(1, outer); x.fillStyle = g; x.fillRect(0, 0, w, h); }); }
+    var dustTex = soft('rgba(235,228,215,.9)', 'rgba(235,228,215,0)'), fireTex = soft('rgba(255,245,180,1)', 'rgba(255,120,20,0)'), smokeTex = soft('rgba(90,90,95,.85)', 'rgba(90,90,95,0)'), splashTex = soft('rgba(255,255,255,.95)', 'rgba(200,235,255,0)');
+    var fx = [];
+    function puff(texr, x, y, z, s0, s1, life, vy, blend) {
+      if (fx.length > 90) return;
+      var m = new T.SpriteMaterial({ map: texr, transparent: true, depthWrite: false, blending: blend ? T.AdditiveBlending : T.NormalBlending }), sp = new T.Sprite(m);
+      sp.position.set(x, y, z); sp.scale.set(s0, s0, 1); scene.add(sp);
+      fx.push({ s: sp, t: 0, life: life, s0: s0, s1: s1, vy: vy || 0, vx: (Math.random() - 0.5) * 1.2, vz: (Math.random() - 0.5) * 1.2 });
+    }
+    function dust(x, y, z, big) { for (var i = 0; i < (big ? 3 : 1); i++) puff(dustTex, x + (Math.random() - 0.5) * 0.6, y, z + (Math.random() - 0.5) * 0.6, 0.6, big ? 2.6 : 1.6, 0.9, 0.8); }
+    function boom(x, y, z) {
+      puff(fireTex, x, y, z, 1, 7, 0.45, 0, true); puff(fireTex, x, y + 0.5, z, 0.8, 5, 0.35, 2, true);
+      for (var i = 0; i < 6; i++) puff(smokeTex, x + (Math.random() - 0.5) * 2, y + Math.random(), z + (Math.random() - 0.5) * 2, 1, 4, 1.6, 2.2);
+      flash = 1;
+    }
+    function splash(x, z) { for (var i = 0; i < 3; i++) puff(splashTex, x + (Math.random() - 0.5), CC.WATER + 0.5, z + (Math.random() - 0.5), 0.5, 2.2, 0.7, 3); }
+    var flash = 0, flashLight = new T.PointLight(0xffa040, 0, 30); scene.add(flashLight);
+    var reticle = (function () { var g = new T.Group(); var rm = new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthTest: false }), dm = new T.MeshBasicMaterial({ color: 0x1b1f33, transparent: true, depthTest: false });
+      g.add(new T.Mesh(new T.RingGeometry(0.55, 0.75, 32), dm)); g.add(new T.Mesh(new T.RingGeometry(0.75, 0.9, 32), rm)); g.add(new T.Mesh(new T.CircleGeometry(0.22, 20), dm));
+      g.children.forEach(function (c) { c.renderOrder = 10; }); g.visible = false; scene.add(g); return g; })();
+
+    // ---------------- per frame ----------------
+    var time = 0;
+    function update(dt) {
+      time += dt; waterTex.offset.set(time * 0.004, time * 0.006);
+      clouds.forEach(function (c, i) { var a = Math.atan2(c.position.z, c.position.x) + dt * 0.004 * (1 + i % 3); var d = Math.hypot(c.position.x, c.position.z); c.position.x = Math.cos(a) * d; c.position.z = Math.sin(a) * d; });
+      fx = fx.filter(function (f) { f.t += dt; var k = f.t / f.life; if (k >= 1) { scene.remove(f.s); f.s.material.dispose(); return false; } var s = f.s0 + (f.s1 - f.s0) * Math.sqrt(k); f.s.scale.set(s, s, 1); f.s.material.opacity = 1 - k; f.s.position.y += f.vy * dt; f.s.position.x += f.vx * dt; f.s.position.z += f.vz * dt; return true; });
+      if (flash > 0) { flash = Math.max(0, flash - dt * 3); flashLight.intensity = flash * 60; } else flashLight.intensity = 0;
+    }
+    function setBoomLight(x, y, z) { flashLight.position.set(x, y + 1, z); }
+    // the view: closer in and looking down on the castle (the cannon fires from a little behind it)
+    var VIEW = { D: 19.5, H: 14.5, LOOK: 2.2 }, aspectNow = 0.5;
+    // back off far enough to see the whole castle (its reach from the middle) across the screen's width
+    function fitView(reach) {
+      var hf = camera.fov * Math.PI / 360, tanW = Math.tan(hf) * aspectNow, need = (reach + 1.8) / Math.max(0.2, tanW);
+      VIEW.D = Math.max(12, Math.min(32, need * 0.8)); VIEW.H = VIEW.D * 0.95; VIEW.LOOK = 2.6; VIEW.reach = reach;
+    }
+    function aimCamera(yaw) { camera.position.set(Math.sin(yaw) * VIEW.D, VIEW.H, Math.cos(yaw) * VIEW.D); camera.lookAt(0, VIEW.LOOK, 0); }
+    function resize(w, h) {
+      renderer.setSize(w, h, false);
+      var aspect = w / h, halfW = 10, tanH = halfW / 24, vfov = 2 * Math.atan(tanH / aspect) * 180 / Math.PI;
+      camera.aspect = aspect; camera.fov = Math.max(42, Math.min(62, vfov)); camera.updateProjectionMatrix(); aspectNow = aspect; if (VIEW.reach) fitView(VIEW.reach);
+    }
+    return { renderer: renderer, scene: scene, camera: camera, setPieces: setPieces, fitView: fitView, syncPieces: syncPieces, pickPiece: pickPiece, ballMesh: ballMesh,
+      dust: dust, boom: function (x, y, z) { boom(x, y, z); setBoomLight(x, y, z); }, splash: splash, reticle: reticle, update: update, aimCamera: aimCamera, resize: resize, fancy: fancy };
+  }
+  return { build: build };
+})();
+</script>
+<script src="../../shared/ads.js"></script>
+<script>
+/* Castle Crumble app: the island scene (three.js, scene.js), the physics loop (cannon-es through CC in logic.js),
+   tap to fire and drag to walk round the island, the progress bar, levels with stars, stats, saves and house ads.
+   three.js and cannon-es come from /shared and load when the game opens. */
+(function () {
+  'use strict';
+  var S = CCSound, LEVELS = window.CC_LEVELS || [];
+  var STEP = 1 / 60, T = null, C = null;
+
+  // ================= storage =================
+  var store = Goobs.store('castle');
+  var settings = { sound: false, adEvery: 3, fancy: true };
+  (function () { var s = store.get('settings', {}) || {}; for (var k in settings) if (typeof s[k] === typeof settings[k]) settings[k] = s[k]; settings.adEvery = Math.min(10, Math.max(1, settings.adEvery | 0)); })();
+  function saveSettings() { store.set('settings', settings); }
+  var meta = store.get('meta', null) || {};
+  var MD = { level: 1, open: 1, stars: {}, seen: false, finished: 0, lastAdAt: 0, mode: 'siege' };
+  for (var mk in MD) if (meta[mk] === undefined) meta[mk] = MD[mk];
+  if (typeof meta.stars !== 'object' || !meta.stars) meta.stars = {};
+  meta.open = Math.max(1, Math.min(LEVELS.length, meta.open | 0)); meta.level = Math.max(1, Math.min(meta.open, meta.level | 0));
+  function saveMeta() { store.set('meta', meta); }
+  var stats = store.get('stats', null) || {};
+  var SD = { shots: 0, bricks: 0, booms: 0, wins: 0, tries: 0 };
+  for (var sk in SD) if (typeof stats[sk] !== 'number') stats[sk] = SD[sk];
+  function saveStats() { store.set('stats', stats); }
+
+  // ================= helpers =================
+  function $(id) { return document.getElementById(id); }
+  function isOpen(id) { return $(id).classList.contains('show'); }
+  function sheetOpen() { return isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || isOpen('ovLevels') || GoobsAds.isOpen(); }
+  function fmt(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+
+  // ================= scene =================
+  var host, canvas, SC = null, ready = false, raycaster = null;
+  function resize() { if (!SC) return; var r = host.getBoundingClientRect(); SC.resize(Math.max(10, r.width), Math.max(10, r.height)); }
+
+  // ================= game =================
+  var sim = null, level = null, levelNo = 1, state = 'idle', acc = 0, lastT = 0, balls = [], yaw = 0, yawTo = 0, intro = 0, markT = -1;
+  function startLevel(n) {
+    levelNo = Math.max(1, Math.min(LEVELS.length, n)); meta.level = levelNo; saveMeta();
+    level = CC.level(levelNo, LEVELS);
+    if (!ready) { renderInfo(); return; }
+    balls.forEach(function (b) { SC.scene.remove(b.mesh); }); balls = [];
+    sim = CC.create(level);
+    SC.setPieces(level.pieces);
+    var reach = 0; level.pieces.forEach(function (q) { reach = Math.max(reach, Math.abs(q[1]) + q[4] / 2, Math.abs(q[3]) + q[6] / 2); }); SC.fitView(reach);
+    state = 'play'; acc = 0; stats.tries++; saveStats();
+    yawTo = yaw = 0; intro = 1; // the camera swings in to the front
+    renderInfo();
+  }
+  function fire(p) {
+    if (!sim || state !== 'play' || sim.ballsLeft <= 0) return false;
+    if (sim.t - sim.lastShotT < 0.35) return false;
+    var ball = CC.shoot(sim, yaw, p); if (!ball) return false;
+    balls.push({ ball: ball, mesh: SC.ballMesh() });
+    stats.shots++; saveStats(); S.shoot(); renderInfo();
+    return true;
+  }
+  function onEvents() {
+    CC.takeEvents(sim).forEach(function (e) {
+      if (e.t === 'hit') { S.hit(e.m, e.v); if (e.v > 5 && Math.random() < 0.35) SC.dust(e.x, e.y, e.z, false); }
+      else if (e.t === 'boom') { SC.boom(e.x, e.y, e.z); S.boom(); stats.booms++; }
+      else if (e.t === 'splash') { SC.splash(e.x, e.z); S.splash(); }
+      else if (e.t === 'down') { stats.bricks++; }
+    });
+  }
+  function checkEnd() {
+    if (state !== 'play') return;
+    if (CC.won(sim)) { state = 'won'; saveStats(); S.rumble(); setTimeout(won, 1600); return; }
+    if (sim.ballsLeft <= 0 && !CC.flying(sim) && (CC.settled(sim) || sim.t - sim.lastShotT > 5)) { state = 'lost'; saveStats(); setTimeout(lost, 400); }
+  }
+  function starsFor(used) { var bot = level.bot || 10; return used <= bot + 1 ? 3 : used <= bot + Math.ceil(bot * 0.3) + 2 ? 2 : 1; }
+  function won() {
+    S.win(); stats.wins++; meta.finished++; saveStats();
+    var st = starsFor(sim.shots); meta.stars[levelNo] = Math.max(meta.stars[levelNo] || 0, st);
+    if (meta.open <= levelNo) meta.open = Math.min(LEVELS.length, levelNo + 1);
+    saveMeta(); renderInfo();
+    var last = levelNo >= LEVELS.length;
+    showCard('Castle crumbled!', '<div class="stars">' + [0, 1, 2].map(function (i) { return i < st ? '★' : '<span class="off">★</span>'; }).join('') + '</div>' +
+      Math.round(CC.progress(sim) * 100) + '% knocked down with ' + sim.shots + ' of ' + level.balls + ' cannonballs.',
+      last ? [{ label: 'Play it again', red: true, go: function () { between(function () { startLevel(levelNo); }); } }] :
+        [{ label: 'Next: level ' + (levelNo + 1), red: true, go: function () { between(function () { startLevel(levelNo + 1); }); } }, { label: 'Play it again', go: function () { between(function () { startLevel(levelNo); }); } }]);
+  }
+  function lost() {
+    S.lose(); meta.finished++; saveMeta(); saveStats();
+    showCard('Out of cannonballs', 'The castle is ' + Math.round(CC.progress(sim) * 100) + '% down; ' + Math.round(level.target * 100) + '% wins it.', [{ label: 'Try again', red: true, go: function () { between(function () { startLevel(levelNo); }); } }, { label: 'Pick a level', go: openLevels }]);
+  }
+
+  // ================= loop =================
+  function frame(tms) {
+    requestAnimationFrame(frame);
+    if (!ready) return;
+    var dt = Math.min(0.1, lastT ? (tms - lastT) / 1000 : 0); lastT = tms;
+    var paused = sheetOpen() || document.hidden;
+    if (sim && !paused && state !== 'idle') {
+      acc += dt; var n = 0;
+      while (acc >= STEP && n < 3) { CC.step(sim, STEP); onEvents(); acc -= STEP; n++; }
+      if (n === 3) acc = 0;
+      checkEnd();
+    }
+    if (sim) {
+      SC.syncPieces(sim, dt);
+      balls = balls.filter(function (b) {
+        var p = b.ball.b.position; b.mesh.position.set(p.x, p.y, p.z); b.mesh.quaternion.set(b.ball.b.quaternion.x, b.ball.b.quaternion.y, b.ball.b.quaternion.z, b.ball.b.quaternion.w);
+        if (b.ball.gone) { var s = b.mesh.scale.x - dt * 4; if (s <= 0.05) { SC.scene.remove(b.mesh); return false; } b.mesh.scale.set(s, s, s); }
+        return true;
+      });
+      if (!paused) renderBar();
+    }
+    // the camera: a swing in at the start, then wherever the player walks it
+    if (intro > 0) { intro = Math.max(0, intro - dt * 0.8); yaw = yawTo - 0.9 * intro * intro; } else yaw += (yawTo - yaw) * Math.min(1, dt * 12);
+    SC.aimCamera(yaw);
+    var mk = markT < 0 ? 1 : (performance.now() - markT) / 500; SC.reticle.visible = mk < 1;
+    if (SC.reticle.visible) { SC.reticle.lookAt(SC.camera.position); var s2 = 1 + mk * 0.6; SC.reticle.scale.set(s2, s2, s2); SC.reticle.children.forEach(function (c) { c.material.opacity = 1 - mk; }); }
+    SC.update(dt);
+    SC.renderer.render(SC.scene, SC.camera);
+  }
+
+  // ================= input: tap to fire, drag to walk round the island =================
+  var drag = null;
+  function onDown(e) {
+    if (!ready || sheetOpen()) return; S.unlock(); e.preventDefault();
+    drag = { id: e.pointerId, x: e.clientX, y: e.clientY, yaw0: yawTo, moved: false };
+    try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+  }
+  function onMove(e) {
+    if (!drag || e.pointerId !== drag.id) return;
+    var dx = e.clientX - drag.x;
+    if (!drag.moved && Math.abs(dx) > 10) drag.moved = true;
+    if (drag.moved) { yawTo = drag.yaw0 - dx * 0.009; intro = 0; }
+  }
+  function onUp(e) {
+    if (!drag || e.pointerId !== drag.id) return; var d = drag; drag = null;
+    if (d.moved || state !== 'play') return;
+    if (sim.ballsLeft <= 0) { toast('No cannonballs left'); return; }
+    var p = pointAt(e.clientX, e.clientY); if (!p) return;
+    if (fire(p)) { markT = performance.now(); SC.reticle.position.set(p[0], p[1], p[2]); }
+  }
+  // where a tap points: the brick under the finger, else the ground (or the air above the island)
+  function pointAt(cx, cy) {
+    var r = canvas.getBoundingClientRect(), v = new T.Vector2((cx - r.left) / r.width * 2 - 1, -((cy - r.top) / r.height * 2 - 1));
+    raycaster.setFromCamera(v, SC.camera);
+    var hit = SC.pickPiece(raycaster); if (hit) return [hit.x, hit.y, hit.z];
+    var o = raycaster.ray.origin, d = raycaster.ray.direction;
+    if (d.y < -0.01) { var t = -o.y / d.y, x = o.x + d.x * t, z = o.z + d.z * t; if (Math.abs(x) < CC.ISLAND + 2 && Math.abs(z) < CC.ISLAND + 2) return [x, 0.2, z]; }
+    // above the castle: a point in the air over the island's middle, in line with the tap
+    var n = new T.Vector3(o.x, 0, o.z).normalize(), den = d.x * n.x + d.z * n.z; if (Math.abs(den) < 1e-4) return null;
+    var t2 = -(o.x * n.x + o.z * n.z) / den; return [o.x + d.x * t2, Math.max(0.5, Math.min(20, o.y + d.y * t2)), o.z + d.z * t2];
+  }
+
+  // ================= info and sheets =================
+  var lastPct = -1;
+  function renderBar() {
+    var pct = Math.min(1, CC.progress(sim) / level.target);
+    if (Math.abs(pct - lastPct) > 0.002) { $('barFill').style.width = (pct * 100).toFixed(1) + '%'; lastPct = pct; }
+  }
+  function renderInfo() {
+    var lv = level || CC.level(levelNo, LEVELS), bl = sim ? sim.ballsLeft : lv ? lv.balls : 0;
+    $('info').innerHTML = '<div><div class="lbl">Level</div><div class="big">' + levelNo + '</div></div>' +
+      '<div style="text-align:center"><div class="lbl">To win</div><div class="mid">' + Math.round((lv ? lv.target : 0.7) * 100) + '% down</div></div>' +
+      '<div class="right"><div class="lbl">Stars</div><div class="mid">' + ('★★★'.slice(0, meta.stars[levelNo] || 0) || '–') + '</div></div>';
+    $('lvNow').textContent = levelNo; $('lvNext').textContent = levelNo + 1;
+    $('balls').innerHTML = '<i></i>× ' + bl; $('balls').classList.toggle('low', bl <= 2);
+    $('barGoal').style.left = 'calc(100% - 3px)';
+    if (!sim) { $('barFill').style.width = '0%'; lastPct = -1; } else { lastPct = -1; renderBar(); }
+  }
+  var lvPage = -1, PAGE = 50;
+  function openLevels(keepPage) {
+    if (keepPage !== true) lvPage = -1;
+    var pages = Math.ceil(LEVELS.length / PAGE); if (lvPage < 0 || lvPage >= pages) lvPage = Math.floor((levelNo - 1) / PAGE);
+    var tabs = '<div class="lvpages">';
+    for (var q = 0; q < pages; q++) { var a = q * PAGE + 1, b = Math.min(LEVELS.length, (q + 1) * PAGE); tabs += '<button data-p="' + q + '" class="' + (q === lvPage ? 'on' : '') + '"' + (a > meta.open ? ' disabled' : '') + '>' + a + '–' + b + '</button>'; }
+    tabs += '</div>';
+    var h = '';
+    for (var n = lvPage * PAGE + 1; n <= Math.min(LEVELS.length, (lvPage + 1) * PAGE); n++) { var st = meta.stars[n] || 0; h += '<button class="lv' + (n === levelNo ? ' cur' : '') + '" data-n="' + n + '"' + (n > meta.open ? ' disabled' : '') + '>' + n + '<small>' + '★★★'.slice(0, st) + '</small></button>'; }
+    $('lvpagesBox').innerHTML = tabs; $('lvgrid').innerHTML = h; $('ovLevels').classList.add('show');
+  }
+  var toastT = 0;
+  function toast(t) { var el = $('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(function () { el.classList.remove('show'); }, 1500); }
+  function showCard(title, html, buttons) {
+    $('cardIcon').innerHTML = '<svg viewBox="0 0 100 100"><use href="#cc-logo"/></svg>';
+    $('endTitle').textContent = title; $('endText').innerHTML = html;
+    var box = $('endActions'); box.innerHTML = '';
+    buttons.forEach(function (b) { var el = document.createElement('button'); el.className = 'btn' + (b.red ? ' red' : ''); el.textContent = b.label; el.addEventListener('click', function () { $('ovEnd').classList.remove('show'); b.go(); }); box.appendChild(el); });
+    $('ovEnd').classList.add('show');
+  }
+  function showAd(done) { GoobsAds.show({ onShow: function () { S.ding(); }, onStep: function () { S.sign(); } }, done); }
+  function between(next) { if (Goobs.adsOn() && meta.finished > 0 && meta.finished % settings.adEvery === 0 && meta.lastAdAt !== meta.finished) { meta.lastAdAt = meta.finished; saveMeta(); next(); showAd(function () {}); return; } next(); }
+  function openHelp() {
+    $('helpTitle').textContent = 'How to play Castle Crumble';
+    $('helpList').innerHTML = [
+      '<b>Tap the castle</b> to fire a cannonball at that spot.',
+      '<b>Drag left or right</b> to walk round the island and fire from another side.',
+      'Fill the bar at the top: knock down enough of the castle (the white line is the goal) before your cannonballs run out.',
+      'Hit low: knock out the bottom of a tower and everything above comes down. Bricks that fall into the sea are gone for good.',
+      '<b>TNT</b> crates blow up when hit or knocked over, and take everything near them with them.',
+      'Fewer cannonballs earn more stars. ' + LEVELS.length + ' castles, each one checked: a computer player knocked it down with the same physics, with cannonballs to spare.'
+    ].map(function (x) { return '<li>' + x + '</li>'; }).join('');
+    $('ovHelp').classList.add('show');
+  }
+  function renderStats() {
+    var stars = 0; for (var n in meta.stars) stars += meta.stars[n];
+    $('statsBody').innerHTML = '<div class="tiles"><div class="tile"><b>' + Math.max(0, meta.open - 1) + '</b><span>Castles crumbled</span></div><div class="tile"><b>' + stars + '</b><span>Stars</span></div><div class="tile"><b>' + fmt(stats.tries) + '</b><span>Tries</span></div></div>' +
+      '<div class="tiles"><div class="tile"><b>' + fmt(stats.shots) + '</b><span>Cannonballs</span></div><div class="tile"><b>' + fmt(stats.bricks) + '</b><span>Bricks down</span></div><div class="tile"><b>' + fmt(stats.booms) + '</b><span>TNT blasts</span></div></div>';
+  }
+
+  // ================= wiring =================
+  function syncSound() { $('btnSound').innerHTML = '<svg viewBox="0 0 24 24"><use href="#i-sound-' + (settings.sound ? 'on' : 'off') + '"/></svg>'; $('btnSound').classList.toggle('on', settings.sound); $('setSound').checked = settings.sound; S.setEnabled(settings.sound); }
+  function syncAds() { $('setAds').checked = Goobs.adsOn(); $('adEvery').textContent = settings.adEvery; $('rowAdEvery').classList.toggle('off', !Goobs.adsOn()); }
+  function sheet(btn, ov, close, onOpen) {
+    if (btn) $(btn).addEventListener('click', function () { if (onOpen) onOpen(); $(ov).classList.add('show'); });
+    $(close).addEventListener('click', function () { $(ov).classList.remove('show'); });
+    $(ov).addEventListener('click', function (e) { if (e.target === this) this.classList.remove('show'); });
+  }
+  function init() {
+    Goobs.themePicker($('themes'));
+    host = $('stage'); canvas = $('cv');
+    canvas.addEventListener('pointerdown', onDown); canvas.addEventListener('pointermove', onMove); canvas.addEventListener('pointerup', onUp); canvas.addEventListener('pointercancel', function () { drag = null; });
+    ['pointerdown', 'touchend', 'click'].forEach(function (ev) { document.addEventListener(ev, function () { S.unlock(); }, { passive: true }); });
+    $('btnHome').addEventListener('click', function () { Goobs.home(); });
+    $('btnNew').addEventListener('click', function () {
+      if (sim && state === 'play' && sim.shots > 0) { showCard('Start again?', 'The castle is rebuilt and you get all your cannonballs back.', [{ label: 'Start again', red: true, go: function () { startLevel(levelNo); } }, { label: 'Keep playing', go: function () {} }]); return; }
+      startLevel(levelNo);
+    });
+    $('btnLevels').addEventListener('click', function () { openLevels(); });
+    $('lvpagesBox').addEventListener('click', function (e) { var b = e.target.closest('button[data-p]'); if (!b || b.disabled) return; lvPage = +b.dataset.p; openLevels(true); });
+    $('lvgrid').addEventListener('click', function (e) { var b = e.target.closest('button[data-n]'); if (!b) return; $('ovLevels').classList.remove('show'); startLevel(+b.dataset.n); });
+    sheet(null, 'ovLevels', 'btnCloseLevels');
+    sheet('btnSettings', 'ovSettings', 'btnCloseSettings');
+    sheet('btnStats', 'ovStats', 'btnCloseStats', renderStats);
+    $('btnHelp').addEventListener('click', openHelp);
+    function closeHelp() { $('ovHelp').classList.remove('show'); if (!meta.seen) { meta.seen = true; saveMeta(); } }
+    $('btnCloseHelp').addEventListener('click', closeHelp);
+    $('ovHelp').addEventListener('click', function (e) { if (e.target === this) closeHelp(); });
+    $('btnSound').addEventListener('click', function () { settings.sound = !settings.sound; saveSettings(); syncSound(); S.ding(); });
+    $('setSound').addEventListener('change', function () { settings.sound = this.checked; saveSettings(); syncSound(); S.ding(); });
+    $('setAds').addEventListener('change', function () { Goobs.setAds(this.checked); syncAds(); });
+    $('setFancy').checked = settings.fancy;
+    $('setFancy').addEventListener('change', function () { settings.fancy = this.checked; saveSettings(); location.reload(); });
+    $('adLess').addEventListener('click', function () { settings.adEvery = Math.max(1, settings.adEvery - 1); saveSettings(); syncAds(); });
+    $('adMore').addEventListener('click', function () { settings.adEvery = Math.min(10, settings.adEvery + 1); saveSettings(); syncAds(); });
+    var rq = 0, refit = function () { if (rq) return; rq = requestAnimationFrame(function () { rq = 0; resize(); }); };
+    if (window.ResizeObserver) new ResizeObserver(refit).observe(host);
+    window.addEventListener('resize', refit);
+    syncSound(); syncAds();
+    levelNo = meta.level; renderInfo();
+    if (!meta.seen) openHelp();
+    Goobs.markPlayed('castle');
+    Goobs.initUpdates({ onVersions: function (v) { $('version').textContent = 'Castle Crumble ' + (v.castle || '?') + ' · Goobs-Games ' + (v.shell || '?'); } });
+    Promise.all([import('../../shared/three.module.min.js'), import('../../shared/cannon-es.min.js')]).then(function (m) {
+      T = m[0]; C = m[1]; CC.use(C);
+      SC = CCScene.build(T, canvas, CC, { fancy: settings.fancy }); raycaster = new T.Raycaster(); resize();
+      ready = true; $('loading').classList.add('hide');
+      startLevel(levelNo);
+      requestAnimationFrame(frame);
+      window.__ccReady = true;
+    }).catch(function () { $('loading').textContent = 'Couldn’t load the game. Check the connection once, then it works offline.'; });
+  }
+  window.__cc = { get sim() { return sim; }, get state() { return state; }, get level() { return level; }, fire: fire, startLevel: startLevel, CC: CC, meta: function () { return meta; }, set yaw(v) { yawTo = v; intro = 0; }, get yaw() { return yaw; },
+    bot: function () { if (!sim) return false; var a = CC.botAim(sim); if (!a) return false; yawTo = yaw = a.yaw; intro = 0; return fire(a.p); },
+    project: function (x, y, z) { var v = new T.Vector3(x, y, z).project(SC.camera), r = canvas.getBoundingClientRect(); return [r.left + (v.x + 1) / 2 * r.width, r.top + (1 - v.y) / 2 * r.height]; }, get ready() { return ready; } };
+  init();
+})();
+</script>
+</body>
+</html>
