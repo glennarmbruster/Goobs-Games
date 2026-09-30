@@ -2,7 +2,7 @@
    Each part has its own version and its own cache. To publish an update, bump ONLY the
    version of the part that changed; unchanged parts are not downloaded again. */
 const VERSIONS = {
-  shell: '2.44.0',     // menu, manifest, icons, /shared (ads, themes, storage)
+  shell: '2.45.0',     // menu, manifest, icons, /shared (ads, themes, storage)
   zoodoku: '1.9.0',
   woodpile: '1.2.0',
   patchwork: '2.2.0',
@@ -27,7 +27,7 @@ const VERSIONS = {
   mines: '1.1.0',
   bubbles: '1.1.0',
   bricks: '1.1.0',
-  topple: '1.5.1',
+  topple: '1.6.0',
   barrage: '1.2.0',
   siege: '1.1.0',
   hoops: '1.1.0',
@@ -39,9 +39,9 @@ const VERSIONS = {
   minigolf: '1.1.0',
   board: '1.1.0',
   buzz: '1.1.0',
-  golf: '0.3.0',
-  shelf: '1.1.0',
-  castle: '1.1.0',
+  golf: '0.4.0',
+  shelf: '1.2.0',
+  castle: '1.2.0',
   three: '0.186.1',  // shared 3D library; bump only when three.js itself changes
   planck: '1.5.0',   // shared 2D physics library (planck.js); bump only when planck itself changes
   cannon: '0.20.0'   // shared 3D physics library (cannon-es) for Number Nook's Chain Cube
