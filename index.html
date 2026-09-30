@@ -699,6 +699,19 @@
       }
     },
     {
+      id: 'shelf', name: 'Shelf Life', blurb: 'Match 3 on the shelves', path: 'games/shelf/',
+      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="slT" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7fd8ff"/><stop offset="1" stop-color="#6a7cff"/></linearGradient></defs><rect width="100" height="100" fill="url(#slT)"/>' +
+        '<rect x="8" y="16" width="84" height="50" rx="8" fill="#fff4e0" stroke="#8a5a2a" stroke-width="2.5"/><rect x="4" y="64" width="92" height="10" rx="4" fill="#c8864a" stroke="#6a3a14" stroke-width="2.5"/>' +
+        '<g stroke="#3a2a1e" stroke-width="2"><rect x="16" y="30" width="16" height="34" rx="4" fill="#e8283a"/><rect x="42" y="30" width="16" height="34" rx="4" fill="#e8283a"/><rect x="68" y="30" width="16" height="34" rx="4" fill="#e8283a"/></g>' +
+        '<g fill="#fff"><rect x="19" y="40" width="10" height="6"/><rect x="45" y="40" width="10" height="6"/><rect x="71" y="40" width="10" height="6"/></g>' +
+        '<g fill="#ffd21e"><circle cx="30" cy="86" r="4"/><circle cx="50" cy="86" r="4"/><circle cx="70" cy="86" r="4"/></g></svg>',
+      status: function () {
+        var m = readLS('shelf.meta'); if (!m || !(m.open > 1)) return 'Match 3 on the shelves';
+        var st = 0; for (var k in (m.stars || {})) st += m.stars[k];
+        return (m.open - 1) + ' levels cleared \u00b7 ' + st + ' stars';
+      }
+    },
+    {
       id: 'beacon', name: 'Beacon Bound', blurb: 'Run, jump, light the way', path: 'games/beacon/',
       art: '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="bbS" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4fa9f5"/><stop offset="1" stop-color="#c9ecff"/></linearGradient><radialGradient id="bbG"><stop offset="0" stop-color="#fff6c0"/><stop offset=".45" stop-color="#ffd24a" stop-opacity=".7"/><stop offset="1" stop-color="#ffd24a" stop-opacity="0"/></radialGradient></defs>' +
         '<rect width="100" height="100" fill="url(#bbS)"/><path d="M0 70q25-14 50-4t50-6v40H0z" fill="#6cc24a"/><path d="M0 78q30-8 60 0t40-2v24H0z" fill="#4fa83a"/>' +
