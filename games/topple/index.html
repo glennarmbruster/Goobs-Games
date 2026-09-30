@@ -18,18 +18,39 @@
 <style>
 /* Topple Fair styles (themes, UI kit and ad cards come from /shared/goobs.css) */
 .brand svg { border-radius: 10px; }
-.stagewrap { flex: 1 1 auto; min-height: 0; width: 100%; display: flex; align-items: stretch; justify-content: center; }
-.stage { position: relative; flex: 1 1 auto; max-width: 620px; border-radius: 18px; overflow: hidden; box-shadow: var(--shadow); touch-action: none;
+/* Full screen (1.5.0, Glenn: "every game full screen"): the scene fills the whole screen, edge to edge; the buttons
+   and counters float on top, clear of the notch and the home bar. */
+html, body { height: 100%; overflow: hidden; background: #8fd3ff; }
+.stage { position: fixed; inset: 0; overflow: hidden; touch-action: none;
   background: linear-gradient(#5fb8f5 0%, #9fd8fb 45%, #d9f1ff 62%, #bfe6a0 62.1%, #7dcf5a 100%); }
 .stage canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; touch-action: none; }
-.hud { position: absolute; left: 10px; top: 10px; pointer-events: none; display: flex; gap: 6px; }
-.ballsleft { background: rgba(255,255,255,.88); color: #1b1f33; font-weight: 900; font-size: 20px; padding: 4px 11px 4px 8px; border-radius: 14px; display: flex; align-items: center; gap: 6px;
-  box-shadow: 0 2px 0 rgba(0,0,0,.12); }
-.ballsleft i { width: 18px; height: 18px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff6c8 0 15%, #ffc53d 40%, #e0772a 100%); display: inline-block; }
+.hud { position: absolute; left: 0; right: 0; top: 0; z-index: 3; display: flex; justify-content: space-between; align-items: center; pointer-events: none;
+  padding: calc(env(safe-area-inset-top, 0px) + 8px) calc(env(safe-area-inset-right, 0px) + 10px) 0 calc(env(safe-area-inset-left, 0px) + 10px); }
+.hudl, .hudr { display: flex; gap: 8px; align-items: center; pointer-events: auto; }
+.hbtn { width: 44px; height: 44px; border-radius: 22px; border: 0; background: rgba(255,255,255,.9); color: #1b2130; display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 3px 10px rgba(0,0,0,.2); padding: 0; flex: none; }
+.hbtn svg { width: 22px; height: 22px; }
+.hbtn:active { transform: scale(.93); }
+.hbtn.on { color: #5a54f0; }
+.pill { background: rgba(255,255,255,.9); color: #1b1f33; font-weight: 900; font-size: 17px; padding: 8px 13px; border-radius: 20px; box-shadow: 0 3px 10px rgba(0,0,0,.18); white-space: nowrap; }
+.pill small { font-size: 14px; color: #ffb000; letter-spacing: 1px; margin-left: 4px; }
+.hud2 { position: absolute; left: 0; right: 0; z-index: 3; pointer-events: none; display: flex; justify-content: space-between; align-items: center;
+  top: calc(env(safe-area-inset-top, 0px) + 60px); padding: 0 calc(env(safe-area-inset-right, 0px) + 10px) 0 calc(env(safe-area-inset-left, 0px) + 10px); }
+.ballsleft { background: rgba(255,255,255,.9); color: #1b1f33; font-weight: 900; font-size: 20px; padding: 5px 12px 5px 8px; border-radius: 16px; display: flex; align-items: center; gap: 6px;
+  box-shadow: 0 3px 10px rgba(0,0,0,.18); }
+.ballsleft i { width: 20px; height: 20px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff6c8 0 15%, #ffc53d 40%, #e0772a 100%); display: inline-block; }
 .ballsleft.low { background: #ffe1e5; color: #c81e3a; }
+.onstand { font-size: 15px; padding: 6px 11px; }
+.menutop { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.menutop svg { width: 36px; height: 36px; border-radius: 10px; }
+.menutop h2 { margin: 0; }
+.menuinfo { color: var(--muted); font-weight: 700; font-size: 15px; margin: 2px 2px 4px; }
+.menuinfo b { color: var(--ink); }
+.menugrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+.menugrid .tool { width: 100%; font-size: 13px; }
 .loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; color: #1b3a6b; pointer-events: none; }
 .loading.hide { display: none; }
-.toast { position: absolute; left: 50%; top: 38%; transform: translateX(-50%); text-align: center; pointer-events: none; opacity: 0; transition: opacity .25s;
+.toast { position: absolute; z-index: 3; left: 50%; top: 32%; transform: translateX(-50%); text-align: center; pointer-events: none; opacity: 0; transition: opacity .25s;
   background: rgba(10,14,36,.78); color: #fff; font-weight: 800; font-size: 16px; padding: 8px 15px; border-radius: 14px; white-space: nowrap; }
 .toast.show { opacity: 1; }
 .lvgrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
@@ -57,6 +78,8 @@
 <rect x="35" y="12" width="14" height="16" rx="2" fill="#3a86ff" transform="rotate(-18 42 20)"/><rect x="51" y="12" width="14" height="16" rx="2" fill="#e8354a"/></g>
 <g fill="#fff"><path d="M26 52l1.3 2.6 2.8.4-2 2 .5 2.8-2.6-1.3-2.5 1.3.5-2.8-2-2 2.8-.4z"/><path d="M58 52l1.3 2.6 2.8.4-2 2 .5 2.8-2.6-1.3-2.5 1.3.5-2.8-2-2 2.8-.4z"/><path d="M50 36l1.3 2.6 2.8.4-2 2 .5 2.8-2.6-1.3-2.5 1.3.5-2.8-2-2 2.8-.4z"/></g>
 <circle cx="82" cy="20" r="9" fill="#ffc53d" stroke="#e0772a" stroke-width="2"/><path d="M60 26 L72 22" stroke="#fff" stroke-width="2.5" stroke-dasharray="3 3" stroke-linecap="round"/></symbol>
+<symbol id="i-menu" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></g></symbol>
+<symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 <symbol id="i-pause" viewBox="0 0 24 24"><g fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1.3"/><rect x="14" y="5" width="4" height="14" rx="1.3"/></g></symbol>
 <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 5.2v13.6a1 1 0 0 0 1.5.9l11-6.8a1 1 0 0 0 0-1.7l-11-6.8A1 1 0 0 0 7 5.2z" fill="currentColor"/></symbol>
 <symbol id="i-sound-on" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor" fill-opacity=".15"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19.3 5.7a9 9 0 0 1 0 12.6"/></g></symbol>
@@ -69,35 +92,43 @@
 <symbol id="i-help" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.3a2.6 2.6 0 0 1 5 .9c0 1.8-2.5 2.2-2.5 3.9M12 17.3v.2"/></g></symbol>
 </defs></svg>
 
-<div class="app" id="app">
-  <div class="top">
-    <button class="brand homebtn" id="btnHome" aria-label="Back to all games">
-      <span class="chev" aria-hidden="true">&#8249;</span>
-      <svg viewBox="0 0 100 100" aria-hidden="true"><use href="#tf-logo"/></svg>
-      <h1>Topple Fair</h1>
-    </button>
-    <div class="topbtns">
-      <button class="iconbtn" id="btnSound" aria-label="Sound"><svg viewBox="0 0 24 24"><use href="#i-sound-off"/></svg></button>
-      <button class="iconbtn" id="btnStats" aria-label="Stats"><svg viewBox="0 0 24 24"><use href="#i-stats"/></svg></button>
-      <button class="iconbtn" id="btnSettings" aria-label="Settings"><svg viewBox="0 0 24 24"><use href="#i-gear"/></svg></button>
+<!-- Full screen (1.5.0): the fairground fills the screen; the buttons float on top -->
+<div class="stage" id="stage">
+  <canvas id="cv"></canvas>
+  <div class="hud">
+    <div class="hudl">
+      <button class="hbtn" id="btnHome" aria-label="Back to all games"><svg viewBox="0 0 24 24"><use href="#i-back"/></svg></button>
+      <div class="pill lvpill" id="lvPill">Level 1</div>
+    </div>
+    <div class="hudr">
+      <button class="hbtn" id="btnSound" aria-label="Sound"><svg viewBox="0 0 24 24"><use href="#i-sound-off"/></svg></button>
+      <button class="hbtn" id="btnMenu" aria-label="Menu"><svg viewBox="0 0 24 24"><use href="#i-menu"/></svg></button>
     </div>
   </div>
-
-  <div class="info" id="info"></div>
-
-  <div class="stagewrap" id="stagewrap">
-    <div class="stage" id="stage">
-      <canvas id="cv"></canvas>
-      <div class="hud" id="hud"><div class="ballsleft" id="ballsLeft"></div></div>
-      <div class="loading" id="loading">Setting up the stand&hellip;</div>
-      <div class="toast" id="toast"></div>
-    </div>
+  <div class="hud2">
+    <div class="ballsleft" id="ballsLeft"></div>
+    <div class="pill onstand" id="onStand"></div>
   </div>
+  <div class="loading" id="loading">Setting up the stand&hellip;</div>
+  <div class="toast" id="toast"></div>
+</div>
 
-  <div class="toolbar">
-    <button class="tool" id="btnHelp"><svg viewBox="0 0 24 24"><use href="#i-help"/></svg><span>How to</span></button>
-    <button class="tool" id="btnLevels"><svg viewBox="0 0 24 24"><use href="#i-levels"/></svg><span>Levels</span></button>
-    <button class="tool red" id="btnNew"><svg viewBox="0 0 24 24"><use href="#i-new"/></svg><span>Restart</span></button>
+<!-- Menu -->
+<div class="overlay" id="ovMenu">
+  <div class="sheet" role="dialog" aria-label="Menu">
+    <div class="menutop"><svg viewBox="0 0 100 100" aria-hidden="true"><use href="#tf-logo"/></svg><h2>Topple Fair</h2></div>
+    <div class="sheetbody">
+      <div class="menuinfo" id="menuInfo"></div>
+      <div class="menugrid">
+        <button class="tool" id="btnLevels"><svg viewBox="0 0 24 24"><use href="#i-levels"/></svg><span>Levels</span></button>
+        <button class="tool" id="btnHelp"><svg viewBox="0 0 24 24"><use href="#i-help"/></svg><span>How to</span></button>
+        <button class="tool" id="btnStats"><svg viewBox="0 0 24 24"><use href="#i-stats"/></svg><span>Records</span></button>
+        <button class="tool" id="btnSettings"><svg viewBox="0 0 24 24"><use href="#i-gear"/></svg><span>Settings</span></button>
+        <button class="tool" id="btnAll"><svg viewBox="0 0 24 24"><use href="#i-back"/></svg><span>All games</span></button>
+        <button class="tool red" id="btnNew"><svg viewBox="0 0 24 24"><use href="#i-new"/></svg><span>Restart</span></button>
+      </div>
+    </div>
+    <div class="actions"><button class="btn red" id="btnCloseMenu">Play</button></div>
   </div>
 </div>
 
@@ -1121,15 +1152,22 @@ var TFScene = (function () {
       clouds.forEach(function (c, i) { c.position.x += dt * (0.25 + (i % 3) * 0.1); if (c.position.x > 110) c.position.x = -110; });
       wheel.rotation.z += dt * 0.1; gondolas.forEach(function (g) { g.rotation.z = -wheel.rotation.z; });
     }
-    function resize(w, h) {
-      renderer.setSize(w, h, false);
-      var aspect = w / h, D = 15.5, halfW = 3.4, tanH = halfW / D;
-      var vfov = 2 * Math.atan(tanH / aspect) * 180 / Math.PI;
-      camera.aspect = aspect; camera.fov = Math.max(44, Math.min(78, vfov));
-      camera.position.set(0, 4.4, D); camera.lookAt(0, 0.9, 0);
-      camera.updateProjectionMatrix();
+    // Full screen (1.5.0): the camera stays where it is (behind the cannon) and zooms to fit this level's pieces, so a
+    // small stack fills the screen as much as a big one; a little room is kept at the top for the buttons
+    var fitBox = null, aspectNow = 0.5, look = new T.Vector3(0, 0.9, 0);
+    function frameCam() {
+      var b = fitBox || { x0: -TF.PW / 2, x1: TF.PW / 2, y0: 0, y1: 2, z: 0 };
+      var W = Math.max(3.0, b.x1 - b.x0) + 1.2, Hh = Math.max(1.8, b.y1 - b.y0) + 0.9, cx = (b.x0 + b.x1) / 2;
+      camera.position.set(0, 4.4, 15.5);
+      var cy = b.y0 + (b.y1 - b.y0) / 2, dist = Math.hypot(camera.position.y - cy, camera.position.z - b.z, cx);
+      var tanV = Math.max(Hh / 2 / dist * 1.3, (W / 2 / dist) / aspectNow);
+      var vfov = Math.max(14, Math.min(64, 2 * Math.atan(tanV) * 180 / Math.PI));
+      look.set(cx * 0.9, cy + Math.tan(vfov * Math.PI / 360) * dist * 0.14, b.z); // a touch high: the stack sits a little below the middle
+      camera.fov = vfov; camera.aspect = aspectNow; camera.updateProjectionMatrix(); camera.lookAt(look);
     }
-    return { renderer: renderer, scene: scene, camera: camera, cannon: cannon, barrel: barrel, reticle: reticle, geos: geos, mats: mats, table: table, setStands: setStands,
+    function fit(box) { fitBox = box; frameCam(); }
+    function resize(w, h) { renderer.setSize(w, h, false); aspectNow = w / Math.max(1, h); frameCam(); }
+    return { renderer: renderer, scene: scene, camera: camera, fit: fit, cannon: cannon, barrel: barrel, reticle: reticle, geos: geos, mats: mats, table: table, setStands: setStands,
       pieceMesh: pieceMesh, ballMesh: ballMesh, update: update, resize: resize, fancy: fancy };
   }
   return { build: build, PIECE_COL: PIECE_COL };
@@ -1172,7 +1210,7 @@ var TFScene = (function () {
   // ================= helpers =================
   function $(id) { return document.getElementById(id); }
   function isOpen(id) { return $(id).classList.contains('show'); }
-  function sheetOpen() { return isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || isOpen('ovLevels') || GoobsAds.isOpen(); }
+  function sheetOpen() { return isOpen('ovEnd') || isOpen('ovMenu') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || isOpen('ovLevels') || GoobsAds.isOpen(); }
   function fmt(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
 
   // ================= the scene (scene.js) =================
@@ -1205,6 +1243,7 @@ var TFScene = (function () {
     clearScene();
     sim = TF.create(levelData);
     SC.setStands(TF.standsOf(levelData)); SC.table.rotation.y = sim.theta;
+    SC.fit(fitBox(levelData));
     var set = TF.themeOf(levelNo);
     sim.items.forEach(function (it) {
       var m = SC.pieceMesh(it.k, set);
@@ -1220,6 +1259,13 @@ var TFScene = (function () {
     if (msgs.length) setTimeout(function () { toast(msgs.join(' \u00b7 ')); }, 400);
     aim = clampAimPt(aimHome()); showReticle();
     renderInfo();
+  }
+  // the space this level's pieces take up (a spinning table: its whole circle), for the camera to fill the screen with
+  function fitBox(lv) {
+    var b = { x0: 1e9, x1: -1e9, y0: 1e9, y1: -1e9, z0: 1e9, z1: -1e9 };
+    lv.items.forEach(function (it) { var K = TF.KINDS[it[0]]; b.x0 = Math.min(b.x0, it[1] - K.hx); b.x1 = Math.max(b.x1, it[1] + K.hx); b.y0 = Math.min(b.y0, it[2] - K.hy); b.y1 = Math.max(b.y1, it[2] + K.hy); b.z0 = Math.min(b.z0, it[3]); b.z1 = Math.max(b.z1, it[3]); });
+    if (lv.round) { var r = 0; lv.items.forEach(function (it) { r = Math.max(r, Math.hypot(it[1], it[3]) + 0.3); }); b.x0 = -r; b.x1 = r; }
+    return { x0: b.x0, x1: b.x1, y0: Math.min(0, b.y0), y1: b.y1, z: (b.z0 + b.z1) / 2 };
   }
   function throwAt(p) {
     if (!sim || state !== 'play' || sim.ballsLeft <= 0) return false;
@@ -1364,11 +1410,11 @@ var TFScene = (function () {
 
   // ================= info and sheets =================
   function renderInfo() {
-    var lv = levelData || LEVELS[levelNo - 1], balls = sim ? sim.ballsLeft : lv ? lv.balls : 0, left = sim ? TF.left(sim) : lv ? lv.items.length : 0;
-    $('info').innerHTML = '<div><div class="lbl">Level</div><div class="big">' + levelNo + '</div></div>' +
-      '<div style="text-align:center"><div class="lbl">On the stand</div><div class="mid">' + left + '</div></div>' +
-      '<div class="right"><div class="lbl">Stars</div><div class="mid">' + ('★★★'.slice(0, meta.stars[levelNo] || 0) || '–') + '</div></div>';
+    var lv = levelData || LEVELS[levelNo - 1], balls = sim ? sim.ballsLeft : lv ? lv.balls : 0, left = sim ? TF.left(sim) : lv ? lv.items.length : 0, st = meta.stars[levelNo] || 0;
+    $('lvPill').innerHTML = 'Level ' + levelNo + (st ? '<small>' + '\u2605\u2605\u2605'.slice(0, st) + '</small>' : '');
+    $('onStand').textContent = left + (left === 1 ? ' piece' : ' pieces') + ' left';
     var bl = $('ballsLeft'); bl.innerHTML = '<i></i>' + balls; bl.classList.toggle('low', balls <= 3);
+    $('menuInfo').innerHTML = 'Level <b>' + levelNo + '</b> of ' + LEVELS.length + ' \u00b7 ' + (st ? '\u2605\u2605\u2605'.slice(0, st) + ' here' : 'not cleared yet');
   }
   var lvPage = -1, PAGE = 50;
   function openLevels(keepPage) {
@@ -1442,6 +1488,12 @@ var TFScene = (function () {
     canvas.addEventListener('pointerdown', onDown); canvas.addEventListener('pointermove', onMove); canvas.addEventListener('pointerup', onUp);
     ['pointerdown', 'touchend', 'click'].forEach(function (ev) { document.addEventListener(ev, function () { S.unlock(); }, { passive: true }); });
     $('btnHome').addEventListener('click', function () { Goobs.home(); });
+    $('btnAll').addEventListener('click', function () { Goobs.home(); });
+    // the menu: open it from the top-right button; its buttons close it first
+    $('btnMenu').addEventListener('click', function () { renderInfo(); $('ovMenu').classList.add('show'); });
+    $('btnCloseMenu').addEventListener('click', function () { $('ovMenu').classList.remove('show'); });
+    $('ovMenu').addEventListener('click', function (e) { if (e.target === this) this.classList.remove('show'); });
+    ['btnLevels', 'btnHelp', 'btnStats', 'btnSettings', 'btnNew'].forEach(function (id) { $(id).addEventListener('click', function () { $('ovMenu').classList.remove('show'); }, true); });
     $('btnNew').addEventListener('click', function () {
       if (inGame()) { showCard('Restart?', 'This stand starts over with all its balls.', [{ label: 'Restart', red: true, go: function () { startLevel(levelNo); } }, { label: 'Keep playing', go: function () {} }]); return; }
       startLevel(levelNo);
