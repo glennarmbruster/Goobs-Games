@@ -735,10 +735,15 @@ var CCScene = (function () {
     // lopsided castle (a watch corner) is centred too. The fit is redone whenever the angle changes, so the castle is
     // whole and centred from every side. The vertical view angle is set so the horizon sits VIEW.HOR from the top.
     // Only the picture moves: the cannon still fires from CC.launchAt (logic.js), so physics and level proofs hold.
-    var VIEW = { PITCH: 27 * Math.PI / 180, HOR: 0.62, pts: null, piv: [0, 2, 0], D: 20, fitYaw: null, tanV: 0.6, sx: 0, sy: 0, push: 1 };
+    // 1.3.0 (Glenn: "the castle angle is still a bit too high - and it's a bit too close. It should be further away and
+    // come closer as the cannon hits it"): a lower camera (17 degrees down, was 27); at the start the castle fills only
+    // VIEW.fill (72%) of the free width, and as it comes down the camera re-frames what's still standing and fills more
+    // (up to 92%), gliding in smoothly (the targets t* are eased toward in aimCamera).
+    var VIEW = { PITCH: 17 * Math.PI / 180, HOR: 0.62, pts: null, piv: [0, 2, 0], D: 20, fitYaw: null, tanV: 0.6, sx: 0, sy: 0, push: 1,
+      fill: 0.72, D0: 0, tD: 20, tTanV: 0.6, tSx: 0, tSy: 0, tPiv: [0, 2, 0], snap: true };
     var marg = { top: 0, bottom: 0, side: 0 }, pxW = 1, pxH = 1, aspectNow = 0.5, pa = [], pb = [], pc = [];
     // the castle as it stands at the start: all piece corners (a cone's round base is a little wider than its box)
-    function fitView(pieces) {
+    function fitView(pieces, fill, keep) {
       var seen = {}, pts = [], x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9, top = 0;
       pieces.forEach(function (p) {
         var k = p[0] === 'cone' ? 1.12 : 1, hx = p[4] * k / 2, hy = p[5] / 2, hz = p[6] * k / 2;
@@ -749,17 +754,19 @@ var CCScene = (function () {
         }
       });
       if (!pts.length) pts = [[-3, 0, -3], [3, 0, -3], [-3, 0, 3], [3, 0, 3], [0, 4, 0]];
-      VIEW.pts = pts; VIEW.piv = [(x0 + x1) / 2 || 0, Math.max(1, top * 0.35), (z0 + z1) / 2 || 0]; VIEW.fitYaw = null;
+      VIEW.pts = pts; VIEW.tPiv = [(x0 + x1) / 2 || 0, Math.max(1, top * 0.35), (z0 + z1) / 2 || 0]; VIEW.fitYaw = null;
+      VIEW.fill = fill || 0.72;
+      if (!keep) { VIEW.snap = true; VIEW.D0 = 0; VIEW.glide = false; } else VIEW.glide = true; // a new level: jump to the frame; a re-frame (keep): glide in
     }
     // frame the castle for one walk-round angle: the camera distance, the vertical view angle and the frame's offset
     function frameFor(yaw) {
       var pts = VIEW.pts; if (!pts) return;
-      var cp = Math.cos(VIEW.PITCH), sp = Math.sin(VIEW.PITCH), tanP = sp / cp, sy = Math.sin(yaw), cy = Math.cos(yaw), P = VIEW.piv;
+      var cp = Math.cos(VIEW.PITCH), sp = Math.sin(VIEW.PITCH), tanP = sp / cp, sy = Math.sin(yaw), cy = Math.cos(yaw), P = VIEW.tPiv;
       // camera axes: back (from the castle to the camera), right, up
       var bx = sy * cp, by = sp, bz = cy * cp, rx = cy, rz = -sy, ux = -sy * sp, uy = cp, uz = -cy * sp, n = pts.length, cmax = -1e9;
       for (var i = 0; i < n; i++) { var q = pts[i], dx = q[0] - P[0], dy = q[1] - P[1], dz = q[2] - P[2]; pa[i] = dx * rx + dz * rz; pb[i] = dx * ux + dy * uy + dz * uz; pc[i] = dx * bx + dy * by + dz * bz; if (pc[i] > cmax) cmax = pc[i]; }
       // the free space in screen units (-1..1): below the cannonballs pill, above the home bar, small side margins
-      var yb = -1 + 2 * marg.bottom / pxH, yt = 1 - 2 * marg.top / pxH, xs = 1 - 2 * marg.side / pxW;
+      var yb = -1 + 2 * marg.bottom / pxH, yt = 1 - 2 * marg.top / pxH, xs = (1 - 2 * marg.side / pxW) * VIEW.fill;
       if (yt - yb < 0.4) { yb = -0.9; yt = 0.9; } // tiny or odd canvas: a sane frame
       var yc = (yt + yb) / 2, hor = Math.max(yc + 0.3, Math.min(VIEW.HOR, yt + 0.12));
       var tMin = Math.tan(20 * Math.PI / 180), tMax = Math.tan(38 * Math.PI / 180), res = null;
@@ -768,15 +775,19 @@ var CCScene = (function () {
         for (var j = 0; j < n; j++) { var d = D - pc[j], x = pa[j] / d, y = pb[j] / d; if (x < ax0) ax0 = x; if (x > ax1) ax1 = x; if (y < ay0) ay0 = y; if (y > ay1) ay1 = y; }
         // the vertical view angle that puts the horizon (tanP above the axis) at "hor" with the castle's middle at yc
         var tanV = Math.max(tMin, Math.min(tMax, (tanP - (ay0 + ay1) / 2) / (hor - yc)));
-        var need = Math.max((ax1 - ax0) / 2 / (tanV * aspectNow * xs), (ay1 - ay0) / (tanV * (yt - yb)));
+        var need = Math.max((ax1 - ax0) / 2 / (tanV * aspectNow * xs), (ay1 - ay0) / (tanV * (yt - yb) * Math.min(1, VIEW.fill + 0.12)));
         return { need: need, tanV: tanV, sx: (ax0 + ax1) / 2, sy: (ay0 + ay1) / 2 - yc * tanV };
       }
       // the nearest distance at which the castle fits (it shrinks on screen as the camera backs off)
       var lo = cmax + 3, hi = cmax + 200;
       if (at(lo).need <= 1) hi = lo;
       else for (var it = 0; it < 24; it++) { var mid = (lo + hi) / 2; if (at(mid).need <= 1) hi = mid; else lo = mid; }
+      // never closer than 55% of the level's first distance (a last lone brick would otherwise fill the screen)
+      if (VIEW.D0 && hi < VIEW.D0 * 0.55) hi = VIEW.D0 * 0.55;
       res = at(hi);
-      VIEW.D = hi; VIEW.tanV = res.tanV; VIEW.sx = res.sx; VIEW.sy = res.sy; VIEW.fitYaw = yaw;
+      if (!VIEW.D0) VIEW.D0 = hi;
+      VIEW.tD = hi; VIEW.tTanV = res.tanV; VIEW.tSx = res.sx; VIEW.tSy = res.sy; VIEW.fitYaw = yaw;
+      if (VIEW.snap) { VIEW.snap = false; VIEW.D = hi; VIEW.tanV = res.tanV; VIEW.sx = res.sx; VIEW.sy = res.sy; VIEW.piv = VIEW.tPiv.slice(); }
     }
     function applyFrame() {
       var nr = camera.near, tw = VIEW.tanV * aspectNow;
@@ -785,15 +796,21 @@ var CCScene = (function () {
       camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
     }
     // place the camera for a walk-round angle; push > 1 stands it further back (the swing-in at the start of a level)
-    function aimCamera(yaw, push) {
-      if (VIEW.pts && (VIEW.fitYaw === null || Math.abs(yaw - VIEW.fitYaw) > 1e-4)) { frameFor(yaw); applyFrame(); }
-      var D = VIEW.D * (push || 1), cp = Math.cos(VIEW.PITCH), P = VIEW.piv;
+    function aimCamera(yaw, push, dt) {
+      if (VIEW.pts && (VIEW.fitYaw === null || Math.abs(yaw - VIEW.fitYaw) > 1e-4)) frameFor(yaw);
+      // ease toward the target frame (about 1.5 s to close in after a hit; instant when walking round)
+      var k = Math.min(1, (dt || 0) * (VIEW.glide ? 1.6 : 10)), P = VIEW.piv, T = VIEW.tPiv;
+      if (VIEW.glide && Math.abs(VIEW.tD - VIEW.D) < VIEW.D * 0.004) VIEW.glide = false;
+      VIEW.D += (VIEW.tD - VIEW.D) * k; VIEW.tanV += (VIEW.tTanV - VIEW.tanV) * k; VIEW.sx += (VIEW.tSx - VIEW.sx) * k; VIEW.sy += (VIEW.tSy - VIEW.sy) * k;
+      P[0] += (T[0] - P[0]) * k; P[1] += (T[1] - P[1]) * k; P[2] += (T[2] - P[2]) * k;
+      applyFrame();
+      var D = VIEW.D * (push || 1), cp = Math.cos(VIEW.PITCH);
       camera.position.set(P[0] + Math.sin(yaw) * cp * D, P[1] + Math.sin(VIEW.PITCH) * D, P[2] + Math.cos(yaw) * cp * D);
       camera.lookAt(P[0], P[1], P[2]); camera.updateMatrixWorld(true);
     }
     function resize(w, h, m) {
       renderer.setSize(w, h, false); pxW = w; pxH = h; if (m) marg = m;
-      aspectNow = w / h; VIEW.fitYaw = null;
+      aspectNow = w / h; VIEW.fitYaw = null; VIEW.snap = true; VIEW.D0 = 0;
       if (!VIEW.pts) { camera.aspect = aspectNow; camera.fov = 60; camera.updateProjectionMatrix(); }
     }
     return { view: VIEW, renderer: renderer, scene: scene, camera: camera, setPieces: setPieces, fitView: fitView, syncPieces: syncPieces, pickPiece: pickPiece, ballMesh: ballMesh,
@@ -855,7 +872,7 @@ var CCScene = (function () {
   }
 
   // ================= game =================
-  var sim = null, level = null, levelNo = 1, state = 'idle', acc = 0, lastT = 0, balls = [], yaw = 0, yawTo = 0, intro = 0, markT = -1;
+  var sim = null, level = null, levelNo = 1, state = 'idle', acc = 0, lastT = 0, balls = [], yaw = 0, yawTo = 0, intro = 0, markT = -1, lastDown = 0, lastRefit = 0;
   function startLevel(n) {
     levelNo = Math.max(1, Math.min(LEVELS.length, n)); meta.level = levelNo; saveMeta();
     level = CC.level(levelNo, LEVELS);
@@ -863,7 +880,7 @@ var CCScene = (function () {
     balls.forEach(function (b) { SC.scene.remove(b.mesh); }); balls = [];
     sim = CC.create(level);
     SC.setPieces(level.pieces);
-    SC.fitView(level.pieces); // the camera frames this castle (scene.js)
+    SC.fitView(level.pieces); lastDown = 0; lastRefit = 0; // the camera frames this castle (scene.js)
     state = 'play'; acc = 0; stats.tries++; saveStats();
     yawTo = yaw = 0; intro = 1; // square on to the castle's front; the camera glides in from a little further back
     renderInfo();
@@ -930,7 +947,14 @@ var CCScene = (function () {
     }
     // the camera: a short glide in at the start (square on, no swing), then wherever the player walks it
     if (intro > 0) { intro = Math.max(0, intro - dt * 1.4); yaw = yawTo; } else yaw += (yawTo - yaw) * Math.min(1, dt * 12);
-    SC.aimCamera(yaw, 1 + 0.3 * intro * intro);
+    // 1.3.0: as the castle comes down the camera re-frames what's still standing and moves in (Glenn: "It should be
+    // further away and come closer as the cannon hits it")
+    if (sim && state === 'play' && sim.down !== lastDown && sim.t - lastRefit > 0.5) {
+      lastDown = sim.down; lastRefit = sim.t;
+      var standing = sim.pieces.filter(function (pc) { return !pc.gone && !pc.down; }).map(function (pc) { return [pc.t, pc.x0, pc.y0, pc.z0, pc.size[0], pc.size[1], pc.size[2]]; });
+      if (standing.length) SC.fitView(standing, 0.72 + 0.2 * Math.min(1, CC.progress(sim) / level.target), true);
+    }
+    SC.aimCamera(yaw, 1 + 0.3 * intro * intro, dt);
     var mk = markT < 0 ? 1 : (performance.now() - markT) / 500; SC.reticle.visible = mk < 1;
     if (SC.reticle.visible) { SC.reticle.lookAt(SC.camera.position); var s2 = 1 + mk * 0.6; SC.reticle.scale.set(s2, s2, s2); SC.reticle.children.forEach(function (c) { c.material.opacity = 1 - mk; }); }
     SC.update(dt);
