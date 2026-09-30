@@ -1152,21 +1152,37 @@ var TFScene = (function () {
       clouds.forEach(function (c, i) { c.position.x += dt * (0.25 + (i % 3) * 0.1); if (c.position.x > 110) c.position.x = -110; });
       wheel.rotation.z += dt * 0.1; gondolas.forEach(function (g) { g.rotation.z = -wheel.rotation.z; });
     }
-    // Full screen (1.5.0): the camera stays where it is (behind the cannon) and zooms to fit this level's pieces, so a
-    // small stack fills the screen as much as a big one; a little room is kept at the top for the buttons
-    var fitBox = null, aspectNow = 0.5, look = new T.Vector3(0, 0.9, 0);
+    // Full screen (1.5.1): fit the whole play area (every platform with its trim and valance, and every piece; a spinning
+    // table: its whole circle) into the part of the screen the buttons leave free. The corners are projected for real, so
+    // the near edge of a platform (wider on screen than the far one) is never cut off. The view widens up to 56 degrees,
+    // then the camera backs straight off (it stays behind the cannon) instead of bending the picture.
+    var fitPts = null, aspectNow = 0.5, pxW = 390, pxH = 844, marg = { top: 110, bottom: 60, side: 8 }, look = new T.Vector3(0, 0.9, 0);
+    var CAM0 = new T.Vector3(0, 4.4, 15.5), MAXV = 56, v3 = new T.Vector3();
     function frameCam() {
-      var b = fitBox || { x0: -TF.PW / 2, x1: TF.PW / 2, y0: 0, y1: 2, z: 0 };
-      var W = Math.max(3.0, b.x1 - b.x0) + 1.2, Hh = Math.max(1.8, b.y1 - b.y0) + 0.9, cx = (b.x0 + b.x1) / 2;
-      camera.position.set(0, 4.4, 15.5);
-      var cy = b.y0 + (b.y1 - b.y0) / 2, dist = Math.hypot(camera.position.y - cy, camera.position.z - b.z, cx);
-      var tanV = Math.max(Hh / 2 / dist * 1.3, (W / 2 / dist) / aspectNow);
-      var vfov = Math.max(14, Math.min(64, 2 * Math.atan(tanV) * 180 / Math.PI));
-      look.set(cx * 0.9, cy + Math.tan(vfov * Math.PI / 360) * dist * 0.14, b.z); // a touch high: the stack sits a little below the middle
-      camera.fov = vfov; camera.aspect = aspectNow; camera.updateProjectionMatrix(); camera.lookAt(look);
+      var pts = fitPts || [[-3, 0, -1], [3, 0, -1], [-3, 0, 1], [3, 0, 1], [-3, 2, 0], [3, 2, 0]];
+      var fracV = Math.max(0.3, (pxH - marg.top - marg.bottom) / pxH), fracW = Math.max(0.5, (pxW - 2 * marg.side) / pxW);
+      var ndcY = (marg.bottom - marg.top) / pxH; // where the middle of the free space is, in screen units (-1..1)
+      var c = [0, 0, 0]; pts.forEach(function (q) { c[0] += q[0]; c[1] += q[1]; c[2] += q[2]; });
+      look.set(c[0] / pts.length, c[1] / pts.length, c[2] / pts.length);
+      var back = 1, tanV = Math.tan(20 * Math.PI / 180), tanMax = Math.tan(MAXV * Math.PI / 360);
+      for (var it = 0; it < 8; it++) {
+        camera.position.copy(look).addScaledVector(v3.copy(CAM0).sub(look), back);
+        camera.lookAt(look); camera.updateMatrixWorld(true); camera.matrixWorldInverse.copy(camera.matrixWorld).invert();
+        var ax0 = 1e9, ax1 = -1e9, ay0 = 1e9, ay1 = -1e9;
+        pts.forEach(function (q) { v3.set(q[0], q[1], q[2]).applyMatrix4(camera.matrixWorldInverse); var d = Math.max(0.5, -v3.z), x = v3.x / d, y = v3.y / d;
+          ax0 = Math.min(ax0, x); ax1 = Math.max(ax1, x); ay0 = Math.min(ay0, y); ay1 = Math.max(ay1, y); });
+        tanV = Math.max((ay1 - ay0) / 2 / fracV, (ax1 - ax0) / 2 / fracW / aspectNow, Math.tan(7 * Math.PI / 180));
+        // turn toward the middle of the content, less the offset that puts it in the middle of the free space
+        var tx = (ax0 + ax1) / 2, ty = (ay0 + ay1) / 2 - ndcY * tanV;
+        v3.set(tx, ty, -1).applyMatrix4(camera.matrixWorld).sub(camera.position).normalize();
+        var dl = camera.position.distanceTo(look); look.copy(camera.position).addScaledVector(v3, dl);
+        if (tanV > tanMax) back *= 1 + (tanV / tanMax - 1) * 0.9;
+      }
+      camera.fov = 2 * Math.atan(Math.min(tanV, tanMax * 1.02)) * 180 / Math.PI; camera.aspect = aspectNow; camera.updateProjectionMatrix();
+      camera.lookAt(look);
     }
-    function fit(box) { fitBox = box; frameCam(); }
-    function resize(w, h) { renderer.setSize(w, h, false); aspectNow = w / Math.max(1, h); frameCam(); }
+    function fit(pts) { fitPts = pts; frameCam(); }
+    function resize(w, h, m) { renderer.setSize(w, h, false); aspectNow = w / Math.max(1, h); pxW = w; pxH = h; if (m) marg = m; frameCam(); }
     return { renderer: renderer, scene: scene, camera: camera, fit: fit, cannon: cannon, barrel: barrel, reticle: reticle, geos: geos, mats: mats, table: table, setStands: setStands,
       pieceMesh: pieceMesh, ballMesh: ballMesh, update: update, resize: resize, fancy: fancy };
   }
@@ -1225,7 +1241,9 @@ var TFScene = (function () {
   function resize() {
     if (!SC) return;
     var r = host.getBoundingClientRect();
-    SC.resize(Math.max(10, r.width), Math.max(10, r.height));
+    // the free space: below the counters row at the top, above a strip at the bottom where the cannon sits
+    var h2 = document.querySelector('.hud2'), top = h2 ? h2.getBoundingClientRect().bottom - r.top + 10 : 110;
+    SC.resize(Math.max(10, r.width), Math.max(10, r.height), { top: Math.max(60, top), bottom: Math.round(r.height * 0.1), side: 14 });
   }
 
   // ================= game =================
@@ -1260,12 +1278,21 @@ var TFScene = (function () {
     aim = clampAimPt(aimHome()); showReticle();
     renderInfo();
   }
-  // the space this level's pieces take up (a spinning table: its whole circle), for the camera to fill the screen with
+  // the points the camera must keep on screen (1.5.1): every platform (its top, trim and valance) and every piece; a
+  // spinning table: its whole circle and everything that can turn round on it
   function fitBox(lv) {
-    var b = { x0: 1e9, x1: -1e9, y0: 1e9, y1: -1e9, z0: 1e9, z1: -1e9 };
-    lv.items.forEach(function (it) { var K = TF.KINDS[it[0]]; b.x0 = Math.min(b.x0, it[1] - K.hx); b.x1 = Math.max(b.x1, it[1] + K.hx); b.y0 = Math.min(b.y0, it[2] - K.hy); b.y1 = Math.max(b.y1, it[2] + K.hy); b.z0 = Math.min(b.z0, it[3]); b.z1 = Math.max(b.z1, it[3]); });
-    if (lv.round) { var r = 0; lv.items.forEach(function (it) { r = Math.max(r, Math.hypot(it[1], it[3]) + 0.3); }); b.x0 = -r; b.x1 = r; }
-    return { x0: b.x0, x1: b.x1, y0: Math.min(0, b.y0), y1: b.y1, z: (b.z0 + b.z1) / 2 };
+    var pts = [], R = 0, yTop = 0;
+    lv.items.forEach(function (it) { var K = TF.KINDS[it[0]]; yTop = Math.max(yTop, it[2] + K.hy); R = Math.max(R, Math.hypot(it[1], it[3]) + Math.max(K.hx, K.hz || K.hx)); });
+    TF.standsOf(lv).forEach(function (st) {
+      var yb = st.y - TF.PT - 0.42;
+      if (st.r) { var r = Math.max(st.r + 0.08, R); for (var i = 0; i < 16; i++) { var a = i * Math.PI / 8, x = Math.cos(a) * r, z = Math.sin(a) * r; pts.push([x, st.y, z], [x, yb, z], [x, yTop, z]); } }
+      else { var x0 = st.x - st.w / 2 - 0.1, x1 = st.x + st.w / 2 + 0.1, z0 = st.z - st.d / 2 - 0.1, z1 = st.z + st.d / 2 + 0.12;
+        [[x0, z0], [x1, z0], [x0, z1], [x1, z1]].forEach(function (c) { pts.push([c[0], st.y, c[1]]); });
+        pts.push([x0, yb, z1], [x1, yb, z1]); }
+    });
+    if (!lv.round) lv.items.forEach(function (it) { var K = TF.KINDS[it[0]], hz = K.hz || K.hx;
+      [-1, 1].forEach(function (sx) { [-1, 1].forEach(function (sz) { pts.push([it[1] + sx * K.hx, it[2] + K.hy, it[3] + sz * hz]); }); }); });
+    return pts;
   }
   function throwAt(p) {
     if (!sim || state !== 'play' || sim.ballsLeft <= 0) return false;
@@ -1534,7 +1561,7 @@ var TFScene = (function () {
 
   // hook for automated tests
   window.__tf = { get sim() { return sim; }, get state() { return state; }, throwAt: throwAt, startLevel: startLevel, TF: TF, meta: function () { return meta; }, stats: function () { return stats; },
-    bot: function () { if (!sim) return false; var t = TF.botTarget(sim); return t ? throwAt(t) : false; }, project: function (x, y, z) { var v = new T.Vector3(x, y, z).project(camera), r = canvas.getBoundingClientRect(); return [r.left + (v.x + 1) / 2 * r.width, r.top + (1 - v.y) / 2 * r.height]; }, get ready() { return ready; }, ring: function () { return aim; }, marker: function () { return { visible: !!(reticle && reticle.visible), age: markT < 0 ? -1 : performance.now() - markT }; } };
+    fitPts: function () { return levelData ? fitBox(levelData) : null; }, bot: function () { if (!sim) return false; var t = TF.botTarget(sim); return t ? throwAt(t) : false; }, project: function (x, y, z) { var v = new T.Vector3(x, y, z).project(camera), r = canvas.getBoundingClientRect(); return [r.left + (v.x + 1) / 2 * r.width, r.top + (1 - v.y) / 2 * r.height]; }, get ready() { return ready; }, ring: function () { return aim; }, marker: function () { return { visible: !!(reticle && reticle.visible), age: markT < 0 ? -1 : performance.now() - markT }; } };
 
   init();
 })();
