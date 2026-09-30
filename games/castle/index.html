@@ -137,6 +137,8 @@ html.gg-fs-over .hud { top: calc(env(safe-area-inset-top, 0px) + 58px); left: ca
       <div class="themes" id="themes"></div>
       <label class="row"><div>Shadows<small>Soft shadows from the sun. Turn off if the game feels slow.</small></div>
         <span class="switch"><input type="checkbox" id="setFancy"><span></span></span></label>
+      <label class="row"><div>Follow the shot<small>The camera rides in with each cannonball, then pulls back out.</small></div>
+        <span class="switch"><input type="checkbox" id="setZoom"><span></span></span></label>
       <label class="row"><div>Sound<small>Cannon booms, crumbling stone, explosions.</small></div>
         <span class="switch"><input type="checkbox" id="setSound"><span></span></span></label>
       <label class="row"><div>Old-time ads<small>Joke ads between games. This switch is shared by all Goobs-Games.</small></div>
@@ -720,7 +722,7 @@ var CCScene = (function () {
     // ---------------- per frame ----------------
     var time = 0;
     function update(dt) {
-      time += dt; waterTex.offset.set(time * 0.004, time * 0.006);
+      time += dt; if (kick > 0) kick = Math.max(0, kick - dt * 5); waterTex.offset.set(time * 0.004, time * 0.006);
       clouds.forEach(function (c, i) { var a = Math.atan2(c.position.z, c.position.x) + dt * 0.004 * (1 + i % 3); var d = Math.hypot(c.position.x, c.position.z); c.position.x = Math.cos(a) * d; c.position.z = Math.sin(a) * d; });
       fx = fx.filter(function (f) { f.t += dt; var k = f.t / f.life; if (k >= 1) { scene.remove(f.s); f.s.material.dispose(); return false; } var s = f.s0 + (f.s1 - f.s0) * Math.sqrt(k); f.s.scale.set(s, s, 1); f.s.material.opacity = 1 - k; f.s.position.y += f.vy * dt; f.s.position.x += f.vx * dt; f.s.position.z += f.vz * dt; return true; });
       if (flash > 0) { flash = Math.max(0, flash - dt * 3); flashLight.intensity = flash * 60; } else flashLight.intensity = 0;
@@ -740,7 +742,13 @@ var CCScene = (function () {
     // VIEW.fill (72%) of the free width, and as it comes down the camera re-frames what's still standing and fills more
     // (up to 92%), gliding in smoothly (the targets t* are eased toward in aimCamera).
     var VIEW = { PITCH: 17 * Math.PI / 180, HOR: 0.62, pts: null, piv: [0, 2, 0], D: 20, fitYaw: null, tanV: 0.6, sx: 0, sy: 0, push: 1,
-      fill: 0.72, D0: 0, tD: 20, tTanV: 0.6, tSx: 0, tSy: 0, tPiv: [0, 2, 0], snap: true };
+      fill: 0.6, D0: 0, tD: 20, tTanV: 0.6, tSx: 0, tSy: 0, tPiv: [0, 2, 0], snap: true, zoom: 0, zp: [0, 0, 0] };
+    // 1.4.0 (Glenn, with Castle Wreck screenshots: "these are further away - after the first shot it keeps moving closer
+    // in the version you provided - it should remain a fixed distance when shooting (and zoom in as the cannon gets
+    // closer) then zoom back out"): the frame is fixed for the level (the castle fills 60% of the width, further back
+    // than 1.3.0, and no re-framing as it falls); each shot the camera rides in toward where the ball will land while
+    // it flies (VIEW.zoom 0..1 toward VIEW.zp, driven by app.js), then pulls back out. A cannon sits at the bottom of
+    // the screen like the original's.
     var marg = { top: 0, bottom: 0, side: 0 }, pxW = 1, pxH = 1, aspectNow = 0.5, pa = [], pb = [], pc = [];
     // the castle as it stands at the start: all piece corners (a cone's round base is a little wider than its box)
     function fitView(pieces, fill, keep) {
@@ -755,7 +763,7 @@ var CCScene = (function () {
       });
       if (!pts.length) pts = [[-3, 0, -3], [3, 0, -3], [-3, 0, 3], [3, 0, 3], [0, 4, 0]];
       VIEW.pts = pts; VIEW.tPiv = [(x0 + x1) / 2 || 0, Math.max(1, top * 0.35), (z0 + z1) / 2 || 0]; VIEW.fitYaw = null;
-      VIEW.fill = fill || 0.72;
+      VIEW.fill = fill || 0.6;
       if (!keep) { VIEW.snap = true; VIEW.D0 = 0; VIEW.glide = false; } else VIEW.glide = true; // a new level: jump to the frame; a re-frame (keep): glide in
     }
     // frame the castle for one walk-round angle: the camera distance, the vertical view angle and the frame's offset
@@ -790,9 +798,9 @@ var CCScene = (function () {
       if (VIEW.snap) { VIEW.snap = false; VIEW.D = hi; VIEW.tanV = res.tanV; VIEW.sx = res.sx; VIEW.sy = res.sy; VIEW.piv = VIEW.tPiv.slice(); }
     }
     function applyFrame() {
-      var nr = camera.near, tw = VIEW.tanV * aspectNow;
+      var nr = camera.near, tw = VIEW.tanV * aspectNow, zf = 1 - VIEW.zoom, sx = VIEW.sx * zf, sy = VIEW.sy * zf;
       camera.fov = 2 * Math.atan(VIEW.tanV) * 180 / Math.PI; camera.aspect = aspectNow;
-      camera.projectionMatrix.makePerspective(nr * (VIEW.sx - tw), nr * (VIEW.sx + tw), nr * (VIEW.sy + VIEW.tanV), nr * (VIEW.sy - VIEW.tanV), nr, camera.far);
+      camera.projectionMatrix.makePerspective(nr * (sx - tw), nr * (sx + tw), nr * (sy + VIEW.tanV), nr * (sy - VIEW.tanV), nr, camera.far);
       camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
     }
     // place the camera for a walk-round angle; push > 1 stands it further back (the swing-in at the start of a level)
@@ -804,17 +812,62 @@ var CCScene = (function () {
       VIEW.D += (VIEW.tD - VIEW.D) * k; VIEW.tanV += (VIEW.tTanV - VIEW.tanV) * k; VIEW.sx += (VIEW.tSx - VIEW.sx) * k; VIEW.sy += (VIEW.tSy - VIEW.sy) * k;
       P[0] += (T[0] - P[0]) * k; P[1] += (T[1] - P[1]) * k; P[2] += (T[2] - P[2]) * k;
       applyFrame();
-      var D = VIEW.D * (push || 1), cp = Math.cos(VIEW.PITCH);
-      camera.position.set(P[0] + Math.sin(yaw) * cp * D, P[1] + Math.sin(VIEW.PITCH) * D, P[2] + Math.cos(yaw) * cp * D);
-      camera.lookAt(P[0], P[1], P[2]); camera.updateMatrixWorld(true);
+      var D = VIEW.D * (push || 1), cp = Math.cos(VIEW.PITCH), z = VIEW.zoom, Z = VIEW.zp;
+      var bx = P[0] + Math.sin(yaw) * cp * D, by = P[1] + Math.sin(VIEW.PITCH) * D, bz = P[2] + Math.cos(yaw) * cp * D;
+      // the shot zoom: the camera rides up to ZOOM_IN of the way toward the landing spot and turns to look at it
+      var m = z * ZOOM_IN;
+      camera.position.set(bx + (Z[0] - bx) * m, by + (Z[1] + 2 - by) * m, bz + (Z[2] - bz) * m);
+      camera.lookAt(P[0] + (Z[0] - P[0]) * z, P[1] + (Z[1] - P[1]) * z, P[2] + (Z[2] - P[2]) * z); camera.updateMatrixWorld(true);
+      placeGun();
     }
+    var ZOOM_IN = 0.55;
+    // ---------------- the cannon at the bottom of the screen (1.4.0) ----------------
+    // It rides with the camera (a child of it), sits at the bottom middle, turns toward each shot, kicks back when it
+    // fires, and drops out of sight while the camera zooms in on a shot.
+    var gun = new T.Group(), gunTurn = new T.Group(), barrel = new T.Group(), tip = new T.Object3D(), kick = 0, gunYaw = 0, gunPitch = 0.12;
+    (function () {
+      var iron = std({ color: 0x2c2f36, roughness: 0.45, metalness: 0.6 }), iron2 = std({ color: 0x3d414b, roughness: 0.4, metalness: 0.65 }),
+        wood = std({ color: 0x8a5a2e, roughness: 0.85 }), wood2 = std({ color: 0x6d4422, roughness: 0.9 }), gold = std({ color: 0xd6a83a, roughness: 0.35, metalness: 0.7 });
+      var base = new T.Mesh(new T.BoxGeometry(1.25, 0.34, 1.35), wood); base.position.y = 0.17; gunTurn.add(base);
+      [-0.5, 0.5].forEach(function (x) {
+        var cheek = new T.Mesh(new T.BoxGeometry(0.16, 0.5, 1.05), wood2); cheek.position.set(x * 0.9, 0.55, 0.05); gunTurn.add(cheek);
+        var wheel = new T.Mesh(new T.CylinderGeometry(0.3, 0.3, 0.14, 20), wood2); wheel.rotation.z = Math.PI / 2; wheel.position.set(x * 1.45, 0.3, 0.35); gunTurn.add(wheel);
+        var hub = new T.Mesh(new T.CylinderGeometry(0.09, 0.09, 0.18, 12), gold); hub.rotation.z = Math.PI / 2; hub.position.copy(wheel.position); gunTurn.add(hub);
+      });
+      var tube = new T.Mesh(new T.CylinderGeometry(0.2, 0.32, 1.7, 24), iron); tube.rotation.x = -Math.PI / 2; tube.position.z = -0.55; barrel.add(tube);
+      var back = new T.Mesh(new T.SphereGeometry(0.33, 20, 14), iron); back.position.z = 0.3; barrel.add(back);
+      [-0.05, -0.75].forEach(function (z) { var r = new T.Mesh(new T.TorusGeometry(0.29 - (z < -0.5 ? 0.05 : 0), 0.045, 8, 24), iron2); r.position.z = z; barrel.add(r); });
+      var lip = new T.Mesh(new T.TorusGeometry(0.21, 0.07, 10, 24), iron2); lip.position.z = -1.4; barrel.add(lip);
+      var bore = new T.Mesh(new T.CircleGeometry(0.15, 20), std({ color: 0x0b0c0f, roughness: 1 })); bore.position.z = -1.41; bore.rotation.y = Math.PI; barrel.add(bore);
+      tip.position.z = -1.45; barrel.add(tip);
+      barrel.position.set(0, 0.72, 0.1); gunTurn.add(barrel); gun.add(gunTurn);
+      gun.traverse(function (o) { if (o.isMesh) { o.renderOrder = 5; } });
+      camera.add(gun); scene.add(camera);
+    })();
+    var GUN_D = 5;
+    function placeGun() {
+      var z = VIEW.zoom, zf = 1 - VIEW.zoom, t = VIEW.tanV, sc = t * GUN_D * 0.2;
+      gun.scale.set(sc, sc, sc);
+      // bottom middle of the (off-centre) frame, sunk a little so the carriage sits on the screen's edge; down and out on a zoom
+      gun.position.set(VIEW.sx * zf * GUN_D, (VIEW.sy * zf - t * 0.93) * GUN_D - z * z * sc * 3, -GUN_D);
+      gun.rotation.x = 0.62; // seen from above and behind, so the barrel's length shows gun.visible = z < 0.9;
+      gunTurn.rotation.y = gunYaw; barrel.rotation.x = gunPitch; barrel.position.z = 0.1 + kick * 0.35;
+    }
+    var gv = new T.Vector3();
+    function aimGun(x, y, z) { // turn the cannon toward a world point (in the camera's frame; a little, so it stays on screen)
+      gv.set(x, y, z); camera.worldToLocal(gv);
+      gunYaw = Math.max(-0.6, Math.min(0.6, Math.atan2(-gv.x, -gv.z)));
+      gunPitch = Math.max(0.02, Math.min(0.4, 0.1 + Math.atan2(gv.y, -gv.z) * 0.8));
+    }
+    function fireGun() { kick = 1; }
+    function muzzle(out) { camera.updateMatrixWorld(true); return tip.getWorldPosition(out); }
     function resize(w, h, m) {
       renderer.setSize(w, h, false); pxW = w; pxH = h; if (m) marg = m;
       aspectNow = w / h; VIEW.fitYaw = null; VIEW.snap = true; VIEW.D0 = 0;
       if (!VIEW.pts) { camera.aspect = aspectNow; camera.fov = 60; camera.updateProjectionMatrix(); }
     }
     return { view: VIEW, renderer: renderer, scene: scene, camera: camera, setPieces: setPieces, fitView: fitView, syncPieces: syncPieces, pickPiece: pickPiece, ballMesh: ballMesh,
-      dust: dust, boom: function (x, y, z) { boom(x, y, z); setBoomLight(x, y, z); }, splash: splash, reticle: reticle, update: update, aimCamera: aimCamera, resize: resize, fancy: fancy };
+      dust: dust, boom: function (x, y, z) { boom(x, y, z); setBoomLight(x, y, z); }, splash: splash, reticle: reticle, update: update, aimCamera: aimCamera, resize: resize, fancy: fancy, aimGun: aimGun, fireGun: fireGun, muzzle: muzzle };
   }
   return { build: build };
 })();
@@ -831,7 +884,7 @@ var CCScene = (function () {
 
   // ================= storage =================
   var store = Goobs.store('castle');
-  var settings = { sound: false, adEvery: 3, fancy: true };
+  var settings = { sound: false, adEvery: 3, fancy: true, zoom: true };
   (function () { var s = store.get('settings', {}) || {}; for (var k in settings) if (typeof s[k] === typeof settings[k]) settings[k] = s[k]; settings.adEvery = Math.min(10, Math.max(1, settings.adEvery | 0)); })();
   function saveSettings() { store.set('settings', settings); }
   var meta = store.get('meta', null) || {};
@@ -872,7 +925,7 @@ var CCScene = (function () {
   }
 
   // ================= game =================
-  var sim = null, level = null, levelNo = 1, state = 'idle', acc = 0, lastT = 0, balls = [], yaw = 0, yawTo = 0, intro = 0, markT = -1, lastDown = 0, lastRefit = 0;
+  var sim = null, level = null, levelNo = 1, state = 'idle', acc = 0, lastT = 0, balls = [], yaw = 0, yawTo = 0, intro = 0, markT = -1, zoom = { z: 0, z0: 0, p: [0, 0, 0], t: 0, fl: 1, phase: 0 };
   function startLevel(n) {
     levelNo = Math.max(1, Math.min(LEVELS.length, n)); meta.level = levelNo; saveMeta();
     level = CC.level(levelNo, LEVELS);
@@ -880,7 +933,7 @@ var CCScene = (function () {
     balls.forEach(function (b) { SC.scene.remove(b.mesh); }); balls = [];
     sim = CC.create(level);
     SC.setPieces(level.pieces);
-    SC.fitView(level.pieces); lastDown = 0; lastRefit = 0; // the camera frames this castle (scene.js)
+    SC.fitView(level.pieces); zoom.phase = 0; zoom.z = 0; // the camera frames this castle (scene.js), fixed for the level
     state = 'play'; acc = 0; stats.tries++; saveStats();
     yawTo = yaw = 0; intro = 1; // square on to the castle's front; the camera glides in from a little further back
     renderInfo();
@@ -889,6 +942,9 @@ var CCScene = (function () {
     if (!sim || state !== 'play' || sim.ballsLeft <= 0) return false;
     if (sim.t - sim.lastShotT < 0.35) return false;
     var ball = CC.shoot(sim, yaw, p); if (!ball) return false;
+    var L = CC.launchAt(yaw), fl = Math.hypot(p[0] - L[0], p[1] - L[1], p[2] - L[2]) / CC.SPEED;
+    zoom.p = [p[0], p[1], p[2]]; zoom.z0 = zoom.z; zoom.fl = Math.max(0.35, fl * 0.95); zoom.phase = 1; zoom.t = 0;
+    SC.aimGun(p[0], p[1], p[2]); SC.fireGun();
     var m = SC.ballMesh(); m.visible = false;
     balls.push({ ball: ball, mesh: m, seen: -1 });
     stats.shots++; saveStats(); S.shoot(); renderInfo();
@@ -947,13 +1003,15 @@ var CCScene = (function () {
     }
     // the camera: a short glide in at the start (square on, no swing), then wherever the player walks it
     if (intro > 0) { intro = Math.max(0, intro - dt * 1.4); yaw = yawTo; } else yaw += (yawTo - yaw) * Math.min(1, dt * 12);
-    // 1.3.0: as the castle comes down the camera re-frames what's still standing and moves in (Glenn: "It should be
-    // further away and come closer as the cannon hits it")
-    if (sim && state === 'play' && sim.down !== lastDown && sim.t - lastRefit > 0.5) {
-      lastDown = sim.down; lastRefit = sim.t;
-      var standing = sim.pieces.filter(function (pc) { return !pc.gone && !pc.down; }).map(function (pc) { return [pc.t, pc.x0, pc.y0, pc.z0, pc.size[0], pc.size[1], pc.size[2]]; });
-      if (standing.length) SC.fitView(standing, 0.72 + 0.2 * Math.min(1, CC.progress(sim) / level.target), true);
+    // 1.4.0: the shot zoom (Glenn: "it should remain a fixed distance when shooting (and zoom in as the cannon gets
+    // closer) then zoom back out"): in while the last ball flies, a short hold as it lands, then back out
+    if (zoom.phase && !paused) {
+      zoom.t += dt;
+      if (zoom.phase === 1) { var zk = Math.min(1, zoom.t / zoom.fl); zoom.z = zoom.z0 + (1 - zoom.z0) * zk * zk * (3 - 2 * zk); if (zk >= 1) { zoom.phase = 2; zoom.t = 0; } }
+      else if (zoom.phase === 2) { zoom.z = 1; if (zoom.t > 0.5) { zoom.phase = 3; zoom.t = 0; } }
+      else { var zo = Math.min(1, zoom.t / 0.9); zoom.z = 1 - zo * zo * (3 - 2 * zo); if (zo >= 1) { zoom.phase = 0; zoom.z = 0; } }
     }
+    SC.view.zoom = settings.zoom ? zoom.z : 0; SC.view.zp = zoom.p;
     SC.aimCamera(yaw, 1 + 0.3 * intro * intro, dt);
     var mk = markT < 0 ? 1 : (performance.now() - markT) / 500; SC.reticle.visible = mk < 1;
     if (SC.reticle.visible) { SC.reticle.lookAt(SC.camera.position); var s2 = 1 + mk * 0.6; SC.reticle.scale.set(s2, s2, s2); SC.reticle.children.forEach(function (c) { c.material.opacity = 1 - mk; }); }
@@ -972,8 +1030,7 @@ var CCScene = (function () {
     var depth = (p.x - SC.camera.position.x) * fwd.x + (p.y - SC.camera.position.y) * fwd.y + (p.z - SC.camera.position.z) * fwd.z;
     if (b.seen < 0) {
       if (depth < MUZ || b.ball.gone) { b.mesh.visible = false; b.mesh.position.set(p.x, p.y, p.z); return; }
-      b.seen = tms; tmpV.set(0, -0.82, 0.5).unproject(SC.camera).sub(SC.camera.position).normalize(); // the ray to the bottom middle
-      b.muz = SC.camera.position.clone().addScaledVector(tmpV, MUZ / Math.max(0.2, tmpV.dot(fwd)));
+      b.seen = tms; b.muz = SC.muzzle(new T.Vector3()); // 1.4.0: out of the cannon's mouth at the bottom of the screen
       b.mesh.visible = true;
     }
     var k = Math.min(1, (tms - b.seen) / 180), w = k * k * (3 - 2 * k);
@@ -1100,6 +1157,8 @@ var CCScene = (function () {
     $('setSound').addEventListener('change', function () { settings.sound = this.checked; saveSettings(); syncSound(); S.ding(); });
     $('setAds').addEventListener('change', function () { Goobs.setAds(this.checked); syncAds(); });
     $('setFancy').checked = settings.fancy;
+    $('setZoom').checked = settings.zoom;
+    $('setZoom').addEventListener('change', function () { settings.zoom = this.checked; saveSettings(); });
     $('setFancy').addEventListener('change', function () { settings.fancy = this.checked; saveSettings(); location.reload(); });
     $('adLess').addEventListener('click', function () { settings.adEvery = Math.max(1, settings.adEvery - 1); saveSettings(); syncAds(); });
     $('adMore').addEventListener('click', function () { settings.adEvery = Math.min(10, settings.adEvery + 1); saveSettings(); syncAds(); });
