@@ -99,6 +99,35 @@ html, body { height: 100%; overflow: hidden; }
 .head .mark.dark { fill: #1b2130; stroke: rgba(255,255,255,.9); }
 .box .hole .ghost { display: grid; place-items: center; width: 100%; height: 100%; }
 .box .hole .ghost .mark { width: 70%; height: 70%; fill: rgba(255,255,255,.55); stroke: none; }
+
+/* Full screen (2.4.0, Glenn: "every game full screen", Cindy: "it's too small"): the scene fills the whole phone and the
+   object gets all the room below the boxes and the tray (render.js frames it into that space). The top row floats (the
+   kit's html.gg-fs-over); the boxes and the tray sit under it. The page lets touches through to the scene except on those. */
+html.gg-fs-over .app { gap: 8px; pointer-events: none;
+  padding: calc(env(safe-area-inset-top, 0px) + 58px) calc(env(safe-area-inset-right, 0px) + 10px) calc(env(safe-area-inset-bottom, 0px) + 8px) calc(env(safe-area-inset-left, 0px) + 10px); }
+html.gg-fs-over .stage { position: fixed; inset: 0; border-radius: 0; box-shadow: none; min-height: 0; pointer-events: auto; }
+html.gg-fs-over .boxes, html.gg-fs-over .traywrap { position: relative; z-index: 1; pointer-events: auto; }
+html.gg-fs-over .traylbl { background: var(--surface); border-radius: 10px; padding: 3px 7px; box-shadow: var(--shadow-sm); }
+html.gg-fs-over .turnhint { top: auto; bottom: calc(env(safe-area-inset-bottom, 0px) + 14px); }
+.screwpill { margin-right: auto; height: 44px; box-sizing: border-box; padding: 5px 13px 0; display: flex; flex-direction: column; justify-content: center; line-height: 1.05; min-width: 0; }
+.screwpill small { font-size: 11px; font-weight: 800; color: #6b7080; letter-spacing: .4px; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; }
+.screwpill b { font-size: 17px; font-weight: 900; }
+.screwpill .bar { height: 4px; border-radius: 2px; background: rgba(0,0,0,.1); margin: 3px 0 0; overflow: hidden; }
+.screwpill .bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); }
+/* a gold dot on the Menu button while today's daily is still to play (the Daily tab is inside the menu now) */
+.ggmenu-btn { position: relative; }
+.ggmenu-btn.daily::after { content: ""; position: absolute; top: 5px; right: 5px; width: 9px; height: 9px; border-radius: 50%; background: var(--gold); }
+.ggmenu .modes { margin: 4px 0 2px; }
+.ggmenu .modes .dot { top: 12px; }
+/* taller phones: bigger boxes and tray spots */
+@media (min-height: 760px) {
+  html.gg-fs .box { height: 62px; }
+  html.gg-fs .box .hole { width: 25px; height: 25px; }
+  html.gg-fs .box .hole .head { width: 23px; height: 23px; }
+  html.gg-fs .addbox { height: 62px; }
+  html.gg-fs .spot { width: 38px; height: 38px; }
+  html.gg-fs .spot .head { width: 29px; height: 29px; }
+}
 </style>
 </head>
 <body>
@@ -123,7 +152,9 @@ html, body { height: 100%; overflow: hidden; }
       <svg viewBox="0 0 100 100" aria-hidden="true"><use href="#sb-logo"/></svg>
       <h1>Screwball</h1>
     </button>
+    <div class="ggpill screwpill" id="info"></div>
     <div class="topbtns">
+      <button class="iconbtn" id="btnView" aria-label="Front view"><svg viewBox="0 0 24 24"><use href="#i-turn"/></svg></button>
       <button class="iconbtn" id="btnSound" aria-label="Sound"><svg viewBox="0 0 24 24"><use href="#i-sound-off"/></svg></button>
       <button class="iconbtn" id="btnStats" aria-label="Stats"><svg viewBox="0 0 24 24"><use href="#i-stats"/></svg></button>
       <button class="iconbtn" id="btnSettings" aria-label="Settings"><svg viewBox="0 0 24 24"><use href="#i-gear"/></svg></button>
@@ -135,7 +166,6 @@ html, body { height: 100%; overflow: hidden; }
     <button data-mode="daily">Daily<i class="dot"></i></button>
   </div>
 
-  <div class="info" id="info"></div>
   <div class="boxes" id="boxes"></div>
   <div class="traywrap"><span class="traylbl">Tray</span><div class="tray" id="tray"></div></div>
 
@@ -149,7 +179,6 @@ html, body { height: 100%; overflow: hidden; }
 
   <div class="toolbar">
     <button class="tool" id="btnHelp"><svg viewBox="0 0 24 24"><use href="#i-help"/></svg><span>How to</span></button>
-    <button class="tool" id="btnView"><svg viewBox="0 0 24 24"><use href="#i-turn"/></svg><span>Front view</span></button>
     <button class="tool red" id="btnNew"><svg viewBox="0 0 24 24"><use href="#i-new"/></svg><span id="newLabel">Restart</span></button>
   </div>
 </div>
@@ -1394,11 +1423,19 @@ var SBRender = (function () {
       fit(); kick();
     }
     var radius = 5, hs = 1, ext = new THREE.Vector3(5, 5, 5);
+    // Full screen (2.4.0): the canvas fills the phone, but the object is framed into the free space below the boxes and
+    // the tray (marg, set by the app): the same fit as before, using the free space's shape, and an off-center frame
+    // that puts the middle of the free space where the camera looks. Picking and screenOf use the same camera.
+    var marg = { top: 0, bottom: 0, side: 0 };
     function fit() {
-      var vf = camera.fov * Math.PI / 360, hf = Math.atan(Math.tan(vf) * camera.aspect);
+      var fh = Math.max(0.3 * H, H - marg.top - marg.bottom), fw = Math.max(0.5 * W, W - 2 * marg.side);
+      var vf = camera.fov * Math.PI / 360, hf = Math.atan(Math.tan(vf) * fw / fh);
       // fit the object's footprint across and its height up and down (not a whole sphere, so flat scenes fill the screen)
       var rh = 0.5 * Math.hypot(ext.x, ext.z) * 0.8, rv = (0.5 * ext.y + rh * 0.3) * 1.2;
       dist = Math.max(rh / Math.tan(hf), rv / Math.tan(vf)) + rh * 0.45;
+      var tanV = Math.tan(vf) * H / fh, cy = (marg.bottom - marg.top) / H * tanV, n = camera.near, tw = tanV * W / H;
+      camera.projectionMatrix.makePerspective(-n * tw, n * tw, n * (tanV - cy), n * (-tanV - cy), n, camera.far);
+      camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
     }
     function place() {
       var d = dist / zoom;
@@ -1541,6 +1578,7 @@ var SBRender = (function () {
 
     return {
       setState: setState, resize: resize, redraw: kick,
+      margins: function (m) { marg = m; resize(); },
       reset: function () { home(); zoom = 1; vyaw = 0; vpitch = 0; kick(); },
       onTap: function (cb) { tapCb = cb; },
       screwNear: screwNear, screenOf: screenOf, visible: function (s) { return screwVisible(s); },
@@ -1642,13 +1680,25 @@ var SBSound = (function () {
   function prevDay(day) { var d = new Date(Math.floor(day / 10000), Math.floor(day / 100) % 100 - 1, day % 100 - 1); return dayNum(d); }
   function isOpen(id) { return $(id).classList.contains('show'); }
   function icon(id) { return '<svg viewBox="0 0 100 100"><use href="#' + id + '"/></svg>'; }
-  function paused() { return isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || isOpen('ovLevels') || GoobsAds.isOpen(); }
+  function paused() { return FS.isOpen() || isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || isOpen('ovLevels') || GoobsAds.isOpen(); }
   // a screw head with its color's mark (2.3.0)
   function mark(c) { var k = COLORS[c]; return '<svg viewBox="0 0 24 24" class="mark' + (k.dark ? ' dark' : '') + '"><path fill-rule="evenodd" d="' + k.sym + '"/></svg>'; }
   function head(c, cls) { return '<div class="head marked' + (cls ? ' ' + cls : '') + '" style="background:' + COLORS[c].hex + '">' + mark(c) + '</div>'; }
 
   // ================= game state =================
   // game: { mode: level|replay|daily, level, day, scheme, moves: [screw ids, -1 = extra box], done, tries }
+  // Full screen (2.4.0): the kit floats back, the screws-left pill, Front view, Sound and Menu over the scene. How to,
+  // Stats, Settings and Restart move into the Menu sheet with the Level / Daily tabs.
+  var FS = Goobs.fullscreen({
+    overlay: true,
+    menu: ['btnHelp', 'btnStats', 'btnSettings', 'btnNew'],
+    info: function () {
+      if (!game || !st) return '';
+      return (game.mode === 'daily' ? 'Daily · ' + new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : (game.mode === 'replay' ? 'Replay · ' : '') + 'Level ' + game.level) +
+        ' · <b>' + st.name + '</b> · ' + st.total + (st.total === 1 ? ' screw left' : ' screws left');
+    }
+  });
+  FS.list.parentNode.insertBefore(document.getElementById('modes'), FS.list);
   var game = null, st = null, R3 = null;
   function keyFor(mode) { return 'game.' + mode; }
   function specFor(g) { return g.mode === 'daily' ? SB.dailySpec(g.day) : SB.levelSpec(g.level); }
@@ -1706,17 +1756,17 @@ var SBSound = (function () {
     $('tray').classList.toggle('full', st.tray.length >= st.trayCap);
   }
   function renderInfo() {
-    var name = st.name, left;
-    if (game.mode === 'daily') left = '<div class="lbl">Daily · ' + new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + '</div><div class="ttl">' + name + '</div>';
-    else left = '<div class="lbl">' + (game.mode === 'replay' ? 'Replay · ' : '') + 'Level ' + game.level + '</div><div class="ttl">' + name + '</div>';
-    $('info').innerHTML = '<div>' + left + '</div><div class="right"><div class="mid">' + st.total + (st.total === 1 ? ' screw left' : ' screws left') + '</div>' +
-      '<div class="bar"><i style="width:' + Math.round(100 * (1 - st.total / st.startTotal)) + '%"></i></div></div>';
+    // the pill in the top row: level (or Daily), screws left and a progress bar; the object's name is in the Menu sheet
+    var lbl = game.mode === 'daily' ? 'Daily' : (game.mode === 'replay' ? 'Replay ' : 'Level ') + game.level;
+    $('info').innerHTML = '<small>' + lbl + '</small><b>' + st.total + ' left</b>' +
+      '<div class="bar"><i style="width:' + Math.round(100 * (1 - st.total / st.startTotal)) + '%"></i></div>';
   }
   function renderModes() {
     var cur = game.mode === 'replay' ? 'level' : game.mode;
     Array.prototype.forEach.call($('modes').children, function (b) { b.classList.toggle('on', b.dataset.mode === cur); });
     $('modeLevel').textContent = 'Level ' + (game.mode === 'replay' ? game.level : meta.level);
     document.querySelector('#modes .dot').classList.toggle('show', !meta.daily[dayNum()]);
+    FS.button.classList.toggle('daily', !meta.daily[dayNum()]);
     $('newLabel').textContent = game.done && game.mode !== 'daily' ? 'Next level' : 'Restart';
   }
   function renderAll() { renderBoxes(); renderTray(); renderInfo(); renderModes(); }
@@ -1972,6 +2022,7 @@ var SBSound = (function () {
     $('modes').addEventListener('click', function (e) {
       var bt = e.target.closest('button');
       if (!bt) return;
+      FS.close();
       saveGame();
       if (bt.dataset.mode === 'level') { levelsPage = 0; renderLevels(); $('ovLevels').classList.add('show'); }
       else if (meta.daily[dayNum()] && !((store.get(keyFor('daily'), null) || {}).moves || []).length) {
@@ -1995,7 +2046,17 @@ var SBSound = (function () {
     $('setAds').addEventListener('change', function () { Goobs.setAds(this.checked); syncAds(); });
     $('adLess').addEventListener('click', function () { settings.adEvery = Math.max(1, settings.adEvery - 1); saveSettings(); syncAds(); });
     $('adMore').addEventListener('click', function () { settings.adEvery = Math.min(10, settings.adEvery + 1); saveSettings(); syncAds(); });
-    window.addEventListener('resize', function () { R3.resize(); });
+    // the free space the object is framed into: below the boxes and the tray, above the home bar
+    var fitRq = 0, refit = function () {
+      if (fitRq) return;
+      fitRq = requestAnimationFrame(function () {
+        fitRq = 0;
+        var cr = $('cv').getBoundingClientRect(), tr = document.querySelector('.traywrap').getBoundingClientRect(), sb = parseFloat(getComputedStyle(document.querySelector('.app')).paddingBottom) || 8;
+        R3.margins({ top: Math.max(100, tr.bottom - cr.top + 10), bottom: sb + 6, side: 8 });
+      });
+    };
+    window.addEventListener('resize', refit);
+    if (window.ResizeObserver) new ResizeObserver(refit).observe(document.querySelector('.traywrap'));
     document.addEventListener('visibilitychange', function () { if (document.hidden) saveGame(); else if (game) { renderModes(); R3.resize(); } });
     window.addEventListener('pagehide', saveGame);
     syncSound(); syncAds();
@@ -2003,7 +2064,7 @@ var SBSound = (function () {
     var replay = store.get(keyFor('replay'), null);
     if (meta.mode === 'daily') startDaily();
     else startLevel(meta.replay && replay && replay.level === meta.replay && !replay.done ? meta.replay : meta.level);
-    R3.resize();
+    R3.resize(); refit();
     if (!meta.seenHelp) $('ovHelp').classList.add('show');
     Goobs.markPlayed('screwball');
     Goobs.initUpdates({

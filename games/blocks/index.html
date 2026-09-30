@@ -86,6 +86,21 @@
 @keyframes tdpop { 0% { opacity: 0; transform: scale(.7); } 12% { opacity: 1; transform: scale(1.08); } 70% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateY(-24px); } }
 .cardicon svg { border-radius: 16px; }
 @media (max-width: 385px) { .modes button { font-size: 14px; } .brand h1 { font-size: 21px; } }
+
+/* full screen (Goobs.fullscreen, 2026-09-29): Pause sits in the top row as a round button (icon only) */
+html.gg-fs .top #btnPause span { display: none; }
+html.gg-fs .top #btnPause:disabled { opacity: .4; }
+/* the score row lives in the top row (full screen only): the back button shows just its chevron */
+html.gg-fs .top .brand h1 { display: none; }
+html.gg-fs .top .homebtn { min-width: 30px; height: 44px; flex: none; }
+html.gg-fs .top .info { flex: 1 1 auto; width: auto; min-width: 0; min-height: 0; gap: 6px; padding: 0 2px 0 0; }
+html.gg-fs .top .info > div { white-space: nowrap; }
+html.gg-fs .top .info .lbl { font-size: 10px; letter-spacing: .3px; }
+html.gg-fs .top .info .big { font-size: 20px; letter-spacing: -.6px; }
+html.gg-fs .top .info .mid { font-size: 15px; letter-spacing: -.3px; }
+html.gg-fs .top .info .of { font-size: 12px; }
+/* no room for a Pause button next to the score: the Menu button pauses the game (the board then shows Resume) */
+html.gg-fs .top #btnPause { display: none; }
 </style>
 </head>
 <body>
@@ -546,7 +561,7 @@ var TDSound = (function () {
   function $(id) { return document.getElementById(id); }
   function fmt(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
   function isOpen(id) { return $(id).classList.contains('show'); }
-  function sheetOpen() { return isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || GoobsAds.isOpen(); }
+  function sheetOpen() { return isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || isOpen('ggMenu') || GoobsAds.isOpen(); }
   function clock(frames, cs) { var ms = frames * STEP, m = Math.floor(ms / 60000), sec = (ms % 60000) / 1000; return m + ':' + (sec < 10 ? '0' : '') + (cs ? sec.toFixed(2) : Math.floor(sec)); }
   function newSeed() { try { return crypto.getRandomValues(new Uint32Array(1))[0]; } catch (e) { return Math.floor(Math.random() * 4294967296); } }
 
@@ -867,6 +882,7 @@ var TDSound = (function () {
   function renderModes() { Array.prototype.forEach.call($('modes').children, function (b) { b.classList.toggle('on', b.dataset.mode === meta.mode); }); }
   function renderTools() {
     var p = $('btnPause'), paused = phase === 'paused';
+    p.setAttribute('aria-label', paused ? 'Resume' : 'Pause');
     p.innerHTML = '<svg viewBox="0 0 24 24"><use href="#i-' + (paused ? 'play' : 'pause') + '"/></svg><span>' + (paused ? 'Resume' : 'Pause') + '</span>';
     p.disabled = !(phase === 'run' || phase === 'paused');
   }
@@ -1072,6 +1088,18 @@ var TDSound = (function () {
     });
     sheet('btnSettings', 'ovSettings', 'btnCloseSettings');
     sheet('btnStats', 'ovStats', 'btnCloseStats', renderStats);
+    // full screen (2026-09-29): How to, Restart, Stats and Settings live in the Menu (the empty toolbar hides itself), so the
+    // well gets the toolbar's height. The game pauses while the Menu is open, so the Menu button is the pause button here:
+    // the Pause button moves to the top row but stays hidden there (style.css), the score row needs the room.
+    var pb = $('btnPause'); pb.className = 'iconbtn'; pb.setAttribute('aria-label', 'Pause');
+    $('btnSound').parentNode.insertBefore(pb, $('btnSound'));
+    // the score row moves up into the top row in place of the name (the Menu shows the name): the well is limited by the
+    // height on every phone, so those 50 points make the blocks bigger (30 -> 32 points on an iPhone 15, 22 -> 24 on an SE)
+    $('btnHome').parentNode.insertBefore($('info'), $('btnSound').parentNode);
+    Goobs.fullscreen({
+      menu: ['btnNew', 'btnHelp', 'btnStats', 'btnSettings'],
+      onOpen: function () { pause(); }
+    });
     $('btnHelp').addEventListener('click', function () { pause(); openHelp(); });
     function closeHelp() { $('ovHelp').classList.remove('show'); if (!meta.seen) { meta.seen = true; saveMeta(); } }
     $('btnCloseHelp').addEventListener('click', closeHelp);

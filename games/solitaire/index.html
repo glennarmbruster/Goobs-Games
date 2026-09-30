@@ -125,6 +125,22 @@
 .cardicon svg { border-radius: 16px; }
 .statgame { margin-bottom: 4px; }
 .statgame .sub { font-size: 13px; color: var(--muted); margin: -4px 2px 10px; }
+
+/* ---------- full screen (kit) ----------
+   Score / time / moves are pills in the top row (the game's name is hidden there; the Menu shows it, with the variant),
+   the felt runs to the very edges of the screen, and Options / New / How to / Stats / Settings live in the Menu.
+   Undo, Hint and Daily stay under the table. */
+html.gg-fs .top .brand h1 { display: none; }
+html.gg-fs .top .brand { flex: none; }
+.ttpills { flex: 1 1 auto; width: auto; min-width: 0; min-height: 0; justify-content: flex-end; gap: 5px; padding: 0; }
+.ttpills .ggpill { flex: none; padding: 7px 10px; }
+.ttpills .ggpill small { font-size: 13px; font-weight: 700; color: var(--muted); }
+.ttpills.tight .ggpill { padding-left: 7px; padding-right: 7px; }
+.ttpills.tight .ggpill small { display: none; }
+@media (max-width: 385px) { .ttpills { gap: 4px; } .ttpills .ggpill { padding: 7px 8px; font-size: 15px; } .ttpills .ggpill small { font-size: 12px; } }
+html.gg-fs .table { width: auto; align-self: stretch; margin: 0 calc(-8px - env(safe-area-inset-right, 0px)) 0 calc(-8px - env(safe-area-inset-left, 0px)); border-radius: 0; }
+/* spider's "5 deals" under the stock at the right edge of the felt: right-aligned so it isn't cut off by the screen edge */
+.slot.sstock .count { left: -40px; right: 0; text-align: right; }
 </style>
 </head>
 <body>
@@ -155,6 +171,8 @@
       <svg viewBox="0 0 100 100" aria-hidden="true"><use href="#ct-logo"/></svg>
       <h1>Card Table</h1>
     </button>
+    <!-- full screen: score / time / moves sit in the top row as pills (was its own row) -->
+    <div class="info ttpills" id="info"></div>
     <div class="topbtns">
       <button class="iconbtn" id="btnSound" aria-label="Sound"><svg viewBox="0 0 24 24"><use href="#i-sound-off"/></svg></button>
       <button class="iconbtn" id="btnStats" aria-label="Stats"><svg viewBox="0 0 24 24"><use href="#i-stats"/></svg></button>
@@ -170,8 +188,6 @@
     <button data-g="pyramid">Pyramid</button>
   </div>
 
-  <div class="info" id="info"></div>
-
   <div class="table" id="table">
     <div class="slots" id="slots"></div>
     <div class="cards" id="cards"></div>
@@ -183,6 +199,7 @@
     <button class="tool" id="btnUndo"><svg viewBox="0 0 24 24"><use href="#i-undo"/></svg><span>Undo</span></button>
     <button class="tool" id="btnHint"><svg viewBox="0 0 24 24"><use href="#i-hint"/></svg><span>Hint</span></button>
     <button class="tool" id="btnDaily"><svg viewBox="0 0 24 24"><use href="#i-cal"/></svg><span id="dailyLabel">Daily</span><i class="dot" id="dailyDot"></i></button>
+    <button class="tool" id="btnOpts"><svg viewBox="0 0 24 24"><use href="#i-opts"/></svg><span>Options</span></button>
     <button class="tool" id="btnHelp"><svg viewBox="0 0 24 24"><use href="#i-help"/></svg><span>How to</span></button>
     <button class="tool red" id="btnNew"><svg viewBox="0 0 24 24"><use href="#i-new"/></svg><span>New</span></button>
   </div>
@@ -868,7 +885,7 @@ var CTSound = (function () {
   function $(id) { return document.getElementById(id); }
   function fmt(n) { return (n < 0 ? '-' : '') + String(Math.abs(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
   function isOpen(id) { return $(id).classList.contains('show'); }
-  function locked() { return busy || isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || isOpen('ovOpts') || GoobsAds.isOpen(); }
+  function locked() { return busy || isOpen('ggMenu') || isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || isOpen('ovOpts') || GoobsAds.isOpen(); }
   function fmtTime(ms) { var s = Math.floor(ms / 1000); return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2); }
   function dayNum(d) { d = d || new Date(); return Math.floor((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - Date.UTC(2020, 0, 1)) / 86400000); }
   function dayLabel(n) { var d = new Date(Date.UTC(2020, 0, 1) + n * 86400000); return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' }); }
@@ -935,10 +952,15 @@ var CTSound = (function () {
   // ================= layout =================
   var T = { w: 0, h: 0, cw: 40, ch: 56, piles: {}, slots: [] };
   function layout() {
-    var r = $('table').getBoundingClientRect(), W = r.width, H = r.height, g = game.g, st = game.st, pad = 6, P = {}, slots = [];
-    var cols = g === 'spider' ? 10 : g === 'freecell' ? 8 : 7, gap = g === 'spider' ? 3 : 5, cw, ch, i;
-    if (g === 'tripeaks') { cw = Math.floor((W - 2 * pad) / 10.2); ch = Math.round(cw * 1.42); var h3 = ch * 0.5 * 3 + ch + 20 + ch; if (h3 > H - 2 * pad) { ch = Math.floor((H - 2 * pad - 20) / 3.5); cw = Math.floor(ch / 1.42); } }
-    else if (g === 'pyramid') { cw = Math.floor((W - 2 * pad) / 7.4); ch = Math.round(cw * 1.42); var hp = ch * 0.45 * 6 + ch + 22 + ch; if (hp > H - 2 * pad) { ch = Math.floor((H - 2 * pad - 22) / 4.7); cw = Math.floor(ch / 1.42); } }
+    // full screen: the felt runs to the screen's edges, so 4px at the sides (was 6) and 4px between columns (was 5; spider 2, was 3):
+    // the columns set the card size on a phone, so every px across goes to the cards
+    var r = $('table').getBoundingClientRect(), W = r.width, H = r.height, g = game.g, st = game.st, pad = 4, P = {}, slots = [];
+    var cols = g === 'spider' ? 10 : g === 'freecell' ? 8 : 7, gap = g === 'spider' ? 2 : 4, cw, ch, i;
+    // full screen: TriPeaks and Pyramid are set by the width of their bottom rows but have lots of height to spare, so the
+    // cards in a row now overlap a little (TriPeaks 16%, Pyramid 10%; only the right edge, never the rank) and get bigger
+    var ov = g === 'tripeaks' ? 0.84 : 0.9;
+    if (g === 'tripeaks') { cw = Math.floor((W - 2 * pad) / (9 * ov + 1)); ch = Math.round(cw * 1.42); var h3 = ch * 0.5 * 3 + ch + 20 + ch; if (h3 > H - 2 * pad) { ch = Math.floor((H - 2 * pad - 20) / 3.5); cw = Math.floor(ch / 1.42); } }
+    else if (g === 'pyramid') { cw = Math.floor((W - 2 * pad) / (6 * ov + 1)); ch = Math.round(cw * 1.42); var hp = ch * 0.45 * 6 + ch + 22 + ch; if (hp > H - 2 * pad) { ch = Math.floor((H - 2 * pad - 22) / 4.7); cw = Math.floor(ch / 1.42); } }
     else { cw = Math.floor((W - 2 * pad - (cols - 1) * gap) / cols); ch = Math.round(cw * 1.42); var room = H - 2 * pad - ch - 12; if (room < ch * 2.5) { ch = Math.floor((H - 2 * pad - 12) / 3.6); cw = Math.floor(ch / 1.42); } }
     var usedW = cols * cw + (cols - 1) * gap, x0 = Math.round((W - usedW) / 2);
     function colX(c) { return x0 + c * (cw + gap); }
@@ -958,7 +980,7 @@ var CTSound = (function () {
       for (i = 0; i < 4; i++) { P['f' + i] = { x: colX(4 + i), y: top, fan: 'none' }; slots.push({ pid: 'f' + i, label: 'A' }); }
       for (i = 0; i < 8; i++) { P['t' + i] = { x: colX(i), y: tabY, fan: 'down', maxY: bottom }; slots.push({ pid: 't' + i, label: '' }); }
     } else if (g === 'tripeaks') {
-      var step = cw * 1.02, left = Math.round((W - step * 10) / 2), dy = Math.round(ch * 0.5), y0 = pad + 4 + Math.max(0, Math.round((H - (3 * dy + 2 * ch + 40)) * 0.28));
+      var step = cw * ov, left = Math.round((W - step * 9 - cw) / 2), dy = Math.round(ch * 0.5), y0 = pad + 4 + Math.max(0, Math.round((H - (3 * dy + 2 * ch + 40)) * 0.28));
       var pos = function (p) {
         if (p >= 18) return [left + (p - 18) * step, y0 + 3 * dy];
         if (p >= 9) return [left + (p - 9 + 0.5) * step, y0 + 2 * dy];
@@ -970,7 +992,7 @@ var CTSound = (function () {
       P.stock = { x: Math.round(W / 2 - cw * 1.6), y: by, fan: 'stackx' }; slots.push({ pid: 'stock', kind: 'stock' });
       P.waste = { x: Math.round(W / 2 + cw * 0.4), y: by, fan: 'none' }; slots.push({ pid: 'waste', label: '' });
     } else if (g === 'pyramid') {
-      var pdy = Math.round(ch * 0.45), py0 = pad + 4 + Math.max(0, Math.round((H - (6 * pdy + 2 * ch + 36)) * 0.28)), cx0 = W / 2, pstep = cw * 1.04;
+      var pdy = Math.round(ch * 0.45), py0 = pad + 4 + Math.max(0, Math.round((H - (6 * pdy + 2 * ch + 36)) * 0.28)), cx0 = W / 2, pstep = cw * ov;
       for (var rr = 0, n = 0; rr < 7; rr++) for (var ii = 0; ii <= rr; ii++, n++) P['q' + n] = { x: Math.round(cx0 - (rr + 1) * pstep / 2 + ii * pstep + (pstep - cw) / 2), y: py0 + rr * pdy, fan: 'none' };
       var pby = Math.min(py0 + 6 * pdy + ch + 26, H - ch - 24);
       P.stock = { x: Math.round(W / 2 - cw * 2.1), y: pby, fan: 'none' }; slots.push({ pid: 'stock', kind: 'stock' });
@@ -1043,7 +1065,7 @@ var CTSound = (function () {
     });
     if (game.g === 'spider') {
       var L = T.piles.stock;
-      if (L && game.st.piles.stock.length) h += '<div class="slot" style="border:0;width:' + T.cw + 'px;height:' + T.ch + 'px;transform:translate(' + L.x + 'px,' + L.y + 'px)"><span class="count">' + (game.st.piles.stock.length / 10) + (game.st.piles.stock.length === 10 ? ' deal' : ' deals') + '</span></div>';
+      if (L && game.st.piles.stock.length) h += '<div class="slot sstock" style="border:0;width:' + T.cw + 'px;height:' + T.ch + 'px;transform:translate(' + L.x + 'px,' + L.y + 'px)"><span class="count">' + (game.st.piles.stock.length / 10) + (game.st.piles.stock.length === 10 ? ' deal' : ' deals') + '</span></div>';
     }
     $('slots').innerHTML = h;
   }
@@ -1061,7 +1083,8 @@ var CTSound = (function () {
       el.classList.toggle('down', down);
       if (!instant && lastDown[p.c.id] && !down) { el.classList.remove('flip'); void el.offsetWidth; el.classList.add('flip'); S.flip(); }
       lastDown[p.c.id] = down;
-      el.classList.toggle('small', T.cw < 38);
+      // (TriPeaks' peak cards overlap in a row, which would cut their corner suit in half, so they show the rank and big suit only)
+      el.classList.toggle('small', T.cw < 38 || (game.g === 'tripeaks' && p.pid[0] === 'p'));
       var dim = (game.g === 'tripeaks' || game.g === 'pyramid') && p.pid[0] === (game.g === 'tripeaks' ? 'p' : 'q') && p.c.u && !(game.g === 'tripeaks' ? SOL.tripeaks.free(game.st, +p.pid.slice(1)) : SOL.pyramid.free(game.st, p.pid));
       el.classList.toggle('dim', dim);
       el.classList.toggle('sel', selected === p.pid);
@@ -1081,13 +1104,21 @@ var CTSound = (function () {
     if (game.g === 'freecell') return 'Game #' + st.seed;
     return 'Options';
   }
+  // full screen: when the pills don't fit the top row (an SE with big numbers), drop their unit words
+  function fitPills() {
+    var el = $('info'), w = 0; if (!el) return; el.classList.remove('tight');
+    Array.prototype.forEach.call(el.children, function (c) { w += c.offsetWidth + 6; });
+    if (w > el.clientWidth + 6) el.classList.add('tight');
+  }
   function renderInfo() {
     var st = game.st, parts = [];
-    if (hasScore(game.g, st)) parts.push('<div class="stat"><div class="lbl">' + (game.g === 'klondike' && st.opts.scoring === 'vegas' ? 'Money' : 'Score') + '</div><div class="mid">' + (game.g === 'klondike' && st.opts.scoring === 'vegas' ? (st.score < 0 ? '-$' : '$') + Math.abs(st.score) : fmt(st.score)) + '</div></div>');
-    parts.push('<div class="stat"><div class="lbl">Time</div><div class="mid" id="clock">' + fmtTime(game.ms) + '</div></div>');
-    parts.push('<div class="stat"><div class="lbl">Moves</div><div class="mid">' + st.moves + '</div></div>');
-    var h = '<div class="stats3">' + parts.join('') + '</div><button class="optbtn" id="btnOpts"><svg viewBox="0 0 24 24"><use href="#i-opts"/></svg><span>' + variantLabel() + '</span></button>';
-    if (h !== lastInfo) { $('info').innerHTML = h; lastInfo = h; $('btnOpts').addEventListener('click', openOpts); }
+    // full screen: pills in the top row; the variant (Draw 3, Vegas, game #, Daily) is in the Menu
+    if (hasScore(game.g, st)) parts.push('<span class="ggpill">' + (game.g === 'klondike' && st.opts.scoring === 'vegas' ? (st.score < 0 ? '-$' : '$') + Math.abs(st.score) : fmt(st.score) + ' <small>pts</small>') + '</span>');
+    parts.push('<span class="ggpill" id="clock">' + fmtTime(game.ms) + '</span>');
+    parts.push('<span class="ggpill">' + st.moves + ' <small>' + (st.moves === 1 ? 'move' : 'moves') + '</small></span>');
+    var h = parts.join('');
+    if (h !== lastInfo) { $('info').innerHTML = h; lastInfo = h; }
+    fitPills();
   }
   function renderModes() { Array.prototype.forEach.call($('modes').children, function (b) { b.classList.toggle('on', b.dataset.g === game.g); }); }
   function renderTools() {
@@ -1396,7 +1427,7 @@ var CTSound = (function () {
       'Any card or run can go in an empty column.',
       '<b>Tap the stock</b> (top right) to deal one card onto every column. Every column needs at least one card first.',
       'Score: you start at 500, lose 1 for every move and gain 100 for every finished run.',
-      '1 suit is gentle, 2 suits is harder, 4 suits is tough. Pick in the options (next to the time).'
+      '1 suit is gentle, 2 suits is harder, 4 suits is tough. Pick in <b>Options</b> (in the Menu, top right).'
     ]],
     freecell: ['FreeCell', [
       'Every card is face up. Build four suit piles from <b>ace up to king</b> at the top right.',
@@ -1535,6 +1566,11 @@ var CTSound = (function () {
     $('ovOpts').addEventListener('click', function (e) { if (e.target === this) this.classList.remove('show'); });
     $('btnDealNow').addEventListener('click', function () { $('ovOpts').classList.remove('show'); confirmLeave('Deal a new game?', function () { startNew(game.g); }); });
     $('btnHelp').addEventListener('click', openHelp);
+    $('btnOpts').addEventListener('click', openOpts);
+    // full screen (kit): Options, New, How to, Stats and Settings live in the Menu; Undo / Hint / Daily stay under the table.
+    // The clock stops while the Menu is open (locked() checks 'ggMenu'); the Menu closes before a moved button's handler runs.
+    Goobs.fullscreen({ menu: ['btnOpts', 'btnNew', 'btnHelp', 'btnStats', 'btnSettings'],
+      info: function () { if (!game) return ''; var v = variantLabel(); return '<b>' + SOL.GAMES[game.g].name + '</b>' + (v !== 'Options' ? ' &middot; ' + v : ''); } });
     function closeHelp() { $('ovHelp').classList.remove('show'); if (!meta.seen[game.g]) { meta.seen[game.g] = true; saveMeta(); } }
     $('btnCloseHelp').addEventListener('click', closeHelp);
     $('ovHelp').addEventListener('click', function (e) { if (e.target === this) closeHelp(); });

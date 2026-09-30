@@ -70,6 +70,22 @@ html, body { height: 100%; overflow: hidden; }
 .tiles2 + .tiles2 { margin-top: 8px; }
 .sectlbl { font-size: 12px; font-weight: 800; color: var(--muted); letter-spacing: .6px; text-transform: uppercase; margin: 14px 2px 8px; }
 .sectlbl:first-child { margin-top: 2px; }
+
+/* Full screen (1.2.0, Glenn: "every game full screen", Cindy: "it's too small"): the lane fills the whole phone, the
+   buttons and counters float on it (the kit's html.gg-fs-over). The camera frames the whole machine in the free space
+   (render.js fitFrame), so nothing gets cropped whatever the screen shape. */
+html.gg-fs-over .stage { position: fixed; inset: 0; border-radius: 0; box-shadow: none; min-height: 0; }
+.scorepill { position: absolute; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 6px); transform: translateX(-50%); height: 44px; box-sizing: border-box;
+  display: flex; align-items: baseline; justify-content: center; gap: 7px; padding: 0 16px; line-height: 44px; font-size: 24px; font-weight: 900; }
+.scorepill small { font-size: 12px; font-weight: 800; color: #6b7080; letter-spacing: .2px; }
+html.gg-fs-over .hud { top: calc(env(safe-area-inset-top, 0px) + 58px); }
+.balls i { width: 15px; height: 15px; }
+html.gg-fs-over .bonuschip { top: calc(env(safe-area-inset-top, 0px) + 96px); }
+html.gg-fs-over .tiltchip { top: calc(env(safe-area-inset-top, 0px) + 96px); }
+html.gg-fs-over .flickhint { bottom: calc(env(safe-area-inset-bottom, 0px) + 150px); }
+.sbprobe { position: fixed; left: 0; bottom: 0; width: 1px; height: env(safe-area-inset-bottom, 0px); visibility: hidden; pointer-events: none; }
+/* the mode tabs live in the Menu sheet */
+.ggmenu .modes { margin: 4px 0 2px; }
 </style>
 </head>
 <body>
@@ -95,6 +111,7 @@ html, body { height: 100%; overflow: hidden; }
       <svg viewBox="0 0 100 100" aria-hidden="true"><use href="#sh-logo"/></svg>
       <h1>Skee-Hop</h1>
     </button>
+    <div class="ggpill scorepill" id="info"></div>
     <div class="topbtns">
       <button class="iconbtn" id="btnSound" aria-label="Sound"><svg viewBox="0 0 24 24"><use href="#i-sound-off"/></svg></button>
       <button class="iconbtn" id="btnStats" aria-label="Stats"><svg viewBox="0 0 24 24"><use href="#i-stats"/></svg></button>
@@ -106,8 +123,6 @@ html, body { height: 100%; overflow: hidden; }
     <button data-mode="classic">Classic</button>
     <button data-mode="survival">Survival</button>
   </div>
-
-  <div class="info" id="info"></div>
 
   <div class="stage" id="stage">
     <canvas id="cv"></canvas>
@@ -831,12 +846,45 @@ var SHRender = (function () {
     // ---------- camera ----------
     // Home: behind the lane. While a ball is rolling the camera glides up the lane after it (and back after).
     var camView = null, camCur = null, camGoal = null, homeCam = new THREE.PerspectiveCamera(33, 1, 0.1, 60), lastCamT = 0;
-    function homeView() { return camView || { pos: [0, 3.0, -3.2], look: [0, 0.75, 6.9], fov: 33 }; }
+    // On a tall full-screen phone the camera backs off and rises (1.2.0): the lane then runs further down the screen and
+    // the board comes out bigger, instead of the lane's near end using up all the width. Older, wider stages keep the old spot.
+    function homeView() {
+      if (camView) return camView;
+      var k = Math.max(0, Math.min(1, (0.7 - W / H) / 0.24));
+      return { pos: [0, 3.0 + 2.2 * k, -3.2 - 3.3 * k], look: [0, 0.75, 6.9], fov: 33 };
+    }
     function goalFor(p) {
       var h = homeView();
       if (!p) return { pos: h.pos.slice(), look: h.look.slice() };
       var k = Math.max(0, Math.min(1, (p[2] - 3.0) / 4.2)); k = k * k * (3 - 2 * k);
       return { pos: [h.pos[0], h.pos[1] + 0.3 * k, h.pos[2] + 2.9 * k], look: [h.look[0], h.look[1] + 0.45 * k, h.look[2] + 0.7 * k] };
+    }
+    // Full screen (1.2.0): the canvas fills the whole phone, so a fixed fov would crop the lane on a tall screen. From the home
+    // spot we measure where the whole machine lands (the lane at the start line, the rails, the board and the marquee) and
+    // pick a frame that fits all of it into the free space between the counters at the top and a strip at the bottom
+    // (an off-center frame, so the camera keeps its pose and the machine looks the same, just as big as the screen allows).
+    var marg = { top: 0, bottom: 0, side: 0 }, frameK = { tanV: Math.tan(16.5 * Math.PI / 180), cx: 0, cy: 0 }, v3 = new THREE.Vector3();
+    function fitPts() {
+      var R = H2 + 0.14, z0 = SH.START - 0.2;
+      return [[-H2, 0, z0], [H2, 0, z0], [-R, 0.3, z0 + 0.4], [R, 0.3, z0 + 0.4], [-H2, SH.TOPY, SH.BACKZ], [H2, SH.TOPY, SH.BACKZ],
+        [-H2 - 0.1, SH.CEIL + 0.5, SH.BACKZ], [H2 + 0.1, SH.CEIL + 0.5, SH.BACKZ]];
+    }
+    function fitFrame() {
+      homeCam.updateMatrixWorld(); homeCam.matrixWorldInverse.copy(homeCam.matrixWorld).invert();
+      var ax0 = 1e9, ax1 = -1e9, ay0 = 1e9, ay1 = -1e9;
+      fitPts().forEach(function (q) {
+        v3.set(q[0], q[1], q[2]).applyMatrix4(homeCam.matrixWorldInverse); var d = Math.max(0.2, -v3.z);
+        ax0 = Math.min(ax0, v3.x / d); ax1 = Math.max(ax1, v3.x / d); ay0 = Math.min(ay0, v3.y / d); ay1 = Math.max(ay1, v3.y / d);
+      });
+      var asp = W / H, yb = -1 + 2 * marg.bottom / H, yt = 1 - 2 * marg.top / H, xs = 1 - 2 * marg.side / W;
+      if (yt - yb < 0.4) { yb = -0.8; yt = 0.8; } // a tiny canvas (loading, rotated): just keep a sane frame
+      var tanV = Math.max((ay1 - ay0) / (yt - yb), (ax1 - ax0) / (2 * xs * asp));
+      frameK = { tanV: tanV, cx: (ax0 + ax1) / 2, cy: (ay0 + ay1) / 2 - (yt + yb) / 2 * tanV };
+    }
+    function applyFrame(cam) {
+      var n = cam.near, k = frameK, tw = k.tanV * W / H;
+      cam.projectionMatrix.makePerspective(n * (k.cx - tw), n * (k.cx + tw), n * (k.cy + k.tanV), n * (k.cy - k.tanV), n, cam.far);
+      cam.projectionMatrixInverse.copy(cam.projectionMatrix).invert();
     }
     function place() {
       camera.aspect = W / H; homeCam.aspect = W / H;
@@ -845,8 +893,8 @@ var SHRender = (function () {
       if (!camCur) camCur = goalFor(null);
       camera.position.set(camCur.pos[0], camCur.pos[1], camCur.pos[2]);
       camera.lookAt(camCur.look[0], camCur.look[1], camCur.look[2]);
-      camera.updateProjectionMatrix();
-      homeCam.position.set(v.pos[0], v.pos[1], v.pos[2]); homeCam.lookAt(v.look[0], v.look[1], v.look[2]); homeCam.updateProjectionMatrix(); homeCam.updateMatrixWorld();
+      homeCam.position.set(v.pos[0], v.pos[1], v.pos[2]); homeCam.lookAt(v.look[0], v.look[1], v.look[2]); homeCam.updateMatrixWorld();
+      applyFrame(camera); applyFrame(homeCam);
     }
     function follow(p) { camGoal = goalFor(p); }
     function moveCam(now) {
@@ -864,7 +912,8 @@ var SHRender = (function () {
       var r = canvas.getBoundingClientRect();
       W = Math.max(1, r.width); H = Math.max(1, r.height);
       renderer.setSize(W, H, false);
-      place();
+      if (!camGoal) camCur = null; // not following a ball yet: start from the home spot for this screen shape
+      place(); fitFrame(); place();
       dirty = 3;
     }
 
@@ -947,7 +996,8 @@ var SHRender = (function () {
     return {
       build: build, resize: resize, render: render, setBall: setBall, resetSpin: resetSpin, setBonus: setBonus, flash: flash,
       project: project, holeWorld: holeWorld, laneXAt: laneXAt, follow: follow, touch: function () { dirty = 2; }, renderer: renderer, camera: camera,
-      view: function (pos, look, fov) { camView = { pos: pos, look: look, fov: fov }; camCur = goalFor(null); camGoal = null; place(); dirty = 3; }
+      view: function (pos, look, fov) { camView = { pos: pos, look: look, fov: fov }; camCur = goalFor(null); camGoal = null; place(); fitFrame(); place(); dirty = 3; },
+      margins: function (m) { marg = m; resize(); }
     };
   }
   return { create: create };
@@ -1070,11 +1120,33 @@ var SHApp = (function () {
   function fmt(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
   function isOpen(id) { return $(id).classList.contains('show'); }
   function icon(id) { return '<svg viewBox="0 0 100 100"><use href="#' + id + '"/></svg>'; }
-  function overlayOpen() { return isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || isOpen('ovTilt') || GoobsAds.isOpen(); }
+  function overlayOpen() { return FS.isOpen() || isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || isOpen('ovTilt') || GoobsAds.isOpen(); }
+  // Full screen (1.2.0): the kit floats the back button, the score and Sound / Menu over the lane. How to, Stats,
+  // Settings, Tilt and New game move into the Menu sheet with the Classic / Survival tabs; the ball waits while it's open.
+  var FS = Goobs.fullscreen({
+    overlay: true,
+    menu: ['btnHelp', 'btnStats', 'btnSettings', 'btnTilt', 'btnNew'],
+    info: function () {
+      if (!game) return '';
+      var t = SH.themeFor(game);
+      return (game.mode === 'classic' ? 'Classic · 9 balls' : 'Survival · Round ' + game.round) + ' · <b>' + t.name + '</b>';
+    }
+  });
+  FS.list.parentNode.insertBefore(document.getElementById('modes'), FS.list);
+  // the free space for the camera frame: below the balls / target counters, above the home bar
+  var probe = document.createElement('div'); probe.className = 'sbprobe'; document.body.appendChild(probe);
+  var fitRq = 0;
+  function fitMargins() {
+    fitRq = 0;
+    if (!R3) return;
+    var sr = $('stage').getBoundingClientRect(), hb = Math.max($('balls').getBoundingClientRect().bottom, $('goal').getBoundingClientRect().bottom);
+    R3.margins({ top: Math.max(60, hb - sr.top + 10), bottom: probe.offsetHeight + 14, side: 6 });
+  }
+  function refit() { if (!fitRq) fitRq = requestAnimationFrame(fitMargins); }
   var ZNAME = { '20': 'the 20 ring', '30': 'the 30 ring', '40': 'the 40 ring', '50': 'the 50 cup', '100L': 'the left 100', '100R': 'the right 100' };
 
   // ================= state =================
-  var R3 = null, game = null, ball = null, aimX = 0, themeId = null;
+  var fitSurv = null, R3 = null, game = null, ball = null, aimX = 0, themeId = null;
   var phase = 'aim'; // aim | rolling | card
   function keyFor(mode) { return 'game.' + mode; }
   function saveGame() { if (game && !game.done) store.set(keyFor(game.mode), game); }
@@ -1101,10 +1173,10 @@ var SHApp = (function () {
 
   // ================= HUD =================
   function renderInfo() {
-    var t = SH.themeFor(game), st = stats[game.mode];
-    var lbl = game.mode === 'classic' ? 'Classic · 9 balls' : 'Survival · Round ' + game.round;
-    $('info').innerHTML = '<div><div class="lbl">' + lbl + '</div><div class="ttl">' + t.name + '</div></div>' +
-      '<div class="right"><div class="big">' + fmt(game.score) + '</div><div class="sub">Best ' + fmt(st.best) + '</div></div>';
+    // the score pill in the top row; the mode and machine name are in the Menu sheet (and on the marquee)
+    var st = stats[game.mode];
+    $('info').innerHTML = fmt(game.score) + '<small>Best ' + fmt(st.best) + '</small>';
+    FS.refresh();
   }
   function renderBalls() {
     var h = '';
@@ -1116,6 +1188,7 @@ var SHApp = (function () {
       g.className = 'goal show' + (game.roundScore >= game.target ? ' met' : '');
       g.innerHTML = 'Round ' + game.round + ' · ' + fmt(game.roundScore) + ' / ' + fmt(game.target) + '<div class="gbar"><i style="width:' + pct + '%"></i></div>';
     } else g.className = 'goal';
+    if (R3 && (game.mode === 'survival') !== fitSurv) { fitSurv = game.mode === 'survival'; refit(); } // the target pill is taller than the balls: refit
     var chip = $('bonusChip');
     if (game.bonus && !game.done) { chip.textContent = '5× on ' + ZNAME[game.bonus]; chip.classList.add('show'); }
     else chip.classList.remove('show');
@@ -1428,7 +1501,9 @@ var SHApp = (function () {
     });
     $('modes').addEventListener('click', function (e) {
       var bt = e.target.closest('button');
-      if (!bt || bt.dataset.mode === game.mode || phase === 'rolling') return;
+      if (!bt) return;
+      FS.close();
+      if (bt.dataset.mode === game.mode || phase === 'rolling') return;
       saveGame();
       loadGame(bt.dataset.mode);
     });
@@ -1455,7 +1530,8 @@ var SHApp = (function () {
     $('tiltChip').addEventListener('click', function () { askTilt(function (ok) { if (!ok) toast('Motion wasn’t allowed', 1800); syncTilt(); }); });
     if (settings.tilt && !needsPermission()) listenTilt();
 
-    window.addEventListener('resize', function () { R3.resize(); });
+    window.addEventListener('resize', refit);
+    if (window.ResizeObserver) new ResizeObserver(refit).observe($('stage'));
     document.addEventListener('visibilitychange', function () { if (document.hidden) saveGame(); else { lastT = 0; R3.resize(); } });
     window.addEventListener('pagehide', saveGame);
     $('powLess').addEventListener('click', function () { settings.power = Math.max(1, settings.power - 1); saveSettings(); syncPower(); });
@@ -1463,7 +1539,7 @@ var SHApp = (function () {
     syncSound(); syncAds(); syncPower();
 
     loadGame(meta.mode === 'survival' ? 'survival' : 'classic');
-    R3.resize();
+    fitMargins();
     $('loading').classList.add('hide');
     if (!meta.flicked) $('flickHint').classList.add('show');
     if (!meta.seenHelp) $('ovHelp').classList.add('show');

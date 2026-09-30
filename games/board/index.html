@@ -61,6 +61,12 @@
 .promo canvas { width: 100%; aspect-ratio: 1; display: block; }
 .statmode { font-weight: 800; margin: 14px 2px 6px; font-size: 16px; }
 .statline { color: var(--muted); font-size: 13px; margin: 6px 2px 0; }
+
+/* full screen (Goobs.fullscreen): the board's canvas spans the whole screen width (the wooden frame may touch the
+   edges) and all the height between the info row and Undo/Hint; the board itself stays square and whole (layout()) */
+html.gg-fs .stagewrap { width: calc(100% + 16px + env(safe-area-inset-left, 0px) + env(safe-area-inset-right, 0px)); margin: 0 calc(-8px - env(safe-area-inset-right, 0px)) 0 calc(-8px - env(safe-area-inset-left, 0px)); }
+html.gg-fs .stage { margin: 0; border-radius: 0; }
+html.gg-fs .modes button { font-size: 14px; }
 </style>
 </head>
 <body>
@@ -111,6 +117,7 @@
 
   <div class="toolbar">
     <button class="tool" id="btnNew"><svg viewBox="0 0 24 24"><use href="#i-new"/></svg><span>New game</span></button>
+    <button class="tool" id="btnHelp"><svg viewBox="0 0 24 24"><use href="#i-help"/></svg><span>How to</span></button>
     <button class="tool" id="btnUndo"><svg viewBox="0 0 24 24"><use href="#i-undo"/></svg><span>Undo</span></button>
     <button class="tool red" id="btnHint"><svg viewBox="0 0 24 24"><use href="#i-bulb"/></svg><span>Hint</span></button>
   </div>
@@ -736,7 +743,7 @@ var GCSound = (function () {
 
   function $(id) { return document.getElementById(id); }
   function isOpen(id) { return $(id).classList.contains('show'); }
-  function sheetOpen() { return isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || isOpen('ovNew') || GoobsAds.isOpen(); }
+  function sheetOpen() { return isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || isOpen('ovNew') || isOpen('ggMenu') || GoobsAds.isOpen(); }
   function sum(a) { return a[0] + a[1] + a[2]; }
 
   // ================= the three rule books behind one face =================
@@ -864,8 +871,10 @@ var GCSound = (function () {
   function fit() { var r = $('stage').getBoundingClientRect(); DPR = Math.min(3, window.devicePixelRatio || 1); W = Math.max(100, r.width); H = Math.max(100, r.height); cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR); layout(); }
   function layout() {
     var g = cur(); sprites = {};
-    if (mode === 'four') { cell = Math.min((W - 8) / 7.3, (H - 8) / 7.5); var bw = cell * 7.3, bh = cell * 6.3; bx = (W - bw) / 2 + cell * 0.15; by = (H - bh) / 2 + cell * 0.6; frame = cell * 0.15; flip = false; return; }
-    var B = Math.min(W, H) - 4; frame = B * 0.035; cell = (B - frame * 2) / 8; bx = (W - B) / 2 + frame; by = (H - B) / 2 + frame;
+    // full screen: the canvas runs edge to edge, so leave room for the stand's feet (they stick out 0.15 cell past the
+    // frame on each side: 7 + 2 x 0.15 frame + 2 x 0.15 feet = 7.6 cells) and a few pixels either side of the boards
+    if (mode === 'four') { cell = Math.min((W - 12) / 7.6, (H - 8) / 7.5); var bw = cell * 7.3, bh = cell * 6.3; bx = (W - bw) / 2 + cell * 0.15; by = (H - bh) / 2 + cell * 0.6; frame = cell * 0.15; flip = false; return; }
+    var B = Math.min(W - 8, H - 4); frame = B * 0.035; cell = (B - frame * 2) / 8; bx = (W - B) / 2 + frame; by = (H - B) / 2 + frame;
     flip = !!(g && g.opp === 'phone' && g.human === 1);
   }
   function rc(sq) { var r, c; if (mode === 'chess') { r = 7 - (sq >> 4); c = sq & 7; } else { r = sq >> 3; c = sq & 7; } if (flip) { r = 7 - r; c = 7 - c; } return [r, c]; }
@@ -1103,7 +1112,14 @@ var GCSound = (function () {
     $(close).addEventListener('click', function () { $(ov).classList.remove('show'); });
     $(ov).addEventListener('click', function (e) { if (e.target === this) this.classList.remove('show'); });
   }
+  function menuInfo() {
+    var g = cur(); if (!g) return '';
+    return NAMES[mode] + ' · ' + (g.opp === 'phone' ? 'vs Phone, <b>' + LEVELS[g.level] + '</b>' : '<b>2 players</b>') + ' · Move <b>' + (g.hist.length + 1) + '</b>';
+  }
   function init() {
+    // full screen: New game (also on the game-over card), How to (new button; tapping the info row still opens it too),
+    // Stats and Settings go into the Menu; Undo and Hint stay under the board, which runs edge to edge (style.css)
+    Goobs.fullscreen({ menu: ['btnNew', 'btnHelp', 'btnStats', 'btnSettings'], info: menuInfo });
     Goobs.themePicker($('themes'));
     cv = $('cv'); cx = cv.getContext('2d');
     cv.addEventListener('pointerdown', onDown); window.addEventListener('pointermove', onMove, { passive: true }); window.addEventListener('pointerup', onUp); window.addEventListener('pointercancel', function () { downId = null; hoverCol = -1; });
@@ -1119,7 +1135,7 @@ var GCSound = (function () {
     sheet('btnStats', 'ovStats', 'btnCloseStats', renderStats);
     function closeHelp() { $('ovHelp').classList.remove('show'); if (!meta.seen) { meta.seen = true; saveMeta(); } }
     $('btnCloseHelp').addEventListener('click', closeHelp); $('ovHelp').addEventListener('click', function (e) { if (e.target === this) closeHelp(); });
-    $('info').addEventListener('click', openHelp);
+    $('info').addEventListener('click', openHelp); $('btnHelp').addEventListener('click', openHelp);
     $('btnSound').addEventListener('click', function () { settings.sound = !settings.sound; saveSettings(); syncSound(); S.ding(); });
     $('setSound').addEventListener('change', function () { settings.sound = this.checked; saveSettings(); syncSound(); S.ding(); });
     $('setDots').checked = settings.dots; $('setDots').addEventListener('change', function () { settings.dots = this.checked; saveSettings(); });

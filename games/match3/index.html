@@ -72,6 +72,21 @@ html, body { height: 100%; overflow: hidden; }
 .reward { display: flex; gap: 14px; justify-content: center; margin-top: 8px; font-weight: 900; font-size: 20px; }
 .reward span { display: inline-flex; align-items: center; gap: 5px; }
 .reward svg { width: 24px; height: 24px; }
+
+/* ---------- full screen (1.1.0; Glenn: "I would like all the games full screen") ----------
+   Goobs.fullscreen() puts the page edge to edge, so the garden (the canvas) is as wide as the phone; How to, Stats and
+   Settings live in the Menu sheet. The board is width-limited on a tall phone, so the height left over goes to bigger
+   goal chips and booster buttons instead of more empty garden. */
+html.gg-fs .stage { border-radius: 18px; }
+@media (min-height: 760px) {
+  html.gg-fs .goals { gap: 8px; }
+  html.gg-fs .goal { font-size: 17px; padding: 4px 11px 4px 5px; }
+  html.gg-fs .goal canvas { width: 32px; height: 32px; }
+  html.gg-fs .boosters .tool { height: 66px; }
+  html.gg-fs .boosters .tool svg { width: 28px; height: 28px; }
+  html.gg-fs .boosters .tool span { font-size: 13px; }
+  html.gg-fs .boosters .tool .cnt { font-size: 12px; }
+}
 </style>
 </head>
 <body>
@@ -1168,7 +1183,7 @@ var GSSound = (function () {
   function $(id) { return document.getElementById(id); }
   function fmt(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
   function isOpen(id) { return $(id).classList.contains('show'); }
-  function locked() { return isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || isOpen('ovStart') || GoobsAds.isOpen(); }
+  function locked() { return isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || isOpen('ovStart') || isOpen('ggMenu') || GoobsAds.isOpen(); }
   function coinIcon() { return '<svg viewBox="0 0 24 24"><use href="#coin"/></svg>'; }
   function starIcon() { return '<svg viewBox="0 0 24 24"><use href="#i-star"/></svg>'; }
 
@@ -1456,7 +1471,15 @@ var GSSound = (function () {
     $(close).addEventListener('click', function () { $(ov).classList.remove('show'); });
     $(ov).addEventListener('click', function (e) { if (e.target === this) this.classList.remove('show'); });
   }
+  // the Menu sheet's info line
+  function menuInfo() {
+    if (!game) return '';
+    return '<b>Level ' + game.level + '</b> \u00b7 ' + st.moves + (st.moves === 1 ? ' move' : ' moves') + ' left \u00b7 ' + fmt(meta.stars) + ' stars \u00b7 ' + fmt(meta.coins) + ' coins';
+  }
   function init() {
+    // full screen: How to, Stats and Settings move into the Menu sheet (before the canvas is measured, so it sizes to the
+    // new layout); the boosters stay under the board
+    Goobs.fullscreen({ menu: ['btnHelp', 'btnStats', 'btnSettings'], info: menuInfo });
     Goobs.themePicker($('themes'));
     R2 = GSRender.create($('cv'));
     var cv = $('cv');

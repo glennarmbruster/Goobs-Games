@@ -83,6 +83,34 @@ html, body { height: 100%; overflow: hidden; }
 
 .building { position: absolute; inset: 0; display: none; place-items: center; font-weight: 800; font-size: 16px; color: var(--muted); pointer-events: none; z-index: 2; }
 .building.show { display: grid; }
+
+/* Full screen (3.3.0, Glenn: "every game full screen", Cindy: "it's too small"): the sky fills the whole phone and the
+   sculpture gets all the room between the top buttons and the blasters (render.js frames it into that space). The top
+   row floats (the kit's html.gg-fs-over); slots and lanes sit at the bottom, clear of the home bar. The page itself lets
+   touches through to the sculpture except on the blasters. */
+html.gg-fs-over .app { justify-content: flex-end; gap: 0; pointer-events: none;
+  padding: 0 calc(env(safe-area-inset-right, 0px) + 10px) calc(env(safe-area-inset-bottom, 0px) + 8px) calc(env(safe-area-inset-left, 0px) + 10px); }
+html.gg-fs-over .stage { position: fixed; inset: 0; border-radius: 0; box-shadow: none; min-height: 0; pointer-events: auto; }
+html.gg-fs-over .slots, html.gg-fs-over .lanes { position: relative; z-index: 1; pointer-events: auto; }
+html.gg-fs-over .turnhint { top: calc(env(safe-area-inset-top, 0px) + 60px); }
+.cubepill { margin-right: auto; height: 44px; box-sizing: border-box; padding: 5px 13px 0; display: flex; flex-direction: column; justify-content: center; line-height: 1.05; min-width: 0; }
+.cubepill small { font-size: 11px; font-weight: 800; color: #6b7080; letter-spacing: .4px; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; }
+.cubepill b { font-size: 17px; font-weight: 900; }
+.cubepill .bar { height: 4px; border-radius: 2px; background: rgba(0,0,0,.1); margin: 3px 0 0; overflow: hidden; }
+.cubepill .bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); }
+/* a gold dot on the Menu button while today's daily is still to play (the Daily tab is inside the menu now) */
+.ggmenu-btn { position: relative; }
+.ggmenu-btn.daily::after { content: ""; position: absolute; top: 5px; right: 5px; width: 9px; height: 9px; border-radius: 50%; background: var(--gold); }
+.ggmenu .modes { margin: 4px 0 2px; }
+.ggmenu .modes .dot { top: 12px; }
+/* taller phones: the blasters get a little bigger too */
+@media (min-height: 760px) {
+  html.gg-fs .slot { max-width: 76px; height: 64px; }
+  html.gg-fs .lane .front { width: 84px; height: 74px; }
+  html.gg-fs .blaster b { font-size: 25px; }
+  html.gg-fs .lane .queue { height: 28px; }
+  html.gg-fs .lane .queue i { width: 23px; height: 23px; }
+}
 </style>
 </head>
 <body>
@@ -106,7 +134,9 @@ html, body { height: 100%; overflow: hidden; }
       <svg viewBox="0 0 100 100" aria-hidden="true"><use href="#cc-logo"/></svg>
       <h1>Cube Pop</h1>
     </button>
+    <div class="ggpill cubepill" id="info"></div>
     <div class="topbtns">
+      <button class="iconbtn" id="btnView" aria-label="Front view"><svg viewBox="0 0 24 24"><use href="#i-turn"/></svg></button>
       <button class="iconbtn" id="btnSound" aria-label="Sound"><svg viewBox="0 0 24 24"><use href="#i-sound-off"/></svg></button>
       <button class="iconbtn" id="btnStats" aria-label="Stats"><svg viewBox="0 0 24 24"><use href="#i-stats"/></svg></button>
       <button class="iconbtn" id="btnSettings" aria-label="Settings"><svg viewBox="0 0 24 24"><use href="#i-gear"/></svg></button>
@@ -117,8 +147,6 @@ html, body { height: 100%; overflow: hidden; }
     <button data-mode="level" id="modeLevel">Levels</button>
     <button data-mode="daily">Daily<i class="dot"></i></button>
   </div>
-
-  <div class="info" id="info"></div>
 
   <div class="stage" id="stage">
     <canvas id="cv"></canvas>
@@ -132,7 +160,6 @@ html, body { height: 100%; overflow: hidden; }
 
   <div class="toolbar">
     <button class="tool" id="btnHelp"><svg viewBox="0 0 24 24"><use href="#i-help"/></svg><span>How to</span></button>
-    <button class="tool" id="btnView"><svg viewBox="0 0 24 24"><use href="#i-turn"/></svg><span>Front view</span></button>
     <button class="tool red" id="btnNew"><svg viewBox="0 0 24 24"><use href="#i-new"/></svg><span id="newLabel">Restart</span></button>
   </div>
 </div>
@@ -1032,11 +1059,47 @@ var CCRender = (function () {
     }
 
     // ---------- camera ----------
+    // Full screen (3.3.0): the canvas fills the phone but the sculpture must fit the free space between the top buttons
+    // and the blasters (marg, set by the app). The camera keeps its 34 degree view of that free space and the frame is
+    // shifted off center so the free space's middle is where the camera looks; the whole sculpture shows at any turn.
+    var FIT_PITCH = [0.02, 0.38, 0.75, 1.1, 1.45], probe = new THREE.PerspectiveCamera(), probeInv = new THREE.Matrix4(), pv = new THREE.Vector3();
+    var marg = { top: 0, bottom: 0, side: 0 }, tanV = Math.tan(17 * Math.PI / 180), cy = 0;
     function fit() {
       if (!st) return;
       var R = 0.5 * Math.sqrt(st.sx * st.sx + st.sy * st.sy + st.sz * st.sz);
-      var vf = camera.fov * Math.PI / 360, hf = Math.atan(Math.tan(vf) * camera.aspect);
-      dist = R / Math.sin(Math.min(vf, hf)) * 0.98;
+      var fh = Math.max(0.3 * H, H - marg.top - marg.bottom), fw = Math.max(0.5 * W, W - 2 * marg.side);
+      var vf = camera.fov * Math.PI / 360, hf = Math.atan(Math.tan(vf) * fw / fh);
+      tanV = Math.tan(vf) * H / fh;
+      cy = (marg.bottom - marg.top) / H * tanV; // where the free space's middle is (screen units -1..1), times the frame size
+      var n = camera.near, tw = tanV * W / H;
+      // how far back: the nearest distance at which the sculpture's box fits the free space at every turn and tilt a finger
+      // can give it (a bounding sphere would be safe too, but leaves wide, flat sculptures much smaller than they need be)
+      var hi = R / Math.sin(Math.min(vf, hf)), lo = R * 0.4, xs = fw / W, yt = 1 - 2 * marg.top / H, yb = -1 + 2 * marg.bottom / H;
+      var ty = st.sy * 0.45, hx = st.sx / 2, hz = st.sz / 2, corners = [];
+      for (var c = 0; c < 8; c++) corners.push([c & 1 ? hx : -hx, c & 2 ? st.sy : 0, c & 4 ? hz : -hz]);
+      function fits(d) {
+        for (var pi = 0; pi < FIT_PITCH.length; pi++) {
+          var p = FIT_PITCH[pi];
+          probe.position.set(0, ty + Math.sin(p) * d, Math.cos(p) * d); probe.lookAt(0, ty - st.sy * 0.04, 0);
+          probe.updateMatrixWorld(true); probeInv.copy(probe.matrixWorld).invert();
+          for (var yi = 0; yi < 16; yi++) {
+            var a = yi * Math.PI / 8, ca = Math.cos(a), sa = Math.sin(a);
+            for (var k = 0; k < 8; k++) {
+              var q = corners[k];
+              pv.set(q[0] * ca + q[2] * sa, q[1], -q[0] * sa + q[2] * ca).applyMatrix4(probeInv);
+              var dd = -pv.z; if (dd < 0.2) return false;
+              var nx = pv.x / dd / tw, ny = (pv.y / dd + cy) / tanV;
+              if (Math.abs(nx) > xs || ny > yt || ny < yb) return false;
+            }
+          }
+        }
+        return true;
+      }
+      if (fits(lo)) hi = lo;
+      else for (var it = 0; it < 18; it++) { var mid = (lo + hi) / 2; if (fits(mid)) hi = mid; else lo = mid; }
+      dist = hi * 1.02;
+      camera.projectionMatrix.makePerspective(-n * tw, n * tw, n * (tanV - cy), n * (-tanV - cy), n, camera.far);
+      camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
     }
     function place() {
       if (!st) return;
@@ -1136,6 +1199,7 @@ var CCRender = (function () {
       setState: setState, resize: resize, redraw: kick,
       reset: function () { yaw = -0.42; pitch = 0.38; vyaw = 0; kick(); },
       shoot: shoot,
+      margins: function (m) { marg = m; resize(); },
       busy: function () { return shots.length > 0; },
       onFrame: function (cb) { onFrame = cb; }
     };
@@ -1228,7 +1292,20 @@ var CCSound = (function () {
   function prevDay(day) { var d = new Date(Math.floor(day / 10000), Math.floor(day / 100) % 100 - 1, day % 100 - 1); return dayNum(d); }
   function isOpen(id) { return $(id).classList.contains('show'); }
   function icon(id) { return '<svg viewBox="0 0 100 100"><use href="#' + id + '"/></svg>'; }
-  function paused() { return isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || isOpen('ovLevels') || GoobsAds.isOpen() || document.hidden; }
+  function paused() { return FS.isOpen() || isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || isOpen('ovLevels') || GoobsAds.isOpen() || document.hidden; }
+
+  // Full screen (3.3.0): the kit floats back, the cubes-left pill, Front view, Sound and Menu over the sculpture. How to,
+  // Stats, Settings and Restart move into the Menu sheet with the Level / Daily tabs; the blasters wait while it's open.
+  var FS = Goobs.fullscreen({
+    overlay: true,
+    menu: ['btnHelp', 'btnStats', 'btnSettings', 'btnNew'],
+    info: function () {
+      if (!game || !st) return '';
+      return (game.mode === 'daily' ? 'Daily · ' + new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : (game.mode === 'replay' ? 'Replay · ' : '') + 'Level ' + game.level) +
+        ' · <b>' + st.name + '</b> · ' + fmt(st.total) + ' cubes left';
+    }
+  });
+  FS.list.parentNode.insertBefore(document.getElementById('modes'), FS.list);
 
   // ================= game state =================
   // game: { mode: level|replay|daily, level, day, p (packed sculpture + blasters), done, tries, popped, used }
@@ -1322,17 +1399,17 @@ var CCSound = (function () {
     }
   }
   function renderInfo() {
-    var left;
-    if (game.mode === 'daily') left = '<div class="lbl">Daily · ' + new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + '</div><div class="ttl">' + st.name + '</div>';
-    else left = '<div class="lbl">' + (game.mode === 'replay' ? 'Replay · ' : '') + 'Level ' + game.level + '</div><div class="ttl">' + st.name + '</div>';
-    $('info').innerHTML = '<div>' + left + '</div><div class="right"><div class="mid">' + fmt(st.total) + ' cubes left</div>' +
-      '<div class="bar"><i style="width:' + Math.round(100 * (1 - st.total / st.startTotal)) + '%"></i></div></div>';
+    // the pill in the top row: level (or Daily), cubes left and a progress bar; the sculpture's name is in the Menu sheet
+    var lbl = game.mode === 'daily' ? 'Daily' : (game.mode === 'replay' ? 'Replay ' : 'Level ') + game.level;
+    $('info').innerHTML = '<small>' + lbl + '</small><b>' + fmt(st.total) + ' left</b>' +
+      '<div class="bar"><i style="width:' + Math.round(100 * (1 - st.total / st.startTotal)) + '%"></i></div>';
   }
   function renderModes() {
     var cur = game.mode === 'replay' ? 'level' : game.mode;
     Array.prototype.forEach.call($('modes').children, function (b) { b.classList.toggle('on', b.dataset.mode === cur); });
     $('modeLevel').textContent = 'Level ' + (game.mode === 'replay' ? game.level : meta.level);
     document.querySelector('#modes .dot').classList.toggle('show', !meta.daily[dayNum()]);
+    FS.button.classList.toggle('daily', !meta.daily[dayNum()]);
     $('newLabel').textContent = game.done && game.mode !== 'daily' ? 'Next level' : 'Restart';
   }
   function renderAll() { renderSlots(); renderLanes(); renderInfo(); renderModes(); }
@@ -1534,6 +1611,7 @@ var CCSound = (function () {
     $('modes').addEventListener('click', function (e) {
       var bt = e.target.closest('button');
       if (!bt) return;
+      FS.close();
       saveGame();
       if (bt.dataset.mode === 'level') { levelsPage = 0; renderLevels(); $('ovLevels').classList.add('show'); }
       else if (meta.daily[dayNum()] && !(store.get(keyFor('daily'), null) || {}).used) {
@@ -1557,7 +1635,17 @@ var CCSound = (function () {
     $('setAds').addEventListener('change', function () { Goobs.setAds(this.checked); syncAds(); });
     $('adLess').addEventListener('click', function () { settings.adEvery = Math.max(1, settings.adEvery - 1); saveSettings(); syncAds(); });
     $('adMore').addEventListener('click', function () { settings.adEvery = Math.min(10, settings.adEvery + 1); saveSettings(); syncAds(); });
-    window.addEventListener('resize', function () { R3.resize(); });
+    // the free space the sculpture is framed into: below the top row, above the slots
+    var fitRq = 0, refit = function () {
+      if (fitRq) return;
+      fitRq = requestAnimationFrame(function () {
+        fitRq = 0;
+        var cr = $('cv').getBoundingClientRect(), tr = $('info').getBoundingClientRect(), sr = $('slots').getBoundingClientRect();
+        R3.margins({ top: Math.max(56, tr.bottom - cr.top + 12), bottom: Math.max(0, cr.bottom - sr.top + 4), side: 8 });
+      });
+    };
+    window.addEventListener('resize', refit);
+    if (window.ResizeObserver) new ResizeObserver(refit).observe($('slots'));
     document.addEventListener('visibilitychange', function () { if (document.hidden) saveGame(); else if (game) { renderModes(); R3.resize(); } });
     window.addEventListener('pagehide', saveGame);
     syncSound(); syncAds();
@@ -1565,7 +1653,7 @@ var CCSound = (function () {
     var replay = store.get(keyFor('replay'), null);
     if (meta.mode === 'daily') startDaily();
     else startLevel(meta.replay && replay && replay.level === meta.replay && !replay.done ? meta.replay : meta.level);
-    R3.resize();
+    R3.resize(); refit();
     setInterval(tick, TICK);
     if (!meta.seenHelp) $('ovHelp').classList.add('show');
     Goobs.markPlayed('cubecorral');

@@ -150,11 +150,56 @@ var Goobs = (function () {
   window.addEventListener('orientationchange', snapSoon);
   document.addEventListener('visibilitychange', function () { if (!document.hidden) snapSoon(); });
 
+  // ---------- full screen (shell 2.44.0) ----------
+  // Goobs.fullscreen({ menu: ['btnHelp', 'btnStats', ...], overlay: false, title: 'Name', info: function () { return 'html'; },
+  //                    onOpen: fn, onClose: fn })
+  // Puts the page in full-screen mode (html.gg-fs, see goobs.css), adds a round Menu button at the end of the top row and a
+  // Menu sheet. The buttons named in `menu` are MOVED into the sheet (they keep their own click handlers; the sheet closes
+  // first). The sheet also has "All games" and a big Play button. A toolbar left with no buttons is hidden.
+  var MENU_ICON = '<svg viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></g></svg>';
+  var ALL_ICON = '<svg viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 11 12 4l8.5 7"/><path d="M6 9.5V20h4.5v-5.5h3V20H18V9.5"/></g></svg>'; // a house: back to the arcade
+  function fullscreen(opts) {
+    opts = opts || {};
+    var html = document.documentElement;
+    html.classList.add('gg-fs'); if (opts.overlay) html.classList.add('gg-fs-over');
+    var top = document.querySelector('.top'), h1 = top && top.querySelector('h1'), bsvg = top && top.querySelector('.brand svg');
+    var ov = document.createElement('div'); ov.className = 'overlay ggmenu'; ov.id = 'ggMenu';
+    ov.innerHTML = '<div class="sheet" role="dialog" aria-label="Menu"><div class="ggmenu-top">' + (opts.icon || (bsvg ? bsvg.outerHTML : '')) +
+      '<h2></h2></div><div class="ggmenu-info"></div><div class="ggmenu-list"></div><button class="btn red ggmenu-play">Play</button></div>';
+    ov.querySelector('.ggmenu-top svg') && ov.querySelector('.ggmenu-top svg').removeAttribute('style');
+    ov.querySelector('h2').textContent = opts.title || (h1 ? h1.textContent : document.title);
+    var list = ov.querySelector('.ggmenu-list'), toolbars = [];
+    (opts.menu || []).forEach(function (id) {
+      var b = typeof id === 'string' ? document.getElementById(id) : id;
+      if (!b) return;
+      var tb = b.closest('.toolbar'); if (tb && toolbars.indexOf(tb) < 0) toolbars.push(tb);
+      if (!b.querySelector('span') && b.getAttribute('aria-label')) { var sp = document.createElement('span'); sp.textContent = b.getAttribute('aria-label'); b.appendChild(sp); }
+      list.appendChild(b);
+    });
+    if (opts.allGames !== false) {
+      var all = document.createElement('button'); all.id = 'ggAllGames'; all.innerHTML = ALL_ICON + '<span>All games</span>';
+      all.addEventListener('click', function () { home(); }); list.appendChild(all);
+    }
+    toolbars.forEach(function (tb) { if (!tb.querySelector('button')) tb.style.display = 'none'; });
+    document.body.appendChild(ov);
+    var btn = document.createElement('button'); btn.className = 'iconbtn ggmenu-btn'; btn.id = 'ggMenuBtn'; btn.setAttribute('aria-label', 'Menu'); btn.innerHTML = MENU_ICON;
+    var tbtns = top && top.querySelector('.topbtns');
+    if (opts.button) opts.button.appendChild(btn); else if (tbtns) tbtns.appendChild(btn); else if (top) top.appendChild(btn); else document.body.appendChild(btn);
+    function info() { var el = ov.querySelector('.ggmenu-info'); try { el.innerHTML = opts.info ? (opts.info() || '') : ''; } catch (e) { el.innerHTML = ''; } }
+    function open() { info(); ov.classList.add('show'); if (opts.onOpen) { try { opts.onOpen(); } catch (e) { /* ignore */ } } }
+    function close() { if (!ov.classList.contains('show')) return; ov.classList.remove('show'); if (opts.onClose) { try { opts.onClose(); } catch (e) { /* ignore */ } } }
+    btn.addEventListener('click', open);
+    ov.addEventListener('click', function (e) { if (e.target === ov) close(); });
+    ov.querySelector('.ggmenu-play').addEventListener('click', close);
+    list.addEventListener('click', function (e) { var b = e.target.closest('button'); if (b && !b.disabled) close(); }, true); // close first; the button's own handler runs after
+    return { open: open, close: close, isOpen: function () { return ov.classList.contains('show'); }, el: ov, button: btn, list: list, refresh: info };
+  }
+
   return {
     ROOT: ROOT, store: store, settings: settings, THEMES: THEMES,
     theme: function () { return themeNow; }, setTheme: setTheme, onTheme: function (cb) { themeListeners.push(cb); }, themePicker: themePicker,
     adsOn: function () { return settings.ads; }, setAds: function (on) { settings.ads = !!on; saveSettings(); },
     markPlayed: markPlayed, recent: function () { return gs.get('recent', []) || []; }, favs: favs, toggleFav: toggleFav,
-    initUpdates: initUpdates, home: home, snap: snapSoon
+    initUpdates: initUpdates, home: home, snap: snapSoon, fullscreen: fullscreen
   };
 })();

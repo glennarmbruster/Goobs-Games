@@ -19,7 +19,8 @@
 /* Fizz Pop styles (themes, UI kit and ad cards come from /shared/goobs.css) */
 .brand svg { border-radius: 10px; }
 .modes button { font-size: 15px; }
-.stagewrap { flex: 1 1 auto; min-height: 0; width: 100%; display: flex; align-items: center; justify-content: center; }
+/* full screen (1.1.0): the wrap reaches past the page gutters so the field can be as wide as the screen */
+.stagewrap { flex: 1 1 auto; min-height: 0; width: calc(100% + 16px); margin: 0 -8px; display: flex; align-items: center; justify-content: center; }
 .stage { position: relative; border-radius: 18px; overflow: hidden; box-shadow: var(--shadow); background: #1e2a5a; touch-action: none; }
 .stage canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 .toast { position: absolute; left: 50%; top: 42%; transform: translateX(-50%); text-align: center; pointer-events: none; opacity: 0; transition: opacity .25s;
@@ -440,7 +441,7 @@ var FPSound = (function () {
   function $(id) { return document.getElementById(id); }
   function fmt(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
   function isOpen(id) { return $(id).classList.contains('show'); }
-  function sheetOpen() { return isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || isOpen('ovLevels') || GoobsAds.isOpen(); }
+  function sheetOpen() { return isOpen('ggMenu') || isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || isOpen('ovLevels') || GoobsAds.isOpen(); }
   function newSeed() { try { return crypto.getRandomValues(new Uint32Array(1))[0]; } catch (e) { return Math.floor(Math.random() * 4294967296); } }
 
   // ================= game =================
@@ -545,7 +546,8 @@ var FPSound = (function () {
   var cv, cx, dpr = 1, k = 40, W = 8, H = 13.4, ox = 0;
   function fit() {
     var wrap = $('stagewrap').getBoundingClientRect();
-    k = Math.floor(Math.min((wrap.width - 4) / W, wrap.height / H, 60));
+    // full screen: as big as the width or height allows (half-pixel steps; the cap keeps it sane on an iPad)
+    k = Math.max(10, Math.floor(2 * Math.min(wrap.width / W, wrap.height / H, 60)) / 2);
     var st = $('stage'); st.style.width = (W * k) + 'px'; st.style.height = (H * k) + 'px';
     dpr = Math.min(3, window.devicePixelRatio || 1);
     cv.width = Math.round(W * k * dpr); cv.height = Math.round(H * k * dpr);
@@ -742,6 +744,11 @@ var FPSound = (function () {
   }
   function inGame() { return g && !g.over && g.shots > 0; }
   function init() {
+    // full screen: How to, Stats, Settings, Levels and Restart live in the Menu (a bubble in flight waits while it is open)
+    Goobs.fullscreen({ menu: ['btnHelp', 'btnLevels', 'btnStats', 'btnSettings', 'btnNew'], info: function () {
+      if (!g) return '';
+      return meta.mode === 'levels' ? 'Level <b>' + levelNo + '</b> of ' + LEVELS.length + ' &middot; ' + FP.count(g) + ' bubbles left' : 'Endless &middot; score <b>' + fmt(g.score) + '</b> &middot; best ' + fmt(Math.max(meta.endlessBest, g.score));
+    } });
     Goobs.themePicker($('themes'));
     cv = $('cv'); cx = cv.getContext('2d');
     cv.addEventListener('pointerdown', onDown); cv.addEventListener('pointermove', onMove); cv.addEventListener('pointerup', onUp);

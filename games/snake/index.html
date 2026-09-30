@@ -78,6 +78,12 @@
 
 .cardicon svg { border-radius: 16px; }
 .mazelist { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 6px 0 10px; }
+
+/* full screen (Goobs.fullscreen, 2026-09-29): Pause sits in the top row as a round button (icon only) */
+html.gg-fs .top #btnPause span { display: none; }
+html.gg-fs .top #btnPause:disabled { opacity: .4; }
+/* tall phones: the board is limited by the width, so the arrows (when on) get the spare height */
+@media (min-height: 780px) { html.gg-fs .dpad { grid-template-rows: 60px 60px; max-width: 360px; } }
 </style>
 </head>
 <body>
@@ -434,7 +440,7 @@ var NDSound = (function () {
   function $(id) { return document.getElementById(id); }
   function fmt(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
   function isOpen(id) { return $(id).classList.contains('show'); }
-  function sheetOpen() { return isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || GoobsAds.isOpen(); }
+  function sheetOpen() { return isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || isOpen('ggMenu') || GoobsAds.isOpen(); }
   function fmtTime(ms) { var s = Math.ceil(ms / 1000); return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2); }
   function bestFor(mode, maze) { return mode === 'mazes' ? (stats.mazeBest[maze] || 0) : stats[mode].best; }
 
@@ -658,6 +664,7 @@ var NDSound = (function () {
   function renderModes() { Array.prototype.forEach.call($('modes').children, function (b) { b.classList.toggle('on', b.dataset.mode === meta.mode); }); }
   function renderTools() {
     var p = $('btnPause'), paused = phase === 'paused';
+    p.setAttribute('aria-label', paused ? 'Resume' : 'Pause');
     p.innerHTML = '<svg viewBox="0 0 24 24"><use href="#i-' + (paused ? 'play' : 'pause') + '"/></svg><span>' + (paused ? 'Resume' : 'Pause') + '</span>';
     p.disabled = !(phase === 'run' || phase === 'paused');
   }
@@ -878,6 +885,15 @@ var NDSound = (function () {
     });
     sheet('btnSettings', 'ovSettings', 'btnCloseSettings');
     sheet('btnStats', 'ovStats', 'btnCloseStats', renderStats);
+    // full screen (2026-09-29): Pause moves up to the top row as a round button; How to, Restart, Stats and Settings live
+    // in the Menu (the empty toolbar hides itself), so the board gets the toolbar's height. The game pauses while it is open.
+    var pb = $('btnPause'); pb.className = 'iconbtn'; pb.setAttribute('aria-label', 'Pause');
+    $('btnSound').parentNode.insertBefore(pb, $('btnSound'));
+    Goobs.fullscreen({
+      menu: ['btnNew', 'btnHelp', 'btnStats', 'btnSettings'],
+      info: function () { return s ? 'Best in this mode <b>' + fmt(Math.max(bestFor(s.mode, s.maze), s.score)) + '</b>' : ''; },
+      onOpen: function () { pause(); }
+    });
     $('btnHelp').addEventListener('click', function () { pause(); openHelp(); });
     function closeHelp() { $('ovHelp').classList.remove('show'); if (!meta.seen) { meta.seen = true; saveMeta(); } }
     $('btnCloseHelp').addEventListener('click', closeHelp);

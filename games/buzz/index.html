@@ -38,9 +38,14 @@
 <title>Buzz Off!</title>
 <style>
 /* Buzz Off! styles (themes, UI kit and ad cards come from /shared/goobs.css) */
-.brand h1 { font-size: 22px; }
-.stagewrap { flex: 1 1 auto; min-height: 0; width: calc(100% + 20px); margin: 0 -10px; display: flex; align-items: stretch; justify-content: center; }
-.stage { position: relative; flex: 1; border-radius: 18px; overflow: hidden; touch-action: none; margin: 0 10px; background: #fdf8ec; box-shadow: var(--shadow); }
+/* full screen (1.1.0): the stage reaches past the page gutters (edge to edge) and takes all the height between the top
+   row and the Restart / Hint toolbar; the world is fitted inside it by fit() */
+.stagewrap { flex: 1 1 auto; min-height: 0; width: calc(100% + 16px); margin: 0 -8px; display: flex; align-items: stretch; justify-content: center; }
+.stage { position: relative; flex: 1; border-radius: 18px; overflow: hidden; touch-action: none; background: #fdf8ec; box-shadow: var(--shadow); }
+/* the level and its stars, in the top row (it was the info row); tap it for How to play */
+.bzlv { flex: none; font: inherit; font-weight: 800; font-size: 14px; padding: 6px 10px; white-space: nowrap; cursor: pointer; }
+.bzlv i { font-style: normal; color: #ffb800; }
+.bzlv i span { color: var(--line-strong); }
 .stage canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 .hud { position: absolute; left: 10px; right: 10px; top: 10px; display: flex; align-items: center; gap: 10px; pointer-events: none; }
 .inkbar { flex: 1; display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,.85); border-radius: 14px; padding: 6px 10px; box-shadow: 0 2px 8px rgba(0,0,0,.12); }
@@ -66,6 +71,8 @@
 .lvpages button { font: inherit; font-weight: 800; font-size: 13px; border: 0; border-radius: 10px; padding: 7px 9px; background: var(--surface-2); color: var(--muted); }
 .lvpages button.on { background: var(--accent); color: #fff; }
 .lvpages button[disabled] { opacity: .35; }
+/* iPhone SE width: keep "Buzz Off!" readable next to a three-digit level */
+@media (max-width: 380px) { html.gg-fs .top .brand h1 { font-size: 18px; } .bzlv { padding: 6px 8px; } }
 </style>
 </head>
 <body>
@@ -100,13 +107,12 @@
       <h1>Buzz Off!</h1>
     </button>
     <div class="topbtns">
+      <button class="ggpill bzlv" id="info" aria-label="How to play"></button>
       <button class="iconbtn" id="btnSound" aria-label="Sound"><svg viewBox="0 0 24 24"><use href="#i-sound-off"/></svg></button>
       <button class="iconbtn" id="btnStats" aria-label="Stats"><svg viewBox="0 0 24 24"><use href="#i-stats"/></svg></button>
       <button class="iconbtn" id="btnSettings" aria-label="Settings"><svg viewBox="0 0 24 24"><use href="#i-gear"/></svg></button>
     </div>
   </div>
-
-  <div class="info" id="info"></div>
 
   <div class="stagewrap" id="stagewrap">
     <div class="stage" id="stage">
@@ -121,6 +127,7 @@
   </div>
 
   <div class="toolbar">
+    <button class="tool" id="btnHelp" aria-label="How to play"><svg viewBox="0 0 24 24"><use href="#i-help"/></svg><span>How to</span></button>
     <button class="tool" id="btnRestart"><svg viewBox="0 0 24 24"><use href="#i-new"/></svg><span>Restart</span></button>
     <button class="tool" id="btnLevels"><svg viewBox="0 0 24 24"><use href="#i-levels"/></svg><span>Levels</span></button>
     <button class="tool red" id="btnHint"><svg viewBox="0 0 24 24"><use href="#i-bulb"/></svg><span>Hint</span></button>
@@ -592,7 +599,7 @@ var BZSound = (function () {
 
   function $(id) { return document.getElementById(id); }
   function isOpen(id) { return $(id).classList.contains('show'); }
-  function sheetOpen() { return isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || isOpen('ovLevels') || GoobsAds.isOpen(); }
+  function sheetOpen() { return isOpen('ggMenu') || isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || isOpen('ovLevels') || GoobsAds.isOpen(); }
 
   // ================= level state =================
   var lvNo = meta.level, L = null, S = null, state = 'draw', hint = null, fx = [], endT = 0, parts = [], drawing = false, clockShown = -1;
@@ -765,7 +772,8 @@ var BZSound = (function () {
   }
   function renderInfo() {
     var st = meta.stars[lvNo] || 0, total = 0; for (var q in meta.stars) total += meta.stars[q];
-    $('info').innerHTML = '<div><div class="lbl">Level</div><div class="big">' + lvNo + '</div></div><div class="right"><div class="lbl">Stars ' + total + '</div><div class="mid">' + (st ? '★★★'.slice(0, st) + '<span style="opacity:.25">' + '★★★'.slice(st) + '</span>' : 'Not saved yet') + '</div></div>';
+    // a pill in the top row since the full-screen layout (1.1.0): the level and this level's stars (the total is in the Menu)
+    $('info').innerHTML = 'Level ' + lvNo + ' <i>' + '★★★'.slice(0, st) + '<span>' + '★★★'.slice(st) + '</span></i>';
   }
   var tipT = 0;
   function tip(t) { var el = $('tip'); clearTimeout(tipT); if (!t) { el.classList.remove('show'); return; } el.textContent = t; el.classList.add('show'); tipT = setTimeout(function () { el.classList.remove('show'); }, 5000); }
@@ -822,6 +830,12 @@ var BZSound = (function () {
     $(ov).addEventListener('click', function (e) { if (e.target === this) this.classList.remove('show'); });
   }
   function init() {
+    // full screen: How to, Levels, Stats and Settings live in the Menu; Restart and Hint stay under the stage (used all
+    // the time). The bees and Biscuit stop while the Menu is open.
+    Goobs.fullscreen({ menu: ['btnHelp', 'btnLevels', 'btnStats', 'btnSettings'], info: function () {
+      var st = meta.stars[lvNo] || 0, total = 0; for (var q in meta.stars) total += meta.stars[q];
+      return 'Level <b>' + lvNo + '</b> of ' + LEVELS.length + ' &middot; ' + (st ? st + ' of 3 stars here' : 'not saved yet') + ' &middot; ' + total + ' stars in all';
+    } });
     Goobs.themePicker($('themes'));
     cv = $('cv'); cx = cv.getContext('2d');
     cv.addEventListener('pointerdown', onDown); cv.addEventListener('pointermove', onMove); cv.addEventListener('pointerup', onUp); cv.addEventListener('pointercancel', onUp);
@@ -838,6 +852,7 @@ var BZSound = (function () {
     function closeHelp() { $('ovHelp').classList.remove('show'); if (!meta.seen) { meta.seen = true; saveMeta(); } }
     $('btnCloseHelp').addEventListener('click', closeHelp); $('ovHelp').addEventListener('click', function (e) { if (e.target === this) closeHelp(); });
     $('info').addEventListener('click', openHelp);
+    $('btnHelp').addEventListener('click', openHelp);
     $('btnSound').addEventListener('click', function () { settings.sound = !settings.sound; saveSettings(); syncSound(); S_.ding(); });
     $('setSound').addEventListener('change', function () { settings.sound = this.checked; saveSettings(); syncSound(); S_.ding(); });
     $('setAds').addEventListener('change', function () { Goobs.setAds(this.checked); syncAds(); });

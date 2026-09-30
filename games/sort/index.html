@@ -107,6 +107,8 @@
   <div class="toolbar">
     <button class="tool" id="btnRestart"><svg viewBox="0 0 24 24"><use href="#i-new"/></svg><span>Restart</span></button>
     <button class="tool" id="btnUndo"><svg viewBox="0 0 24 24"><use href="#i-undo"/></svg><span>Undo</span><i class="cnt" id="undoCnt">5</i></button>
+    <!-- moved into the Menu sheet at start (full screen); before that How to play only opened from the level row -->
+    <button class="tool" id="btnHelp"><svg viewBox="0 0 24 24"><use href="#i-help"/></svg><span>How to play</span></button>
     <button class="tool red" id="btnTube"><svg viewBox="0 0 24 24"><use href="#i-plus-tube"/></svg><span>Tube</span><i class="cnt" id="tubeCnt">1</i></button>
   </div>
 </div>
@@ -366,7 +368,7 @@ var SSSound = (function () {
   // ================= helpers =================
   function $(id) { return document.getElementById(id); }
   function isOpen(id) { return $(id).classList.contains('show'); }
-  function sheetOpen() { return isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || GoobsAds.isOpen(); }
+  function sheetOpen() { return isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || isOpen('ggMenu') || GoobsAds.isOpen(); } // no pouring while the Menu is open either
   function fmt(n) { return (n || 0).toLocaleString(); }
   function levelString(n) { return n <= LEVELS.length ? LEVELS[n - 1] : SS.levelBeyond(n); }
 
@@ -457,10 +459,15 @@ var SSSound = (function () {
   }
   function layout() {
     if (!g) return;
-    var n = g.tubes.length, rows = n <= 6 ? 1 : n <= 16 ? 2 : 3, per = Math.ceil(n / rows);
-    // a tube is tw wide and about 4.1 tw tall; leave room above each row for the lift and the pour
-    var byW = W / (per * 1.34 + 0.3), byH = H / (rows * 5.35 + 0.3);
-    var tw = Math.min(byW, byH, 64), u = tw * 0.86, hr = tw * 0.62, th = hr + u * SS.CAP;
+    // a tube is tw wide and about 4.1 tw tall; leave room above each row for the lift and the pour.
+    // full screen (1.1.0): tubes may grow to 84px wide (was 64), and the number of rows is whichever of 1-3 gives the
+    // biggest tubes (was fixed: 1 row up to 6 tubes, 2 up to 16), so a tall phone's height is used too
+    var n = g.tubes.length, rows = 1, per = n, tw = 0;
+    for (var rr = 1; rr <= 3 && rr <= n; rr++) {
+      var pr = Math.ceil(n / rr), t = Math.min(W / (pr * 1.34 + 0.3), H / (rr * 5.35 + 0.3), 84);
+      if (t > tw + 0.5) { tw = t; rows = rr; per = pr; }
+    }
+    var u = tw * 0.86, hr = tw * 0.62, th = hr + u * SS.CAP;
     var rowH = H / rows, pos = [];
     for (var i = 0; i < n; i++) {
       var row = Math.floor(i / per), inRow = Math.min(per, n - row * per), k = i - row * per;
@@ -628,6 +635,10 @@ var SSSound = (function () {
     // pours: the source tube swings over the target, tips, and pours a stream
     moving.forEach(function (m) {
       var i = m[0], a = m[1], P = L.pos[a.a], Q = L.pos[a.b], side = P.x >= Q.x ? 1 : -1;
+      // full screen (1.1.0): tubes are bigger now, so tip from the side with more room when the usual side runs out
+      // (a tipped tube reaches about its own length sideways; the canvas edge would cut it off)
+      var roomL = Q.x, roomR = W - Q.x;
+      if ((side < 0 ? roomL : roomR) < L.th && (side < 0 ? roomR : roomL) > (side < 0 ? roomL : roomR)) side = -side;
       var mx = Q.x + side * tw * 0.28, my = Q.y - tw * 0.75, len = g.tubes[a.a].length + a.n;
       var tilt = side * -(1.05 + (SS.CAP - len) * 0.2), t = a.t, k, ang, x, y;
       if (t < 0.3) { k = ease(t / 0.3); x = P.x + (mx - P.x) * k; y = (P.y - tw * 0.55) + (my - P.y + tw * 0.55) * k; ang = tilt * k; }
@@ -724,6 +735,11 @@ var SSSound = (function () {
     $(ov).addEventListener('click', function (e) { if (e.target === this) this.classList.remove('show'); });
   }
   function init() {
+    // full screen: How to play, Stats and Settings live in the Menu sheet; Restart, Undo and Tube stay under the tubes
+    Goobs.fullscreen({ menu: ['btnHelp', 'btnStats', 'btnSettings'], info: function () {
+      if (!g) return '';
+      return '<b>' + (meta.mode === 'balls' ? 'Balls' : 'Water') + ' level ' + g.level + '</b> \u00b7 ' + g.moves + (g.moves === 1 ? ' move' : ' moves');
+    } });
     Goobs.themePicker($('themes'));
     cv = $('cv'); cx = cv.getContext('2d');
     cv.addEventListener('pointerdown', function (e) { var r = cv.getBoundingClientRect(); tap(hit(e.clientX - r.left, e.clientY - r.top)); e.preventDefault(); });
@@ -736,6 +752,7 @@ var SSSound = (function () {
     sheet('btnSettings', 'ovSettings', 'btnCloseSettings');
     sheet('btnStats', 'ovStats', 'btnCloseStats', renderStats);
     function closeHelp() { $('ovHelp').classList.remove('show'); if (!meta.seen) { meta.seen = true; saveMeta(); } }
+    $('btnHelp').addEventListener('click', openHelp);
     $('btnCloseHelp').addEventListener('click', closeHelp);
     $('ovHelp').addEventListener('click', function (e) { if (e.target === this) closeHelp(); });
     $('info').addEventListener('click', openHelp);

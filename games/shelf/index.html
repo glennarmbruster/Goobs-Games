@@ -57,6 +57,18 @@
 .lv:disabled { opacity: .35; }
 .stars { font-size: 34px; color: #ffb224; letter-spacing: 4px; margin: -4px 0 4px; }
 .stars i { font-style: normal; color: var(--line-strong); }
+/* full screen (kit): the counters are pills in the top row, so the game's name is hidden there (the Menu shows it)
+   and the stage runs to the very edges of the screen (three cubbies to a shelf make the items width-bound on a phone). */
+html.gg-fs .top .brand h1 { display: none; }
+html.gg-fs .top .brand { flex: none; }
+.ttpills { flex: 1 1 auto; width: auto; min-width: 0; min-height: 0; justify-content: flex-end; gap: 6px; padding: 0; cursor: pointer; }
+.ttpills .ggpill { flex: none; }
+@media (max-width: 385px) { .ttpills { gap: 4px; } .ttpills .ggpill { padding: 7px 8px; font-size: 15px; } .ttpills .ggpill small { font-size: 12px; } } /* pills fit an SE */
+.ttpills.tight .ggpill { padding-left: 7px; padding-right: 7px; }
+.ttpills.tight .ggpill small { display: none; }
+.ttpills .ggpill small { font-size: 13px; font-weight: 700; color: var(--muted); }
+html.gg-fs .stagewrap { width: auto; align-self: stretch; margin: 0 calc(-8px - env(safe-area-inset-right, 0px)) 0 calc(-8px - env(safe-area-inset-left, 0px)); }
+html.gg-fs .stage { margin: 0; border-radius: 0; }
 </style>
 </head>
 <body>
@@ -89,14 +101,14 @@
       <svg viewBox="0 0 100 100" aria-hidden="true"><use href="#sl-logo"/></svg>
       <h1>Shelf Life</h1>
     </button>
+    <!-- full screen: the level / items-left / clock counters sit in the top row as pills (was its own row) -->
+    <div class="info ttpills" id="info"></div>
     <div class="topbtns">
       <button class="iconbtn" id="btnSound" aria-label="Sound"><svg viewBox="0 0 24 24"><use href="#i-sound-off"/></svg></button>
       <button class="iconbtn" id="btnStats" aria-label="Stats"><svg viewBox="0 0 24 24"><use href="#i-stats"/></svg></button>
       <button class="iconbtn" id="btnSettings" aria-label="Settings"><svg viewBox="0 0 24 24"><use href="#i-gear"/></svg></button>
     </div>
   </div>
-
-  <div class="info" id="info"></div>
 
   <div class="stagewrap" id="stagewrap">
     <div class="stage" id="stage">
@@ -107,6 +119,7 @@
 
   <div class="toolbar">
     <button class="tool" id="btnLevels"><svg viewBox="0 0 24 24"><use href="#i-levels"/></svg><span>Levels</span></button>
+    <button class="tool" id="btnHelp"><svg viewBox="0 0 24 24"><use href="#i-help"/></svg><span>How to</span></button>
     <button class="tool" id="btnUndo"><svg viewBox="0 0 24 24"><use href="#i-undo"/></svg><span>Undo</span><i class="cnt" id="cntUndo">3</i></button>
     <button class="tool" id="btnShuffle"><svg viewBox="0 0 24 24"><use href="#i-shuffle"/></svg><span>Shuffle</span><i class="cnt" id="cntShuffle">3</i></button>
     <button class="tool red" id="btnHint"><svg viewBox="0 0 24 24"><use href="#i-bulb"/></svg><span>Hint</span><i class="cnt" id="cntHint">3</i></button>
@@ -711,7 +724,7 @@ var SLSound = (function () {
   // ================= helpers =================
   function $(id) { return document.getElementById(id); }
   function isOpen(id) { return $(id).classList.contains('show'); }
-  function sheetOpen() { return isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || isOpen('ovLevels') || GoobsAds.isOpen(); }
+  function sheetOpen() { return isOpen('ggMenu') || isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || isOpen('ovLevels') || GoobsAds.isOpen(); }
   function fmt(n) { return (n || 0).toLocaleString(); }
   function clock(ms) { var s = Math.floor(ms / 1000); return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2); }
   function ease(t) { return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; }
@@ -991,10 +1004,18 @@ var SLSound = (function () {
   function burst(x, y) { for (var i = 0; i < 9; i++) { var a = Math.random() * Math.PI * 2, sp = 1.5 + Math.random() * 3; parts.push({ x: x, y: y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 1.5, t: 0, life: 34, c: ['#ffd21e', '#ff6a8a', '#ffffff', '#6ad0ff'][i % 4], r: 2 + Math.random() * 2.5 }); } }
 
   // ================= info, cards, sheets =================
+  // full screen: when the pills don't fit the top row (an SE with big numbers), drop their unit words
+  function fitPills() {
+    var el = $('info'), w = 0; if (!el) return; el.classList.remove('tight');
+    Array.prototype.forEach.call(el.children, function (c) { w += c.offsetWidth + 6; });
+    if (w > el.clientWidth + 6) el.classList.add('tight');
+  }
   function renderInfo() {
     if (!g) return;
-    $('info').innerHTML = '<div><div class="lbl">Level</div><div class="big">' + g.n + '</div></div>' +
-      '<div class="right"><div class="lbl">Items left</div><div class="mid">' + Math.max(0, g.total - g.cleared) + (settings.timer ? ' · <span id="clock">' + clock(g.ms) + '</span>' : '') + '</div></div>';
+    // full screen: two pills in the top row instead of the old LEVEL / ITEMS LEFT row (frees ~50px for the shelves)
+    $('info').innerHTML = '<span class="ggpill"><small>Lv</small> ' + g.n + '</span>' +
+      '<span class="ggpill">' + Math.max(0, g.total - g.cleared) + ' <small>left</small>' + (settings.timer ? ' · <span id="clock">' + clock(g.ms) + '</span>' : '') + '</span>';
+    fitPills();
     $('cntUndo').textContent = meta.boost.undo; $('cntShuffle').textContent = meta.boost.shuffle; $('cntHint').textContent = meta.boost.hint;
   }
   var toastT = 0;
@@ -1049,6 +1070,11 @@ var SLSound = (function () {
     $('btnHome').addEventListener('click', function () { save(); Goobs.home(); });
     $('btnUndo').addEventListener('click', useUndo); $('btnShuffle').addEventListener('click', useShuffle); $('btnHint').addEventListener('click', useHint);
     $('btnLevels').addEventListener('click', openLevels);
+    $('btnHelp').addEventListener('click', openHelp);
+    // full screen (kit): Levels, How to, Stats and Settings live in the Menu; Undo / Shuffle / Hint stay on screen.
+    // The clock stops and drags are ignored while the Menu is open (sheetOpen() checks 'ggMenu').
+    Goobs.fullscreen({ menu: ['btnLevels', 'btnHelp', 'btnStats', 'btnSettings'],
+      info: function () { return g ? 'Level <b>' + g.n + '</b> · <b>' + Math.max(0, g.total - g.cleared) + '</b> items left' : ''; } });
     $('btnRestart').addEventListener('click', function () { $('ovLevels').classList.remove('show'); if (g) startLevel(g.n); });
     $('lvgrid').addEventListener('click', function (e) { var b = e.target.closest('button[data-n]'); if (!b) return; $('ovLevels').classList.remove('show'); startLevel(+b.dataset.n); });
     sheet(null, 'ovLevels', 'btnCloseLevels');

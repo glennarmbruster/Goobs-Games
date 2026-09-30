@@ -53,6 +53,15 @@ html, body { height: 100%; overflow: hidden; }
 .dpad .arr.on { fill: var(--accent); }
 .dpad .knob { fill: #e0243a; stroke: #7a0a16; stroke-width: 3; transition: transform .05s; transform-origin: 60px 60px; }
 @media (max-height: 700px) { .dpad { width: 150px; height: 150px; } }
+
+/* full screen (Goobs.fullscreen, 2026-09-29): the screen reaches the page edges (the kit's gutters are 8px, not 14px), its
+   black fills the free band like a cabinet monitor, and the controls get a little more room on tall phones, where the
+   arcade screen is limited by the width anyway */
+html.gg-fs .stagewrap { width: calc(100% + 16px); margin: 0 -8px; background: #04050a; }
+html.gg-fs .screen { border-radius: 0; box-shadow: none; }
+html.gg-fs .pad { padding-bottom: 4px; }
+@media (min-height: 780px) { html.gg-fs .dpad { width: 184px; height: 184px; } html.gg-fs .pb.fire { width: 104px; height: 104px; } }
+html.gg-fs .padmid .pb.small { width: 50px; height: 46px; border-radius: 14px; }
 </style>
 </head>
 <body>
@@ -1055,7 +1064,7 @@ var TPSound = (function () {
   function $(id) { return document.getElementById(id); }
   function fmt(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
   function isOpen(id) { return $(id).classList.contains('show'); }
-  function sheetOpen() { return isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || GoobsAds.isOpen(); }
+  function sheetOpen() { return isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || isOpen('ggMenu') || GoobsAds.isOpen(); }
 
   // ================= state =================
   // mode: 'title' | 'game' | 'initials'
@@ -1157,15 +1166,20 @@ var TPSound = (function () {
     next();
   }
 
-  // ================= screen size: whole device pixels only =================
+  // ================= screen size: as big as the space allows =================
+  // Whole device pixels per arcade pixel keep it crisp, but rounding down costs up to 13% of the width on a phone (373 of
+  // 390 points on an iPhone 15 at 3x, 336 of 375 on an SE at 2x). When it would cost more than 3%, use the exact fit: at
+  // 2x and 3x the uneven pixels (5 or 6 device pixels each) can't be seen (full screen, 2026-09-29).
   function fit() {
     var wrap = $('stagewrap'), cv = $('cv'), dpr = window.devicePixelRatio || 1;
     var aw = wrap.clientWidth, ah = wrap.clientHeight;
     if (!aw || !ah) return;
-    var s = Math.floor(Math.min(aw * dpr / TP.W, ah * dpr / TP.H));
+    var exact = Math.min(aw * dpr / TP.W, ah * dpr / TP.H), s = Math.floor(exact);
+    if (s < exact * 0.97) s = exact;
     if (s < 1) s = 1;
-    cv.width = TP.W * s; cv.height = TP.H * s;
-    cv.style.width = (TP.W * s / dpr) + 'px'; cv.style.height = (TP.H * s / dpr) + 'px';
+    var w = Math.floor(TP.W * s), h = Math.floor(TP.H * s);
+    cv.width = w; cv.height = h;
+    cv.style.width = (w / dpr) + 'px'; cv.style.height = (h / dpr) + 'px';
   }
 
   // ================= joystick and pump =================
@@ -1248,6 +1262,12 @@ var TPSound = (function () {
     sheet('btnSettings', 'ovSettings', 'btnCloseSettings');
     sheet('btnStats', 'ovStats', 'btnCloseStats', renderStats);
     sheet('bHelp', 'ovHelp', 'btnCloseHelp');
+    // full screen (2026-09-29): Stats, Settings and How to play live in the Menu; the game pauses while it is open
+    Goobs.fullscreen({
+      menu: ['bHelp', 'btnStats', 'btnSettings'],
+      info: function () { return 'High score <b>' + fmt(hiScore()) + '</b> &middot; best round <b>' + stats.bestRound + '</b>'; },
+      onOpen: function () { pause(); }
+    });
     $('btnCloseHelp').addEventListener('click', function () { if (!meta.seenHelp) { meta.seenHelp = true; saveMeta(); } });
     $('btnSound').addEventListener('click', function () { settings.sound = !settings.sound; saveSettings(); syncSound(); });
     $('setSound').addEventListener('change', function () { settings.sound = this.checked; saveSettings(); syncSound(); });

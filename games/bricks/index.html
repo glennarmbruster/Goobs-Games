@@ -21,10 +21,13 @@
 .app { gap: 8px; }
 .info .lives { display: flex; gap: 4px; justify-content: center; margin-top: 3px; }
 .info .lives i { width: 22px; height: 7px; border-radius: 4px; background: #7c5cff; }
-.stagewrap { flex: 1 1 auto; min-height: 0; width: calc(100% + 20px); margin: 0 -10px; display: flex; align-items: center; justify-content: center; }
+/* full screen (1.1.0): .playcol is the free space under the info row. fit() sizes the field to the full screen width (or
+   the height, on short phones) and the slide strip under it takes the rest of the height, so nothing is left blank. */
+.playcol { flex: 1 1 0; min-height: 0; width: 100%; display: flex; flex-direction: column; gap: 6px; }
+.stagewrap { flex: none; width: calc(100% + 16px); margin: 0 -8px; display: flex; align-items: center; justify-content: center; }
 .stage { position: relative; border-radius: 14px; overflow: hidden; box-shadow: var(--shadow); background: #1c1f3a; touch-action: none; }
 .stage canvas { display: block; width: 100%; height: 100%; touch-action: none; }
-.dragzone { flex: none; width: 100%; height: 64px; border-radius: 16px; background: var(--surface-2); color: var(--muted); font-weight: 700; font-size: 14px;
+.dragzone { flex: 1 1 auto; width: 100%; min-height: 46px; border-radius: 16px; background: var(--surface-2); color: var(--muted); font-weight: 700; font-size: 14px;
   display: flex; align-items: center; justify-content: center; touch-action: none; -webkit-user-select: none; user-select: none; }
 .ready { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; padding: 18px; color: #fff;
   background: rgba(14,16,40,.72); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
@@ -36,7 +39,8 @@
 .ready .caps b { display: inline-block; width: 30px; text-align: center; border-radius: 8px; color: #fff; font-size: 12px; padding: 1px 0; }
 .ready.compact .caps { display: none; }
 .cardicon svg { border-radius: 16px; }
-@media (max-height: 700px) { .dragzone { height: 50px; } }
+/* the top-row Pause button is an icon button; the info row is a little tighter */
+html.gg-fs .info { min-height: 0; }
 </style>
 </head>
 <body>
@@ -66,6 +70,7 @@
     </button>
     <div class="topbtns">
       <button class="iconbtn" id="btnSound" aria-label="Sound"><svg viewBox="0 0 24 24"><use href="#i-sound-off"/></svg></button>
+      <button class="iconbtn" id="btnPause" aria-label="Pause"><svg viewBox="0 0 24 24"><use href="#i-pause"/></svg></button>
       <button class="iconbtn" id="btnStats" aria-label="Stats"><svg viewBox="0 0 24 24"><use href="#i-stats"/></svg></button>
       <button class="iconbtn" id="btnSettings" aria-label="Settings"><svg viewBox="0 0 24 24"><use href="#i-gear"/></svg></button>
     </div>
@@ -73,17 +78,19 @@
 
   <div class="info" id="info"></div>
 
-  <div class="stagewrap" id="stagewrap">
-    <div class="stage" id="stage">
-      <canvas id="cv"></canvas>
-      <div class="ready" id="ready"></div>
+  <!-- full screen: the field takes all the width it can; the slide strip under it gets whatever height is left -->
+  <div class="playcol" id="playcol">
+    <div class="stagewrap" id="stagewrap">
+      <div class="stage" id="stage">
+        <canvas id="cv"></canvas>
+        <div class="ready" id="ready"></div>
+      </div>
     </div>
+    <div class="dragzone" id="dragzone">Slide here to move the paddle</div>
   </div>
-  <div class="dragzone" id="dragzone">Slide here to move the paddle</div>
 
   <div class="toolbar">
     <button class="tool" id="btnHelp"><svg viewBox="0 0 24 24"><use href="#i-help"/></svg><span>How to</span></button>
-    <button class="tool" id="btnPause"><svg viewBox="0 0 24 24"><use href="#i-pause"/></svg><span>Pause</span></button>
     <button class="tool red" id="btnNew"><svg viewBox="0 0 24 24"><use href="#i-new"/></svg><span>Restart</span></button>
   </div>
 </div>
@@ -477,7 +484,7 @@ var BKSound = (function () {
   function $(id) { return document.getElementById(id); }
   function fmt(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
   function isOpen(id) { return $(id).classList.contains('show'); }
-  function sheetOpen() { return isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || GoobsAds.isOpen(); }
+  function sheetOpen() { return isOpen('ggMenu') || isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || GoobsAds.isOpen(); }
   function newSeed() { try { return crypto.getRandomValues(new Uint32Array(1))[0]; } catch (e) { return Math.floor(Math.random() * 4294967296); } }
 
   // ================= game =================
@@ -567,8 +574,10 @@ var BKSound = (function () {
   // ================= drawing =================
   var cv, cx, dpr = 1, k = 28, W = BK.FW, H = BK.FH;
   function fit() {
-    var wrap = $('stagewrap').getBoundingClientRect();
-    k = Math.max(10, Math.floor(Math.min((wrap.width - 4) / W, wrap.height / H)));
+    // full screen: the field may use the whole screen width (the wrap reaches past the page gutters) and the height of
+    // the play column less a slide strip of at least 46px. Half-pixel steps keep the drawing crisp enough and stable.
+    var col = $('playcol').getBoundingClientRect(), wrap = $('stagewrap').getBoundingClientRect();
+    k = Math.max(10, Math.floor(2 * Math.min(wrap.width / W, (col.height - 52) / H)) / 2);
     var st = $('stage'); st.style.width = (W * k) + 'px'; st.style.height = (H * k) + 'px';
     $('ready').classList.toggle('compact', H * k < 460);
     dpr = Math.min(3, window.devicePixelRatio || 1);
@@ -672,7 +681,8 @@ var BKSound = (function () {
   }
   function renderTools() {
     var p = $('btnPause'), paused = phase === 'paused';
-    p.innerHTML = '<svg viewBox="0 0 24 24"><use href="#i-' + (paused ? 'play' : 'pause') + '"/></svg><span>' + (paused ? 'Resume' : 'Pause') + '</span>';
+    // an icon button in the top row since the full-screen layout (1.1.0)
+    p.innerHTML = '<svg viewBox="0 0 24 24"><use href="#i-' + (paused ? 'play' : 'pause') + '"/></svg>'; p.setAttribute('aria-label', paused ? 'Resume' : 'Pause');
     p.disabled = !(phase === 'run' || phase === 'paused');
   }
   function renderReady() {
@@ -733,6 +743,9 @@ var BKSound = (function () {
     $(ov).addEventListener('click', function (e) { if (e.target === this) this.classList.remove('show'); });
   }
   function init() {
+    // full screen: How to, Stats, Settings and Restart live in the Menu; opening it pauses (tap the field to go on)
+    Goobs.fullscreen({ menu: ['btnHelp', 'btnStats', 'btnSettings', 'btnNew'], onOpen: pause,
+      info: function () { return g ? 'Level <b>' + g.level + '</b> of ' + LAST + ' &middot; score <b>' + fmt(g.score) + '</b> &middot; best ' + fmt(Math.max(meta.best, g.score)) : ''; } });
     Goobs.themePicker($('themes'));
     cv = $('cv'); cx = cv.getContext('2d');
     document.addEventListener('pointerdown', onDown); document.addEventListener('pointermove', onMove);
@@ -765,7 +778,7 @@ var BKSound = (function () {
     $('setAds').addEventListener('change', function () { Goobs.setAds(this.checked); syncAds(); });
     $('adLess').addEventListener('click', function () { settings.adEvery = Math.max(1, settings.adEvery - 1); saveSettings(); syncAds(); });
     $('adMore').addEventListener('click', function () { settings.adEvery = Math.min(10, settings.adEvery + 1); saveSettings(); syncAds(); });
-    if (window.ResizeObserver) new ResizeObserver(function () { fit(); draw(); }).observe($('stagewrap'));
+    if (window.ResizeObserver) new ResizeObserver(function () { fit(); draw(); }).observe($('playcol'));
     window.addEventListener('resize', function () { fit(); draw(); });
     document.addEventListener('visibilitychange', function () { if (document.hidden) { pause(); save(); } });
     window.addEventListener('pagehide', function () { pause(); save(); });

@@ -66,6 +66,23 @@
 .holegrid button small { display: block; font-size: 11px; color: var(--muted); }
 .holegrid button[disabled] { opacity: .35; }
 .besthole { font-size: 11px; font-weight: 800; color: #1f9d55; }
+
+/* Full screen (1.1.0, Glenn: "every game full screen"): the sea fills the whole screen and the course is fitted below
+   the floating top row (hole and stroke pills, sound, Menu); all the buttons are in the Menu. --sp-sb reads the home
+   bar inset for app.js. */
+:root { --sp-sb: env(safe-area-inset-bottom, 0px); }
+html.gg-fs-over, html.gg-fs-over body { background: #2fb4e0; }
+html.gg-fs-over .stagewrap { position: fixed; inset: 0; z-index: 0; width: auto; margin: 0; }
+html.gg-fs-over .stage { margin: 0; border-radius: 0; box-shadow: none; }
+html.gg-fs-over .toast { top: calc(env(safe-area-inset-top, 0px) + 58px); }
+html.gg-fs-over .top .info { flex: 1 1 auto; width: auto; min-width: 0; min-height: 44px; gap: 6px; justify-content: flex-start; padding: 0; }
+html.gg-fs-over .top .info > div { background: rgba(255,255,255,.9); color: #1b1f33; border-radius: 16px; box-shadow: 0 3px 10px rgba(0,0,0,.18); height: 44px; box-sizing: border-box;
+  padding: 3px 11px; min-width: 0; display: flex; flex-direction: column; justify-content: center; }
+html.gg-fs-over .top .info > div:first-child { align-items: center; flex: none; }
+html.gg-fs-over .top .info .lbl { font-size: 10px; color: #5b6280; letter-spacing: .3px; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html.gg-fs-over .top .info .big { font-size: 21px; color: #1b1f33; }
+html.gg-fs-over .top .info .mid { font-size: 15px; color: #1b1f33; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html.gg-fs-over .top .info .right { text-align: left; }
 </style>
 </head>
 <body>
@@ -117,6 +134,7 @@
     <button class="tool" id="btnNew"><svg viewBox="0 0 24 24"><use href="#i-new"/></svg><span>New round</span></button>
     <button class="tool" id="btnHoles"><svg viewBox="0 0 24 24"><use href="#i-flag"/></svg><span>Practice</span></button>
     <button class="tool red" id="btnCard"><svg viewBox="0 0 24 24"><use href="#i-card"/></svg><span>Scorecard</span></button>
+    <button class="tool" id="btnHelp"><svg viewBox="0 0 24 24"><use href="#i-help"/></svg><span>How to</span></button>
   </div>
 </div>
 
@@ -521,7 +539,7 @@ var SPSound = (function () {
 
   function $(id) { return document.getElementById(id); }
   function isOpen(id) { return $(id).classList.contains('show'); }
-  function sheetOpen() { return isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || isOpen('ovCard') || isOpen('ovHoles') || GoobsAds.isOpen(); }
+  function sheetOpen() { return isOpen('ggMenu') || isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || isOpen('ovCard') || isOpen('ovHoles') || GoobsAds.isOpen(); }
   function fmt(n) { return (n || 0).toLocaleString(); }
   function sum(a) { return a.reduce(function (s, v) { return s + (v || 0); }, 0); }
   function parThrough(n) { var p = 0; for (var i = 0; i < n; i++) p += HOLES[i].par; return p; }
@@ -660,10 +678,16 @@ var SPSound = (function () {
 
   // ================= layout and input =================
   var cv, cx, W = 300, H = 500, DPR = 1, s = 3, ox = 0, oy = 0, cache = null, aim = null;
+  // Full screen (1.1.0): the sea fills the whole screen and the top row floats on it, so the course is fitted into the
+  // box below the top row (MT) and above the home bar (MB)
+  var MT = 0, MB = 0;
   function fit() {
     var r = $('stage').getBoundingClientRect(); DPR = Math.min(3, window.devicePixelRatio || 1); W = Math.max(100, r.width); H = Math.max(100, r.height);
     cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
-    s = Math.min(W / 84, H / 166); ox = W / 2 - 50 * s; oy = H / 2 - 89 * s; cache = null;
+    var tr = document.querySelector('.top').getBoundingClientRect(), sb = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sp-sb')) || 0;
+    MT = Math.max(0, tr.bottom - r.top + 4); MB = sb + 6;
+    var fh = Math.max(100, H - MT - MB);
+    s = Math.min((W - 8) / 84, fh / 166); ox = W / 2 - 50 * s; oy = MT + fh / 2 - 89 * s; cache = null;
   }
   function toUnits(px, py) { return [(px - ox) / s, (py - oy) / s]; }
   function pos(e) { var r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
@@ -736,7 +760,7 @@ var SPSound = (function () {
     cx.globalAlpha = 1;
     // banners (screen pixels)
     cx.setTransform(DPR, 0, 0, DPR, 0, 0);
-    if (fx.banner) { var bn = fx.banner; bn.t += dt; var a = bn.t < 0.3 ? bn.t / 0.3 : bn.t > 2.4 ? Math.max(0, 1 - (bn.t - 2.4) / 0.5) : 1; if (bn.t > 2.9) fx.banner = null; else pill(bn.text, bn.sub, H * 0.3, a, '#ffffff'); }
+    if (fx.banner) { var bn = fx.banner; bn.t += dt; var a = bn.t < 0.3 ? bn.t / 0.3 : bn.t > 2.4 ? Math.max(0, 1 - (bn.t - 2.4) / 0.5) : 1; if (bn.t > 2.9) fx.banner = null; else pill(bn.text, bn.sub, Math.max(H * 0.3, MT + 8), a, '#ffffff'); }
     if (fx.big) { var bg = fx.big; bg.t += dt; var sc = Math.min(1, bg.t / 0.25), pop = sc < 1 ? 0.6 + 0.4 * sc + Math.sin(sc * Math.PI) * 0.15 : 1; bigText(bg.text, bg.sub, pop, Math.min(1, bg.t / 0.15), bg.color); }
   }
   function pill(text, sub, y, a, col) {
@@ -860,6 +884,12 @@ var SPSound = (function () {
     function closeHelp() { $('ovHelp').classList.remove('show'); if (!meta.seen) { meta.seen = true; saveMeta(); } }
     $('btnCloseHelp').addEventListener('click', closeHelp); $('ovHelp').addEventListener('click', function (e) { if (e.target === this) closeHelp(); });
     $('info').addEventListener('click', openHelp);
+    $('btnHelp').addEventListener('click', openHelp);
+    // Full screen (1.1.0): the sea and course fill the screen, the hole and stroke counters ride in the floating top row,
+    // Scorecard, Practice, New round, How to, Stats and Settings are in the Menu (the ball keeps rolling, aiming waits)
+    Goobs.fullscreen({ overlay: true, menu: ['btnCard', 'btnHoles', 'btnNew', 'btnHelp', 'btnStats', 'btnSettings'],
+      info: function () { return cur ? (mode === 'prac' ? 'Practice · ' : 'Round · ') + 'hole <b>' + (hIdx() + 1) + '</b> of ' + HOLES.length + ' · ' + hole().name : ''; } });
+    document.querySelector('.top').insertBefore($('info'), document.querySelector('.top .topbtns'));
     $('btnSound').addEventListener('click', function () { settings.sound = !settings.sound; saveSettings(); syncSound(); S.ding(); });
     $('setSound').addEventListener('change', function () { settings.sound = this.checked; saveSettings(); syncSound(); S.ding(); });
     $('setGuide').addEventListener('change', function () { settings.guide = this.checked; saveSettings(); });

@@ -1571,7 +1571,9 @@ var PWSound = (function () {
   var pitch = 60, tileEls = [];
   function layout() {
     var wrap = $('boardwrap'), aw = wrap.clientWidth - 10, ah = wrap.clientHeight - 14;
-    pitch = Math.max(24, Math.floor(Math.min(aw / game.cols, ah / game.rows, 110)));
+    // full screen (2.2.0): the board may grow to 170px pieces (was 110) so it fills a big phone; the picture is re-cut
+    // at the new size (onResize -> loadPicture) so it stays sharp
+    pitch = Math.max(24, Math.floor(Math.min(aw / game.cols, ah / game.rows, 170)));
     var b = $('board');
     b.style.width = pitch * game.cols + 'px'; b.style.height = pitch * game.rows + 'px';
   }
@@ -1966,7 +1968,15 @@ var PWSound = (function () {
       if (pic.pitch < pitch) loadPicture();
     }, 120);
   }
+  // the Menu sheet's info line
+  function menuInfo() {
+    if (!game) return '';
+    var what = game.mode === 'photo' ? 'Your photo' : (game.mode === 'daily' ? 'Daily' : 'Level ' + game.level) + ' \u00b7 ' + PWScenes.NAMES[game.kind];
+    return '<b>' + what + '</b> \u00b7 ' + game.pos.length + ' pieces \u00b7 ' + game.moves + (game.moves === 1 ? ' move' : ' moves');
+  }
   function init() {
+    // full screen: How to, Stats and Settings move into the Menu sheet; Hint, Peek and Restart / Next level stay under the board
+    Goobs.fullscreen({ menu: ['btnHelp', 'btnStats', 'btnSettings'], info: menuInfo });
     Goobs.themePicker($('themes'));
     var b = $('board');
     b.addEventListener('pointerdown', onDown);

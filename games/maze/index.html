@@ -52,6 +52,12 @@
 @media (max-height: 700px) { .joy { width: 132px; height: 132px; } }
 .cardicon svg { border-radius: 16px; }
 @media (max-width: 385px) { .brand h1 { font-size: 19px; } }
+
+/* full screen (Goobs.fullscreen, 2026-09-29): Pause sits in the top row as a round button (icon only) */
+html.gg-fs .top #btnPause span { display: none; }
+html.gg-fs .top #btnPause:disabled { opacity: .4; }
+html.gg-fs .stagewrap { width: calc(100% + 16px); margin: 0 -8px; }
+@media (min-height: 780px) { html.gg-fs .joy { width: 176px; height: 176px; } }
 </style>
 </head>
 <body>
@@ -592,7 +598,7 @@ var CCSound = (function () {
   function $(id) { return document.getElementById(id); }
   function fmt(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
   function isOpen(id) { return $(id).classList.contains('show'); }
-  function sheetOpen() { return isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || GoobsAds.isOpen(); }
+  function sheetOpen() { return isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || isOpen('ggMenu') || GoobsAds.isOpen(); }
   function newSeed() { try { return crypto.getRandomValues(new Uint32Array(1))[0]; } catch (e) { return Math.floor(Math.random() * 4294967296); } }
 
   // ================= game state =================
@@ -879,6 +885,7 @@ var CCSound = (function () {
   }
   function renderTools() {
     var p = $('btnPause'), paused = phase === 'paused';
+    p.setAttribute('aria-label', paused ? 'Resume' : 'Pause');
     p.innerHTML = '<svg viewBox="0 0 24 24"><use href="#i-' + (paused ? 'play' : 'pause') + '"/></svg><span>' + (paused ? 'Resume' : 'Pause') + '</span>';
     p.disabled = !(phase === 'run' || phase === 'paused');
   }
@@ -1003,6 +1010,15 @@ var CCSound = (function () {
     });
     sheet('btnSettings', 'ovSettings', 'btnCloseSettings');
     sheet('btnStats', 'ovStats', 'btnCloseStats', renderStats);
+    // full screen (2026-09-29): Pause moves up to the top row as a round button; How to, Restart, Stats and Settings live
+    // in the Menu (the empty toolbar hides itself), so the board gets the toolbar's height. The game pauses while it is open.
+    var pb = $('btnPause'); pb.className = 'iconbtn'; pb.setAttribute('aria-label', 'Pause');
+    $('btnSound').parentNode.insertBefore(pb, $('btnSound'));
+    Goobs.fullscreen({
+      menu: ['btnNew', 'btnHelp', 'btnStats', 'btnSettings'],
+      info: function () { return s ? 'Level <b>' + s.level + '</b> &middot; high score <b>' + fmt(Math.max(stats.best, s.score)) + '</b>' : ''; },
+      onOpen: function () { pause(); }
+    });
     $('btnHelp').addEventListener('click', function () { pause(); openHelp(); });
     function closeHelp() { $('ovHelp').classList.remove('show'); if (!meta.seen) { meta.seen = true; saveMeta(); } }
     $('btnCloseHelp').addEventListener('click', closeHelp);

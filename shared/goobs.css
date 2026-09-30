@@ -279,3 +279,56 @@ body::before { content: ""; position: fixed; left: 0; right: 0; top: 0; height: 
     background: var(--bg); color: var(--ink); font: 700 20px var(--font); text-align: center; padding: 20px;
   }
 }
+
+/* ---------- full screen (shell 2.44.0; Glenn: "I would like all the games full screen in their proper mode") ----------
+   A game opts in with Goobs.fullscreen({...}) (goobs.js). html.gg-fs: the page uses the whole screen, edge to edge (no
+   640px column, small gutters clear of the notch and home bar), one compact top row (back, the game's name or its own
+   counters, round buttons, the Menu button); the rarely used buttons live in the Menu sheet, so the play area gets the rest.
+   html.gg-fs-over (3D and full-scene games): the scene fills the screen behind everything and the top row floats on it. */
+html.gg-fs .app { max-width: none; width: 100%; height: 100%; min-height: 0; overflow: hidden; gap: 6px;
+  padding: calc(env(safe-area-inset-top, 0px) + 4px) calc(env(safe-area-inset-right, 0px) + 8px) calc(env(safe-area-inset-bottom, 0px) + 6px) calc(env(safe-area-inset-left, 0px) + 8px); }
+html.gg-fs .top { min-height: 44px; flex: none; gap: 6px; }
+html.gg-fs .top .brand svg { display: none; }
+html.gg-fs .top .brand h1 { font-size: 20px; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+html.gg-fs .topbtns { gap: 6px; }
+html.gg-fs .iconbtn { width: 40px; height: 40px; border-radius: 20px; }
+html.gg-fs .iconbtn svg { width: 21px; height: 21px; }
+html.gg-fs .info { min-height: 36px; }
+html.gg-fs .toolbar { gap: 6px; }
+html.gg-fs .tool { height: 50px; border-radius: 14px; }
+/* a pill for counters in the top row or floating on a scene */
+.ggpill { background: var(--surface); color: var(--ink); font-weight: 800; font-size: 16px; padding: 7px 12px; border-radius: 18px; border: 1px solid var(--line);
+  box-shadow: var(--shadow-sm); white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* scene games: everything floats over a scene that fills the screen */
+html.gg-fs-over body::before { display: none; }
+html.gg-fs-over .app { padding: 0; }
+html.gg-fs-over .top { position: fixed; left: 0; right: 0; top: 0; z-index: 6; pointer-events: none;
+  padding: calc(env(safe-area-inset-top, 0px) + 6px) calc(env(safe-area-inset-right, 0px) + 10px) 0 calc(env(safe-area-inset-left, 0px) + 10px); }
+html.gg-fs-over .top > * { pointer-events: auto; }
+html.gg-fs-over .top .brand h1 { display: none; }
+html.gg-fs-over .homebtn { width: 44px; height: 44px; border-radius: 22px; justify-content: center; padding: 0; background: rgba(255,255,255,.9); box-shadow: 0 3px 10px rgba(0,0,0,.2); flex: none; }
+html.gg-fs-over .homebtn .chev { margin: -4px 0 0 -2px; color: #1b2130; }
+html.gg-fs-over .iconbtn { width: 44px; height: 44px; border-radius: 22px; border: 0; background: rgba(255,255,255,.9); color: #1b2130; box-shadow: 0 3px 10px rgba(0,0,0,.2); }
+html.gg-fs-over .iconbtn.on { color: #5a54f0; }
+html.gg-fs-over .ggpill { background: rgba(255,255,255,.9); color: #1b1f33; border: 0; box-shadow: 0 3px 10px rgba(0,0,0,.18); }
+
+/* the Menu sheet */
+.ggmenu .ggmenu-top { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+.ggmenu .ggmenu-top svg { width: 36px; height: 36px; border-radius: 10px; flex: none; }
+.ggmenu .ggmenu-top h2 { margin: 0; }
+.ggmenu .ggmenu-info { color: var(--muted); font-weight: 700; font-size: 15px; margin: 2px 2px 8px; }
+.ggmenu .ggmenu-info:empty { display: none; }
+.ggmenu .ggmenu-info b { color: var(--ink); }
+.ggmenu .ggmenu-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 6px 0 12px; overflow-y: auto; }
+html .ggmenu .ggmenu-list > button { display: flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: 10px; width: 100%; height: 54px; flex: none;
+  border-radius: 15px; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); font-size: 16px; font-weight: 700; padding: 0 14px;
+  box-shadow: none; text-align: left; transform: none; }
+html .ggmenu .ggmenu-list > button svg { width: 22px; height: 22px; flex: none; }
+html .ggmenu .ggmenu-list > button:active { transform: scale(.97); }
+html .ggmenu .ggmenu-list > button:disabled { opacity: .4; }
+html .ggmenu .ggmenu-list > button.red { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: var(--accent-ink); border-color: transparent; }
+html .ggmenu .ggmenu-list > button .ad { margin-left: auto; }
+.ggmenu .ggmenu-play { width: 100%; flex: none; }
+/* .ggfit: the free space between the top row and the bottom controls; a board inside sizes itself with cqw/cqh,
+   e.g. .boardwrap { width: min(100cqw, 100cqh) } for a square board as big as the space allows */
+.ggfit { flex: 1 1 0; min-height: 0; width: 100%; container-type: size; display: flex; align-items: center; justify-content: center; position: relative; }

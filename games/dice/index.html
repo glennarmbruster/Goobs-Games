@@ -91,6 +91,17 @@
 }
 @media (min-width: 700px) and (min-height: 900px) { .die { width: 76px; height: 76px; border-radius: 18px; } .cat { font-size: 17px; } .cat .v { font-size: 21px; } }
 @media (max-width: 370px) { .cat .nm svg { display: none; } }
+
+/* full screen (Goobs.fullscreen): the scorecard rows may grow to 76px and their text with the screen's height; the dice
+   are as big as five fit across (up to 76px), a bit smaller on short phones so the card keeps its room */
+html.gg-fs #turnPill { margin-left: auto; font-size: 15px; padding: 7px 11px; }
+html.gg-fs .card5 { grid-template-rows: repeat(7, minmax(0, 76px)) auto; gap: 6px 8px; }
+html.gg-fs .cat { font-size: clamp(13px, 2dvh, 18px); border-radius: 14px; }
+html.gg-fs .cat .v { font-size: clamp(16px, 2.6dvh, 23px); }
+html.gg-fs .cat .nm svg { width: clamp(18px, 2.8dvh, 26px); height: clamp(18px, 2.8dvh, 26px); }
+html.gg-fs .sub { font-size: clamp(13px, 1.8dvh, 16px); }
+html.gg-fs .die { width: clamp(48px, min(17vw, 8dvh), 76px); height: clamp(48px, min(17vw, 8dvh), 76px); border-radius: 22%; }
+html.gg-fs .tray { padding: 2px 0 14px; }
 </style>
 </head>
 <body>
@@ -384,12 +395,12 @@ var RCSound = (function () {
   function $(id) { return document.getElementById(id); }
   function fmt(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
   function isOpen(id) { return $(id).classList.contains('show'); }
-  function sheetOpen() { return isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || isOpen('ovNew') || GoobsAds.isOpen(); }
+  function sheetOpen() { return isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || isOpen('ovNew') || isOpen('ggMenu') || GoobsAds.isOpen(); }
   function newSeed() { try { return crypto.getRandomValues(new Uint32Array(1))[0]; } catch (e) { return Math.floor(Math.random() * 4294967296); } }
   function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
 
   // ================= game =================
-  var g = null, pick = null, rolling = false;
+  var g = null, pick = null, rolling = false, fs = null; // fs: the full-screen Menu (Goobs.fullscreen)
   function newGame() {
     var names = settings.names.slice(0, settings.count).map(function (n, i) { return (n || '').trim() || 'Player ' + (i + 1); });
     g = RC.create(names, newSeed());
@@ -519,7 +530,14 @@ var RCSound = (function () {
     else { b.innerHTML = 'Pick a box to score'; b.disabled = true; }
   }
   function renderPlayers() {
-    var box = $('players');
+    var box = $('players'), pill = $('turnPill');
+    // full screen, playing alone: the turn counter is a pill in the top row (Best is on the Menu's info line) and the
+    // players strip is hidden, so the scorecard gets its height; 2 to 4 players keep the strip (names and totals)
+    if (pill) {
+      var solo = g.players.length === 1;
+      pill.style.display = solo ? '' : 'none'; box.style.display = solo ? 'none' : '';
+      if (solo) { pill.textContent = 'Turn ' + Math.min(13, g.round) + ' of 13'; return; }
+    }
     if (g.players.length === 1) {
       box.innerHTML = '<div class="solo"><div><div class="lbl">Turn</div><div class="v">' + Math.min(13, g.round) + ' of 13</div></div><div style="text-align:right"><div class="lbl">Best</div><div class="v">' + (stats.best || '–') + '</div></div></div>';
       return;
@@ -602,7 +620,17 @@ var RCSound = (function () {
     $(close).addEventListener('click', function () { $(ov).classList.remove('show'); });
     $(ov).addEventListener('click', function (e) { if (e.target === this) this.classList.remove('show'); });
   }
+  function menuInfo() {
+    if (!g) return '';
+    if (g.players.length === 1) return 'Turn <b>' + Math.min(13, g.round) + '</b> of 13 · Total <b>' + RC.total(g.players[0]) + '</b> · Best <b>' + (stats.best || '–') + '</b>';
+    return g.players.map(function (p) { return esc(p.name) + ' <b>' + RC.total(p) + '</b>'; }).join(' · ');
+  }
   function init() {
+    // full screen: How to, New game, Stats and Settings go into the Menu (the game-over card has Play again); the
+    // scorecard rows, their text and the dice grow with the screen (style.css)
+    fs = Goobs.fullscreen({ menu: ['btnHelp', 'btnNew', 'btnStats', 'btnSettings'], info: menuInfo });
+    var tp = document.createElement('span'); tp.className = 'ggpill'; tp.id = 'turnPill';
+    $('app').querySelector('.top').insertBefore(tp, $('app').querySelector('.topbtns'));
     Goobs.themePicker($('themes'));
     $('btnRoll').addEventListener('click', roll);
     $('tray').addEventListener('click', function (e) { var b = e.target.closest('.die'); if (b) toggle(+b.dataset.i); });

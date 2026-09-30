@@ -20,7 +20,8 @@
 .brand svg { border-radius: 10px; }
 .brand h1 { font-size: 21px; }
 .modes button { font-size: 15px; }
-.stagewrap { flex: 1 1 auto; min-height: 0; width: 100%; display: flex; align-items: center; justify-content: center; }
+/* full screen (1.1.0): the wrap reaches past the page gutters so the field can be as wide as the screen */
+.stagewrap { flex: 1 1 auto; min-height: 0; width: calc(100% + 16px); margin: 0 -8px; display: flex; align-items: center; justify-content: center; }
 .stage { position: relative; border-radius: 18px; overflow: hidden; box-shadow: var(--shadow); background: #151b3d; touch-action: none; display: flex; flex-direction: column; }
 .stage canvas { display: block; touch-action: none; }
 .bar { display: flex; align-items: center; gap: 6px; padding: 6px 8px; background: #0f1430; }
@@ -520,7 +521,7 @@ var BBSound = (function () {
   function $(id) { return document.getElementById(id); }
   function fmt(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
   function isOpen(id) { return $(id).classList.contains('show'); }
-  function sheetOpen() { return isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || isOpen('ovLevels') || GoobsAds.isOpen(); }
+  function sheetOpen() { return isOpen('ggMenu') || isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || isOpen('ovLevels') || GoobsAds.isOpen(); }
   function newSeed() { try { return crypto.getRandomValues(new Uint32Array(1))[0]; } catch (e) { return Math.floor(Math.random() * 4294967296); } }
   function mix(a, b, t) { var x = parseInt(a.slice(1), 16), y = parseInt(b.slice(1), 16); var r = Math.round((x >> 16) + (((y >> 16) - (x >> 16)) * t)), gg = Math.round(((x >> 8) & 255) + ((((y >> 8) & 255) - ((x >> 8) & 255)) * t)), bl = Math.round((x & 255) + (((y & 255) - (x & 255)) * t)); return 'rgb(' + r + ',' + gg + ',' + bl + ')'; }
   function ramp(t) { t = Math.max(0, Math.min(1, t)); for (var i = 1; i < RAMP.length; i++) if (t <= RAMP[i][0]) return mix(RAMP[i - 1][1], RAMP[i][1], (t - RAMP[i - 1][0]) / (RAMP[i][0] - RAMP[i - 1][0])); return RAMP[RAMP.length - 1][1]; }
@@ -658,7 +659,8 @@ var BBSound = (function () {
   var cv, cx, dpr = 1, k = 30;
   function fit() {
     var wrap = $('stagewrap').getBoundingClientRect(), barH = $('bar').getBoundingClientRect().height || 52;
-    k = Math.max(16, Math.floor(Math.min((wrap.width - 4) / COLS, (wrap.height - barH) / FIELD_H, 56)));
+    // full screen: as big as the width or height allows (half-pixel steps; the cap keeps it sane on an iPad)
+    k = Math.max(16, Math.floor(2 * Math.min(wrap.width / COLS, (wrap.height - barH) / FIELD_H, 56)) / 2);
     var st = $('stage'); st.style.width = (COLS * k) + 'px';
     cv.style.width = (COLS * k) + 'px'; cv.style.height = (FIELD_H * k) + 'px';
     dpr = Math.min(3, window.devicePixelRatio || 1);
@@ -871,6 +873,11 @@ var BBSound = (function () {
   }
   function inGame() { return g && !g.over && g.turn > 1; }
   function init() {
+    // full screen: How to, Levels, Stats, Settings and Restart live in the Menu; the balls stop while it is open
+    Goobs.fullscreen({ menu: ['btnHelp', 'btnLevels', 'btnStats', 'btnSettings', 'btnNew'], info: function () {
+      if (!g) return '';
+      return g.mode === 'levels' ? 'Level <b>' + levelNo + '</b> of ' + LEVELS.length + ' &middot; ' + BB.bricksLeft(g) + ' bricks left &middot; turn ' + g.turn : 'Endless &middot; turn <b>' + g.turn + '</b> &middot; best ' + Math.max(meta.endlessBest, g.turn - 1);
+    } });
     Goobs.themePicker($('themes'));
     cv = $('cv'); cx = cv.getContext('2d');
     cv.addEventListener('pointerdown', onDown); cv.addEventListener('pointermove', onMove); cv.addEventListener('pointerup', onUp);

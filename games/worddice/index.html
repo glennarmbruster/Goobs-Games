@@ -55,6 +55,14 @@ html, body { height: 100%; overflow: hidden; }
 :root[data-theme="dark"] .cover p, :root[data-theme="blue"] .cover p { color: var(--muted); }
 .cover .btn { flex: none; width: 210px; }
 
+/* full screen (Goobs.fullscreen): the tray is as wide as the screen; the fit box starts square (its basis is the screen
+   width) and only shrinks when the phone is short, so the found-words list keeps at least ~2 rows and gets the rest */
+html:not(.gg-fs) .ggfit { display: contents; }
+html.gg-fs .ggfit { flex: 0 1 calc(100vw - 16px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)); }
+html.gg-fs .boardwrap { width: min(100cqw, 100cqh, 720px); }
+html.gg-fs .found { flex: 1 1 0; min-height: 66px; }
+html.gg-fs .found .fw { font-size: 15px; padding: 4px 9px; }
+
 /* found words */
 .found { width: 100%; flex: 1 1 auto; min-height: 56px; overflow-y: auto; display: flex; flex-wrap: wrap; align-content: flex-start; gap: 6px; padding: 2px; }
 .found .fw { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 3px 8px; font-weight: 700; font-size: 14px; text-transform: uppercase; letter-spacing: .5px; }
@@ -118,10 +126,12 @@ html, body { height: 100%; overflow: hidden; }
     <div class="right"><div class="lbl">Score</div><div class="big" id="score">0</div></div>
   </div>
 
-  <div class="boardwrap" id="boardwrap">
-    <div class="board" id="board"></div>
-    <svg class="trail" id="trail"></svg>
-    <div class="cover" id="cover"></div>
+  <div class="ggfit" id="fit">
+    <div class="boardwrap" id="boardwrap">
+      <div class="board" id="board"></div>
+      <svg class="trail" id="trail"></svg>
+      <div class="cover" id="cover"></div>
+    </div>
   </div>
 
   <div class="found" id="found"></div>
@@ -368,7 +378,7 @@ var WRSound = (function () {
   function $(id) { return document.getElementById(id); }
   function fmt(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
   function isOpen(id) { return $(id).classList.contains('show'); }
-  function sheetOpen() { return isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || isOpen('ovResults') || GoobsAds.isOpen(); }
+  function sheetOpen() { return isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || isOpen('ovResults') || isOpen('ggMenu') || GoobsAds.isOpen(); }
   function clock(ms) { var s = Math.max(0, Math.ceil(ms / 1000)); return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2); }
   function upper(w) { return w.toUpperCase(); }
 
@@ -614,6 +624,10 @@ var WRSound = (function () {
   function midGame() { return run && (run.phase === 'play' || run.phase === 'pass') && run.found[0].length + run.found[1].length > 0; }
 
   function init() {
+    // full screen: the rarely used buttons go into the Menu sheet; Pause and End round stay on screen for play.
+    // The clock stops while the Menu is open (sheetOpen() includes it), like it does for Stats.
+    Goobs.fullscreen({ menu: ['btnHelp', 'btnStats', 'btnSettings'], onOpen: clearPath,
+      info: function () { return run && run.phase === 'play' ? '<b>' + clock(run.left) + '</b> left · <b>' + WD.total(run.found[run.turn]) + '</b> points' : 'Best classic: <b>' + (meta.best.classic || 0) + '</b>'; } });
     Goobs.themePicker($('themes'));
     var bw = $('boardwrap');
     bw.addEventListener('pointerdown', onDown);

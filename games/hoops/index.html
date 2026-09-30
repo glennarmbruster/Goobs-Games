@@ -58,6 +58,24 @@
 .ptable td { text-align: right; padding: 6px 4px; border-top: 1px solid var(--line); font-weight: 700; }
 .ptable td:first-child, .ptable th:first-child { text-align: left; }
 @media (max-width: 430px) { .brand h1 { font-size: 16.5px; } }
+/* Full screen (1.1.0, Glenn: "every game full screen"): the pool fills the whole screen; the counters ride in the
+   floating top row as white pills, the spot and wind tags float just under it, the flick hint sits clear of the home
+   bar. Mode tabs, How to, Spot, Wind, Reset, Stats and Settings live in the Menu sheet. */
+html.gg-fs-over, html.gg-fs-over body { background: #8fd3ff; }
+html.gg-fs-over .stagewrap { position: fixed; inset: 0; z-index: 0; }
+html.gg-fs-over .stage { max-width: none; border-radius: 0; box-shadow: none; }
+html.gg-fs-over .top .info { flex: 1 1 auto; width: auto; min-width: 0; min-height: 44px; gap: 5px; justify-content: center; padding: 0; }
+html.gg-fs-over .top .info > div { background: rgba(255,255,255,.9); color: #1b1f33; border-radius: 16px; box-shadow: 0 3px 10px rgba(0,0,0,.18); height: 44px; box-sizing: border-box;
+  padding: 3px 9px; min-width: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+html.gg-fs-over .top .info .lbl { font-size: 10px; color: #5b6280; letter-spacing: .3px; line-height: 1.1; }
+html.gg-fs-over .top .info .mid { font-size: 16px; color: #1b1f33; white-space: nowrap; }
+html.gg-fs-over .top .info .chip { border: 0; background: none; padding: 0; font-size: 16px; color: #1b1f33; }
+html.gg-fs-over .wind { left: calc(env(safe-area-inset-left, 0px) + 10px); top: calc(env(safe-area-inset-top, 0px) + 58px); }
+html.gg-fs-over .spotname { right: calc(env(safe-area-inset-right, 0px) + 10px); top: calc(env(safe-area-inset-top, 0px) + 58px); }
+html.gg-fs-over .label { top: calc(env(safe-area-inset-top, 0px) + 96px); }
+html.gg-fs-over .flickhint { bottom: calc(env(safe-area-inset-bottom, 0px) + 24px); }
+.ggmenu .modes { margin: 2px 0 4px; }
+@media (max-width: 385px) { html.gg-fs-over .top .info > div { padding: 3px 7px; } html.gg-fs-over .top .info { gap: 4px; } }
 @media (max-width: 385px) { .brand h1 { font-size: 15px; } .modes button { font-size: 13px; } }
 </style>
 </head>
@@ -579,7 +597,7 @@ var HPScene = (function () {
     // ---------------- camera for a spot ----------------
     // The camera stands behind the shooter, a little above the ball, facing the rim; it pitches down so the rim sits
     // at CAM.rimY of the screen height (the ball then sits low in the frame).
-    var cam = { from: null, to: null, k: 1 }, CAM = { back: 1.3, up: 0.85, rimY: 0.36, fovP: 52, fovL: 46 };
+    var cam = { from: null, to: null, k: 1 }, CAM = { back: 1.3, up: 0.85, rimY: 0.36, fovP: 52, fovL: 46, halfW: 0.26 };
     function camFor(spot, hp) {
       var dx = spot.x - hp.x, dz = spot.z - hp.z, d = Math.hypot(dx, dz), ux = dx / d, uz = dz / d;
       return { pos: new T.Vector3(spot.x + ux * CAM.back, PH.RELEASE_H + CAM.up, spot.z + uz * CAM.back), look: new T.Vector3(hp.rim[0], hp.rim[1], hp.rim[2]) };
@@ -619,7 +637,13 @@ var HPScene = (function () {
       updateCamera(dt, spot, hp);
       renderer.render(scene, camera);
     }
-    function resize(w, h) { renderer.setSize(w, h, false); camera.aspect = w / h; camera.fov = w / h < 0.7 ? CAM.fovP : CAM.fovL; camera.updateProjectionMatrix(); }
+    // portrait: fovP tall, but never narrower than CAM.halfW (tan of half the side-to-side view): on a full-screen phone
+    // (1.1.0, aspect ~0.46) the plain fovP would crop the sides of the hoop's swing and curving shots
+    function resize(w, h) {
+      var a = w / h; renderer.setSize(w, h, false); camera.aspect = a;
+      camera.fov = a < 0.7 ? Math.max(CAM.fovP, Math.atan(CAM.halfW / a) * 360 / Math.PI) : CAM.fovL;
+      camera.updateProjectionMatrix();
+    }
     function project(x, y, z) { var v = new T.Vector3(x, y, z).project(camera); return [(v.x + 1) / 2, (1 - v.y) / 2]; }
     return { update: update, resize: resize, splash: splash, moveCamera: moveCamera, project: project, swish: function () { netSway = 1; }, camera: camera, scene: scene, CAM: CAM };
   }
@@ -655,7 +679,7 @@ var HPScene = (function () {
   // ================= helpers =================
   function $(id) { return document.getElementById(id); }
   function isOpen(id) { return $(id).classList.contains('show'); }
-  function sheetOpen() { return isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || isOpen('ovLevels') || GoobsAds.isOpen(); }
+  function sheetOpen() { return isOpen('ggMenu') || isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || isOpen('ovLevels') || GoobsAds.isOpen(); }
   function ft(m) { return Math.round(m * 3.28084); }
   function clock(ms) { var s = ms / 1000, m = Math.floor(s / 60); return m + ':' + ('0' + Math.floor(s % 60)).slice(-2) + '.' + Math.floor((s * 10) % 10); }
 
@@ -748,7 +772,9 @@ var HPScene = (function () {
   // a flick: upward, quick. speed = screen heights per second over its last ~90 ms; dx = sideways share of the whole
   // flick; curve = how much it bends (second half's direction against the first half's)
   function readFlick(pts) {
-    var r = canvas.getBoundingClientRect(), H = Math.max(r.height, r.width * 1.4), a = pts[0], b = pts[pts.length - 1];
+    // H: the flick yardstick. Full screen (1.1.0) made the canvas the whole phone height; measuring flicks against that
+    // would make the same finger flick weaker, so it is capped near the old stage's shape (about 1.5 widths tall)
+    var r = canvas.getBoundingClientRect(), H = Math.max(r.width * 1.4, Math.min(r.height, r.width * 1.55)), a = pts[0], b = pts[pts.length - 1];
     var up = a.y - b.y, len = Math.hypot(b.x - a.x, b.y - a.y);
     if (up < H * 0.07 || b.t - a.t > 900) return null;
     var k = pts.length - 1, c = pts[k]; for (var i = k - 1; i >= 0; i--) { c = pts[i]; if (b.t - c.t >= 90) break; }
@@ -873,8 +899,18 @@ var HPScene = (function () {
     $(ov).addEventListener('click', function (e) { if (e.target === this) this.classList.remove('show'); });
   }
   function resize() { if (!SC) return; var r = host.getBoundingClientRect(); SC.resize(Math.max(10, r.width), Math.max(10, r.height)); }
+  function menuInfo() {
+    if (meta.mode === 'around' && around) return '<b>Around the Pool</b> · ' + meta.players[meta.player] + ' · spot <b>' + (around.spot + 1) + '</b> of ' + SPOTS.length;
+    return '<b>Free Shoot</b> · ' + meta.players[meta.player] + ' · ' + session.makes + '/' + session.att + ' makes';
+  }
   function init() {
     Goobs.themePicker($('themes'));
+    // Full screen (1.1.0): the pool fills the screen; the counters join the floating top row, the mode tabs and the
+    // rarely used buttons go into the Menu sheet (the frame loop pauses while it's open: sheetOpen() checks ggMenu)
+    var fs = Goobs.fullscreen({ overlay: true, menu: ['btnHelp', 'btnSpot', 'btnWind', 'btnNew', 'btnStats', 'btnSettings'], info: menuInfo });
+    document.querySelector('.top').insertBefore($('info'), document.querySelector('.top .topbtns'));
+    fs.el.querySelector('.sheet').insertBefore($('modes'), fs.list);
+    $('modes').addEventListener('click', function (e) { if (e.target.closest('button')) fs.close(); });
     host = $('stage'); canvas = $('cv');
     canvas.addEventListener('pointerdown', onDown); canvas.addEventListener('pointermove', onMove); canvas.addEventListener('pointerup', onUp);
     canvas.addEventListener('pointercancel', function () { stroke = null; });

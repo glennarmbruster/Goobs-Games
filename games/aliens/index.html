@@ -44,6 +44,15 @@ html, body { height: 100%; overflow: hidden; }
 .pb.fire.held { transform: translateY(4px); box-shadow: 0 2px 0 #7a0a16, 0 4px 10px -4px rgba(0,0,0,.45); }
 @media (max-height: 700px) { .pb.dir { width: 76px; height: 62px; } .pb.fire { width: 80px; height: 80px; font-size: 15px; } }
 .cardicon svg { border-radius: 16px; }
+
+/* full screen (Goobs.fullscreen, 2026-09-29): the screen reaches the page edges (the kit's gutters are 8px, not 14px) and
+   the controls get a little more room on tall phones, where the arcade screen is limited by the width anyway */
+html.gg-fs .stagewrap { width: calc(100% + 16px); margin: 0 -8px; }
+html.gg-fs .stagewrap { background: #04050a; } /* the black of the arcade screen fills the free band, like a cabinet monitor */
+html.gg-fs .screen { border-radius: 0; box-shadow: none; }
+html.gg-fs .pad { padding-bottom: 4px; }
+@media (min-height: 780px) { html.gg-fs .pb.dir { width: 92px; height: 84px; } html.gg-fs .pb.fire { width: 104px; height: 104px; } }
+html.gg-fs .padmid .pb.small { width: 50px; height: 46px; border-radius: 14px; }
 </style>
 </head>
 <body>
@@ -782,7 +791,7 @@ var SSSound = (function () {
   function $(id) { return document.getElementById(id); }
   function fmt(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
   function isOpen(id) { return $(id).classList.contains('show'); }
-  function sheetOpen() { return isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || GoobsAds.isOpen(); }
+  function sheetOpen() { return isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || isOpen('ggMenu') || GoobsAds.isOpen(); }
 
   // ================= state =================
   // mode: 'title' | 'game'; paused: the game waits for Fire
@@ -869,15 +878,20 @@ var SSSound = (function () {
     next();
   }
 
-  // ================= screen size: whole device pixels only =================
+  // ================= screen size: as big as the space allows =================
+  // Whole device pixels per arcade pixel keep it crisp, but rounding down costs up to 13% of the width on a phone (373 of
+  // 390 points on an iPhone 15 at 3x, 336 of 375 on an SE at 2x). When it would cost more than 3%, use the exact fit: at
+  // 2x and 3x the uneven pixels (5 or 6 device pixels each) can't be seen (full screen, 2026-09-29).
   function fit() {
     var wrap = $('stagewrap'), cv = $('cv'), dpr = window.devicePixelRatio || 1;
     var aw = wrap.clientWidth, ah = wrap.clientHeight;
     if (!aw || !ah) return;
-    var s = Math.floor(Math.min(aw * dpr / SS.W, ah * dpr / SS.H));
+    var exact = Math.min(aw * dpr / SS.W, ah * dpr / SS.H), s = Math.floor(exact);
+    if (s < exact * 0.97) s = exact;
     if (s < 1) s = 1;
-    cv.width = SS.W * s; cv.height = SS.H * s;
-    cv.style.width = (SS.W * s / dpr) + 'px'; cv.style.height = (SS.H * s / dpr) + 'px';
+    var w = Math.floor(SS.W * s), h = Math.floor(SS.H * s);
+    cv.width = w; cv.height = h;
+    cv.style.width = (w / dpr) + 'px'; cv.style.height = (h / dpr) + 'px';
   }
 
   // ================= controls =================
@@ -943,6 +957,12 @@ var SSSound = (function () {
     sheet('btnSettings', 'ovSettings', 'btnCloseSettings');
     sheet('btnStats', 'ovStats', 'btnCloseStats', renderStats);
     sheet('bHelp', 'ovHelp', 'btnCloseHelp');
+    // full screen (2026-09-29): Stats, Settings and How to play live in the Menu; the game pauses while it is open
+    Goobs.fullscreen({
+      menu: ['bHelp', 'btnStats', 'btnSettings'],
+      info: function () { return 'High score <b>' + fmt(meta.hi) + '</b> &middot; best wave <b>' + stats.bestWave + '</b>'; },
+      onOpen: function () { pause(); }
+    });
     $('btnCloseHelp').addEventListener('click', function () { if (!meta.seenHelp) { meta.seenHelp = true; saveMeta(); } });
     $('btnSound').addEventListener('click', function () { settings.sound = !settings.sound; saveSettings(); syncSound(); });
     $('setSound').addEventListener('change', function () { settings.sound = this.checked; saveSettings(); syncSound(); });

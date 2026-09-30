@@ -53,6 +53,11 @@
 .tool.mode.flag { background: #e8354a; color: #fff; border-color: transparent; }
 .cardicon svg { border-radius: 16px; }
 @media (max-width: 385px) { .brand h1 { font-size: 19px; } .modes button { font-size: 14px; } }
+
+/* ---------- full screen (1.1.0; Glenn: "I would like all the games full screen") ----------
+   Goobs.fullscreen() puts the page edge to edge with 8px gutters; the meadow still reaches 2px past them so a Beginner
+   board keeps its 42px squares. How to, Stats and Settings live in the Menu sheet. */
+html.gg-fs .stagewrap { width: calc(100% + 12px); margin: 0 -6px; }
 </style>
 </head>
 <body>
@@ -387,7 +392,7 @@ var MMSound = (function () {
   // ================= helpers =================
   function $(id) { return document.getElementById(id); }
   function isOpen(id) { return $(id).classList.contains('show'); }
-  function sheetOpen() { return isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || GoobsAds.isOpen(); }
+  function sheetOpen() { return isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || isOpen('ggMenu') || GoobsAds.isOpen(); } // the clock stops while the Menu is open too
   function clock(ms) { var s = Math.floor(ms / 1000); return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2); }
   function newSeed() { try { return crypto.getRandomValues(new Uint32Array(1))[0]; } catch (e) { return Math.floor(Math.random() * 4294967296); } }
 
@@ -479,8 +484,10 @@ var MMSound = (function () {
     var d = Math.min(3, window.devicePixelRatio || 1), key = Math.round(maxW) + 'x' + Math.round(maxH) + ':' + g.w + 'x' + g.h + '@' + d;
     if (key === fitKey) { clampView(); draw(); return; }
     fitKey = key;
-    // as big as fits across; a tall board (Expert) scrolls up and down with a drag
-    cell = Math.max(12, Math.floor(Math.min(maxW / g.w, 46, Math.max(maxH / g.h, 22))));
+    // as big as fits across; a tall board (Expert) shrinks to fit the full-screen height when its squares stay at least
+    // 20px (pinch to zoom in), otherwise it keeps 22px squares and scrolls up and down with a drag
+    var fitH = maxH / g.h;
+    cell = Math.max(12, Math.floor(Math.min(maxW / g.w, 46, fitH >= 20 ? fitH : Math.max(fitH, 22))));
     VW = Math.max(40, Math.min(maxW, cell * g.w)); VH = Math.max(40, Math.min(maxH, cell * g.h));
     var st = $('stage'); st.style.width = VW + 'px'; st.style.height = VH + 'px';
     dpr = d;
@@ -678,6 +685,11 @@ var MMSound = (function () {
   function inGame() { return g && g.started && !g.over; }
   function init() {
     Goobs.themePicker($('themes'));
+    // full screen: How to, Stats and Settings move into the Menu sheet; Dig/Flag and New game stay under the meadow
+    Goobs.fullscreen({ menu: ['btnHelp', 'btnStats', 'btnSettings'], info: function () {
+      if (!g) return '';
+      return '<b>' + MM.LEVELS[g.level].name + '</b> \u00b7 ' + g.w + '\u00d7' + g.h + ' \u00b7 ' + g.n + ' mines' + (g.started && !g.over ? ' \u00b7 clock paused at ' + clock(g.ms) : '');
+    } });
     cv = $('cv'); cx = cv.getContext('2d');
     cv.addEventListener('pointerdown', onDown); cv.addEventListener('pointermove', onMove); cv.addEventListener('pointerup', onUp);
     cv.addEventListener('pointercancel', function (e) { delete ptrs[e.pointerId]; if (press && press.timer) clearTimeout(press.timer); press = null; draw(); });

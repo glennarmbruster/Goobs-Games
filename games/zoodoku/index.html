@@ -173,6 +173,24 @@
 .lvtag { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 8px; font-size: 11px; font-weight: 800; letter-spacing: .3px; vertical-align: 3px;
   background: color-mix(in srgb, var(--bad) 16%, var(--surface)); color: var(--bad); }
 .lvtag.gift { background: color-mix(in srgb, #ffc53d 30%, var(--surface)); color: #8a5a00; }
+
+/* ---------- full screen (1.9.0; Glenn: "I would like all the games full screen") ----------
+   Goobs.fullscreen() puts the page edge to edge; the board sits in a .ggfit box (the space left between the level bar and
+   the toolbar) and grows to the biggest square that fits it, so it's never cropped. Levels, How to play, Stats and
+   Settings live in the Menu sheet now. */
+html.gg-fs .boardwrap { width: min(100cqw, 100cqh, 720px); }
+html.gg-fs .levelbar .daily { width: 76px; }
+/* the hint text can run to three lines; a steady height keeps the board from jumping when a hint opens */
+html.gg-fs .msg { min-height: 58px; flex: none; }
+/* a tall phone has height left over once the board is as wide as the screen: spend some of it on bigger buttons and hearts */
+@media (min-height: 760px) {
+  html.gg-fs .levelbar { min-height: 62px; }
+  html.gg-fs .levelbar .lvl { font-size: 22px; }
+  html.gg-fs .hearts svg { width: 30px; height: 30px; }
+  html.gg-fs .status { min-height: 36px; }
+  html.gg-fs .tool { height: 66px; font-size: 15px; }
+  html.gg-fs .tool svg { width: 27px; height: 27px; }
+}
 </style>
 </head>
 <body>
@@ -288,10 +306,12 @@
     <div class="timer" id="timer"><svg viewBox="0 0 24 24"><use href="#i-clock"/></svg><span id="timerText">0:00</span></div>
   </div>
 
-  <div class="boardwrap" id="boardwrap">
-    <div class="board" id="board"></div>
-    <svg class="lines" id="lines" preserveAspectRatio="none"></svg>
-    <div class="loading" id="loading"><div><svg viewBox="0 0 100 100"><use href="#a-cat"/></svg><div>Setting up&hellip;</div></div></div>
+  <div class="ggfit">
+    <div class="boardwrap" id="boardwrap">
+      <div class="board" id="board"></div>
+      <svg class="lines" id="lines" preserveAspectRatio="none"></svg>
+      <div class="loading" id="loading"><div><svg viewBox="0 0 100 100"><use href="#a-cat"/></svg><div>Setting up&hellip;</div></div></div>
+    </div>
   </div>
 
   <div class="msg" id="msg"></div>
@@ -330,7 +350,7 @@
       <div class="row" id="rowStart"><div>Starting level<small>Jump to any level, once on this phone (for example, where you are in another app).</small></div>
         <button class="btn small" id="btnPickStart">Pick&hellip;</button></div>
       <div class="linkrow">
-        <button class="btn" id="btnHelp">How to play</button>
+        <button class="btn" id="btnHelp"><svg viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.3a2.6 2.6 0 0 1 5 .9c0 1.8-2.5 2.2-2.5 3.9M12 17.3v.2"/></g></svg><span>How to play</span></button>
         <button class="btn" id="btnResetStats">Reset stats</button>
       </div>
       <div class="version" id="version">Zoodoku</div>
@@ -1507,6 +1527,13 @@ var ZooSound = (function () {
     $('lvlSub').textContent = sub + ' \u00b7 ' + (names[an] || '');
   }
 
+  // the Menu sheet's info line: what you're playing and where you are
+  function menuInfo() {
+    if (!game) return '';
+    var t = $('lvlTitle').textContent.replace(/(Free animal|Very tricky|Tricky)$/, '');
+    return '<b>' + t + '</b> \u00b7 ' + $('lvlSub').textContent + (game.mode !== 'level' ? ' \u00b7 level ' + meta.level + ' waiting' : '');
+  }
+
   function setMessage(html, cls) { var m = $('msg'); m.className = 'msg' + (cls ? ' ' + cls : ''); m.innerHTML = html; }
   function defaultMessage() {
     setMessage('<div>One animal per <b>row</b>, <b>column</b> &amp; <b>color</b>. No touching, not even corners.<br>' +
@@ -1740,7 +1767,7 @@ var ZooSound = (function () {
   var lastTick = Date.now(), saveCounter = 0;
   function timerActive() {
     return game && !game.won && !game.over && !document.hidden && !$('loading').classList.contains('show') &&
-      !isOpen('ovSettings') && !isOpen('ovStats') && !isOpen('ovHelp') && !isOpen('ovEnd') && !GoobsAds.isOpen() && !isOpen('ovLevels') && !isOpen('ovColor');
+      !isOpen('ovSettings') && !isOpen('ovStats') && !isOpen('ovHelp') && !isOpen('ovEnd') && !GoobsAds.isOpen() && !isOpen('ovLevels') && !isOpen('ovColor') && !isOpen('ggMenu');
   }
   function tickReset() { lastTick = Date.now(); }
   function tick() {
@@ -2119,6 +2146,9 @@ var ZooSound = (function () {
       $(close).addEventListener('click', function () { $(ov).classList.remove('show'); tickReset(); });
       $(ov).addEventListener('click', function (e) { if (e.target === this) { this.classList.remove('show'); tickReset(); } });
     }
+    // full screen: the rarely used buttons move into the Menu sheet (How to play comes out of Settings);
+    // the level bar still opens Levels, and Undo / Hint / Clear stay on screen
+    Goobs.fullscreen({ menu: ['btnLevels', 'btnHelp', 'btnStats', 'btnSettings'], info: menuInfo, onClose: tickReset });
     sheet('btnSettings', 'ovSettings', 'btnCloseSettings');
     sheet('btnStats', 'ovStats', 'btnCloseStats', renderStats);
     $('btnLevels').addEventListener('click', openLevelsSheet);

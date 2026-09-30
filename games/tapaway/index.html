@@ -102,6 +102,29 @@ html.k-lines .onlyB, html.k-blocks .onlyL { display: none !important; }
 .lgrid .lvl.xhard::after { content: "EXTRA"; background: linear-gradient(135deg, #e5484d, #8a3cff); }
 .lgrid .lvl:disabled { opacity: .35; }
 .toolbar.onlyL .tool { font-size: 12px; }
+
+/* ---------- Full screen (1.2.0, Glenn: "every game full screen") ----------
+   The stage (and its backdrop) fills the whole screen; the counters float as white pills under the top row, Hint or
+   Bomb and Restart float at the bottom clear of the home bar. The renderers fit the whole shape into the free box
+   between them (setMargins), so it is never cropped. */
+html.gg-fs-over .stage { position: fixed; inset: 0; z-index: 0; border-radius: 0; box-shadow: none; min-height: 0; }
+html.gg-fs-over .info { position: fixed; z-index: 5; left: 0; right: 0; top: calc(env(safe-area-inset-top, 0px) + 56px); width: auto; min-height: 0; gap: 6px; pointer-events: none;
+  padding: 0 calc(env(safe-area-inset-right, 0px) + 10px) 0 calc(env(safe-area-inset-left, 0px) + 10px); align-items: stretch; }
+html.gg-fs-over .info > div { background: rgba(255,255,255,.9); color: #1b1f33; border-radius: 16px; box-shadow: 0 3px 10px rgba(0,0,0,.18); padding: 5px 12px; min-width: 0;
+  display: flex; flex-direction: column; justify-content: center; }
+html.gg-fs-over .info .lbl { font-size: 11px; color: #5b6280; line-height: 1.2; }
+html.gg-fs-over .info .ttl { font-size: 17px; }
+html.gg-fs-over .info .moves b { line-height: 1.1; }
+html.gg-fs-over .info .coins { justify-content: flex-end; color: #1b1f33; }
+html.gg-fs-over .info .minis svg { color: #d4d8e4; }
+html.gg-fs-over .info .minis svg.on { color: #ffc23a; }
+html.gg-fs-over .turnhint { top: calc(env(safe-area-inset-top, 0px) + 116px); }
+html.gg-fs-over .toolbar { position: fixed; z-index: 5; left: 0; right: 0; bottom: 0; width: auto; max-width: 480px; margin: 0 auto;
+  padding: 0 calc(env(safe-area-inset-right, 0px) + 10px) calc(env(safe-area-inset-bottom, 0px) + 10px) calc(env(safe-area-inset-left, 0px) + 10px); }
+html.gg-fs-over .toolbar .tool { box-shadow: 0 3px 10px rgba(0,0,0,.18); }
+html.gg-fs-over .toolbar.onlyL .tool { font-size: 13px; }
+html.gg-fs-over .bombhint { bottom: calc(env(safe-area-inset-bottom, 0px) + 72px); }
+.ggmenu .modes { margin: 2px 0 6px; }
 </style>
 </head>
 <body>
@@ -168,15 +191,15 @@ html.k-lines .onlyB, html.k-blocks .onlyL { display: none !important; }
 
   <div class="toolbar onlyL">
     <button class="tool" id="btnHint"><svg viewBox="0 0 24 24"><use href="#i-hint"/></svg><span id="hintLabel">Hint</span></button>
-    <button class="tool" id="btnLevelsL"><svg viewBox="0 0 24 24"><use href="#i-levels"/></svg><span>Levels</span></button>
-    <button class="tool" id="btnSkinsL"><svg viewBox="0 0 24 24"><use href="#i-skin"/></svg><span>Skins</span></button>
-    <button class="tool" id="btnHelpL"><svg viewBox="0 0 24 24"><use href="#i-help"/></svg><span>How to</span></button>
+    <button class="tool onlyL" id="btnLevelsL"><svg viewBox="0 0 24 24"><use href="#i-levels"/></svg><span>Levels</span></button>
+    <button class="tool onlyL" id="btnSkinsL"><svg viewBox="0 0 24 24"><use href="#i-skin"/></svg><span>Skins</span></button>
+    <button class="tool onlyL" id="btnHelpL"><svg viewBox="0 0 24 24"><use href="#i-help"/></svg><span>How to</span></button>
     <button class="tool red" id="btnNewL"><svg viewBox="0 0 24 24"><use href="#i-new"/></svg><span>Restart</span></button>
   </div>
   <div class="toolbar onlyB">
     <button class="tool" id="btnBomb"><svg viewBox="0 0 24 24"><use href="#i-bomb"/></svg><span id="bombLabel">Bomb</span></button>
-    <button class="tool" id="btnSkins"><svg viewBox="0 0 24 24"><use href="#i-skin"/></svg><span>Skins</span></button>
-    <button class="tool" id="btnHelp"><svg viewBox="0 0 24 24"><use href="#i-help"/></svg><span>How to</span></button>
+    <button class="tool onlyB" id="btnSkins"><svg viewBox="0 0 24 24"><use href="#i-skin"/></svg><span>Skins</span></button>
+    <button class="tool onlyB" id="btnHelp"><svg viewBox="0 0 24 24"><use href="#i-help"/></svg><span>How to</span></button>
     <button class="tool red" id="btnNew"><svg viewBox="0 0 24 24"><use href="#i-new"/></svg><span>Restart</span></button>
   </div>
 </div>
@@ -1162,12 +1185,16 @@ var FLRender = (function () {
     function lockOpen(L) { if (badges[L]) kick(); }
 
     // ---------- camera ----------
+    // Full screen (1.2.0): fitted into the free box inside the margins (px), the view shifted to its middle (as render.js)
+    var M = { top: 0, bottom: 0, side: 0 };
     function fit() {
+      camera.setViewOffset(W, H, 0, (M.bottom - M.top) / 2, W, H);
       if (!st) return;
-      var s = st.S.size, R = 0.42 * Math.hypot(s[0], s[1], s[2]) + 0.3;
-      var vf = camera.fov * Math.PI / 360, hf = Math.atan(Math.tan(vf) * camera.aspect);
+      var s = st.S.size, R = 0.42 * Math.hypot(s[0], s[1], s[2]) + 0.3, t = Math.tan(camera.fov * Math.PI / 360);
+      var vf = Math.atan(t * Math.max(40, H - M.top - M.bottom) / H), hf = Math.atan(t * camera.aspect * Math.max(40, W - 2 * M.side) / W);
       dist = R / Math.sin(Math.min(vf, hf)) * 1.04;
     }
+    function setMargins(m) { M = { top: m.top || 0, bottom: m.bottom || 0, side: m.side || 0 }; fit(); kick(); }
     function place() {
       camera.position.set(0, 0, dist / ctl.zoom()).applyQuaternion(ctl.orient);
       camera.quaternion.copy(ctl.orient);
@@ -1286,7 +1313,7 @@ var FLRender = (function () {
     }
 
     return {
-      setState: setState, refresh: refresh, resize: resize, redraw: kick,
+      setState: setState, refresh: refresh, resize: resize, redraw: kick, setMargins: setMargins,
       reset: function () { ctl.home(); }, onTap: function (cb) { tapCb = cb; }, turn: function (a, b) { ctl.turn(a, b); kick(); },
       lineAt: lineAt, screenOf: screenOf, facing: facing, fly: fly, bump: bump, locked: locked, boom: boom, hint: hint, lockOpen: lockOpen,
       update: function () { rebuild(); kick(); },
@@ -1407,12 +1434,17 @@ var FARender = (function () {
     function home() { orient.setFromEuler(new THREE.Euler(-0.5, 0.62, 0, 'YXZ')); zoom = 1; vyaw = vpitch = 0; }
     home();
     function turn(dx, dy) { if (dx) orient.multiply(QT.setFromAxisAngle(AY, dx)); if (dy) orient.multiply(QT.setFromAxisAngle(AX, dy)); orient.normalize(); }
+    // Full screen (1.2.0): the canvas fills the phone and the counters and buttons float on it, so the shape is fitted
+    // into the free box inside the margins (px: top, bottom, side) and the view is shifted to that box's middle
+    var M = { top: 0, bottom: 0, side: 0 };
     function fit() {
+      camera.setViewOffset(W, H, 0, (M.bottom - M.top) / 2, W, H);
       if (!st) return;
-      var R = 0.5 * Math.hypot(st.sx, st.sy, st.sz) + 0.3;
-      var vf = camera.fov * Math.PI / 360, hf = Math.atan(Math.tan(vf) * camera.aspect);
+      var R = 0.5 * Math.hypot(st.sx, st.sy, st.sz) + 0.3, t = Math.tan(camera.fov * Math.PI / 360);
+      var vf = Math.atan(t * Math.max(40, H - M.top - M.bottom) / H), hf = Math.atan(t * camera.aspect * Math.max(40, W - 2 * M.side) / W);
       dist = R / Math.sin(Math.min(vf, hf)) * 1.02;
     }
+    function setMargins(m) { M = { top: m.top || 0, bottom: m.bottom || 0, side: m.side || 0 }; fit(); kick(); }
     function place() {
       camera.position.set(0, 0, dist / zoom).applyQuaternion(orient).add(center);
       camera.quaternion.copy(orient);
@@ -1537,7 +1569,7 @@ var FARender = (function () {
     }
 
     return {
-      setState: setState, refresh: refresh, resize: resize, redraw: kick, setPalette: setPalette,
+      setState: setState, refresh: refresh, resize: resize, redraw: kick, setPalette: setPalette, setMargins: setMargins,
       reset: function () { home(); kick(); }, onTap: function (cb) { tapCb = cb; },
       blockAt: blockAt, screenOf: screenOf, fly: fly, bump: bump, boom: boom,
       busy: function () { return anims.length > 0; }
@@ -1801,7 +1833,7 @@ var FLApp = (function () {
   }
 
   return {
-    init: init, show: show, save: saveGame, renderStats: renderStats, render: render,
+    init: init, show: show, save: saveGame, renderStats: renderStats, render: render, setMargins: function (m) { if (R) R.setMargins(m); },
     // hooks for automated tests
     test: { get st() { return st; }, get game() { return game; }, get meta() { return lm; }, start: start, R: function () { return R; },
       tap: function (id) { var L = st.lines[id]; for (var tries = 0; tries < 40; tries++) { if (R.facing(L)) { var p = R.screenOf(L); if (p[0] > 0 && p[1] > 0) { var hit = R.lineAt(p[0], p[1]); if (hit && hit.id === id) { onTap(p[0], p[1]); return true; } } } R.turn(0.35, tries % 3 === 0 ? 0.3 : 0); } return false; } }
@@ -1853,7 +1885,7 @@ var FLApp = (function () {
   function $(id) { return document.getElementById(id); }
   function fmt(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
   function isOpen(id) { return $(id).classList.contains('show'); }
-  function locked() { return isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || isOpen('ovSkins') || isOpen('ovChallenges') || isOpen('ovLevelsL') || GoobsAds.isOpen(); }
+  function locked() { return isOpen('ggMenu') || isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || isOpen('ovSkins') || isOpen('ovChallenges') || isOpen('ovLevelsL') || GoobsAds.isOpen(); }
   function coinIcon() { return '<svg viewBox="0 0 24 24"><use href="#coin"/></svg>'; }
   function skinById(id) { for (var i = 0; i < SKINS.length; i++) if (SKINS[i].id === id) return SKINS[i]; return SKINS[0]; }
   function backById(id) { for (var i = 0; i < BACKS.length; i++) if (BACKS[i].id === id) return BACKS[i]; return BACKS[0]; }
@@ -2067,6 +2099,7 @@ var FLApp = (function () {
     document.documentElement.classList.toggle('k-blocks', k === 'blocks');
     $('kindLines').classList.toggle('on', k === 'lines');
     $('kindBlocks').classList.toggle('on', k === 'blocks');
+    fitMargins();
     if (k === 'lines') { FLApp.show(); return; }
     R3.resize();
     if (!blocksStarted) {
@@ -2091,8 +2124,25 @@ var FLApp = (function () {
     $(close).addEventListener('click', function () { $(ov).classList.remove('show'); });
     $(ov).addEventListener('click', function (e) { if (e.target === this) this.classList.remove('show'); });
   }
+  // Full screen (1.2.0): the free box for the shape is between the floating counters and the floating toolbar
+  function fitMargins() {
+    var H = window.innerHeight, top = $('info').getBoundingClientRect().bottom, bars = document.querySelectorAll('.toolbar'), bot = H;
+    Array.prototype.forEach.call(bars, function (b) { var r = b.getBoundingClientRect(); if (r.height) bot = Math.min(bot, r.top); });
+    var m = { top: Math.round(top + 6), bottom: Math.round(H - bot + 8), side: 6 };
+    if (R3) R3.setMargins(m); FLApp.setMargins(m);
+  }
+  function menuInfo() {
+    if (meta.kind === 'lines') return '<b>Lines</b> · ' + $('info').querySelector('.lbl').textContent;
+    return '<b>Blocks</b> · ' + (game ? (game.mode === 'challenge' ? 'Challenge ' : 'Level ') + game.n : '');
+  }
   function init() {
     Goobs.themePicker($('themes'));
+    // Full screen (1.2.0): the shape and its backdrop fill the screen; the counters float under the top row, Hint or
+    // Bomb and Restart float at the bottom; Lines/Blocks, Level/Challenges and the rarely used buttons are in the Menu
+    var fs = Goobs.fullscreen({ overlay: true, menu: ['btnLevelsL', 'btnSkinsL', 'btnSkins', 'btnHelpL', 'btnHelp', 'btnStats', 'btnSettings'], info: menuInfo });
+    var sh = fs.el.querySelector('.sheet');
+    sh.insertBefore($('kinds'), fs.list); sh.insertBefore($('modes'), fs.list);
+    ['kinds', 'modes'].forEach(function (id) { $(id).addEventListener('click', function (e) { if (e.target.closest('button')) fs.close(); }); });
     try { R3 = FARender.create(THREE, $('cv')); }
     catch (e) { $('building').textContent = 'This phone couldn’t start the 3D view.'; $('building').classList.add('show'); return; }
     FLApp.init({
@@ -2142,6 +2192,7 @@ var FLApp = (function () {
     document.addEventListener('visibilitychange', function () { if (document.hidden) saveAll(); });
     window.addEventListener('pagehide', saveAll);
     syncSound(); syncAds();
+    var rq = 0; window.addEventListener('resize', function () { if (!rq) rq = requestAnimationFrame(function () { rq = 0; fitMargins(); }); });
     setKind(meta.kind);
     Goobs.markPlayed('tapaway');
     Goobs.initUpdates({

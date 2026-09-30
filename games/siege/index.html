@@ -85,7 +85,8 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
 .screen { position: fixed; inset: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: calc(var(--st) + 14px) calc(var(--sr) + 14px) calc(var(--sb) + 14px) calc(var(--sl) + 14px);
   background: radial-gradient(ellipse at 50% 20%, rgba(40,20,90,.55), rgba(5,6,13,.96) 70%); }
 .screen.dim { background: rgba(3,4,10,.72); display: flex; align-items: center; justify-content: center; }
-.menuinner { max-width: 640px; margin: 0 auto; position: relative; }
+/* flow-root: the logo's top margin stays inside (it used to push the whole block down, so "‹ Games" sat on the logo) */
+.menuinner { max-width: 640px; margin: 0 auto; position: relative; display: flow-root; }
 .back { position: absolute; left: 0; top: 0; color: var(--cyan); font-weight: 800; font-size: 16px; padding: 6px 4px; }
 .logo { margin: 44px 0 2px; text-align: center; font-size: 44px; font-weight: 900; letter-spacing: 6px; color: #fff;
   text-shadow: 0 0 6px #3dd8ff, 0 0 18px #3dd8ff, 0 0 36px #1b6bff; }
@@ -140,7 +141,8 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
   .logo { font-size: 34px; margin-top: 6px; }
   .panel { width: 230px; }
 }
-@media (max-width: 380px) { .stat { font-size: 13.5px; } .stats { gap: 7px; } .hb { min-width: 36px; padding: 0 7px; } }
+@media (max-width: 380px) { .stat { font-size: 13.5px; } .stats { gap: 7px; } .hb { min-width: 36px; padding: 0 7px; } .logo { font-size: 38px; letter-spacing: 5px; } }
+.mb.warn { border-color: var(--red); color: #fff; background: rgba(255,61,90,.45); box-shadow: 0 0 14px rgba(255,61,90,.6); }
 </style>
 </head>
 <body>
@@ -158,8 +160,6 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
     <div class="btns">
       <button class="hb" id="bSpeed">1×</button>
       <button class="hb" id="bPause" aria-label="Pause">❚❚</button>
-      <button class="hb" id="bRestart" aria-label="Restart">↻</button>
-      <button class="hb" id="bMenu" aria-label="Menu">☰</button>
     </div>
   </div>
   <div class="hint" id="hint"></div>
@@ -219,6 +219,7 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
   <div class="card">
     <h2>Paused</h2>
     <button class="mb wide hot" id="bResume">Resume</button>
+    <button class="mb wide" id="bRestart">Restart level</button>
     <button class="mb wide" id="bPauseSound">Sound</button>
     <button class="mb wide" id="bQuit">Quit to menu</button>
   </div>
@@ -847,7 +848,8 @@ var SGAudio = (function () {
     g = SG.create(L, { diff: P.diff, cash: P.cash });
     speed = 1; paused = false; sel = null; preview = null; fx = []; rings = []; texts = [];
     $('menu').classList.add('hidden'); $('end').classList.add('hidden'); $('pause').classList.add('hidden'); $('hud').classList.remove('hidden');
-    buildTowerBar(); resize(); fit(); renderHud(); hint(L.name + ' · ' + SG.DIFF[P.diff].name + (P.cash !== 'x1' ? ' · cash ' + SG.CASH[P.cash].name : ''), false, 2600);
+    // fill the HUD before fitting: the bars' heights (and so the free space for the field) depend on their text
+    buildTowerBar(); renderHud(); resize(); fit(); hint(L.name + ' · ' + SG.DIFF[P.diff].name + (P.cash !== 'x1' ? ' · cash ' + SG.CASH[P.cash].name : ''), false, 2600);
   }
   function toMenu() { g = null; $('hud').classList.add('hidden'); $('end').classList.add('hidden'); $('pause').classList.add('hidden'); $('menu').classList.remove('hidden'); renderLevels(); }
   function restart() { if (levelIdx >= 0) start(levelIdx); }
@@ -882,6 +884,16 @@ var SGAudio = (function () {
   window.addEventListener('resize', function () { var wasFit = Math.abs(view.s - fitS) < 1e-6; resize(); if (g) { if (wasFit) fit(); else { var old = fitS; fit(); } } });
   window.addEventListener('orientationchange', function () { setTimeout(function () { resize(); fit(); }, 250); });
   $('bFit').addEventListener('click', function () { fit(); A.play('click'); });
+  // the bars can change height mid-game (a long cash number wraps the top bar): refit so the field never slips under them,
+  // unless the player has zoomed in themselves
+  if (window.ResizeObserver) {
+    var barH = [0, 0];
+    new ResizeObserver(function () {
+      var h2 = [$('topbar').offsetHeight, $('bottombar').offsetHeight];
+      if (g && (h2[0] !== barH[0] || h2[1] !== barH[1]) && Math.abs(view.s - fitS) < 1e-6) fit();
+      barH = h2;
+    }).observe($('topbar'));
+  }
 
   // ---------- towers bar, wave box, HUD ----------
   function buildTowerBar() {
@@ -914,13 +926,14 @@ var SGAudio = (function () {
   $('bPause').addEventListener('click', function () { paused = true; $('pause').classList.remove('hidden'); });
   $('bResume').addEventListener('click', function () { paused = false; $('pause').classList.add('hidden'); });
   $('bQuit').addEventListener('click', toMenu);
-  $('bMenu').addEventListener('click', function () { paused = true; $('pause').classList.remove('hidden'); });
+  // Restart lives in the pause card since 1.1.0 (the top bar fits on one line and the field gets that height); it still
+  // asks for a second tap
   var rsT = 0;
   $('bRestart').addEventListener('click', function () {
     var b = $('bRestart');
-    if (b.classList.contains('warn')) { clearTimeout(rsT); b.classList.remove('warn'); b.textContent = '↻'; restart(); return; }
-    b.classList.add('warn'); b.textContent = 'Sure?'; A.play('deny');
-    rsT = setTimeout(function () { b.classList.remove('warn'); b.textContent = '↻'; }, 2500);
+    if (b.classList.contains('warn')) { clearTimeout(rsT); b.classList.remove('warn'); b.textContent = 'Restart level'; restart(); return; }
+    b.classList.add('warn'); b.textContent = 'Tap again to restart'; A.play('deny');
+    rsT = setTimeout(function () { b.classList.remove('warn'); b.textContent = 'Restart level'; }, 2500);
   });
   var hintT = 0;
   function hint(text, bad, ms) {

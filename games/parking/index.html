@@ -47,6 +47,18 @@
   background: rgba(20,24,36,.82); color: #fff; font-weight: 700; font-size: 14px; padding: 8px 14px; border-radius: 14px; }
 .toast.show { opacity: 1; }
 .cardicon svg { border-radius: 16px; }
+/* full screen (kit): the counters are pills in the top row, so the game's name is hidden there (the Menu shows it)
+   and the stage (grass) runs to the very edges of the screen: the lot is width-bound on a phone, so every px counts. */
+html.gg-fs .top .brand h1 { display: none; }
+html.gg-fs .top .brand { flex: none; }
+.ttpills { flex: 1 1 auto; width: auto; min-width: 0; min-height: 0; justify-content: flex-end; gap: 6px; padding: 0; cursor: pointer; }
+.ttpills .ggpill { flex: none; }
+@media (max-width: 385px) { .ttpills { gap: 4px; } .ttpills .ggpill { padding: 7px 8px; font-size: 15px; } .ttpills .ggpill small { font-size: 12px; } } /* pills fit an SE */
+.ttpills.tight .ggpill { padding-left: 7px; padding-right: 7px; }
+.ttpills.tight .ggpill small { display: none; }
+.ttpills .ggpill small { font-size: 13px; font-weight: 700; color: var(--muted); }
+html.gg-fs .stagewrap { width: auto; align-self: stretch; margin: 0 calc(-8px - env(safe-area-inset-right, 0px)) 0 calc(-8px - env(safe-area-inset-left, 0px)); }
+html.gg-fs .stage { margin: 0; border-radius: 0; }
 </style>
 </head>
 <body>
@@ -79,14 +91,14 @@
       <svg viewBox="0 0 100 100" aria-hidden="true"><use href="#le-logo"/></svg>
       <h1>Lot Escape</h1>
     </button>
+    <!-- full screen: the level / cars-left / moves counters sit in the top row as pills (was its own row) -->
+    <div class="info ttpills" id="info"></div>
     <div class="topbtns">
       <button class="iconbtn" id="btnSound" aria-label="Sound"><svg viewBox="0 0 24 24"><use href="#i-sound-off"/></svg></button>
       <button class="iconbtn" id="btnStats" aria-label="Stats"><svg viewBox="0 0 24 24"><use href="#i-stats"/></svg></button>
       <button class="iconbtn" id="btnSettings" aria-label="Settings"><svg viewBox="0 0 24 24"><use href="#i-gear"/></svg></button>
     </div>
   </div>
-
-  <div class="info" id="info"></div>
 
   <div class="stagewrap" id="stagewrap">
     <div class="stage" id="stage">
@@ -98,6 +110,7 @@
   <div class="toolbar">
     <button class="tool" id="btnRestart"><svg viewBox="0 0 24 24"><use href="#i-new"/></svg><span>Restart</span></button>
     <button class="tool" id="btnUndo"><svg viewBox="0 0 24 24"><use href="#i-undo"/></svg><span>Undo</span></button>
+    <button class="tool" id="btnHelp"><svg viewBox="0 0 24 24"><use href="#i-help"/></svg><span>How to</span></button>
     <button class="tool red" id="btnHint"><svg viewBox="0 0 24 24"><use href="#i-bulb"/></svg><span>Hint</span></button>
   </div>
 </div>
@@ -358,7 +371,7 @@ var LESound = (function () {
 
   function $(id) { return document.getElementById(id); }
   function isOpen(id) { return $(id).classList.contains('show'); }
-  function sheetOpen() { return isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || GoobsAds.isOpen(); }
+  function sheetOpen() { return isOpen('ggMenu') || isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || GoobsAds.isOpen(); }
   function fmt(n) { return (n || 0).toLocaleString(); }
 
   // ================= game =================
@@ -413,7 +426,9 @@ var LESound = (function () {
   // ================= layout and input =================
   var cv, cx, W = 300, H = 400, DPR = 1, cs = 40, ox = 0, oy = 0, cache = {};
   function fit() { var r = $('stage').getBoundingClientRect(); DPR = Math.min(3, window.devicePixelRatio || 1); W = Math.max(100, r.width); H = Math.max(100, r.height); cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR); layout(); }
-  function layout() { if (!g) return; cs = Math.min(W / (g.w + 2), H / (g.h + 2), 70); ox = (W - g.w * cs) / 2; oy = (H - g.h * cs) / 2; cache = {}; }
+  // full screen: across, the margin is just the road (0.8 of a square each side) plus a sliver of grass, because the lot
+  // is width-bound on a phone (was a whole square each side); up and down it keeps the full square
+  function layout() { if (!g) return; cs = Math.min(W / (g.w + 1.75), H / (g.h + 2), 70); ox = (W - g.w * cs) / 2; oy = (H - g.h * cs) / 2; cache = {}; }
   function cellAt(px, py) { var x = Math.floor((px - ox) / cs), y = Math.floor((py - oy) / cs); return [x, y]; }
   function carAt(px, py) {
     var p = cellAt(px, py), best = -1;
@@ -496,7 +511,14 @@ var LESound = (function () {
   function frame(now) { requestAnimationFrame(frame); draw(now); }
 
   // ================= info, cards, sheets =================
-  function renderInfo() { if (!g) return; $('info').innerHTML = '<div><div class="lbl">Level</div><div class="big">' + g.n + '</div></div><div class="right"><div class="lbl">Cars left</div><div class="mid">' + PJ.left(g) + ' · ' + g.moves + ' moves</div></div>'; }
+  // full screen: when the pills don't fit the top row (an SE with big numbers), drop their unit words
+  function fitPills() {
+    var el = $('info'), w = 0; if (!el) return; el.classList.remove('tight');
+    Array.prototype.forEach.call(el.children, function (c) { w += c.offsetWidth + 6; });
+    if (w > el.clientWidth + 6) el.classList.add('tight');
+  }
+  // full screen: two pills in the top row instead of the old LEVEL / CARS LEFT row (frees ~50px)
+  function renderInfo() { if (!g) return; $('info').innerHTML = '<span class="ggpill"><small>Lv</small> ' + g.n + '</span><span class="ggpill">' + PJ.left(g) + ' <small>cars</small> · ' + g.moves + ' <small>moves</small></span>'; fitPills(); }
   var toastT = 0;
   function toast(t) { var el = $('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(function () { el.classList.remove('show'); }, 2000); }
   function showCard(title, html, buttons) {
@@ -539,6 +561,10 @@ var LESound = (function () {
     $('btnHome').addEventListener('click', function () { save(); Goobs.home(); });
     $('btnRestart').addEventListener('click', function () { if (g && g.moves) showCard('Restart this lot?', 'All the cars go back where they started.', [{ label: 'Restart', red: true, go: restart }, { label: 'Keep playing', go: function () {} }]); });
     $('btnUndo').addEventListener('click', undo); $('btnHint').addEventListener('click', hint);
+    $('btnHelp').addEventListener('click', openHelp);
+    // full screen (kit): How to, Stats and Settings live in the Menu; Restart / Undo / Hint stay on screen
+    Goobs.fullscreen({ menu: ['btnHelp', 'btnStats', 'btnSettings'],
+      info: function () { return g ? 'Level <b>' + g.n + '</b> · <b>' + PJ.left(g) + '</b> cars left · <b>' + g.moves + '</b> moves' : ''; } });
     sheet('btnSettings', 'ovSettings', 'btnCloseSettings');
     sheet('btnStats', 'ovStats', 'btnCloseStats', renderStats);
     function closeHelp() { $('ovHelp').classList.remove('show'); if (!meta.seen) { meta.seen = true; saveMeta(); } }

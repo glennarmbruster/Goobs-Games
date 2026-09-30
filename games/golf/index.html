@@ -126,6 +126,25 @@
 .card .sctable { font-size: 12px; }
 .card .sc-n { min-width: 20px; height: 20px; }
 #ovMenu .btn[hidden] { display: none; }
+
+/* Full screen (0.3.0, Glenn: "every game full screen", Cindy: "it's too small"): the course fills the whole phone edge to
+   edge (no rounded stage), the kit's top row floats on the sky (html.gg-fs-over) with back, Sound and Menu; the hole and
+   wind pills sit under it and the swing controls float at the bottom, clear of the home bar. The camera keeps its framing
+   of the space below the top row, so the ball still sits just above the swing pad (scene.js resize). */
+.fslbl { display: none; }
+.ggmenu .fslbl { display: inline; }
+html.gg-fs-over .ghapp { padding: 0; }
+html.gg-fs-over .stagewrap { position: fixed; inset: 0; width: auto; margin: 0; }
+html.gg-fs-over .stage { margin: 0; border-radius: 0; box-shadow: none; }
+html.gg-fs-over .hud { top: calc(env(safe-area-inset-top, 0px) + 56px); left: calc(env(safe-area-inset-left, 0px) + 10px); right: calc(env(safe-area-inset-right, 0px) + 10px); }
+html.gg-fs-over .ctl { padding: 8px calc(env(safe-area-inset-right, 0px) + 10px) calc(env(safe-area-inset-bottom, 0px) + 8px) calc(env(safe-area-inset-left, 0px) + 10px); }
+html.gg-fs-over .spinpad { bottom: calc(env(safe-area-inset-bottom, 0px) + 120px); }
+/* taller phones: a taller swing pad and bigger club buttons */
+@media (min-height: 760px) {
+  html.gg-fs .pad { height: 96px; }
+  html.gg-fs .ctlrow .cbtn, html.gg-fs .ctlrow .club { min-height: 48px; }
+  html.gg-fs .club b { font-size: 16px; }
+}
 </style>
 </head>
 <body>
@@ -160,7 +179,7 @@
     <div class="topbtns">
       <button class="iconbtn" id="btnSound" aria-label="Sound"><svg viewBox="0 0 24 24"><use href="#i-sound-off"/></svg></button>
       <button class="iconbtn" id="btnCard" aria-label="Scorecard"><svg viewBox="0 0 24 24"><use href="#i-card"/></svg></button>
-      <button class="iconbtn" id="btnMenu" aria-label="Choose what to play"><svg viewBox="0 0 24 24"><use href="#i-flag"/></svg></button>
+      <button class="iconbtn" id="btnMenu" aria-label="Choose what to play"><svg viewBox="0 0 24 24"><use href="#i-flag"/></svg><span class="fslbl">Course &amp; range</span></button>
       <button class="iconbtn" id="btnSettings" aria-label="Settings"><svg viewBox="0 0 24 24"><use href="#i-gear"/></svg></button>
     </div>
   </div>
@@ -1020,7 +1039,15 @@ var GScene = (function () {
       sky.position.copy(camera.position);
       renderer.render(scene, camera);
     }
-    function resize(w, h) { renderer.setSize(w, h, false); camera.aspect = w / Math.max(1, h); camera.updateProjectionMatrix(); }
+    // Full screen (0.3.0): the canvas fills the phone, but the view is framed as before on the part below the floating top
+    // row (top px down): the extra strip above it just shows more sky, so the ball sits above the swing pad as it did.
+    function resize(w, h, top) {
+      renderer.setSize(w, h, false); top = top || 0;
+      var hs = Math.max(1, h - top);
+      camera.aspect = w / hs;
+      if (top > 0) camera.setViewOffset(w, hs, 0, -top, w, h); else camera.clearViewOffset();
+      camera.updateProjectionMatrix();
+    }
     function pick(nx, ny) { ray.setFromCamera(new T.Vector2(nx * 2 - 1, -(ny * 2 - 1)), camera); var hit = ray.intersectObjects(pickables, false)[0]; return hit ? { x: hit.point.x, y: hit.point.y, z: hit.point.z } : null; }
     function project(x, y, z) { var v = new T.Vector3(x, y, z).project(camera); return { x: (v.x + 1) / 2, y: (1 - v.y) / 2, behind: v.z > 1 }; }
     return { renderer: renderer, scene: scene, camera: camera, setHole: setHole, setFog: function (far) { scene.fog.far = far; scene.fog.near = far * 0.35; }, setBall: setBall, trailReset: trailReset, trailAdd: trailAdd, setAim: setAim,
@@ -1116,7 +1143,7 @@ var GHSound = (function () {
   function saveMeta() { store.set('meta', meta); }
   function $(id) { return document.getElementById(id); }
   function isOpen(id) { return $(id).classList.contains('show'); }
-  function sheetOpen() { return isOpen('ovEnd') || isOpen('ovCard') || isOpen('ovSettings') || isOpen('ovHelp') || isOpen('ovMenu') || GoobsAds.isOpen(); }
+  function sheetOpen() { return FS.isOpen() || isOpen('ovEnd') || isOpen('ovCard') || isOpen('ovSettings') || isOpen('ovHelp') || isOpen('ovMenu') || GoobsAds.isOpen(); }
   function yd(m) { return Math.round(m / YD); }
   function ft(m) { return Math.round(m / FT); }
 
@@ -1408,7 +1435,7 @@ var GHSound = (function () {
     return '<div class="scsum"><div>To par<b>' + parText(toParOf(r)) + '</b></div><div>Fairways<b>' + fw + '/' + fwN + '</b></div><div>Greens<b>' + gr + '/' + played(r) + '</b></div></div>';
   }
   function openCard() {
-    if (mode !== 'round' || !round) { msg('Scorecard<small>Start a 9-hole round from the flag menu</small>', 2200); return; }
+    if (mode !== 'round' || !round) { msg('Scorecard<small>Start a 9-hole round from Menu, Course &amp; range</small>', 2200); return; }
     $('cardTitle').textContent = round.name;
     $('cardBody').innerHTML = '<div class="sclegend"><span><i class="sc-eagle"></i>Eagle</span><span><i class="sc-birdie"></i>Birdie</span><span><i class="sc-bogey"></i>Bogey</span><span><i class="sc-double"></i>Double+</span></div>' +
       cardTable(round, round.scores[round.i] == null ? round.i : -1, false) + summaryHtml(round) + '<p class="note">Hole ' + (round.i + 1) + ': ' + H.name + ', par ' + H.par + ' \u00b7 ' + (round.scores[round.i] == null ? strokes + (strokes === 1 ? ' stroke' : ' strokes') + ' so far' : 'finished') + '. Penalties this round: ' + (sum(round.pens) + (round.scores[round.i] == null ? holeStats.pens : 0)) + '.</p>';
@@ -1589,7 +1616,7 @@ var GHSound = (function () {
       '<b>Putting</b>: the meter is scaled to the putt (it shows how many feet a full meter rolls on flat ground). The dots flow downhill: faster, warmer dots mean more slope. Easy help shows the putt line.',
       'Wind (top right) pushes the ball more the higher it flies. Rough, deep rough and sand cost distance and spin. An uphill lie flies higher and shorter, a downhill lie lower; with the ball above your feet it goes left, below your feet right (the aim allows for it).',
       '<b>Penalties</b>: water costs 1 stroke and a drop where it crossed. Out of bounds: 1 stroke and play again from the same spot. In trouble (rough, sand, under trees) the <b>Unplayable?</b> button offers a drop for 1 stroke. The cart path gives a free drop.',
-      '<b>A round</b>: nine holes on a course made for you (every hole is checked to be fair). The scorecard (grid button) shows birdies in red circles, eagles in gold, bogeys in blue squares. Settings has gimmes and picking up at double par to keep things moving. Leave any time: <b>Resume</b> brings you back to the same shot.',
+      '<b>A round</b>: nine holes on a course made for you (every hole is checked to be fair). The scorecard (in the Menu) shows birdies in red circles, eagles in gold, bogeys in blue squares. Settings has gimmes and picking up at double par to keep things moving. Leave any time: <b>Resume</b> brings you back to the same shot.',
       'During the flight, tap the course to speed it up.'
     ].map(function (x) { return '<li>' + x + '</li>'; }).join('');
     $('ovHelp').classList.add('show');
@@ -1634,7 +1661,8 @@ var GHSound = (function () {
     SC.setFog(mapView && phase === 'aim' ? 2000 : 520);
     SC.frame(dt, bp);
   }
-  function resize() { var r = $('stage').getBoundingClientRect(); SC.resize(r.width, r.height); }
+  // the camera frames the space below the floating top row (where the hole and wind pills start), as the old stage did
+  function resize() { var r = $('stage').getBoundingClientRect(), top = $('hud').getBoundingClientRect().top - r.top - 8; SC.resize(r.width, r.height, Math.max(0, Math.min(r.height * 0.3, top))); }
 
   // ================= wiring =================
   function syncSound() { $('btnSound').innerHTML = '<svg viewBox="0 0 24 24"><use href="#i-sound-' + (settings.sound ? 'on' : 'off') + '"/></svg>'; $('setSound').checked = settings.sound; $('setAmb').checked = settings.amb; S.setEnabled(settings.sound); S.setAmbience(settings.amb); }
@@ -1645,7 +1673,18 @@ var GHSound = (function () {
     $('assistNote').textContent = { easy: 'Easy: the whole shot arc and the putt line.', pro: 'Pro: only where the ball will land.', tour: 'Tour: no previews, just your aim.' }[settings.assist];
   }
   function syncSpin() { var sx = spin.x * 50, sy = -spin.y * 50; $('spinDot').style.left = (50 + sx * 0.7) + '%'; $('spinDot').style.top = (50 + sy * 0.7) + '%'; $('spinBigDot').style.left = (50 + sx * 0.8) + '%'; $('spinBigDot').style.top = (50 + sy * 0.8) + '%'; }
+  // Full screen (0.3.0): the kit floats back, Sound and Menu over the course. Scorecard, Course & range (the game's own
+  // start card: resume, new course, practice hole, range, how to) and Settings move into the Menu sheet; the ball and
+  // the swing meter wait while it's open.
+  var FS = null;
+  function menuInfo() {
+    if (!H) return '';
+    if (mode === 'range') return '<b>Driving range</b>' + (meta.longest ? ' · longest drive ' + yd(meta.longest) + ' yd' : '');
+    if (mode === 'round' && round) return '<b>' + round.name + '</b> · hole ' + (round.i + 1) + ' of 9 · ' + parText(toParOf(round));
+    return '<b>' + H.name + '</b> (practice) · par ' + H.par;
+  }
   function init() {
+    FS = Goobs.fullscreen({ overlay: true, menu: ['btnCard', 'btnMenu', 'btnSettings'], info: menuInfo });
     Goobs.themePicker($('themes'));
     var cvs = $('cv');
     cvs.addEventListener('pointerdown', canvasDown); cvs.addEventListener('pointermove', canvasMove); cvs.addEventListener('pointerup', canvasUp); cvs.addEventListener('pointercancel', canvasUp);

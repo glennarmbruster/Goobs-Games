@@ -62,15 +62,28 @@
 @media (orientation: landscape) and (max-height: 540px) {
   .app { max-width: none; display: grid; grid-template-columns: 1fr 132px; grid-template-rows: auto 1fr; gap: 6px 10px; align-items: stretch;
     padding: calc(env(safe-area-inset-top, 0px) + 4px) calc(env(safe-area-inset-right, 0px) + 10px) calc(env(safe-area-inset-bottom, 0px) + 6px) calc(env(safe-area-inset-left, 0px) + 10px); }
-  .top { grid-column: 1; grid-row: 1; min-height: 40px; }
+  .top { grid-column: 1 / span 2; grid-row: 1; min-height: 40px; } /* full screen: the counters are pills in the top row, so it spans both columns */
   .app { grid-template-rows: auto 1fr auto; }
   .stagewrap { grid-column: 1; grid-row: 2; width: 100%; margin: 0; }
   .tray { grid-column: 1; grid-row: 3; padding: 4px; }
-  .info { grid-column: 2; grid-row: 1; flex-direction: column; align-items: stretch; gap: 2px; min-height: 0; }
-  .info > div { text-align: left !important; display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
-  .info .ttl, .info .mid { font-size: 15px; }
   .toolbar { grid-column: 2; grid-row: 2 / span 2; flex-direction: column; justify-content: flex-end; }
   .toolbar .tool { flex: 1; min-height: 0; max-height: 58px; flex-direction: row; gap: 6px; font-size: 14px; }
+}
+/* full screen (kit): the counters are pills in the top row, so the game's name is hidden there (the Menu shows it).
+   Upright, the table runs to the very edges of the screen: the Turtle is 15 tiles across, so its size is set by the width. */
+html.gg-fs .top .brand h1 { display: none; }
+html.gg-fs .top .brand { flex: none; }
+.ttpills { flex: 1 1 auto; width: auto; min-width: 0; min-height: 0; justify-content: flex-end; gap: 6px; padding: 0; cursor: pointer; }
+.ttpills .ggpill { overflow: hidden; text-overflow: ellipsis; }
+.ttpills.tight .ggpill { padding-left: 7px; padding-right: 7px; }
+.ttpills.tight .ggpill small { display: none; }
+.ttpills .ggpill small { font-size: 13px; font-weight: 700; color: var(--muted); }
+.ttpills .ggpill.full { color: var(--bad); }
+.ttpills .ggpill { flex: none; }
+@media (max-width: 385px) { .ttpills { gap: 4px; } .ttpills .ggpill { padding: 7px 8px; font-size: 15px; } } /* three pills fit on an SE */
+@media not all and (orientation: landscape) and (max-height: 540px) {
+  html.gg-fs .stagewrap { width: auto; align-self: stretch; margin: 0 calc(-8px - env(safe-area-inset-right, 0px)) 0 calc(-8px - env(safe-area-inset-left, 0px)); }
+  html.gg-fs .stage { border-radius: 0; }
 }
 </style>
 </head>
@@ -102,14 +115,14 @@
       <svg viewBox="0 0 100 100" aria-hidden="true"><use href="#tt-logo"/></svg>
       <h1>Tile Temple</h1>
     </button>
+    <!-- full screen: tiles left / pairs free (or the box) / clock sit in the top row as pills (was its own row) -->
+    <div class="info ttpills" id="info"></div>
     <div class="topbtns">
       <button class="iconbtn" id="btnSound" aria-label="Sound"><svg viewBox="0 0 24 24"><use href="#i-sound-off"/></svg></button>
       <button class="iconbtn" id="btnStats" aria-label="Stats"><svg viewBox="0 0 24 24"><use href="#i-stats"/></svg></button>
       <button class="iconbtn" id="btnSettings" aria-label="Settings"><svg viewBox="0 0 24 24"><use href="#i-gear"/></svg></button>
     </div>
   </div>
-
-  <div class="info" id="info"></div>
 
   <div class="stagewrap" id="stagewrap">
     <div class="stage" id="stage">
@@ -550,7 +563,7 @@ var TTSound = (function () {
   function $(id) { return document.getElementById(id); }
   function fmt(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
   function isOpen(id) { return $(id).classList.contains('show'); }
-  function sheetOpen() { return isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || isOpen('ovNew') || GoobsAds.isOpen(); }
+  function sheetOpen() { return isOpen('ggMenu') || isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || isOpen('ovNew') || GoobsAds.isOpen(); }
   function clock(ms) { var s = Math.floor(ms / 1000); return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2); }
   function newSeed() { try { return crypto.getRandomValues(new Uint32Array(1))[0]; } catch (e) { return Math.floor(Math.random() * 4294967296); } }
 
@@ -585,8 +598,9 @@ var TTSound = (function () {
     if (!g || !cv) return;
     var r = $('stage').getBoundingClientRect(), sl = L().slots, maxX = 0, maxY = 0, maxZ = 0;
     sl.forEach(function (s) { maxX = Math.max(maxX, s[0]); maxY = Math.max(maxY, s[1]); maxZ = Math.max(maxZ, s[2]); });
-    var cols = maxX / 2 + 1, rows = maxY / 2 + 1, pad = 10, ratio = 1.32, dk = 0.14;
-    var tw = Math.min((r.width - pad * 2) / (cols + dk * (maxZ + 1)), (r.height - pad * 2) / (rows * ratio + dk * (maxZ + 1)));
+    // full screen: only 4px at the sides (the table runs to the screen's edges and the width sets the tile size upright)
+    var cols = maxX / 2 + 1, rows = maxY / 2 + 1, pad = 10, padX = 4, ratio = 1.32, dk = 0.14;
+    var tw = Math.min((r.width - padX * 2) / (cols + dk * (maxZ + 1)), (r.height - pad * 2) / (rows * ratio + dk * (maxZ + 1)));
     tw = Math.floor(tw * 2) / 2;
     B = { tw: tw, th: Math.round(tw * ratio * 2) / 2, d: Math.max(2, Math.round(tw * dk * 2) / 2), maxZ: maxZ };
     var bw = cols * tw + B.d * (maxZ + 1), bh = rows * B.th + B.d * (maxZ + 1);
@@ -840,7 +854,8 @@ var TTSound = (function () {
     var box = $('tray');
     box.classList.toggle('show', !!(g && g.boxMode));
     if (!g || !g.boxMode) return;
-    var w = Math.min(48, Math.floor((box.getBoundingClientRect().width - 12 - 5 * 6) / 6) || 44), h = Math.round(w * 1.32), html = '';
+    // full screen: upright, the box slots may grow to 56px (was 48) now that the box runs the full width (sideways height is short)
+    var w = Math.min(innerWidth > innerHeight ? 48 : 56, Math.floor((box.getBoundingClientRect().width - 12 - 5 * 6) / 6) || 44), h = Math.round(w * 1.32), html = '';
     box.innerHTML = '';
     for (var k = 0; k < 6; k++) {
       var slot = document.createElement('div');
@@ -943,12 +958,19 @@ var TTSound = (function () {
   }
 
   // ================= info =================
+  // full screen: when the pills don't fit the top row (an SE with big numbers), drop their unit words
+  function fitPills() {
+    var el = $('info'), w = 0; if (!el) return; el.classList.remove('tight');
+    Array.prototype.forEach.call(el.children, function (c) { w += c.offsetWidth + 6; });
+    if (w > el.clientWidth + 6) el.classList.add('tight');
+  }
   function renderInfo() {
     if (!g) return;
-    var n = MJ.tilesLeft(g), mid = g.boxMode ? '<div class="lbl">Box</div><div class="mid">' + g.box.length + '<span class="of"> / ' + g.cap + '</span></div>' : '<div class="lbl">Pairs free</div><div class="mid">' + MJ.moves(g).length + '</div>';
-    $('info').innerHTML = '<div><div class="lbl">' + MJ.BY_ID[g.layout].name + '</div><div class="ttl">' + n + ' left</div></div>' +
-      '<div style="text-align:center">' + mid + '</div>' +
-      '<div class="right"><div class="lbl">Time</div><div class="mid" id="clock">' + clock(g.ms) + '</div></div>';
+    // full screen: three pills in the top row (tiles left, the box or the pairs free, the clock) instead of the old info row;
+    // the layout's name is in the Menu
+    var n = MJ.tilesLeft(g), mid = g.boxMode ? '<span class="ggpill' + (g.box.length >= g.cap ? ' full' : '') + '"><small>Box</small> ' + g.box.length + '/' + g.cap + '</span>' : '<span class="ggpill">' + MJ.moves(g).length + ' <small>pairs</small></span>';
+    $('info').innerHTML = '<span class="ggpill">' + n + ' <small>left</small></span>' + mid + '<span class="ggpill" id="clock">' + clock(g.ms) + '</span>';
+    fitPills();
     $('btnUndo').disabled = !(g.boxMode ? g.hist.length : g.removed.length);
   }
   function renderClock() { var el = $('clock'); if (el && g) el.textContent = clock(g.ms); }
@@ -962,7 +984,7 @@ var TTSound = (function () {
       'A tile can be taken only if it’s <b>free</b>: nothing on top of it, and nothing touching it on its <b>left or right</b> (one open side is enough).',
       'Matches are the same tile: the same number of dots, bamboo or characters (萬), the same wind (東 E, 南 S, 西 W, 北 N) or the same dragon (中 red, 發 green, the blue frame). <b>Any flower</b> matches any flower and <b>any season</b> any season (sprout, sun, leaf, snowflake).',
       'Stuck? <b>Hint</b> lights up a tile that matches the box, or a pair (one that keeps the board clearable when it can tell). <b>Undo</b> takes back a pair. <b>Shuffle</b> mixes the tiles that are left on the board (without the box, placed so they can still be cleared).',
-      'Tiles small? <b>Pinch</b> to zoom in and drag to look around; pinch back out to see it all. Every board is dealt so it <b>can be cleared</b>. Your time counts from your first pair. <b>New game</b> lets you pick one of five layouts: Turtle, Pyramid, Fortress, Bridge and Quick (72 tiles).',
+      'Tiles small? <b>Pinch</b> to zoom in and drag to look around; pinch back out to see it all. Every board is dealt so it <b>can be cleared</b>. Your time counts from your first pair. <b>New</b> (in the Menu, top right) lets you pick one of five layouts: Turtle, Pyramid, Fortress, Bridge and Quick (72 tiles).',
       'Settings: small <b>corner numbers</b> to read tiles quickly (on), and <b>shade blocked tiles</b> if you want to see what can move.'
     ].map(function (x) { return '<li>' + x + '</li>'; }).join('');
     $('ovHelp').classList.add('show');
@@ -1002,6 +1024,10 @@ var TTSound = (function () {
     sheet('btnSettings', 'ovSettings', 'btnCloseSettings');
     sheet('btnStats', 'ovStats', 'btnCloseStats', renderStats);
     $('btnHelp').addEventListener('click', openHelp);
+    // full screen (kit): New (the layout picker), How to, Stats and Settings live in the Menu; Hint / Undo / Shuffle stay.
+    // The clock stops while the Menu is open (sheetOpen() checks 'ggMenu').
+    Goobs.fullscreen({ menu: ['btnNew', 'btnHelp', 'btnStats', 'btnSettings'],
+      info: function () { return g ? MJ.BY_ID[g.layout].name + ' · <b>' + MJ.tilesLeft(g) + '</b> tiles left · <b>' + MJ.moves(g).length + '</b> pairs free' : ''; } });
     function closeHelp() { $('ovHelp').classList.remove('show'); if (!meta.seen) { meta.seen = true; saveMeta(); } }
     $('btnCloseHelp').addEventListener('click', closeHelp);
     $('ovHelp').addEventListener('click', function (e) { if (e.target === this) closeHelp(); });

@@ -75,6 +75,16 @@ html.lm-contrast { --lm-c: #f08c2c; --lm-p: #4da3ff; }
 .nextword b { color: var(--ink); font-variant-numeric: tabular-nums; }
 .cardicon svg { border-radius: 16px; }
 @media (max-height: 700px) { .kb button { height: 46px; } .kb { gap: 6px; } }
+
+/* full screen (Goobs.fullscreen): the info row lives in the top row as a pill (or the New word button); the keys grow
+   with the screen's height (46px on an iPhone SE, ~62px on a tall phone) and the grid takes the rest */
+html.gg-fs .top .info { width: auto; min-height: 0; flex: 1 1 auto; justify-content: flex-end; padding: 0; }
+html.gg-fs .top .info .ggpill { font-size: 15px; padding: 7px 11px; }
+html.gg-fs .top .info .newword { white-space: nowrap; flex: none; height: 40px; padding: 0 10px; border-radius: 20px; font-size: 13px; gap: 4px; }
+html.gg-fs .top .info .newword svg { width: 15px; height: 15px; }
+html.gg-fs .kb { max-width: 640px; }
+html.gg-fs .kb button { height: clamp(46px, 7.4dvh, 64px); font-size: clamp(17px, 2.5dvh, 21px); }
+html.gg-fs .kb button.wide { font-size: 14px; }
 </style>
 </head>
 <body>
@@ -319,12 +329,12 @@ var LMSound = (function () {
   // ================= helpers =================
   function $(id) { return document.getElementById(id); }
   function isOpen(id) { return $(id).classList.contains('show'); }
-  function sheetOpen() { return isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || GoobsAds.isOpen(); }
+  function sheetOpen() { return isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || isOpen('ggMenu') || GoobsAds.isOpen(); }
   function rand() { try { return crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296; } catch (e) { return Math.random(); } }
 
   // ================= games =================
   // a game: { answer, day (daily only), rows: [{ w, m }], cur: typed letters, done, won, hard, lockOn: hint used (grey letters can't be typed) }
-  var g = null, busy = false;
+  var g = null, busy = false, fs = null; // fs: the full-screen Menu (Goobs.fullscreen)
   function today() { return LM.dayNumber(new Date()); }
   function loadDaily() {
     var d = today(), s = store.get('day', null);
@@ -423,7 +433,8 @@ var LMSound = (function () {
   // ================= drawing =================
   function layout() {
     var wrap = $('gridwrap').getBoundingClientRect();
-    var size = Math.floor(Math.min((wrap.width - 24) / 5.3, (wrap.height - 30) / 6, 66));
+    // full screen: the grid may use nearly the whole width (5.15 leaves a small margin) and grows past the old 66px cap
+    var size = Math.floor(Math.min((wrap.width - 24) / (fs ? 5.15 : 5.3), (wrap.height - 30) / 6, fs ? 110 : 66));
     var grid = $('grid');
     grid.style.width = (size * 5 + 24) + 'px'; grid.style.height = (size * 6 + 30) + 'px';
     grid.style.fontSize = Math.round(size * 0.52) + 'px';
@@ -470,9 +481,20 @@ var LMSound = (function () {
       if (k === 'hint') b.disabled = g.done || g.lockOn;
     });
   }
+  // full screen: the info row sits in the top row, cut down to what matters while playing (the streak, or the New word
+  // button in Practice); the rest (word no., next word countdown, guesses, solved) is on the Menu's info line
+  function menuInfo() {
+    if (!g) return '';
+    if (meta.mode === 'daily') return 'Word no. <b>' + g.day + '</b>' + (g.hard ? ' (hard)' : '') + ' · Streak <b>' + streakNow() + '</b> · Next word in <b>' + countdown() + '</b>';
+    var st = stats.practice;
+    return 'Practice · Guess <b>' + Math.min(6, g.rows.length + (g.done ? 0 : 1)) + '</b> of 6 · Solved <b>' + st.won + ' of ' + st.played + '</b>';
+  }
   function renderInfo() {
     var m = meta.mode, h;
-    if (m === 'daily') {
+    if (fs) {
+      h = m === 'daily' ? '<span class="ggpill">' + (g.hard ? 'Hard · ' : '') + 'Streak ' + streakNow() + '</span>'
+        : '<button class="newword" id="btnNew"><svg viewBox="0 0 24 24"><use href="#i-new"/></svg>New word</button>';
+    } else if (m === 'daily') {
       h = '<div><div class="lbl">Word no.</div><div class="mid">' + g.day + (g.hard ? ' <small class="of">hard</small>' : '') + '</div></div>' +
         '<div style="text-align:center"><div class="lbl">Streak</div><div class="mid">' + streakNow() + '</div></div>' +
         '<div class="right"><div class="lbl">Next word in</div><div class="mid" id="countdown">' + countdown() + '</div></div>';
@@ -575,6 +597,10 @@ var LMSound = (function () {
     $(ov).addEventListener('click', function (e) { if (e.target === this) this.classList.remove('show'); });
   }
   function init() {
+    // full screen: How to, Share (also on the result card), Stats and Settings go into the Menu; the info row moves into
+    // the top row (see renderInfo) so the grid and the keyboard get the height
+    fs = Goobs.fullscreen({ menu: ['btnHelp', 'btnShare', 'btnStats', 'btnSettings'], info: menuInfo });
+    $('app').querySelector('.top').insertBefore($('info'), $('app').querySelector('.topbtns'));
     Goobs.themePicker($('themes'));
     buildKeys();
     $('kb').addEventListener('click', function (e) { var b = e.target.closest('button[data-k]'); if (b) type(b.dataset.k); });

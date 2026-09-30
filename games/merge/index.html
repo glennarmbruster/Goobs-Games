@@ -116,6 +116,13 @@
 .app.chainmode #btnUndo { display: none; }
 .nextcube { width: 32px; height: 32px; border-radius: 7px; display: grid; place-items: center; font-weight: 900; font-size: 13px; box-shadow: 0 3px 0 rgba(0,0,0,.18); }
 #cfloats .float { left: 50%; top: 18%; transform: translateX(-50%); }
+
+/* Full screen (1.2.0, Glenn: "every game full screen"): the board is as big as the free box (.ggfit) allows, the Chain
+   Cube tray fills that box; Undo stays at the bottom, the rest is in the Menu. */
+html.gg-fs .boardwrap { width: min(100cqw, 100cqh, 720px); }
+html.gg-fs .chainwrap { position: absolute; inset: 0; min-height: 0; width: auto; }
+html.gg-fs .spacer { display: none; }
+html.gg-fs .app.chainmode .toolbar { display: none; }
 </style>
 </head>
 <body>
@@ -161,11 +168,13 @@
 
   <div class="info" id="info"></div>
 
+  <div class="ggfit" id="fit">
   <div class="boardwrap" id="boardwrap">
     <div class="board" id="board"><div class="bg" id="bg"></div><div class="layer" id="layer"></div></div>
     <div class="floats" id="floats"></div>
   </div>
   <div class="chainwrap" id="chainwrap"><div class="chainmsg" id="chainMsg">Loading&hellip;</div><div class="floats" id="cfloats"></div></div>
+  </div>
 
   <div class="spacer"></div>
   <div class="toolbar">
@@ -539,6 +548,15 @@ var NNChain = (function () {
     camera.position.set(0, 7.2, -3.6);
     camera.lookAt(0, 0, 5.2);
     camera.updateProjectionMatrix();
+    // Full screen (1.2.0): on a tall full-screen phone the fixed fov cut off the near end's side walls, so widen it
+    // until the whole tray (near corners with the walls, far end) is on screen
+    camera.updateMatrixWorld();
+    var pts = [[W / 2 + 0.35, 0.6, -0.4], [-W / 2 - 0.35, 0.6, -0.4], [W / 2 + 0.35, 0, -0.4], [W / 2 + 0.35, 0.6, LEN + 0.3], [0, 0.6, LEN + 0.3]], v = new T.Vector3();
+    for (var k = 0; k < 60; k++) {
+      var ok = pts.every(function (q) { v.set(q[0], q[1], q[2]).project(camera); return Math.abs(v.x) <= 0.985 && Math.abs(v.y) <= 0.97; });
+      if (ok) break;
+      camera.fov += 1; camera.updateProjectionMatrix();
+    }
   }
 
   // ---------------- cubes ----------------
@@ -743,7 +761,7 @@ var NNChain = (function () {
   function $(id) { return document.getElementById(id); }
   function fmt(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
   function isOpen(id) { return $(id).classList.contains('show'); }
-  function locked() { return isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || GoobsAds.isOpen(); }
+  function locked() { return isOpen('ggMenu') || isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || GoobsAds.isOpen(); }
 
   // ================= game =================
   // game: { mode, size, g (engine state), undos, snaps, moves, done, won (2048 card shown) }
@@ -1158,8 +1176,15 @@ var NNChain = (function () {
     $(close).addEventListener('click', function () { $(ov).classList.remove('show'); });
     $(ov).addEventListener('click', function (e) { if (e.target === this) this.classList.remove('show'); });
   }
+  function menuInfo() {
+    if (chainOn) return '<b>Chain Cube</b> · ' + fmt(chainReady ? NNChain.score : 0) + ' points';
+    return '<b>' + (game.mode === 'trios' ? 'Trios' : 'Classic ' + game.size + '&times;' + game.size) + '</b> · ' + fmt(game.g.score) + ' points';
+  }
   function init() {
     Goobs.themePicker($('themes'));
+    // Full screen (1.2.0): edge to edge; the board (or the Chain Cube tray) fills the free space; How to, New game,
+    // Stats and Settings are in the Menu (Chain Cube pauses while it's open: locked() checks ggMenu)
+    Goobs.fullscreen({ menu: ['btnHelp', 'btnNew', 'btnStats', 'btnSettings'], info: menuInfo });
     var b = $('board');
     b.addEventListener('pointerdown', onDown);
     b.addEventListener('pointermove', onMove);
