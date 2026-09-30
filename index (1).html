@@ -14,6 +14,41 @@
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <link rel="stylesheet" href="shared/goobs.css">
+<script>
+/* Safety net: if the menu can't start (an error, or nothing after 8 seconds), show a message with Repair instead of
+   a blank page. Repair throws away the app's stored copy of the files (service worker and caches) and loads fresh.
+   Saved games, stars and settings (localStorage) are kept. Plain old JavaScript on purpose, so it runs anywhere. */
+(function () {
+  var shown = false;
+  function fresh() { location.replace(location.pathname + '?fresh=' + Date.now()); }
+  function repair(btn) {
+    if (btn) { btn.disabled = true; btn.textContent = 'Repairing…'; }
+    var jobs = [];
+    try { if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) jobs.push(navigator.serviceWorker.getRegistrations().then(function (rs) { return Promise.all(rs.map(function (r) { return r.unregister(); })); })); } catch (e) { /* ignore */ }
+    try { if (window.caches) jobs.push(caches.keys().then(function (ks) { return Promise.all(ks.filter(function (k) { return k.indexOf('goobs-') === 0; }).map(function (k) { return caches.delete(k); })); })); } catch (e) { /* ignore */ }
+    var done = false; function go() { if (!done) { done = true; fresh(); } }
+    Promise.all(jobs).then(go, go); setTimeout(go, 4000);
+  }
+  function show(msg) {
+    if (shown || window.__goobsReady) return; shown = true;
+    function put() {
+      var d = document.createElement('div');
+      d.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:28px;background:#f1f0fb;color:#1b1f33;font:600 16px -apple-system,system-ui,sans-serif;text-align:center';
+      d.innerHTML = '<div style="font-size:22px;font-weight:900">Goobs-Games didn\u2019t start</div>' +
+        '<div style="max-width:320px;line-height:1.4">Its stored copy on this device looks damaged. <b>Repair</b> gets a fresh copy. Your games, stars and settings are kept.</div>' +
+        '<div style="max-width:320px;font-size:12px;opacity:.6">' + String(msg).replace(/[<>&]/g, '') + '</div>';
+      function btn(t, bg, fn) { var b = document.createElement('button'); b.textContent = t; b.style.cssText = 'font:800 17px -apple-system,system-ui,sans-serif;min-width:200px;padding:14px 24px;border-radius:14px;border:0;color:#fff;background:' + bg; b.onclick = function () { fn(b); }; d.appendChild(b); }
+      btn('Repair', '#5a54f0', repair);
+      btn('Try again', '#6b7080', function () { location.reload(); });
+      document.body.appendChild(d);
+    }
+    if (document.body) put(); else document.addEventListener('DOMContentLoaded', put);
+  }
+  window.addEventListener('error', function (e) { show((e.message || 'Error') + (e.filename ? ' · ' + String(e.filename).split('/').pop() : '') + (e.lineno ? ':' + e.lineno : '')); });
+  setTimeout(function () { if (!window.__goobsReady) show('It didn\u2019t finish starting.'); }, 8000);
+  window.__goobsRepair = repair;
+})();
+</script>
 <script src="shared/goobs.js"></script>
 <title>Goobs-Games</title>
 <style>
@@ -545,6 +580,160 @@
         var st = 0, lv = 0; for (var k in p) { lv++; var m = 0; for (var d in p[k]) m = Math.max(m, p[k][d]); st += m; }
         return lv ? lv + ' level' + (lv === 1 ? '' : 's') + ' won \u00b7 ' + st + ' \u2605' : 'Tower defense, two ways';
       }
+    },
+    {
+      id: 'hoops', name: 'Pool Party Hoops', blurb: 'Flick it in the pool hoop', path: 'games/hoops/',
+      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="hpSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4fb4f7"/><stop offset="1" stop-color="#bfe6ff"/></linearGradient><linearGradient id="hpW" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3fd3e8"/><stop offset="1" stop-color="#1596c9"/></linearGradient></defs>' +
+        '<rect width="100" height="100" fill="url(#hpSky)"/><circle cx="82" cy="16" r="9" fill="#fff4b0"/><rect y="46" width="100" height="54" fill="#f1e2c3"/><path d="M8 54H92L100 100H0Z" fill="url(#hpW)"/>' +
+        '<path d="M14 66q10-4 20 0t20 0 20 0 20 0M6 82q12-4 24 0t24 0 24 0 24 0" stroke="#bff4ff" stroke-width="2" fill="none" opacity=".8"/>' +
+        '<ellipse cx="50" cy="66" rx="17" ry="5" fill="#ff5a6e"/><ellipse cx="50" cy="64" rx="17" ry="5" fill="#ffffff"/><rect x="48.5" y="30" width="3" height="34" fill="#dfe6ee"/>' +
+        '<rect x="36" y="20" width="28" height="17" rx="2" fill="#fff" stroke="#1b6fd8" stroke-width="2"/><rect x="45" y="27" width="10" height="7" fill="none" stroke="#ff5a6e" stroke-width="1.6"/>' +
+        '<ellipse cx="50" cy="38" rx="8" ry="2.4" fill="none" stroke="#ff7a1a" stroke-width="2.4"/><path d="M42.5 38.5l2 8M50 40.5v7M57.5 38.5l-2 8M45 44h10" stroke="#fff" stroke-width="1" opacity=".9"/>' +
+        '<g transform="translate(30 20)"><circle r="9" fill="#fff"/><path d="M0-9A9 9 0 0 1 9 0L0 0Z" fill="#ff5a6e"/><path d="M0 9A9 9 0 0 1-9 0L0 0Z" fill="#2f8cff"/><path d="M9 0A9 9 0 0 1 0 9L0 0Z" fill="#ffd23a"/><circle r="2" fill="#fff"/></g>' +
+        '<path d="M14 90q10-8 24 0" fill="none" stroke="#ff69b4" stroke-width="5" stroke-linecap="round"/><ellipse cx="80" cy="84" rx="10" ry="4.5" fill="none" stroke="#ffcf3a" stroke-width="4"/></svg>',
+      status: function () {
+        var p = readLS('hoops.stats'); if (!p) return 'Flick it in the pool hoop';
+        var mk = 0, at = 0, best = 0; for (var k in p) { mk += p[k].makes || 0; at += p[k].att || 0; if (p[k].atpBest && (!best || p[k].atpBest < best)) best = p[k].atpBest; }
+        if (!at) return 'Flick it in the pool hoop';
+        return mk + ' of ' + at + ' made' + (best ? ' · best lap ' + (best / 1000).toFixed(1) + 's' : '');
+      }
+    },
+    {
+      id: 'sort', name: 'Splash Sort', blurb: 'Pour colors into order', path: 'games/sort/',
+      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="ssT" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8fd6ff"/><stop offset="1" stop-color="#4a7cf0"/></linearGradient></defs><rect width="100" height="100" fill="url(#ssT)"/>' +
+        '<g stroke="#fff" stroke-width="3" fill="rgba(255,255,255,.22)"><path d="M16 26v48a8 8 0 0 0 16 0V26z"/><path d="M42 26v48a8 8 0 0 0 16 0V26z"/><path d="M68 26v48a8 8 0 0 0 16 0V26z"/></g>' +
+        '<path d="M17.5 64h13v10a6.5 6.5 0 0 1-13 0z" fill="#ef3b4f"/><path d="M17.5 52h13v12h-13z" fill="#ffd21e"/><path d="M17.5 40h13v12h-13z" fill="#2f6ef0"/>' +
+        '<path d="M43.5 64h13v10a6.5 6.5 0 0 1-13 0z" fill="#2f6ef0"/><path d="M43.5 52h13v12h-13z" fill="#ef3b4f"/>' +
+        '<path d="M69.5 64h13v10a6.5 6.5 0 0 1-13 0z" fill="#1fa653"/><path d="M69.5 52h13v12h-13z" fill="#1fa653"/><path d="M69.5 40h13v12h-13z" fill="#1fa653"/><path d="M69.5 28h13v12h-13z" fill="#1fa653"/>' +
+        '<rect x="67" y="17" width="18" height="9" rx="3" fill="#b8793a"/><rect x="13" y="22" width="22" height="5" rx="2" fill="#fff"/><rect x="39" y="22" width="22" height="5" rx="2" fill="#fff"/></svg>',
+      status: function () {
+        var m = readLS('sort.meta'); if (!m || !m.level) return 'Pour colors into order';
+        var w = (m.level.water || 1) - 1, b = (m.level.balls || 1) - 1; if (!w && !b) return 'Pour colors into order';
+        return 'Water ' + w + ' · Balls ' + b + ' levels sorted';
+      }
+    },
+    {
+      id: 'triple', name: 'Triple Treat', blurb: 'Match three treats', path: 'games/triple/',
+      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="ttT" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffc27a"/><stop offset="1" stop-color="#ff7a92"/></linearGradient></defs><rect width="100" height="100" fill="url(#ttT)"/>' +
+        '<g stroke="#a86a34" stroke-width="2"><rect x="10" y="20" width="26" height="30" rx="6" fill="#e9d2ac"/><rect x="64" y="20" width="26" height="30" rx="6" fill="#e9d2ac"/><rect x="37" y="14" width="26" height="30" rx="6" fill="#fff8ec"/></g>' +
+        '<circle cx="50" cy="30" r="8" fill="#e8282e"/><path d="M50 22l2-5" stroke="#5a3a14" stroke-width="2.4" stroke-linecap="round"/><circle cx="23" cy="36" r="7" fill="#ffd21e"/><circle cx="77" cy="36" r="7" fill="#8a4ae8"/>' +
+        '<rect x="8" y="64" width="84" height="24" rx="12" fill="rgba(110,60,30,.5)"/>' +
+        '<g stroke="#a86a34" stroke-width="1.6"><rect x="14" y="67" width="15" height="18" rx="4" fill="#fff8ec"/><rect x="31" y="67" width="15" height="18" rx="4" fill="#fff8ec"/><rect x="48" y="67" width="15" height="18" rx="4" fill="#fff8ec"/></g>' +
+        '<circle cx="21.5" cy="76" r="5" fill="#e8282e"/><circle cx="38.5" cy="76" r="5" fill="#e8282e"/><circle cx="55.5" cy="76" r="5" fill="#e8282e"/></svg>',
+      status: function () {
+        var m = readLS('triple.meta'); if (!m || !(m.open > 1)) return 'Match three treats';
+        var st = 0; for (var k in (m.stars || {})) st += m.stars[k];
+        return (m.open - 1) + ' levels cleared · ' + st + ' stars';
+      }
+    },
+    {
+      id: 'pinball', name: 'Harbor Lights', blurb: 'Flip, bump and light the way', path: 'games/pinball/',
+      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="hlT" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b2a6b"/><stop offset="1" stop-color="#0a5c7a"/></linearGradient></defs><rect width="100" height="100" fill="url(#hlT)"/>' +
+        '<path d="M50 34L4 16v26z" fill="#fff6b0" opacity=".3"/><path d="M45 72l2-38h6l2 38z" fill="#fff"/><path d="M46 50h8l.5 7h-9z" fill="#e8354a"/><rect x="45" y="28" width="10" height="7" rx="1.5" fill="#ffe07a"/>' +
+        '<circle cx="24" cy="30" r="8" fill="#e8354a"/><circle cx="24" cy="30" r="3.5" fill="#ffd24a"/><circle cx="76" cy="36" r="8" fill="#e8354a"/><circle cx="76" cy="36" r="3.5" fill="#ffd24a"/>' +
+        '<path d="M14 88l22-6" stroke="#fff" stroke-width="6" stroke-linecap="round"/><path d="M86 88l-22-6" stroke="#fff" stroke-width="6" stroke-linecap="round"/>' +
+        '<circle cx="60" cy="64" r="5" fill="#dfe4ee"/><circle cx="58.5" cy="62.5" r="1.8" fill="#fff"/></svg>',
+      status: function () {
+        var m = readLS('pinball.meta'); if (!m || !m.scores || !m.scores.length) return 'Flip, bump and light the way';
+        return 'High score ' + m.scores[0].s.toLocaleString();
+      }
+    },
+    {
+      id: 'parking', name: 'Lot Escape', blurb: 'Clear the jammed parking lot', path: 'games/parking/',
+      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" fill="#7cc86a"/><rect x="8" y="8" width="84" height="84" rx="14" fill="#4a4f5c"/><rect x="16" y="16" width="68" height="68" rx="6" fill="#6a7080"/>' +
+        '<g stroke="rgba(255,255,255,.4)" stroke-width="1.5"><path d="M33 18v64M50 18v64M67 18v64"/></g>' +
+        '<g stroke="#1f1a26" stroke-width="2"><rect x="19" y="20" width="12" height="28" rx="4" fill="#ff4d4d"/><rect x="36" y="44" width="28" height="12" rx="4" fill="#ffd21e"/><rect x="69" y="30" width="12" height="40" rx="4" fill="#f4f6fa"/><rect x="19" y="56" width="12" height="24" rx="4" fill="#3a8cff"/></g>' +
+        '<g fill="#bfe6ff"><rect x="21" y="24" width="8" height="5" rx="1.5"/><rect x="21" y="60" width="8" height="5" rx="1.5"/><rect x="38" y="46" width="5" height="8" rx="1.5"/></g><rect x="69" y="30" width="12" height="11" rx="4" fill="#3ab0ff" stroke="#1f1a26" stroke-width="2"/></svg>',
+      status: function () {
+        var m = readLS('parking.meta'); if (!m || !(m.level > 1)) return 'Clear the jammed parking lot';
+        return (m.level - 1) + ' lots cleared';
+      }
+    },
+    {
+      id: 'minigolf', name: 'Seaside Putt', blurb: '18 holes of mini golf by the sea', path: 'games/minigolf/',
+      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" fill="#2fb4e0"/><path d="M0 84c12-6 22-6 34 0s22 6 34 0 22-6 32-1V100H0z" fill="#1d8fd0" opacity=".6"/>' +
+        '<rect x="12" y="10" width="76" height="72" rx="16" fill="#e8b36a"/><rect x="17" y="15" width="66" height="62" rx="12" fill="#4cc25a"/><path d="M17 33h66M17 55h66" stroke="#5fd06b" stroke-width="9" opacity=".7"/>' +
+        '<rect x="40" y="44" width="30" height="8" rx="2" fill="#e8505b"/><g transform="rotate(30 55 48)" fill="#fffaf0" stroke="#8a5a2b" stroke-width="1"><rect x="55" y="45.5" width="16" height="5"/><rect x="39" y="45.5" width="16" height="5"/></g><circle cx="55" cy="48" r="3" fill="#5b3a1e"/>' +
+        '<ellipse cx="62" cy="27" rx="5" ry="4" fill="#16211a"/><path d="M62 27V8" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><path d="M63 8l13 5-13 5z" fill="#ff4d5e"/>' +
+        '<circle cx="34" cy="66" r="5.5" fill="#fff" stroke="#1f2a44" stroke-width="1.6"/><circle cx="32.5" cy="64.5" r="1.6" fill="#e8eef8"/></svg>',
+      status: function () {
+        var m = readLS('minigolf.meta'); if (!m || !(m.reached > 0 || m.best)) return '18 holes of mini golf by the sea';
+        return m.best ? 'Best round ' + m.best : 'On hole ' + ((m.hole || 0) + 1);
+      }
+    },
+    {
+      id: 'board', name: 'Game Chest', blurb: 'Checkers, chess and four in a row', path: 'games/board/',
+      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" fill="#3f7d5a"/><rect x="10" y="10" width="80" height="80" rx="8" fill="#f3e9d2"/>' +
+        '<g fill="#6f9e84"><rect x="10" y="10" width="20" height="20"/><rect x="50" y="10" width="20" height="20"/><rect x="30" y="30" width="20" height="20"/><rect x="70" y="30" width="20" height="20"/><rect x="10" y="50" width="20" height="20"/><rect x="50" y="50" width="20" height="20"/><rect x="30" y="70" width="20" height="20"/><rect x="70" y="70" width="20" height="20"/></g>' +
+        '<circle cx="30" cy="70" r="16" fill="#a8232e"/><circle cx="30" cy="68" r="15" fill="#e8434f"/><circle cx="30" cy="68" r="10" fill="none" stroke="#ff7a82" stroke-width="2.2"/><circle cx="73" cy="74" r="13" fill="#d19b00"/><circle cx="73" cy="73" r="12" fill="#ffd21e"/>' +
+        '<path d="M50 62 L53 50 C48 46 49 41 53 37 L46 41 C43 42 40 39 42 36 L54 23 C56 19 59 17 63 16 L65 10 L68 16 C79 19 84 31 81 45 C80 52 77 57 78 62 Z" fill="#fdfbf4" stroke="#2b2f3a" stroke-width="3" stroke-linejoin="round"/><circle cx="57" cy="28" r="2.2" fill="#2b2f3a"/></svg>',
+      status: function () {
+        var m = readLS('board.meta'); if (!m || !m.finished) return 'Checkers, chess and four in a row';
+        return (m.wins || 0) + ' win' + (m.wins === 1 ? '' : 's') + ' vs the phone';
+      }
+    },
+    {
+      id: 'buzz', name: 'Buzz Off!', blurb: 'Draw a line, save the pup', path: 'games/buzz/',
+      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" fill="#fdf8ec"/><rect y="70" width="100" height="30" fill="#d98a4e"/><rect y="66" width="100" height="8" fill="#6cc644"/>' +
+        '<path d="M20 70 C20 26 80 26 80 70" fill="none" stroke="#1d1f2a" stroke-width="7" stroke-linecap="round"/><ellipse cx="35" cy="54" rx="6" ry="11" fill="#8a4a22" transform="rotate(20 35 54)"/><ellipse cx="65" cy="54" rx="6" ry="11" fill="#8a4a22" transform="rotate(-20 65 54)"/>' +
+        '<circle cx="50" cy="56" r="13" fill="#fff3e0" stroke="#4a2410" stroke-width="2.5"/><circle cx="45" cy="53" r="2.4" fill="#2b1a10"/><circle cx="55" cy="53" r="2.4" fill="#2b1a10"/><ellipse cx="50" cy="60" rx="2.8" ry="2" fill="#2b1a10"/>' +
+        '<g transform="translate(20 20)"><ellipse rx="9" ry="7" fill="#ffd21e" stroke="#2b2b38" stroke-width="2"/><rect x="-3" y="-7" width="3" height="14" fill="#2b2b38"/><rect x="3" y="-7" width="3" height="14" fill="#2b2b38"/><ellipse cx="-2" cy="-9" rx="4" ry="3" fill="#fff" opacity=".9"/></g>' +
+        '<g transform="translate(82 26) scale(-.85 .85)"><ellipse rx="9" ry="7" fill="#ffd21e" stroke="#2b2b38" stroke-width="2"/><rect x="-3" y="-7" width="3" height="14" fill="#2b2b38"/><rect x="3" y="-7" width="3" height="14" fill="#2b2b38"/></g>' +
+        '<g transform="translate(64 12) scale(.7)"><ellipse rx="9" ry="7" fill="#ffd21e" stroke="#2b2b38" stroke-width="2"/><rect x="-3" y="-7" width="3" height="14" fill="#2b2b38"/><rect x="3" y="-7" width="3" height="14" fill="#2b2b38"/></g></svg>',
+      status: function () {
+        var m = readLS('buzz.meta'); if (!m || !(m.open > 1)) return 'Draw a line, save the pup';
+        return (m.open - 1) + ' levels saved';
+      }
+    },
+    {
+      id: 'golf', name: 'Pin High', blurb: '3D golf: 9 holes on new courses', path: 'games/golf/',
+      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" fill="#8fd0ff"/><path d="M0 62 Q30 50 55 58 T100 54 V100 H0Z" fill="#5fc84b"/><path d="M0 74 Q40 64 100 72 V100 H0Z" fill="#4bab3f"/>' +
+        '<ellipse cx="62" cy="62" rx="20" ry="6" fill="#7de96b"/><ellipse cx="62" cy="62" rx="2.6" ry="1.2" fill="#0c140c"/><path d="M62 62V22" stroke="#fff" stroke-width="3" stroke-linecap="round"/><path d="M63 22 L82 28 L63 34Z" fill="#ff3d4f"/>' +
+        '<path d="M22 70 Q38 28 60 36" fill="none" stroke="#fff" stroke-width="2.5" stroke-dasharray="3 4" stroke-linecap="round"/><circle cx="22" cy="72" r="5" fill="#fff" stroke="#9aa6c0" stroke-width="1.5"/>' +
+        '<g fill="#2f7a2e"><circle cx="12" cy="52" r="7"/><circle cx="88" cy="48" r="8"/></g></svg>',
+      status: function () {
+        var m = readLS('golf.meta'), r = readLS('golf.round');
+        if (r && r.pars && !r.done) return 'Round on: ' + r.name + ', hole ' + (r.i + 1);
+        if (m && m.bestRound) { var d = m.bestRound.toPar; return 'Best round: ' + (d === 0 ? 'E' : d > 0 ? '+' + d : '\u2212' + (-d)); }
+        return '3D golf: 9 holes on new courses';
+      }
+    },
+    {
+      id: 'shelf', name: 'Shelf Life', blurb: 'Match 3 on the shelves', path: 'games/shelf/',
+      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="slT" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7fd8ff"/><stop offset="1" stop-color="#6a7cff"/></linearGradient></defs><rect width="100" height="100" fill="url(#slT)"/>' +
+        '<rect x="8" y="16" width="84" height="50" rx="8" fill="#fff4e0" stroke="#8a5a2a" stroke-width="2.5"/><rect x="4" y="64" width="92" height="10" rx="4" fill="#c8864a" stroke="#6a3a14" stroke-width="2.5"/>' +
+        '<g stroke="#3a2a1e" stroke-width="2"><rect x="16" y="30" width="16" height="34" rx="4" fill="#e8283a"/><rect x="42" y="30" width="16" height="34" rx="4" fill="#e8283a"/><rect x="68" y="30" width="16" height="34" rx="4" fill="#e8283a"/></g>' +
+        '<g fill="#fff"><rect x="19" y="40" width="10" height="6"/><rect x="45" y="40" width="10" height="6"/><rect x="71" y="40" width="10" height="6"/></g>' +
+        '<g fill="#ffd21e"><circle cx="30" cy="86" r="4"/><circle cx="50" cy="86" r="4"/><circle cx="70" cy="86" r="4"/></g></svg>',
+      status: function () {
+        var m = readLS('shelf.meta'); if (!m || !(m.open > 1)) return 'Match 3 on the shelves';
+        var st = 0; for (var k in (m.stars || {})) st += m.stars[k];
+        return (m.open - 1) + ' levels cleared \u00b7 ' + st + ' stars';
+      }
+    },
+    {
+      id: 'castle', name: 'Castle Crumble', blurb: 'Blast the castle down', path: 'games/castle/',
+      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="ccT" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd23f"/><stop offset="1" stop-color="#ff9a2e"/></linearGradient></defs><rect width="100" height="100" fill="url(#ccT)"/>' +
+        '<g fill="#3b3fd6"><rect x="16" y="46" width="16" height="54"/><rect x="68" y="46" width="16" height="54"/><rect x="30" y="58" width="40" height="42"/><rect x="40" y="30" width="20" height="40"/><path d="M14 46l10-16 10 16z"/><path d="M66 46l10-16 10 16z"/><path d="M38 30l12-18 12 18z"/></g>' +
+        '<rect x="45" y="80" width="10" height="20" rx="5" fill="#1d1f7a"/><circle cx="70" cy="30" r="9" fill="#fff4b0"/><circle cx="70" cy="30" r="5" fill="#fff"/></svg>',
+      status: function () {
+        var m = readLS('castle.meta'); if (!m || !(m.open > 1)) return 'Blast the castle down';
+        var st = 0; for (var k in (m.stars || {})) st += m.stars[k];
+        return (m.open - 1) + ' castles down \u00b7 ' + st + ' stars';
+      }
+    },
+    {
+      id: 'beacon', name: 'Beacon Bound', blurb: 'Run, jump, light the way', path: 'games/beacon/',
+      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="bbS" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4fa9f5"/><stop offset="1" stop-color="#c9ecff"/></linearGradient><radialGradient id="bbG"><stop offset="0" stop-color="#fff6c0"/><stop offset=".45" stop-color="#ffd24a" stop-opacity=".7"/><stop offset="1" stop-color="#ffd24a" stop-opacity="0"/></radialGradient></defs>' +
+        '<rect width="100" height="100" fill="url(#bbS)"/><path d="M0 70q25-14 50-4t50-6v40H0z" fill="#6cc24a"/><path d="M0 78q30-8 60 0t40-2v24H0z" fill="#4fa83a"/>' +
+        '<rect x="14" y="44" width="14" height="14" rx="3" fill="#ffbd2e" stroke="#7a4308" stroke-width="2"/><path d="M21 51m-3 0a3 3 0 1 0 6 0a4.5 4.5 0 1 0-9 0" fill="none" stroke="#b8600c" stroke-width="1.6"/>' +
+        '<circle cx="72" cy="26" r="20" fill="url(#bbG)"/><rect x="70" y="24" width="4" height="52" rx="2" fill="#f4efe6" stroke="#2b1f3a" stroke-width="2"/><rect x="64" y="14" width="16" height="15" rx="3" fill="#ffe07a" stroke="#2b1f3a" stroke-width="2.5"/><path d="M62 15l10-8 10 8z" fill="#e04a3a" stroke="#2b1f3a" stroke-width="2.5" stroke-linejoin="round"/>' +
+        '<g transform="translate(44 62)"><path d="M-7-2q-12 2-18-4q8 8 18 8z" fill="#ea4336" stroke="#2b1f3a" stroke-width="2"/><rect x="-6" y="-4" width="12" height="16" rx="4" fill="#1fa79f" stroke="#2b1f3a" stroke-width="2.5"/><circle cx="1" cy="-12" r="9" fill="#ffd3b3" stroke="#2b1f3a" stroke-width="2.5"/><path d="M-9-13q1-10 10-9q9 0 9 7q-5-4-9-2q-4-3-10 4z" fill="#8b4a26" stroke="#2b1f3a" stroke-width="2"/><circle cx="5" cy="-12" r="1.8" fill="#2a1d3a"/></g></svg>',
+      status: function () {
+        var pr = readLS('beacon.progress') || {}, n = 0; for (var k in pr) if (pr[k] && pr[k].beaten) n++;
+        var m = readLS('beacon.meta'); if (!n && !(m && m.best)) return 'Run, jump, light the way';
+        return n + ' of 16 levels lit' + (m && m.best ? ' · best ' + m.best.toLocaleString() : '');
+      }
     }
   ];
   var byId = {};
@@ -622,6 +811,7 @@
       $('foot').textContent = parts[0];
     }
   });
+  window.__goobsReady = true;
 })();
 </script>
 </body>
