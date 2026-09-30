@@ -187,163 +187,203 @@ html.gg-fs-over .hud { top: calc(env(safe-area-inset-top, 0px) + 58px); left: ca
    pyramid roof, gatehouses with wooden doors, and TNT crates that blow up. Bricks are laid like real masonry
    (joints staggered), start asleep so a castle stands perfectly still, and wake when hit or when what holds them
    up goes (a moving brick wakes the ones near it). tools/gen.mjs proves every level: a bot knocks it down with the
-   game's physics and the level gets more cannonballs than the bot needed. */
+   game's physics and the level gets more cannonballs than the bot needed.
+   1.6.0 (Glenn: "individual bricks = good, but the bricks are huge - i was hoping they'd be smaller - so the
+   explosions look better/bigger"): bricks are half as long and half as tall as before (a long brick 1 x 0.5 x 0.5,
+   a half brick 0.5 x 0.5 x 0.5), so a castle of about the same size has three to four times as many; a grid
+   broadphase keeps the physics cheap with that many. */
 var CC = (function () {
   'use strict';
   var C = null;
-  var GRAV = -18, ISLAND = 13, WATER = -1.2, BALLR = 0.55, BALLM = 40, SPEED = 38, BALL_LIFE = 4.5;
+  var GRAV = -18, ISLAND = 13, WATER = -1.2, BALLR = 0.45, BALLM = 5, SPEED = 44, BALL_LIFE = 4.5;
   var CAM = { D: 26, H: 14, LOOK: 3 };      // the camera orbits the island; the cannon fires from just below it
+  // Castles are laid out on a grid of CELL-sized cells (a half brick); a long brick covers two cells. Walls and
+  // towers are one cell thick.
+  var CELL = 0.5, K = 1.6;                  // K: old layout units -> cells (0.8 of the 1.5.0 castle's size, 2 cells a unit)
   var TYPES = {
-    b2: { mass: 3.2, w: 2, mat: 'stone' },  // long brick (2 x 1 x 1)
-    b1: { mass: 1.6, w: 1, mat: 'stone' },  // square brick
-    m: { mass: 0.8, w: 0.5, mat: 'stone' }, // battlement (merlon)
-    cone: { mass: 2.5, w: 3, mat: 'roof' }, // a tower's pointed roof (a box in the physics)
-    pyr: { mass: 4, w: 5, mat: 'roof' },    // a keep's pyramid roof
-    door: { mass: 1.2, w: 1.5, mat: 'wood' },
-    tnt: { mass: 1.2, w: 1, mat: 'tnt' }
+    b2: { mass: 1, mat: 'stone' },    // long brick (1 x 0.5 x 0.5)
+    b1: { mass: 0.5, mat: 'stone' },  // half brick (0.5 x 0.5 x 0.5)
+    m: { mass: 0.2, mat: 'stone' },   // battlement (merlon)
+    cone: { mass: 2, mat: 'roof' },   // a tower's pointed roof (a box in the physics)
+    pyr: { mass: 4, mat: 'roof' },    // a keep's pyramid roof
+    door: { mass: 0.8, mat: 'wood' },
+    tnt: { mass: 0.6, mat: 'tnt' }
   };
-  function use(c) { C = c; }
+  function use(c) { C = c; speedUp(); }
+  // 1.6.0: three cannon-es hot spots, measured with a profiler on a 650-brick castle coming down (see the doc):
+  // - separating-axis tests project every box corner onto every axis (30 projections a pair); a box's projection is
+  //   its centre plus its half sizes along the axis, the same numbers with a third of the work;
+  function speedUp() {
+    var CP = C && C.ConvexPolyhedron; if (!CP || CP.__ccFast) return; CP.__ccFast = true;
+    var orig = CP.project;
+    CP.project = function (hull, axis, pos, quat, result) {
+      var h = hull.__half; if (!h) return orig.call(CP, hull, axis, pos, quat, result);
+      // the axis in the box's own frame: rotate by the inverse (conjugate) quaternion
+      var qx = -quat.x, qy = -quat.y, qz = -quat.z, qw = quat.w, vx = axis.x, vy = axis.y, vz = axis.z;
+      var tx = 2 * (qy * vz - qz * vy), ty = 2 * (qz * vx - qx * vz), tz = 2 * (qx * vy - qy * vx);
+      var lx = vx + qw * tx + (qy * tz - qz * ty), ly = vy + qw * ty + (qz * tx - qx * tz), lz = vz + qw * tz + (qx * ty - qy * tx);
+      var r = Math.abs(lx) * h.x + Math.abs(ly) * h.y + Math.abs(lz) * h.z, c0 = pos.x * vx + pos.y * vy + pos.z * vz;
+      result[0] = c0 + r; result[1] = c0 - r;
+    };
+  }
+  // - the world's collision matrices are arrays of n*n/2 flags cleared every step (180,000 for 600 bricks, most of
+  //   the time spent asleep); a set of the pairs actually touching does the same job;
+  function SparseMatrix() { this.s = new Set(); }
+  SparseMatrix.prototype.key = function (a, b) { var i = a.index, j = b.index; return i > j ? i * 65536 + j : j * 65536 + i; };
+  SparseMatrix.prototype.get = function (a, b) { return this.s.has(this.key(a, b)); };
+  SparseMatrix.prototype.set = function (a, b, v) { if (v) this.s.add(this.key(a, b)); else this.s.delete(this.key(a, b)); };
+  SparseMatrix.prototype.reset = function () { this.s.clear(); };
+  SparseMatrix.prototype.setNumObjects = function () {};
+  // - the overlap keepers (for beginContact/endContact events, which the game doesn't use) insert every contact
+  //   into a sorted array one by one: O(contacts^2) a step. They are switched off.
+  function fastWorld(world) {
+    world.collisionMatrix = new SparseMatrix(); world.collisionMatrixPrevious = new SparseMatrix();
+    world.bodyOverlapKeeper.set = function () {}; world.shapeOverlapKeeper.set = function () {};
+  }
+  function boxShape(half) { var s = new C.Box(half); s.convexPolyhedronRepresentation.__half = half; return s; }
   function rng(seed) { var s = seed >>> 0 || 1; return function () { s = (s + 0x6D2B79F5) | 0; var t = Math.imul(s ^ (s >>> 15), s | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 
   // ---------------- castle parts ----------------
-  // a piece: [type, x, y, z, sx, sy, sz] (center and full size). Everything stands on the island (top at y = 0).
-  function P(t, x, y, z, sx, sy, sz) { return [t, +x.toFixed(3), +y.toFixed(3), +z.toFixed(3), sx, sy, sz]; }
-  // a hollow square ring n cells wide (n odd), h rows high, centered at (cx, cz); long bricks in a pinwheel that
-  // turns the other way every row, so no joint sits on the one below
-  function ring(out, cx, cz, n, h, y0) {
-    var half = (n - 1) / 2, side = n - 1; // cells per side (even)
-    for (var r = 0; r < h; r++) {
-      var y = (y0 || 0) + 0.5 + r, flip = r % 2;
-      // walk the four sides; each side covers "side" cells starting at a corner
-      var corners = [[-half, -half, 1, 0], [half, -half, 0, 1], [half, half, -1, 0], [-half, half, 0, -1]];
-      corners.forEach(function (c) {
-        var sx = c[0], sz = c[1], dx = c[2], dz = c[3];
-        if (flip) { sx += dx; sz += dz; } // start one cell later: the pinwheel turns
-        for (var k = 0; k < side; k += 2) {
-          var ax = sx + dx * k, az = sz + dz * k, bx = ax + dx, bz = az + dz;
-          // wrap past the next corner onto the next side (only when flipped: the last brick turns the corner)
-          if (Math.abs(bx) > half || Math.abs(bz) > half) { out.push(P('b1', cx + ax, y, cz + az, 1, 1, 1)); continue; }
-          var mx = (ax + bx) / 2, mz = (az + bz) / 2;
-          out.push(P('b2', cx + mx, y, cz + mz, dx ? 2 : 1, 1, dz ? 2 : 1));
-        }
-      });
-      if (flip) { // with the pinwheel shifted, each corner cell is left: fill it with a square brick
-        [[-half, -half], [half, -half], [half, half], [-half, half]].forEach(function (c) { var taken = out.some(function (p) { return Math.abs(p[1] - (cx + c[0])) < 0.51 && Math.abs(p[3] - (cz + c[1])) < 0.51 && Math.abs(p[2] - y) < 0.1; }); if (!taken) out.push(P('b1', cx + c[0], y, cz + c[1], 1, 1, 1)); });
+  // a piece: [type, x, y, z, sx, sy, sz] (center and full size, in world units). Builders work in cells (x, z) and
+  // rows (y), all CELL world units; P converts. Everything stands on the island (top at y = 0).
+  function P(t, x, y, z, sx, sy, sz) { var f = function (v) { return +(v * CELL).toFixed(3); }; return [t, f(x), f(y), f(z), f(sx), f(sy), f(sz)]; }
+  // the perimeter cells of an n x n ring (n odd) round (cx, cz), walking +x, +z, -x, -z from a corner: each side
+  // is n-1 cells starting at its corner
+  function ringCells(cx, cz, n) {
+    var h = (n - 1) / 2, cells = [], dirs = [[1, 0], [0, 1], [-1, 0], [0, -1]], x = -h, z = -h;
+    for (var s = 0; s < 4; s++) for (var k = 0; k < n - 1; k++) { cells.push([cx + x, cz + z, dirs[s][0], dirs[s][1]]); x += dirs[s][0]; z += dirs[s][1]; }
+    return cells;
+  }
+  // a hollow square ring of long bricks, rows high: cells are paired into long bricks along each side, and every
+  // other row the pairing starts one cell later, so each corner belongs to the other side's brick (a pinwheel) and
+  // no joint sits on the one below
+  function ring(out, cx, cz, n, rows) {
+    var cells = ringCells(cx, cz, n), N = cells.length;
+    for (var r = 0; r < rows; r++) {
+      var y = 0.5 + r, o = r % 2;
+      for (var i = o; i < N + o; i += 2) {
+        var a = cells[i % N], b = cells[(i + 1) % N], mx = (a[0] + b[0]) / 2, mz = (a[1] + b[1]) / 2, alongX = a[1] === b[1];
+        out.push(P('b2', mx, y, mz, alongX ? 2 : 1, 1, alongX ? 1 : 2));
       }
     }
+    return cells;
   }
-  function tower(out, cx, cz, h, roof, R) {
-    ring(out, cx, cz, 3, h);
-    if (roof) out.push(P('cone', cx, h + 1.25, cz, 3.4, 2.5, 3.4));
-    else [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(function (c) { out.push(P('m', cx + c[0], h + 0.3, cz + c[1], 0.8, 0.6, 0.8)); });
-    void R;
+  var MER = [0.8, 0.7, 0.8];  // a battlement, in cells
+  function battlements(out, cells, rows) { for (var i = 0; i < cells.length; i += 2) out.push(P('m', cells[i][0], rows + MER[1] / 2, cells[i][1], MER[0], MER[1], MER[2])); }
+  function tower(out, cx, cz, rows, roof) { // 5 cells (2.5) square
+    var cells = ring(out, cx, cz, 5, rows);
+    if (roof) out.push(P('cone', cx, rows + 2.2, cz, 5.8, 4.4, 5.8)); else battlements(out, cells, rows);
   }
-  function keep(out, cx, cz, h, roof) {
-    ring(out, cx, cz, 5, h);
-    if (roof) out.push(P('pyr', cx, h + 1.4, cz, 5.4, 2.8, 5.4));
-    else for (var i = -2; i <= 2; i += 2) [[i, -2], [i, 2], [-2, i], [2, i]].forEach(function (c) { if (!out.some(function (p) { return p[0] === 'm' && Math.abs(p[1] - cx - c[0]) < 0.1 && Math.abs(p[3] - cz - c[1]) < 0.1; })) out.push(P('m', cx + c[0], h + 0.3, cz + c[1], 0.8, 0.6, 0.8)); });
+  function keep(out, cx, cz, rows, roof) { // 9 cells (4.5) square
+    var cells = ring(out, cx, cz, 9, rows);
+    if (roof) out.push(P('pyr', cx, rows + 2.5, cz, 9.8, 5, 9.8)); else battlements(out, cells, rows);
   }
-  // a straight wall from cell a to cell b (inclusive), one brick thick, h rows, battlements on top; "door" leaves
-  // a gap in the middle two rows high with a wooden door in it
-  function wall(out, ax, az, bx, bz, h, door, tnt, R) {
-    var dx = Math.sign(bx - ax), dz = Math.sign(bz - az), L = Math.abs(bx - ax) + Math.abs(bz - az) + 1, mid = Math.floor(L / 2);
-    for (var r = 0; r < h; r++) {
-      var y = 0.5 + r, k = r % 2 ? 1 : 0;
-      if (r % 2) out.push(P('b1', ax, y, az, 1, 1, 1)); // odd rows start with a square brick (staggered joints)
-      for (; k < L; k += 2) {
-        var inDoor = door && r < 2 && (k === mid - 1 || k === mid || k + 1 === mid - 1 || k + 1 === mid);
-        if (inDoor) continue;
-        if (k + 1 >= L) { out.push(P('b1', ax + dx * k, y, az + dz * k, 1, 1, 1)); continue; }
-        out.push(P('b2', ax + dx * (k + 0.5), y, az + dz * (k + 0.5), dx ? 2 : 1, 1, dz ? 2 : 1));
-      }
-      if (door && r < 2) { // bricks either side of the doorway, where a long brick was skipped
-        for (var q = mid - 2; q <= mid + 1; q++) {
-          if (q === mid - 1 || q === mid || q < 0 || q >= L) continue;
-          var cxq = ax + dx * q, czq = az + dz * q;
-          if (!out.some(function (p) { return Math.abs(p[2] - y) < 0.1 && Math.abs(p[1] - cxq) < (p[4] / 2) + 0.01 && Math.abs(p[3] - czq) < (p[6] / 2) + 0.01; })) out.push(P('b1', cxq, y, czq, 1, 1, 1));
-        }
+  // a straight wall from cell a to cell b (inclusive), one cell thick, rows high, battlements on every other cell.
+  // Each row is laid in long bricks, starting one cell later every other row (running bond); a cell left over at an
+  // end or beside the doorway gets a half brick. "door": a gap in the middle (3 or 4 cells, 3 rows) with a wooden
+  // door in it; "tnt": a TNT crate on top between two battlements.
+  function wall(out, ax, az, bx, bz, rows, door, tnt, R) {
+    var dx = Math.sign(bx - ax), dz = Math.sign(bz - az), L = Math.abs(bx - ax) + Math.abs(bz - az) + 1;
+    var gw = L % 2 ? 3 : 4, g0 = door && L >= gw + 2 ? (L - gw) / 2 : -1, DH = 3;
+    for (var r = 0; r < rows; r++) {
+      var y = 0.5 + r, k = 0;
+      while (k < L) {
+        if (g0 >= 0 && r < DH && k >= g0 && k < g0 + gw) { k++; continue; }
+        var gapNext = g0 >= 0 && r < DH && k + 1 === g0;
+        if ((k % 2) === (r % 2) && k + 1 < L && !gapNext) { out.push(P('b2', ax + dx * (k + 0.5), y, az + dz * (k + 0.5), dx ? 2 : 1, 1, dz ? 2 : 1)); k += 2; }
+        else { out.push(P('b1', ax + dx * k, y, az + dz * k, 1, 1, 1)); k++; }
       }
     }
-    if (door) { var cx = ax + dx * (mid - 0.5), cz = az + dz * (mid - 0.5); out.push(P('door', cx, 1, cz, dx ? 1.9 : 0.4, 2, dz ? 1.9 : 0.4)); }
-    // battlements on every other cell, a TNT crate sometimes sits between them
-    for (var c = 0; c < L; c += 2) out.push(P('m', ax + dx * c, h + 0.3, az + dz * c, 0.8, 0.6, 0.8));
-    if (tnt) { var t = 1 + 2 * Math.floor(R() * Math.floor((L - 1) / 2)); if (t < L) out.push(P('tnt', ax + dx * t, h + 0.45, az + dz * t, 0.9, 0.9, 0.9)); }
+    if (g0 >= 0) { var c = g0 + (gw - 1) / 2; out.push(P('door', ax + dx * c, DH / 2, az + dz * c, dx ? gw - 0.1 : 0.5, DH, dz ? gw - 0.1 : 0.5)); }
+    for (var m = 0; m < L; m += 2) out.push(P('m', ax + dx * m, rows + MER[1] / 2, az + dz * m, MER[0], MER[1], MER[2]));
+    if (tnt && L >= 3) { var t = 1 + 2 * Math.floor(R() * Math.floor((L - 1) / 2)); if (t < L) out.push(P('tnt', ax + dx * t, rows + 0.58, az + dz * t, 1.16, 1.16, 1.16)); }
   }
 
   // ---------------- levels ----------------
-  function levelMax(n) { return n <= 1 ? 60 : n <= 5 ? 150 : n <= 15 ? 190 : n <= 40 ? 240 : 280; }
+  // 1.6.0: the phone budget (pieces per castle). Measured in Node (see the doc): the physics stays well inside a
+  // 60 fps frame with this many bricks, most of them asleep.
+  function levelMax(n) { return n <= 1 ? 170 : n <= 5 ? 360 : n <= 15 ? 460 : n <= 40 ? 560 : 680; }
   function target(n) { return n <= 3 ? 0.65 : n <= 15 ? 0.7 : n <= 60 ? 0.75 : 0.8; }
   var TEMPLATES = ['gatehouse', 'fort', 'rect', 'keepyard', 'citadel', 'twin', 'tall', 'watch'];
+  function q(v) { return Math.round(v * K); } // 1.5.0 layout units -> cells
+  var TW = 3, KW = 5; // from a tower's / keep's middle to the first wall cell next to it
   // a walled yard: towers at the front corners (and at the back ones if "back"), a wall with a gate at the front
   function yard(out, xl, xr, zb, zf, back, wh, gate, R, tnt, th, roofs) {
-    tower(out, xl, zf, th(4, 8), roofs, R); tower(out, xr, zf, th(4, 8), roofs, R);
-    wall(out, xl + 2, zf, xr - 2, zf, wh, gate, tnt(), R);
+    tower(out, xl, zf, th(4, 8), roofs); tower(out, xr, zf, th(4, 8), roofs);
+    wall(out, xl + TW, zf, xr - TW, zf, wh, gate, tnt(), R);
     if (back) {
-      tower(out, xl, zb, th(4, 8), roofs, R); tower(out, xr, zb, th(4, 8), roofs, R);
-      wall(out, xl + 2, zb, xr - 2, zb, wh, false, tnt(), R);
-      wall(out, xl, zb + 2, xl, zf - 2, wh, false, tnt(), R); wall(out, xr, zb + 2, xr, zf - 2, wh, false, tnt(), R);
+      tower(out, xl, zb, th(4, 8), roofs); tower(out, xr, zb, th(4, 8), roofs);
+      wall(out, xl + TW, zb, xr - TW, zb, wh, false, tnt(), R);
+      wall(out, xl, zb + TW, xl, zf - TW, wh, false, tnt(), R); wall(out, xr, zb + TW, xr, zf - TW, wh, false, tnt(), R);
     } else {
       wall(out, xl, zb, xr, zb, wh, false, tnt(), R);
-      wall(out, xl, zb + 1, xl, zf - 2, wh, false, false, R); wall(out, xr, zb + 1, xr, zf - 2, wh, false, false, R);
+      wall(out, xl, zb + 1, xl, zf - TW, wh, false, false, R); wall(out, xr, zb + 1, xr, zf - TW, wh, false, false, R);
     }
   }
   function makeLevel(n, seed) {
     var R = rng(seed || n * 9973 + 7), out = [], s = Math.min(1, (n - 1) / 40);
-    var th = function (lo, hi) { return Math.round(lo + (hi - lo) * (0.35 + 0.65 * s) * (0.75 + R() * 0.25)); };
+    // heights: 1.5.0's units scaled to rows (0.8 of the size, two rows a unit)
+    var th = function (lo, hi) { return Math.max(2, Math.round(K * (lo + (hi - lo) * (0.35 + 0.65 * s) * (0.75 + R() * 0.25)))); };
+    var wr = function (lo, hi) { return Math.max(4, th(lo, hi)); }; // walls: at least 4 rows (room for the door)
     var tnt = function () { return n >= 3 && R() < 0.25 + s * 0.4; };
     var pool = n < 8 ? ['watch', 'gatehouse', 'tall'] : n < 16 ? ['watch', 'gatehouse', 'fort', 'keepyard', 'tall'] : TEMPLATES;
     var tpl = n === 1 ? 'watch' : n === 2 ? 'gatehouse' : n === 3 ? 'watch' : n === 4 ? 'tall' : n === 5 ? 'gatehouse' : pool[Math.floor(R() * pool.length)];
-    var roofs = R() < 0.75, g, d;
+    var roofs = R() < 0.75, g, d, tx, tz;
     if (tpl === 'watch') { // a tower with walls running off two ways (an open corner of a castle)
-      tower(out, -2, -2, th(4, 8), roofs, R);
-      wall(out, 0, -2, 0 + th(3, 7), -2, th(2, 4), n > 5 && R() < 0.5, tnt(), R);
-      wall(out, -2, 0, -2, 0 + th(3, 6), th(2, 4), false, tnt(), R);
-      if (n > 3 && R() < 0.6) tower(out, 3, 3, th(3, 6), roofs, R);
+      tx = q(-2); tz = q(-2);
+      tower(out, tx, tz, th(4, 8), roofs);
+      wall(out, tx + TW, tz, tx + TW + th(3, 7), tz, wr(2, 4), n > 5 && R() < 0.5, tnt(), R);
+      wall(out, tx, tz + TW, tx, tz + TW + th(3, 6), wr(2, 4), false, tnt(), R);
+      if (n > 3 && R() < 0.6) tower(out, q(3), q(3), th(3, 6), roofs);
     } else if (tpl === 'gatehouse') { // two towers and a gate at the front, a walled yard behind
-      g = 3 + Math.floor(R() * (1 + 2 * s)); d = 2 + Math.floor(R() * (1 + 2 * s));
-      yard(out, -g, g, -d, d, false, th(2, 4), true, R, tnt, th, roofs);
+      g = q(3 + Math.floor(R() * (1 + 2 * s))); d = q(2 + Math.floor(R() * (1 + 2 * s)));
+      yard(out, -g, g, -d, d, false, wr(2, 4), true, R, tnt, th, roofs);
     } else if (tpl === 'fort') { // four towers and four walls, something inside when it's big enough
-      g = 4 + Math.floor(R() * (1 + 2 * s)); d = g;
-      yard(out, -g, g, -d, d, true, th(2, 4), true, R, tnt, th, roofs);
-      if (g >= 5 && R() < 0.6) keep(out, 0, 0, th(3, 6), R() < 0.7); else tower(out, 0, 0, th(4, 8), roofs, R);
+      g = q(4 + Math.floor(R() * (1 + 2 * s))); d = g;
+      yard(out, -g, g, -d, d, true, wr(2, 4), true, R, tnt, th, roofs);
+      if (g >= 7 && R() < 0.6) keep(out, 0, 0, th(3, 6), R() < 0.7); else tower(out, 0, 0, th(4, 8), roofs);
     } else if (tpl === 'rect') { // a long fort with a tower in the middle
-      g = 6 + Math.floor(R() * 2); d = 3;
-      yard(out, -g, g, -d, d, true, th(2, 3), true, R, tnt, th, roofs);
-      tower(out, 0, 0, th(5, 9), roofs, R);
+      g = q(6 + Math.floor(R() * 2)); d = q(3);
+      yard(out, -g, g, -d, d, true, wr(2, 3), true, R, tnt, th, roofs);
+      tower(out, 0, 0, th(5, 9), roofs);
     } else if (tpl === 'keepyard') { // a keep at the back, a yard with a gatehouse in front of it
-      keep(out, 0, -3, th(4, 7), R() < 0.75);
-      tower(out, -5, 3, th(4, 7), roofs, R); tower(out, 5, 3, th(4, 7), roofs, R);
-      wall(out, -3, 3, 3, 3, th(2, 3), true, tnt(), R);
-      var sw = th(2, 3);
-      wall(out, -5, 1, -5, -3, sw, false, tnt(), R); wall(out, 5, 1, 5, -3, sw, false, false, R);
-      wall(out, -4, -3, -3, -3, sw, false, false, R); wall(out, 3, -3, 4, -3, sw, false, false, R);
+      var kz = q(-3), fx = q(5), fz = q(3);
+      keep(out, 0, kz, th(4, 7), R() < 0.75);
+      tower(out, -fx, fz, th(4, 7), roofs); tower(out, fx, fz, th(4, 7), roofs);
+      wall(out, -fx + TW, fz, fx - TW, fz, wr(2, 3), true, tnt(), R);
+      var sw = wr(2, 3);
+      wall(out, -fx, fz - TW, -fx, kz, sw, false, tnt(), R); wall(out, fx, fz - TW, fx, kz, sw, false, false, R);
+      wall(out, -fx + 1, kz, -KW, kz, sw, false, false, R); wall(out, KW, kz, fx - 1, kz, sw, false, false, R);
     } else if (tpl === 'twin') { // two keeps behind a gate
-      keep(out, -4, -2, th(4, 7), R() < 0.6); keep(out, 4, -2, th(4, 7), R() < 0.6);
-      tower(out, -5, 4, th(3, 6), roofs, R); tower(out, 5, 4, th(3, 6), roofs, R);
-      wall(out, -3, 4, 3, 4, th(2, 3), true, tnt(), R);
-      wall(out, -5, 2, -5, 1, th(2, 3), false, false, R); wall(out, 5, 2, 5, 1, th(2, 3), false, false, R);
+      var kx = q(4), kz2 = q(-2), ox = q(5), oz = q(4);
+      keep(out, -kx, kz2, th(4, 7), R() < 0.6); keep(out, kx, kz2, th(4, 7), R() < 0.6);
+      tower(out, -ox, oz, th(3, 6), roofs); tower(out, ox, oz, th(3, 6), roofs);
+      wall(out, -ox + TW, oz, ox - TW, oz, wr(2, 3), true, tnt(), R);
+      var tw2 = wr(2, 3);
+      wall(out, -ox, oz - TW, -ox, kz2 + KW, tw2, false, false, R); wall(out, ox, oz - TW, ox, kz2 + KW, tw2, false, false, R);
     } else if (tpl === 'tall') { // one tall keep with little towers round it
       keep(out, 0, 0, th(5, 9), R() < 0.8);
       var tk = s > 0.3 ? 4 : 2;
-      [[-5, -5], [5, -5], [5, 5], [-5, 5]].slice(0, tk).forEach(function (c) { tower(out, c[0], c[1] > 0 ? 4 : -4, th(3, 6), roofs, R); });
-      if (n >= 3) wall(out, -3, 5, 3, 5, th(1, 2), false, tnt(), R);
+      [[-5, -5], [5, -5], [5, 5], [-5, 5]].slice(0, tk).forEach(function (c) { tower(out, q(c[0]), q(c[1] > 0 ? 4 : -4), th(3, 6), roofs); });
+      if (n >= 3) wall(out, -q(3), q(5), q(3), q(5), Math.max(3, th(1, 2)), false, tnt(), R);
     } else { // citadel: a keep inside four towers and walls
-      var hc = 7;
-      [[-hc, -hc], [hc, -hc], [hc, hc], [-hc, hc]].forEach(function (c) { tower(out, c[0], c[1], th(4, 7), roofs, R); });
-      wall(out, -hc + 2, hc, hc - 2, hc, 2, true, tnt(), R); wall(out, -hc + 2, -hc, hc - 2, -hc, 2, false, tnt(), R);
-      wall(out, -hc, -hc + 2, -hc, hc - 2, 2, false, false, R); wall(out, hc, -hc + 2, hc, hc - 2, 2, false, false, R);
+      var hc = q(7), cw = 4;
+      [[-hc, -hc], [hc, -hc], [hc, hc], [-hc, hc]].forEach(function (c) { tower(out, c[0], c[1], th(4, 7), roofs); });
+      wall(out, -hc + TW, hc, hc - TW, hc, cw, true, tnt(), R); wall(out, -hc + TW, -hc, hc - TW, -hc, cw, false, tnt(), R);
+      wall(out, -hc, -hc + TW, -hc, hc - TW, cw, false, false, R); wall(out, hc, -hc + TW, hc, hc - TW, cw, false, false, R);
       keep(out, 0, 0, th(4, 6), true);
     }
     // a few TNT crates on the grass next to the walls (from level 6)
-    if (n >= 6 && R() < 0.4 + s * 0.3) { var bx0 = out[Math.floor(R() * out.length)]; out.push(P('tnt', Math.round(bx0[1]), 0.45, Math.round(bx0[3]) + (R() < 0.5 ? 2 : -2), 0.9, 0.9, 0.9)); }
-    // keep it light enough for a phone: lower everything until it fits
-    if (out.length > levelMax(n)) return null;
+    if (n >= 6 && R() < 0.4 + s * 0.3) { var bx0 = out[Math.floor(R() * out.length)]; out.push(['tnt', Math.round(bx0[1] * 2) / 2, 0.375, Math.round(bx0[3] * 2) / 2 + (R() < 0.5 ? 1.25 : -1.25), 0.75, 0.75, 0.75]); }
+    // keep it light enough for a phone: a castle over the budget is rolled again
+    if (!PHYS.noBudget && out.length > levelMax(n)) return null;
     // parts must not overlap (walls meeting towers); a TNT crate that would sit inside something is left out
     for (var i = 0; i < out.length; i++) for (var j = i + 1; j < out.length; j++) { var p1 = out[i], p2 = out[j]; if (p1[0] !== 'tnt' && p2[0] !== 'tnt' && Math.abs(p1[1] - p2[1]) < (p1[4] + p2[4]) / 2 - 0.02 && Math.abs(p1[2] - p2[2]) < (p1[5] + p2[5]) / 2 - 0.02 && Math.abs(p1[3] - p2[3]) < (p1[6] + p2[6]) / 2 - 0.02) return null; }
-    out = out.filter(function (p, i) { return p[0] !== 'tnt' || !out.some(function (q, j) { return j !== i && Math.abs(p[1] - q[1]) < (p[4] + q[4]) / 2 - 0.02 && Math.abs(p[2] - q[2]) < (p[5] + q[5]) / 2 - 0.02 && Math.abs(p[3] - q[3]) < (p[6] + q[6]) / 2 - 0.02; }); });
+    out = out.filter(function (p, i) { return p[0] !== 'tnt' || !out.some(function (q2, j) { return j !== i && Math.abs(p[1] - q2[1]) < (p[4] + q2[4]) / 2 - 0.02 && Math.abs(p[2] - q2[2]) < (p[5] + q2[5]) / 2 - 0.02 && Math.abs(p[3] - q2[3]) < (p[6] + q2[6]) / 2 - 0.02; }); });
     return { n: n, seed: seed || n * 9973 + 7, name: tpl, pieces: out, target: target(n) };
   }
-  // the level the game plays: the layout roll that tools/gen.mjs proved (LEVELS[n-1] = [attempt, balls, bot])
+
+  // the level the game plays: the layout roll that tools/gen.mjs proved
   // (LEVELS[n-1] = [the level number it was built as, layout roll, cannonballs, bot's shots]; inside each ten the
   // easier castles come first, so a level may be built as a neighbour's number)
   function level(n, table) {
@@ -352,22 +392,80 @@ var CC = (function () {
     if (!L) return null;
     L.n = n; L.balls = row ? row[2] : 20; L.bot = row ? row[3] : 12; return L;
   }
-  function weight(t) { return t === 'b2' ? 2 : t === 'b1' || t === 'tnt' ? 1 : t === 'm' ? 0.5 : t === 'cone' ? 2 : t === 'pyr' ? 4 : 1.5; }
+  // what a piece counts toward the bar (a long brick 2, a half brick 1; roofs weigh about what the bricks under them do)
+  function weight(t) { return t === 'b2' ? 2 : t === 'b1' || t === 'tnt' ? 1 : t === 'm' ? 0.5 : t === 'cone' ? 4 : t === 'pyr' ? 8 : 3; }
+
+  // ---------------- physics settings (1.6.0, measured: see the doc) ----------------
+  var PHYS = { iters: 8, sleepV: 0.45, sleepT: 0.35, grid: true, fricRed: true, rubble: true, rubbleV: 0.8, rubbleT: 0.25, friction: 0.45, settle: true, settleT: 0.4, moverV2: 1, moverW2: 4 };
+  // A grid broadphase. cannon-es's NaiveBroadphase tests every pair of bodies every step (O(n^2): 180,000 pairs for
+  // 600 bricks, even asleep), and its SAPBroadphase only works if handed the world when it is made (set later, it
+  // sees no bodies: the "missed hits" seen in Topple Fair). This one bins every body by its bounding sphere into
+  // cells and tests only the bodies that are awake against what shares a cell with them, with the very same sphere
+  // test Naive uses, so it finds exactly the pairs Naive would (asleep-asleep pairs never collide anyway).
+  function gridBroadphase(world) {
+    var bp = new C.NaiveBroadphase(), CS = 1, SL = C.Body.SLEEPING, ST = C.Body.STATIC, stamp = 0, statics = [], dirty = true;
+    // two grids: the sleeping bricks (rebuilt only when one falls asleep, wakes, or a body comes or goes: most of
+    // the time nothing changes) and the awake ones (rebuilt every step, usually few)
+    function Grid() { this.cells = new Map(); this.used = []; }
+    Grid.prototype.clear = function () { for (var i = 0; i < this.used.length; i++) this.used[i].length = 0; this.used.length = 0; };
+    Grid.prototype.add = function (b) {
+      for (var ix = b.__g0; ix <= b.__g1; ix++) for (var iy = b.__g2; iy <= b.__g3; iy++) for (var iz = b.__g4; iz <= b.__g5; iz++) {
+        var k = key(ix, iy, iz), arr = this.cells.get(k); if (!arr) { arr = []; this.cells.set(k, arr); }
+        if (!arr.length) this.used.push(arr); arr.push(b);
+      }
+    };
+    var sleepers = new Grid(), wakers = new Grid();
+    function key(ix, iy, iz) { return ((ix + 512) * 1024 + (iy + 512)) * 1024 + (iz + 512); }
+    function span(b) { var r = b.boundingRadius, p = b.position; b.__g0 = Math.floor((p.x - r) / CS); b.__g1 = Math.floor((p.x + r) / CS); b.__g2 = Math.floor((p.y - r) / CS); b.__g3 = Math.floor((p.y + r) / CS); b.__g4 = Math.floor((p.z - r) / CS); b.__g5 = Math.floor((p.z + r) / CS); }
+    world.addEventListener('addBody', function () { dirty = true; }); world.addEventListener('removeBody', function () { dirty = true; });
+    bp.collisionPairs = function (world, p1, p2) {
+      var bodies = world.bodies, n = bodies.length, i, b, awake = [];
+      for (i = 0; i < n; i++) { b = bodies[i]; if (b.type === ST) continue; var sl = b.sleepState === SL; if (b.__sl !== sl) { b.__sl = sl; dirty = true; } if (!sl) awake.push(b); }
+      if (dirty) {
+        dirty = false; sleepers.clear(); statics.length = 0;
+        for (i = 0; i < n; i++) { b = bodies[i]; if (b.type === ST) { if (b.aabbNeedsUpdate) b.updateAABB(); statics.push(b); } else if (b.__sl) { span(b); sleepers.add(b); } }
+      }
+      wakers.clear();
+      for (i = 0; i < awake.length; i++) { span(awake[i]); wakers.add(awake[i]); }
+      for (i = 0; i < awake.length; i++) {
+        b = awake[i];
+        for (var g = 0; g < 2; g++) {
+          var G = g ? sleepers : wakers; stamp++;
+          for (var ix = b.__g0; ix <= b.__g1; ix++) for (var iy = b.__g2; iy <= b.__g3; iy++) for (var iz = b.__g4; iz <= b.__g5; iz++) {
+            var arr = G.cells.get(key(ix, iy, iz)); if (!arr) continue;
+            for (var j = 0; j < arr.length; j++) {
+              var o = arr[j]; if (o.__st === stamp) continue; o.__st = stamp;
+              if (!g && o.id <= b.id) continue; // an awake pair is taken once, from the lower id's side
+              if (this.needBroadphaseCollision(b, o)) this.intersectionTest(b, o, p1, p2);
+            }
+          }
+        }
+        var r = b.boundingRadius;
+        for (var s2 = 0; s2 < statics.length; s2++) {
+          var A = statics[s2].aabb;
+          if (b.position.x + r < A.lowerBound.x || b.position.x - r > A.upperBound.x || b.position.y + r < A.lowerBound.y || b.position.y - r > A.upperBound.y || b.position.z + r < A.lowerBound.z || b.position.z - r > A.upperBound.z) continue;
+          if (this.needBroadphaseCollision(b, statics[s2])) this.intersectionTest(b, statics[s2], p1, p2);
+        }
+      }
+    };
+    return bp;
+  }
 
   // ---------------- the physics world ----------------
   function create(level, opts) {
     opts = opts || {};
     var world = new C.World({ gravity: new C.Vec3(0, GRAV, 0) });
-    world.allowSleep = true;
-    world.broadphase = new C.NaiveBroadphase(); // sweep-and-prune misses some hits (seen in Topple Fair)
-    world.solver.iterations = 9;
-    world.defaultContactMaterial.friction = 0.6; world.defaultContactMaterial.restitution = 0.04;
+    world.allowSleep = true; if (PHYS.fast !== false) fastWorld(world);
+    world.broadphase = PHYS.grid ? gridBroadphase(world) : new C.NaiveBroadphase();
+    world.solver.iterations = PHYS.iters;
+    world.narrowphase.enableFrictionReduction = !!PHYS.fricRed; // two friction equations a touching pair, not two a contact point
+    world.defaultContactMaterial.friction = PHYS.friction; world.defaultContactMaterial.restitution = 0.04;
     world.defaultContactMaterial.contactEquationStiffness = 1e7; world.defaultContactMaterial.contactEquationRelaxation = 4;
-    var island = new C.Body({ mass: 0, shape: new C.Box(new C.Vec3(ISLAND, 1, ISLAND)) }); island.position.set(0, -1, 0); island.isGround = true; world.addBody(island);
+    var island = new C.Body({ mass: 0, shape: boxShape(new C.Vec3(ISLAND, 1, ISLAND)) }); island.position.set(0, -1, 0); island.isGround = true; world.addBody(island);
     var sim = { world: world, pieces: [], balls: [], ballsLeft: level.balls || 99, shots: 0, t: 0, lastShotT: -99, events: [], level: level, total: 0, down: 0, R: rng((level.seed || 1) + 99) };
     level.pieces.forEach(function (p, idx) {
       var T = TYPES[p[0]], half = new C.Vec3(p[4] / 2, p[5] / 2, p[6] / 2);
-      var b = new C.Body({ mass: T.mass, shape: new C.Box(half), linearDamping: 0.05, angularDamping: 0.1, allowSleep: true, sleepSpeedLimit: 0.3, sleepTimeLimit: 0.5 });
+      var b = new C.Body({ mass: T.mass, shape: PHYS.fast !== false ? boxShape(half) : new C.Box(half), linearDamping: 0.05, angularDamping: 0.1, allowSleep: true, sleepSpeedLimit: PHYS.sleepV, sleepTimeLimit: PHYS.sleepT });
       b.position.set(p[1], p[2], p[3]); world.addBody(b); b.sleep();
       var pc = { t: p[0], b: b, idx: idx, x0: p[1], y0: p[2], z0: p[3], size: [p[4], p[5], p[6]], w: weight(p[0]), down: false, gone: false, goneT: 0 };
       b.piece = pc; sim.pieces.push(pc); sim.total += pc.w;
@@ -376,10 +474,10 @@ var CC = (function () {
         if ((e.body && e.body.isBall) || v > 6) pc.boom = true;
       });
       b.addEventListener('collide', function (e) {
-        if (e.body && e.body.isBall && !sim.hitWake) sim.hitWake = [e.body.position.x, e.body.position.y, e.body.position.z]; // wake what's round the hit
-        if (sim.events.length > 40) return;
+        if (e.body && e.body.isBall && !sim.hitWake && (!e.body.__burst || e.body.velocity.lengthSquared() > 100)) sim.hitWake = [e.body.position.x, e.body.position.y, e.body.position.z, e.body]; // wake what's round the hit
+        if (sim.events.length > 60) return;
         var v = 0; try { v = Math.abs(e.contact.getImpactVelocityAlongNormal()); } catch (err) { v = 0; }
-        if (v > 3) sim.events.push({ t: 'hit', m: TYPES[p[0]].mat, v: v, x: b.position.x, y: b.position.y, z: b.position.z });
+        if (v > 3) sim.events.push({ t: 'hit', m: TYPES[p[0]].mat, v: v, x: b.position.x, y: b.position.y, z: b.position.z, ball: !!(e.body && e.body.isBall) });
       });
     });
     return sim;
@@ -399,42 +497,93 @@ var CC = (function () {
     return ball;
   }
   // blow up a TNT crate: everything near is thrown outward and up
+  var BLAST = 3.0, BURST = { r: 1.3, back: 6, up: 5, side: 3 };
   function explode(sim, pc) {
-    var c = pc.b.position, R = 3.4, ex = c.x, ey = c.y, ez = c.z;
+    var c = pc.b.position, R = BLAST, ex = c.x, ey = c.y, ez = c.z;
     sim.events.push({ t: 'boom', x: ex, y: ey, z: ez });
     remove(sim, pc);
     sim.pieces.forEach(function (q) {
       if (q.gone) return; var p = q.b.position, dx = p.x - ex, dy = p.y - ey, dz = p.z - ez, d = Math.sqrt(dx * dx + dy * dy + dz * dz);
       if (d > R) return; var k = 16 * (1 - d / R) / Math.max(0.4, d);
       q.b.wakeUp(); q.b.velocity.x += dx * k; q.b.velocity.y += dy * k + 5 * (1 - d / R); q.b.velocity.z += dz * k;
-      var f = 6 * (1 - d / R); q.b.angularVelocity.set((sim.R() - 0.5) * f, (sim.R() - 0.5) * f, (sim.R() - 0.5) * f);
+      var f = 8 * (1 - d / R); q.b.angularVelocity.set((sim.R() - 0.5) * f, (sim.R() - 0.5) * f, (sim.R() - 0.5) * f);
       if (q.t === 'tnt' && d < R * 0.8) q.boom = true;
     });
   }
   function remove(sim, pc) { if (pc.gone) return; pc.gone = true; pc.goneT = sim.t; if (pc.b.world) sim.world.removeBody(pc.b); markDown(sim, pc); }
-  function markDown(sim, pc) { if (!pc.down) { pc.down = true; sim.down += pc.w; sim.events.push({ t: 'down', p: pc }); } }
-  // bricks near a moving one wake up (so a brick whose support was knocked away falls)
+  // a piece that has come down is rubble: it may go to sleep sooner and at a higher speed (a pile of small bricks
+  // otherwise jiggles awake for seconds, and awake bricks are what the physics pays for)
+  function markDown(sim, pc) { if (!pc.down) { pc.down = true; sim.down += pc.w; sim.events.push({ t: 'down', p: pc }); if (PHYS.rubble && pc.b) { pc.b.sleepSpeedLimit = PHYS.rubbleV; pc.b.sleepTimeLimit = PHYS.rubbleT; } } }
+  // bricks near a moving one wake up (so a brick whose support was knocked away falls). The sleeping bricks are
+  // binned by column (x, z) so each mover only looks at the few columns round it.
+  var WAKE = 1.0, cols = new Map(), colUsed = [];
   function wakeNear(sim) {
-    var movers = sim.pieces.filter(function (q) { return !q.gone && q.b.sleepState !== 2 && (q.b.velocity.lengthSquared() > 0.25 || q.b.angularVelocity.lengthSquared() > 0.5); });
-    sim.balls.forEach(function (bl) { if (!bl.gone) movers.push({ b: bl.b }); });
+    var movers = [], i, pcs = sim.pieces;
+    for (i = 0; i < pcs.length; i++) { var q = pcs[i]; if (!q.gone && q.b.sleepState !== 2 && (q.b.velocity.lengthSquared() > PHYS.moverV2 || q.b.angularVelocity.lengthSquared() > PHYS.moverW2)) movers.push(q.b); }
+    sim.balls.forEach(function (bl) { if (!bl.gone) movers.push(bl.b); });
     if (!movers.length) return;
-    sim.pieces.forEach(function (q) {
-      if (q.gone || q.b.sleepState !== 2) return; var p = q.b.position;
-      for (var i = 0; i < movers.length; i++) { var m = movers[i].b.position; if (Math.abs(m.x - p.x) < 1.8 && Math.abs(m.z - p.z) < 1.8 && Math.abs(m.y - p.y) < 1.8) { q.b.wakeUp(); break; } }
-    });
+    for (i = 0; i < colUsed.length; i++) colUsed[i].length = 0;
+    colUsed.length = 0;
+    for (i = 0; i < pcs.length; i++) {
+      var s = pcs[i]; if (s.gone || s.b.sleepState !== 2) continue;
+      var k = (Math.floor(s.b.position.x) + 512) * 1024 + Math.floor(s.b.position.z) + 512, arr = cols.get(k);
+      if (!arr) { arr = []; cols.set(k, arr); } if (!arr.length) colUsed.push(arr); arr.push(s.b);
+    }
+    for (i = 0; i < movers.length; i++) {
+      var m = movers[i].position, cx = Math.floor(m.x), cz = Math.floor(m.z);
+      for (var ax = cx - 1; ax <= cx + 1; ax++) for (var az = cz - 1; az <= cz + 1; az++) {
+        var a2 = cols.get((ax + 512) * 1024 + az + 512); if (!a2 || !a2.length) continue;
+        for (var j = 0; j < a2.length; j++) { var p = a2[j].position; if (a2[j].sleepState === 2 && Math.abs(m.x - p.x) < WAKE && Math.abs(m.z - p.z) < WAKE && Math.abs(m.y - p.y) < WAKE) a2[j].wakeUp(); }
+      }
+    }
   }
   function step(sim, dt) {
     dt = dt || 1 / 60;
     sim.world.step(dt); sim.t += dt; sim.frame = (sim.frame || 0) + 1;
     // a cannonball hit wakes every brick near it at once (a sleeping brick is as solid as the ground)
-    if (sim.hitWake) { var hw = sim.hitWake; sim.hitWake = null; sim.pieces.forEach(function (q) { if (q.gone || q.b.sleepState !== 2) return; var p = q.b.position; if (Math.abs(p.x - hw[0]) < 2.6 && Math.abs(p.y - hw[1]) < 3.2 && Math.abs(p.z - hw[2]) < 2.6) q.b.wakeUp(); }); }
-    if (sim.frame % 2 === 0) wakeNear(sim);
+    if (sim.hitWake) {
+      var hw = sim.hitWake, ball = hw[3]; sim.hitWake = null;
+      sim.pieces.forEach(function (q) { if (q.gone || q.b.sleepState !== 2) return; var p = q.b.position; if (Math.abs(p.x - hw[0]) < 2 && Math.abs(p.y - hw[1]) < 2.6 && Math.abs(p.z - hw[2]) < 2) q.b.wakeUp(); });
+      // 1.6.0: the ball's first hit bursts the bricks round it loose: they jump back out of the wall toward the
+      // cannon and up (the only way they are free to go; pushed into the wall they would just stop against it), a
+      // little to the sides, spinning, so a hit sprays small bricks about instead of only denting the wall (once a ball)
+      if (ball && !ball.__burst) {
+        ball.__burst = true;
+        var bv = ball.velocity, sp = Math.sqrt(bv.x * bv.x + bv.y * bv.y + bv.z * bv.z) || 1, ux = bv.x / sp, uz = bv.z / sp, hl = Math.sqrt(ux * ux + uz * uz) || 1;
+        ux /= hl; uz /= hl; // back along the shot, level
+        sim.pieces.forEach(function (q) {
+          if (q.gone) return; var p = q.b.position, dx = p.x - hw[0], dy = p.y - hw[1], dz = p.z - hw[2], d = Math.sqrt(dx * dx + dy * dy + dz * dz);
+          if (d > BURST.r) return; var f = 1 - d / BURST.r, side = (sim.R() - 0.5) * 2 * BURST.side;
+          q.b.wakeUp();
+          q.b.velocity.x += (-ux * BURST.back - uz * side) * f; q.b.velocity.y += (BURST.up + Math.max(0, dy) * 2) * f; q.b.velocity.z += (-uz * BURST.back + ux * side) * f;
+          q.b.angularVelocity.set((sim.R() - 0.5) * 10 * f, (sim.R() - 0.5) * 10 * f, (sim.R() - 0.5) * 10 * f);
+        });
+      }
+    }
+    // a flying cannonball wakes the bricks just ahead of it, a few steps before it gets there: a sleeping brick is
+    // as solid as the ground, so a ball arriving at a wall woken only where it touches would stop dead against the
+    // sleeping bricks behind (found in 1.6.0 testing: a shot fired a step later did nothing at all)
+    sim.balls.forEach(function (bl) {
+      if (bl.gone) return; var b = bl.b, v = b.velocity; if (b.__burst || v.lengthSquared() < 25) return; // only on its way in
+      var ax = b.position.x + v.x * 0.05, ay = b.position.y + v.y * 0.05, az = b.position.z + v.z * 0.05;
+      sim.pieces.forEach(function (q) { if (q.gone || q.b.sleepState !== 2) return; var p = q.b.position; if (Math.abs(p.x - ax) < 1.8 && Math.abs(p.y - ay) < 2.2 && Math.abs(p.z - az) < 1.8) q.b.wakeUp(); });
+    });
+    wakeNear(sim);
+    // settle: cannon-es puts a body to sleep only after its speed stays under the limit the whole time, and in a
+    // pile of small bricks the solver's jitter keeps flicking them over it, so hundreds stay awake for seconds (the
+    // physics cost). Here a smoothed speed is used: a piece whose average stays low for PHYS.settleT goes to sleep.
+    if (PHYS.settle) sim.pieces.forEach(function (pc) {
+      if (pc.gone) return; var b = pc.b; if (b.sleepState === 2) { pc.ez = 0; pc.slowT = 0; return; }
+      var s2 = b.velocity.lengthSquared() + b.angularVelocity.lengthSquared(), lim = pc.down ? PHYS.rubbleV : PHYS.sleepV;
+      pc.ez = (pc.ez || s2) * 0.8 + s2 * 0.2;
+      if (pc.ez < lim * lim) { pc.slowT = (pc.slowT || 0) + dt; if (pc.slowT > PHYS.settleT) { b.sleep(); pc.slowT = 0; } } else pc.slowT = 0;
+    });
     sim.pieces.forEach(function (pc) {
       if (pc.gone) return;
       if (pc.boom) { pc.boom = false; explode(sim, pc); return; }
       var p = pc.b.position;
       if (p.y < WATER || Math.abs(p.x) > ISLAND + 3 || Math.abs(p.z) > ISLAND + 3) { remove(sim, pc); sim.events.push({ t: 'splash', x: p.x, z: p.z }); return; }
-      if (!pc.down && pc.b.sleepState !== 2) { var dx = p.x - pc.x0, dy = p.y - pc.y0, dz = p.z - pc.z0, qw = Math.abs(pc.b.quaternion.w); if (dy < -0.5 || dx * dx + dy * dy + dz * dz > 0.4 || qw < 0.97) markDown(sim, pc); } // moved or tipped over
+      if (!pc.down && pc.b.sleepState !== 2) { var dx = p.x - pc.x0, dy = p.y - pc.y0, dz = p.z - pc.z0, qw = Math.abs(pc.b.quaternion.w); if (dy < -0.3 || dx * dx + dy * dy + dz * dz > 0.1 || qw < 0.97) markDown(sim, pc); } // moved or tipped over
       // a TNT crate that falls blows up
       if (pc.t === 'tnt' && pc.down && !pc.boomed) { pc.boomed = true; pc.boom = true; }
     });
@@ -453,20 +602,22 @@ var CC = (function () {
   function takeEvents(sim) { var e = sim.events; sim.events = []; return e; }
 
   // ---------------- bot ----------------
-  // Aim at the bottom of whatever still stands tallest (or at a TNT crate), from the side it is on.
+  // Aim at the bottom of whatever still stands tallest (or at a TNT crate), from the side it is on. (Standing bricks
+  // are binned by column so this stays quick with hundreds of bricks.)
   function botAim(sim, R) {
     var up = sim.pieces.filter(function (pc) { return !pc.gone && !pc.down; });
     if (!up.length) return null;
-    var best = null, bs = -1e9;
+    var colw = {}, best = null, bs = -1e9;
+    up.forEach(function (q) { var p = q.b.position, k = Math.floor(p.x / 2.2) + ',' + Math.floor(p.z / 2.2); (colw[k] = colw[k] || []).push(q); });
     up.forEach(function (pc) {
-      var p = pc.b.position, above = 0;
-      up.forEach(function (q) { var o = q.b.position; if (Math.abs(o.x - p.x) < 2.2 && Math.abs(o.z - p.z) < 2.2 && o.y > p.y) above += q.w; });
-      var s = above - p.y * 1.5 + (pc.t === 'tnt' ? 6 : 0) + (R ? R() * 3 : 0);
+      var p = pc.b.position, above = 0, gx = Math.floor(p.x / 2.2), gz = Math.floor(p.z / 2.2);
+      for (var ax = gx - 1; ax <= gx + 1; ax++) for (var az = gz - 1; az <= gz + 1; az++) (colw[ax + ',' + az] || []).forEach(function (q) { var o = q.b.position; if (Math.abs(o.x - p.x) < 2.2 && Math.abs(o.z - p.z) < 2.2 && o.y > p.y) above += q.w; });
+      var s = above / 4 - p.y * 1.5 + (pc.t === 'tnt' ? 6 : 0) + (R ? R() * 3 : 0);
       if (s > bs) { bs = s; best = pc; }
     });
     var p = best.b.position, yaw = Math.atan2(p.x, p.z) + (R ? (R() - 0.5) * 0.5 : 0);
     if (Math.hypot(p.x, p.z) < 1.5) yaw = R ? R() * Math.PI * 2 : 0;
-    return { yaw: yaw, p: [p.x, Math.max(0.5, p.y), p.z] };
+    return { yaw: yaw, p: [p.x, Math.max(0.3, p.y), p.z] };
   }
   function botPlay(level, max, seed) {
     var lv = { n: level.n, seed: level.seed, pieces: level.pieces, balls: max || 30, target: level.target }, sim = create(lv), R = rng(seed || 5), guard = 0;
@@ -478,13 +629,13 @@ var CC = (function () {
     return { won: won(sim), shots: sim.shots, t: sim.t, progress: progress(sim) };
   }
 
-  return { use: use, rng: rng, TYPES: TYPES, CAM: CAM, ISLAND: ISLAND, WATER: WATER, BALLR: BALLR, GRAV: GRAV, SPEED: SPEED, makeLevel: makeLevel, level: level, create: create, camAt: camAt, launchAt: launchAt,
-    shoot: shoot, step: step, progress: progress, won: won, flying: flying, settled: settled, takeEvents: takeEvents, botAim: botAim, botPlay: botPlay, target: target };
+  return { use: use, rng: rng, TYPES: TYPES, CAM: CAM, ISLAND: ISLAND, WATER: WATER, BALLR: BALLR, GRAV: GRAV, SPEED: SPEED, CELL: CELL, PHYS: PHYS, levelMax: levelMax, makeLevel: makeLevel, level: level, create: create, camAt: camAt, launchAt: launchAt,
+    setBall: function (m, r, v) { BALLM = m; if (r) BALLR = r; if (v) SPEED = v; }, BURST: BURST, shoot: shoot, step: step, progress: progress, won: won, flying: flying, settled: settled, takeEvents: takeEvents, botAim: botAim, botPlay: botPlay, target: target };
 })();
 if (typeof module !== 'undefined') module.exports = CC;
 </script>
 <script>
-window.CC_LEVELS = [[1,0,6,3],[2,0,12,6],[3,0,6,3],[4,0,15,8],[5,0,12,8],[6,0,7,4],[7,0,7,3],[8,0,7,4],[9,2,14,9],[10,0,7,3],[11,0,5,2],[13,0,11,7],[12,0,14,9],[17,0,14,9],[15,0,21,10],[14,0,17,11],[20,0,24,12],[16,0,23,12],[18,0,21,13],[19,0,20,13],[26,0,14,9],[21,0,15,10],[28,0,17,10],[24,0,26,14],[23,0,29,14],[27,0,32,19],[25,0,29,19],[30,0,38,19],[29,0,33,21],[22,0,35,23],[33,0,9,5],[40,0,8,5],[36,3,24,11],[32,0,23,11],[37,1,32,13],[35,0,30,16],[34,0,26,17],[38,1,29,19],[39,1,32,19],[31,0,35,20],[43,0,8,4],[45,0,8,4],[44,0,24,14],[47,0,27,15],[41,0,30,18],[42,0,33,19],[48,0,30,20],[46,0,30,20],[49,1,35,22],[50,0,39,26],[53,0,9,6],[56,0,14,9],[57,0,26,12],[55,0,21,14],[52,0,23,14],[58,0,26,15],[60,0,32,19],[59,0,30,20],[51,1,41,21],[54,0,33,22],[65,0,7,4],[67,0,17,11],[70,0,33,13],[63,1,23,15],[69,0,36,15],[68,0,24,16],[62,0,36,16],[61,0,29,19],[66,0,29,19],[64,0,32,21],[71,0,18,12],[80,0,21,13],[79,0,20,13],[72,0,23,15],[73,0,29,15],[78,1,24,16],[76,0,26,17],[77,0,30,19],[74,2,36,23],[75,0,42,23],[87,0,18,8],[81,0,14,9],[88,2,20,13],[83,0,20,13],[85,0,21,14],[90,0,24,16],[86,0,32,20],[84,0,32,21],[82,0,32,21],[89,0,42,28],[92,0,12,7],[98,0,18,12],[94,0,18,12],[91,0,35,14],[99,0,26,14],[100,0,23,15],[97,0,27,18],[93,0,39,23],[96,0,39,25],[95,0,42,28],[105,0,9,6],[101,0,20,13],[103,0,26,13],[102,0,21,14],[107,0,26,14],[110,0,36,20],[104,0,32,21],[108,0,44,22],[109,0,38,25],[106,0,44,26],[120,0,12,8],[117,0,15,10],[114,0,21,14],[112,0,23,14],[111,0,36,14],[116,0,24,15],[118,0,23,15],[115,0,23,15],[113,0,39,21],[119,0,38,25],[123,0,17,8],[126,0,17,11],[125,0,21,12],[122,0,20,13],[130,0,26,14],[129,0,29,15],[121,0,23,15],[124,0,27,18],[127,0,38,24],[128,0,44,29],[138,0,23,9],[133,0,20,11],[131,0,18,12],[132,0,20,13],[140,0,29,14],[134,0,29,15],[135,0,26,17],[137,0,27,18],[139,0,29,19],[136,0,39,25],[143,0,8,4],[141,0,9,5],[148,0,8,5],[150,0,9,6],[144,0,12,6],[149,0,11,6],[146,0,14,9],[145,0,21,14],[147,0,38,25],[142,0,44,29],[156,0,8,5],[160,0,12,7],[153,0,17,9],[158,0,14,9],[154,0,15,9],[159,0,18,12],[152,0,21,14],[151,1,21,14],[155,0,29,16],[157,0,47,21],[167,0,8,5],[165,0,20,13],[168,0,23,14],[161,0,26,15],[164,0,24,16],[163,0,32,17],[166,0,38,19],[170,0,36,24],[162,0,41,26],[169,0,51,34],[174,0,12,7],[177,0,17,11],[172,0,24,13],[179,0,20,13],[173,0,20,13],[178,0,29,16],[175,0,26,17],[176,0,26,17],[171,0,32,21],[180,0,39,26],[184,0,8,4],[188,0,18,7],[189,0,18,12],[181,0,26,12],[185,0,32,15],[187,0,26,17],[190,0,26,17],[186,0,26,17],[183,0,41,25],[182,1,45,30],[200,0,11,6],[193,0,15,10],[197,0,17,11],[198,0,23,12],[199,0,24,15],[196,0,24,16],[192,0,27,18],[195,0,33,21],[191,0,38,25],[194,0,38,25],[207,0,9,6],[204,0,11,7],[202,0,14,9],[210,0,30,15],[209,0,30,16],[208,0,29,17],[201,0,41,22],[203,0,35,23],[206,0,44,26],[205,0,41,26],[213,0,11,7],[215,0,11,7],[214,0,23,13],[219,0,29,17],[212,0,27,18],[218,0,35,19],[217,0,36,21],[216,0,42,23],[211,0,41,24],[220,0,41,26],[229,1,9,6],[227,0,12,6],[230,0,23,13],[221,0,21,13],[225,0,21,14],[228,0,33,17],[222,1,36,18],[224,0,39,20],[226,0,41,22],[223,0,39,24],[239,0,9,6],[234,1,20,13],[240,0,24,16],[232,0,36,20],[235,0,44,23],[231,0,44,24],[236,0,38,25],[233,1,39,26],[238,0,39,26],[237,0,48,29],[247,0,15,8],[241,0,20,13],[245,0,20,13],[243,1,27,14],[246,1,21,14],[250,0,23,15],[248,0,24,16],[244,0,32,18],[249,0,29,19],[242,0,39,26],[251,0,7,4],[253,0,7,4],[257,0,12,8],[254,0,27,13],[258,0,21,14],[255,0,36,16],[252,0,35,16],[259,0,32,19],[260,0,33,22],[256,0,38,25],[264,0,8,5],[261,0,12,7],[270,0,18,9],[263,0,20,10],[269,0,26,13],[266,0,32,16],[262,0,35,17],[268,0,26,17],[267,0,26,17],[265,0,32,21],[278,0,7,4],[279,0,15,10],[277,0,17,11],[275,1,26,14],[274,0,24,15],[271,0,30,20],[273,0,35,23],[280,0,38,25],[272,0,39,25],[276,1,45,27],[286,0,17,11],[281,1,27,13],[290,0,23,15],[282,0,38,15],[289,0,29,19],[288,0,36,21],[284,0,39,21],[285,0,33,22],[283,0,36,22],[287,0,39,26],[294,0,8,5],[300,0,14,9],[297,0,21,14],[292,0,23,14],[298,0,24,16],[293,0,27,18],[291,0,29,19],[299,0,33,22],[295,1,35,23],[296,0,45,25],[309,0,8,4],[302,0,15,10],[301,0,27,13],[304,0,24,16],[305,0,29,19],[308,0,36,20],[303,0,35,23],[306,0,44,24],[307,0,42,26],[310,0,41,27],[314,0,21,14],[312,0,24,14],[315,0,24,16],[317,0,24,16],[311,0,30,20],[316,1,32,21],[319,0,32,21],[318,0,39,23],[320,0,36,24],[313,0,44,26],[329,0,7,4],[328,0,11,7],[325,0,24,15],[321,0,26,16],[323,0,29,16],[330,0,29,19],[324,0,42,22],[322,0,35,23],[327,1,41,25],[326,0,39,26],[331,0,9,6],[340,0,12,8],[332,0,20,13],[339,0,26,15],[334,0,29,15],[335,0,27,17],[337,0,30,17],[338,0,48,22],[336,0,41,23],[333,1,44,28],[346,0,14,7],[343,0,21,10],[344,0,20,13],[347,1,26,17],[345,0,27,18],[341,0,35,19],[349,0,38,21],[348,0,50,23],[342,0,42,28],[350,0,47,31],[355,0,9,4],[360,0,17,11],[353,0,21,13],[357,0,23,13],[354,0,29,15],[359,0,26,17],[351,0,29,19],[352,0,38,25],[356,0,38,25],[358,1,45,28],[369,1,11,6],[362,0,14,6],[365,0,11,7],[363,0,14,8],[370,0,23,15],[364,0,30,17],[368,0,32,18],[367,0,27,18],[361,0,32,20],[366,0,38,25],[379,0,9,4],[377,0,8,5],[380,0,14,9],[375,0,17,11],[374,0,21,12],[372,0,20,13],[371,0,26,17],[378,0,41,17],[373,0,29,19],[376,0,36,20],[385,0,11,7],[386,0,18,12],[389,0,18,12],[381,0,29,16],[384,0,24,16],[387,0,26,17],[383,0,26,17],[382,0,30,20],[390,0,35,22],[388,0,36,24],[397,0,7,4],[392,0,8,4],[400,1,21,9],[393,1,27,12],[394,0,32,14],[391,0,23,15],[395,0,23,15],[396,0,26,16],[398,0,27,18],[399,0,51,24]];
+window.CC_LEVELS = [[1,0,5,2],[2,0,6,3],[3,4,5,2],[4,0,17,9],[5,0,5,2],[6,0,5,2],[7,0,5,2],[8,0,5,2],[9,0,6,3],[10,0,6,3],[11,1,8,4],[12,0,8,4],[17,0,9,4],[14,0,14,7],[13,0,14,9],[18,0,14,9],[16,0,17,10],[15,0,26,14],[19,0,23,15],[20,0,29,19],[23,1,5,2],[22,1,6,2],[30,1,8,2],[21,0,7,4],[28,0,11,6],[24,0,14,9],[26,2,14,9],[29,0,17,9],[25,0,20,10],[27,0,20,11],[31,1,5,2],[40,0,6,3],[33,0,9,5],[36,1,12,6],[37,7,9,6],[35,1,20,11],[39,1,17,11],[32,1,18,12],[34,0,20,13],[38,1,20,13],[45,0,5,2],[43,0,7,3],[46,1,9,6],[49,0,11,7],[47,0,18,10],[50,1,20,13],[44,0,21,13],[41,0,20,13],[42,0,29,15],[48,0,26,17],[53,0,6,2],[56,0,12,7],[60,1,14,9],[54,0,15,10],[57,1,17,11],[52,0,21,11],[58,0,23,11],[55,0,20,13],[59,0,21,14],[51,1,27,17],[65,0,6,3],[63,0,11,7],[66,0,11,7],[70,0,15,10],[67,0,23,12],[68,0,23,12],[62,0,21,12],[61,0,21,14],[64,0,23,15],[69,0,36,19],[74,1,11,7],[72,0,12,7],[71,0,15,10],[73,0,15,10],[80,0,15,10],[76,0,20,10],[78,0,20,10],[79,0,17,11],[77,0,20,13],[75,1,21,14],[88,0,8,5],[81,0,11,7],[86,0,14,9],[85,0,17,11],[90,0,21,11],[87,0,17,11],[89,1,18,12],[83,0,18,12],[82,0,20,13],[84,0,21,14],[92,0,7,3],[98,0,14,9],[91,0,18,12],[93,0,21,12],[94,0,20,13],[99,0,21,14],[97,0,24,16],[95,0,27,18],[96,0,27,18],[100,0,33,22],[105,0,8,3],[107,0,15,10],[103,1,20,12],[106,1,21,12],[102,0,26,13],[104,0,38,14],[108,0,24,15],[110,0,26,17],[109,0,27,18],[101,0,30,20],[120,0,8,5],[117,0,11,6],[119,1,11,7],[115,0,17,8],[116,0,17,9],[118,0,15,10],[111,0,17,11],[113,0,20,13],[114,0,29,14],[112,0,26,17],[123,0,6,3],[126,0,12,4],[125,0,14,7],[122,0,14,7],[121,0,17,10],[124,0,18,12],[130,0,20,13],[129,0,21,13],[128,1,24,16],[127,0,26,17],[131,0,14,8],[137,0,23,9],[135,0,15,9],[139,0,20,10],[138,0,20,10],[140,0,17,11],[132,0,21,14],[133,0,23,15],[134,0,24,16],[136,3,29,19],[143,0,7,2],[141,0,8,3],[142,1,6,3],[148,0,9,4],[150,0,7,4],[144,0,8,4],[146,0,11,7],[147,1,12,8],[149,0,15,10],[145,0,24,16],[153,0,9,2],[158,0,8,5],[156,0,11,6],[160,0,12,7],[154,0,12,7],[151,0,17,11],[152,0,18,12],[155,0,20,13],[157,1,23,15],[159,0,33,19],[167,0,7,2],[168,0,21,10],[162,1,20,11],[170,1,17,11],[164,0,18,12],[169,1,18,12],[163,0,20,13],[166,0,21,14],[165,0,30,16],[161,0,29,17],[174,0,8,3],[172,0,15,9],[179,0,20,10],[173,0,17,11],[180,0,17,11],[177,0,20,12],[178,0,20,13],[176,0,24,13],[175,0,21,14],[171,0,26,17],[184,0,7,3],[182,0,8,5],[188,0,9,6],[183,2,12,8],[189,0,12,8],[187,0,15,10],[186,0,18,12],[181,0,20,13],[185,0,20,13],[190,0,23,15],[194,1,5,2],[200,0,8,4],[193,0,8,5],[197,0,17,11],[199,0,27,13],[192,0,23,13],[195,0,21,14],[196,0,24,15],[191,0,27,17],[198,0,29,19],[207,0,5,2],[204,0,14,7],[202,0,11,7],[210,0,17,11],[201,0,21,13],[209,0,20,13],[208,0,21,14],[203,0,21,14],[205,0,24,16],[206,0,32,18],[213,0,7,3],[215,0,8,5],[217,0,14,7],[214,0,12,8],[218,0,18,10],[212,0,21,14],[216,1,23,15],[220,0,26,17],[211,0,27,18],[219,0,29,19],[227,0,7,2],[230,0,20,10],[225,0,20,13],[221,0,21,14],[222,1,21,14],[224,0,23,14],[228,0,30,15],[223,0,24,16],[229,0,29,17],[226,0,26,17],[233,0,12,7],[240,0,14,9],[239,1,17,10],[238,1,20,13],[231,0,23,15],[234,0,24,16],[237,1,29,16],[232,2,27,18],[235,0,30,18],[236,0,30,18],[247,0,7,4],[243,0,11,6],[246,0,12,8],[242,1,17,11],[241,0,18,11],[244,0,20,11],[249,0,18,12],[248,0,20,12],[245,0,23,14],[250,0,23,14],[253,0,6,3],[251,0,7,4],[257,0,11,7],[260,1,12,8],[258,0,18,11],[256,1,17,11],[254,0,20,12],[259,0,20,13],[252,0,20,13],[255,0,33,15],[264,0,7,3],[261,0,8,5],[270,0,15,8],[265,0,17,8],[263,2,17,11],[267,0,17,11],[268,0,20,12],[266,0,26,13],[269,0,21,14],[262,0,27,14],[278,0,5,1],[276,0,9,6],[277,0,9,6],[279,0,12,8],[275,0,14,9],[280,1,18,12],[271,0,18,12],[274,0,20,13],[273,1,21,14],[272,1,26,16],[282,0,18,6],[284,1,14,7],[281,0,12,8],[287,0,12,8],[286,0,20,13],[285,0,21,13],[289,0,24,14],[290,0,30,17],[288,0,26,17],[283,0,30,18],[294,0,11,5],[295,0,9,6],[293,1,9,6],[296,1,11,7],[300,0,14,8],[292,0,20,8],[299,1,20,9],[291,0,26,11],[297,0,20,12],[298,0,23,13],[309,0,8,4],[303,0,23,7],[302,0,15,10],[308,2,18,11],[307,1,27,12],[304,0,21,12],[305,0,24,13],[310,1,23,15],[301,0,23,15],[306,0,26,17],[316,0,11,7],[317,0,12,8],[318,0,15,10],[313,1,17,11],[314,0,17,11],[311,0,23,12],[315,0,23,13],[319,1,23,14],[312,0,29,17],[320,1,27,18],[328,0,6,3],[329,0,9,6],[326,1,15,10],[325,0,18,12],[321,0,23,14],[323,0,21,14],[330,0,21,14],[324,0,27,15],[327,1,27,17],[322,0,29,19],[331,0,6,3],[340,0,12,6],[338,1,12,8],[337,0,21,9],[339,0,18,11],[332,0,20,12],[335,0,21,13],[334,0,21,14],[333,3,27,16],[336,0,27,16],[346,0,8,3],[347,0,11,7],[343,0,14,8],[350,1,15,10],[344,0,15,10],[348,1,17,11],[342,1,32,14],[345,0,21,14],[341,0,26,15],[349,0,29,15],[355,0,6,3],[358,2,15,10],[360,0,17,11],[354,0,24,13],[356,1,23,13],[353,0,23,14],[351,0,24,14],[357,0,21,14],[352,1,26,15],[359,1,24,16],[365,0,6,3],[363,0,7,3],[362,0,9,5],[369,0,11,6],[370,0,18,12],[364,0,18,12],[367,0,23,13],[361,0,23,13],[368,0,24,15],[366,0,24,16],[377,0,7,4],[374,0,14,6],[372,0,14,9],[380,0,17,11],[375,0,18,11],[378,1,33,13],[371,0,21,14],[373,0,23,15],[379,1,27,18],[376,0,27,18],[385,0,7,4],[388,1,8,5],[389,0,11,7],[381,0,21,12],[382,0,18,12],[384,0,18,12],[387,0,20,13],[386,0,30,13],[390,0,24,16],[383,0,27,18],[397,0,6,3],[392,0,6,3],[391,0,17,5],[400,0,14,6],[393,0,15,8],[395,0,15,10],[394,0,23,11],[399,1,21,11],[396,0,20,13],[398,0,24,16]];
 </script>
 <script>
 /* Castle Crumble sounds: synthesized with Web Audio (no audio files). */
@@ -545,9 +696,10 @@ var CCSound = (function () {
 </script>
 <script>
 /* Castle Crumble scenery (three.js): sky, sea with ripples, a grassy island with a sandy beach and cliffs, low-poly
-   trees, far islands and hills, and the castle itself: stone bricks with mortar lines (instanced, a few draw calls
-   for hundreds of bricks), dark slate cone and pyramid roofs, wooden doors, red TNT crates; cannonballs, dust,
-   splashes and explosions. CCScene.build(THREE, canvas, CC, { fancy }) returns what the app needs. */
+   trees, far islands and hills, and the castle itself: stone bricks, each physics brick drawn as one stone block
+   (instanced, a few draw calls for hundreds of bricks), dark slate cone and pyramid roofs, wooden doors, red TNT
+   crates; cannonballs, and (1.6.0) drawn-only effects: stone chips, dust, smoke, fire, sparks, splashes, a shock
+   ring and a little camera shake. CCScene.build(THREE, canvas, CC, { fancy }) returns what the app needs. */
 var CCScene = (function () {
   'use strict';
   function build(T, canvas, CC, opts) {
@@ -627,7 +779,7 @@ var CCScene = (function () {
     // falling physics brick looked like a chunk of four to eight. Now the texture is a single stone block with a mortar
     // border and bevel, stretched once over each face, and every brick gets its own shade, so what you see come apart is
     // exactly what the physics moves: brick by brick.
-    function brickTex(wu) { // wu: face width in units (1 or 2), so the mortar border stays even on a long brick
+    function brickTex(wu) { // wu: 1 for a square face, 2 for a long one (1.6.0: 0.5 or 1 wide), so the mortar border stays even
       return tex(128 * wu, 128, function (x, w, h) {
         var b = 7;
         x.fillStyle = '#8d929a'; x.fillRect(0, 0, w, h); // mortar
@@ -716,21 +868,127 @@ var CCScene = (function () {
     var ballGeo = new T.SphereGeometry(CC.BALLR, 20, 14), ballM = std({ color: 0x2a2d33, roughness: 0.35, metalness: 0.6 });
     function ballMesh() { var m = new T.Mesh(ballGeo, ballM); m.castShadow = fancy; scene.add(m); return m; }
     function soft(inner, outer) { return tex(64, 64, function (x, w, h) { var g = x.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, inner); g.addColorStop(1, outer); x.fillStyle = g; x.fillRect(0, 0, w, h); }); }
-    var dustTex = soft('rgba(235,228,215,.9)', 'rgba(235,228,215,0)'), fireTex = soft('rgba(255,245,180,1)', 'rgba(255,120,20,0)'), smokeTex = soft('rgba(90,90,95,.85)', 'rgba(90,90,95,0)'), splashTex = soft('rgba(255,255,255,.95)', 'rgba(200,235,255,0)');
-    var fx = [];
-    function puff(texr, x, y, z, s0, s1, life, vy, blend) {
-      if (fx.length > 90) return;
-      var m = new T.SpriteMaterial({ map: texr, transparent: true, depthWrite: false, blending: blend ? T.AdditiveBlending : T.NormalBlending }), sp = new T.Sprite(m);
-      sp.position.set(x, y, z); sp.scale.set(s0, s0, 1); scene.add(sp);
-      fx.push({ s: sp, t: 0, life: life, s0: s0, s1: s1, vy: vy || 0, vx: (Math.random() - 0.5) * 1.2, vz: (Math.random() - 0.5) * 1.2 });
+
+    // ---------------- effects (1.6.0) ----------------
+    // Glenn: smaller bricks "so the explosions look better/bigger". Drawn only (nothing here touches the physics, so
+    // the level proofs don't depend on it): puffs of dust, smoke and fire as point sprites (one draw call per kind),
+    // flying stone chips as one instanced mesh, sparks, a shock ring on the ground, and a little camera shake.
+    var puffTex = soft('rgba(255,255,255,1)', 'rgba(255,255,255,0)');
+    var ptMax = 1; try { var gl0 = renderer.getContext(); ptMax = gl0.getParameter(gl0.ALIASED_POINT_SIZE_RANGE)[1] || 256; } catch (e) { ptMax = 256; }
+    // a pool of point sprites: each particle has a position, a velocity, a size that grows, a colour and a fade
+    function Puffs(max, additive) {
+      var geo = new T.BufferGeometry(), pos = new Float32Array(max * 3), size = new Float32Array(max), alpha = new Float32Array(max), colr = new Float32Array(max * 3);
+      geo.setAttribute('position', new T.BufferAttribute(pos, 3)); geo.setAttribute('psize', new T.BufferAttribute(size, 1)); geo.setAttribute('palpha', new T.BufferAttribute(alpha, 1)); geo.setAttribute('pcol', new T.BufferAttribute(colr, 3));
+      var mat = new T.ShaderMaterial({ transparent: true, depthWrite: false, blending: additive ? T.AdditiveBlending : T.NormalBlending, fog: false,
+        uniforms: { map: { value: puffTex }, uScale: { value: 400 }, uMax: { value: ptMax } },
+        vertexShader: 'attribute float psize; attribute float palpha; attribute vec3 pcol; uniform float uScale; uniform float uMax; varying float vA; varying vec3 vC; void main(){ vA = palpha; vC = pcol; vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_PointSize = min(psize * uScale / max(0.5, -mv.z), uMax); gl_Position = projectionMatrix * mv; }',
+        fragmentShader: 'uniform sampler2D map; varying float vA; varying vec3 vC; void main(){ vec4 t = texture2D(map, gl_PointCoord); gl_FragColor = vec4(vC, t.a * vA);\n#include <tonemapping_fragment>\n#include <colorspace_fragment>\n}' });
+      var pts = new T.Points(geo, mat); pts.frustumCulled = false; pts.renderOrder = 3; scene.add(pts);
+      var list = [];
+      return {
+        mat: mat,
+        add: function (x, y, z, vx, vy, vz, s0, s1, life, col, a0, grav, drag) {
+          if (list.length >= max) list.shift();
+          list.push({ x: x, y: y, z: z, vx: vx, vy: vy, vz: vz, s0: s0, s1: s1, life: life, t: 0, r: col[0], g: col[1], b: col[2], a0: a0, grav: grav || 0, drag: drag || 0 });
+        },
+        update: function (dt) {
+          var n = 0;
+          list = list.filter(function (p) { p.t += dt; return p.t < p.life; });
+          for (var i = 0; i < list.length; i++) {
+            var p = list[i], k = p.t / p.life, dk = Math.max(0, 1 - p.drag * dt);
+            p.vx *= dk; p.vy = p.vy * dk + p.grav * dt; p.vz *= dk; p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
+            if (p.grav && p.y < 0.05 && Math.abs(p.x) < CC.ISLAND && Math.abs(p.z) < CC.ISLAND) { p.y = 0.05; p.vy = Math.abs(p.vy) * 0.3; p.vx *= 0.5; p.vz *= 0.5; }
+            pos[n * 3] = p.x; pos[n * 3 + 1] = p.y; pos[n * 3 + 2] = p.z;
+            size[n] = p.s0 + (p.s1 - p.s0) * Math.sqrt(k); alpha[n] = p.a0 * (k < 0.1 ? k / 0.1 : 1 - (k - 0.1) / 0.9);
+            colr[n * 3] = p.r; colr[n * 3 + 1] = p.g; colr[n * 3 + 2] = p.b; n++;
+          }
+          geo.setDrawRange(0, n);
+          geo.attributes.position.needsUpdate = geo.attributes.psize.needsUpdate = geo.attributes.palpha.needsUpdate = geo.attributes.pcol.needsUpdate = true;
+        }
+      };
     }
-    function dust(x, y, z, big) { for (var i = 0; i < (big ? 3 : 1); i++) puff(dustTex, x + (Math.random() - 0.5) * 0.6, y, z + (Math.random() - 0.5) * 0.6, 0.6, big ? 2.6 : 1.6, 0.9, 0.8); }
+    var soot = Puffs(260, false), glow = Puffs(220, true);
+    var C_DUST = [0.93, 0.9, 0.84], C_DUST2 = [0.8, 0.76, 0.7], C_SMOKE = [0.36, 0.36, 0.4], C_FIRE = [1, 0.45, 0.08], C_FIRE2 = [1, 0.78, 0.3], C_SPARK = [1, 0.8, 0.35], C_WATER = [0.95, 0.98, 1];
+    // stone chips: little tumbling blocks thrown out of a hit; they bounce once or twice on the grass and shrink away
+    // 1.6.0 (Glenn: "the bricks are huge - i was hoping they'd be smaller - so the explosions look better/bigger"): the
+    // chips are little bricks (2:1:1, the brick picture) and there are far more of them: a hit sprays a few dozen that
+    // tumble, skid on the grass and lie there a few seconds before shrinking away. Drawn only: no effect on the physics.
+    var CHIPS = 900, chipGeo = new T.BoxGeometry(1.7, 0.85, 1), chipM = std({ map: stoneTex2, color: 0xffffff, roughness: 0.9 }), chipMesh = new T.InstancedMesh(chipGeo, chipM, CHIPS);
+    chipMesh.frustumCulled = false; chipMesh.count = 0; chipMesh.castShadow = false; scene.add(chipMesh);
+    chipMesh.setColorAt(0, new T.Color(1, 1, 1));
+    var chips = [], chipQ = new T.Quaternion(), chipE = new T.Euler();
+    function chip(x, y, z, vx, vy, vz, s, c) {
+      if (chips.length >= CHIPS) chips.shift();
+      chips.push({ x: x, y: y, z: z, vx: vx, vy: vy, vz: vz, s: s, t: 0, life: s > 0.16 ? 3.2 + Math.random() * 2.2 : 1.1 + Math.random() * 0.9, rx: Math.random() * 6, ry: Math.random() * 6, wx: (Math.random() - 0.5) * 18, wy: (Math.random() - 0.5) * 18, c: c });
+    }
+    function burst(x, y, z, n, speed, up, sMin, sMax, tint) {
+      for (var i = 0; i < n; i++) {
+        var a = Math.random() * 6.283, h = Math.random(), sp = speed * (0.4 + Math.random() * 0.6);
+        var l = 0.62 + Math.random() * 0.35, c = tint && Math.random() < 0.45 ? tint : [l, l, l * (0.97 + Math.random() * 0.06)];
+        chip(x + (Math.random() - 0.5) * 0.3, y + (Math.random() - 0.3) * 0.3, z + (Math.random() - 0.5) * 0.3, Math.cos(a) * sp * (1 - h * 0.5), up * (0.5 + h) + Math.random() * 2, Math.sin(a) * sp * (1 - h * 0.5), sMin + Math.random() * (sMax - sMin), c);
+      }
+    }
+    function updChips(dt) {
+      var n = 0;
+      chips = chips.filter(function (p) { p.t += dt; return p.t < p.life && p.y > CC.WATER - 0.5; });
+      for (var i = 0; i < chips.length; i++) {
+        var p = chips[i];
+        p.vy += CC.GRAV * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt; p.rx += p.wx * dt; p.ry += p.wy * dt;
+        var ly = p.s * 0.43;
+        if (p.y < ly && Math.abs(p.x) < CC.ISLAND && Math.abs(p.z) < CC.ISLAND && p.vy < 0) {
+          p.y = ly; p.vy = p.vy < -2 ? -p.vy * 0.3 : 0; p.vx *= 0.6; p.vz *= 0.6; p.wx *= 0.45; p.wy *= 0.45;
+          if (!p.vy) { p.rx = Math.round(p.rx / 3.1416) * 3.1416; } // come to rest lying flat
+        }
+        if (p.y <= ly + 0.001 && !p.vy) { var fr = Math.max(0, 1 - dt * 5); p.vx *= fr; p.vz *= fr; p.wx *= fr; p.wy *= fr; }
+        var k = p.t / p.life, sc = p.s * (k > 0.78 ? 1 - (k - 0.78) / 0.22 : 1);
+        chipE.set(p.rx, p.ry, 0); chipQ.setFromEuler(chipE); tmpV.set(p.x, p.y, p.z); tmpS.set(sc, sc, sc); tmpM.compose(tmpV, chipQ, tmpS);
+        chipMesh.setMatrixAt(n, tmpM); col.setRGB(p.c[0], p.c[1], p.c[2]); chipMesh.setColorAt(n, col); n++;
+      }
+      chipMesh.count = n; chipMesh.instanceMatrix.needsUpdate = true; if (chipMesh.instanceColor) chipMesh.instanceColor.needsUpdate = true;
+    }
+    // a flat ring that races out over the grass from a TNT blast
+    var rings = [], ringGeo = new T.RingGeometry(0.8, 1, 40); ringGeo.rotateX(-Math.PI / 2);
+    function shockRing(x, y, z) {
+      var m = new T.Mesh(ringGeo, new T.MeshBasicMaterial({ color: 0xfff1c8, transparent: true, opacity: 0.8, depthWrite: false, fog: false }));
+      m.position.set(x, Math.max(0.06, y - 0.3), z); m.renderOrder = 4; scene.add(m); rings.push({ m: m, t: 0 });
+    }
+    function updRings(dt) {
+      rings = rings.filter(function (r) { r.t += dt; var k = r.t / 0.55; if (k >= 1) { scene.remove(r.m); r.m.material.dispose(); return false; } var s = 0.6 + k * 6.5; r.m.scale.set(s, s, s); r.m.material.opacity = 0.8 * (1 - k); return true; });
+    }
+    var shake = 0;
+    function rnd2(a) { return (Math.random() - 0.5) * a; }
+    // a cannonball smashes into the wall: a spray of chips and a burst of dust (big = a hard, fast hit)
+    function impact(x, y, z, v, ball) {
+      if (ball) {
+        burst(x, y, z, 34, 7, 5, 0.17, 0.4); // little bricks
+        burst(x, y, z, 12, 6, 4, 0.06, 0.13); // grit
+        for (var i = 0; i < 7; i++) soot.add(x + rnd2(0.8), y + rnd2(0.5), z + rnd2(0.8), rnd2(2), 1 + Math.random() * 1.5, rnd2(2), 0.8, 2.6 + Math.random(), 0.9 + Math.random() * 0.4, i % 2 ? C_DUST : C_DUST2, 0.85, 0, 1.5);
+        shake = Math.max(shake, 0.3);
+      } else {
+        burst(x, y, z, v > 8 ? 7 : 3, 3.5, 2.8, 0.14, 0.3);
+        soot.add(x, y, z, rnd2(1), 0.8, rnd2(1), 0.5, v > 8 ? 2 : 1.4, 0.8, C_DUST, 0.7, 0, 1.5);
+      }
+    }
+    function dust(x, y, z, big) { impact(x, y, z, big ? 9 : 5, false); }
     function boom(x, y, z) {
-      puff(fireTex, x, y, z, 1, 7, 0.45, 0, true); puff(fireTex, x, y + 0.5, z, 0.8, 5, 0.35, 2, true);
-      for (var i = 0; i < 6; i++) puff(smokeTex, x + (Math.random() - 0.5) * 2, y + Math.random(), z + (Math.random() - 0.5) * 2, 1, 4, 1.6, 2.2);
-      flash = 1;
+      var i, a, sp;
+      // a fireball: a hot core and flames racing out
+      glow.add(x, y, z, 0, 0, 0, 1.5, 7, 0.35, C_FIRE2, 0.85, 0, 0);
+      for (i = 0; i < 10; i++) { a = Math.random() * 6.283; sp = 4 + Math.random() * 5; glow.add(x, y + 0.3, z, Math.cos(a) * sp, 2 + Math.random() * 4, Math.sin(a) * sp, 1.2, 3.5 + Math.random() * 2, 0.45 + Math.random() * 0.25, Math.random() < 0.7 ? C_FIRE : C_FIRE2, 0.55, 0, 3); }
+      // sparks and chips (stone, red crate and wood) flying everywhere
+      for (i = 0; i < 26; i++) { a = Math.random() * 6.283; sp = 6 + Math.random() * 9; glow.add(x, y + 0.3, z, Math.cos(a) * sp, 4 + Math.random() * 8, Math.sin(a) * sp, 0.25, 0.12, 0.6 + Math.random() * 0.5, C_SPARK, 1, CC.GRAV * 0.7, 0.5); }
+      burst(x, y + 0.2, z, 90, 11, 8, 0.15, 0.45, [0.85, 0.2, 0.16]);
+      burst(x, y + 0.2, z, 24, 9, 6, 0.06, 0.14);
+      // a column of smoke that rolls up and hangs about
+      for (i = 0; i < 12; i++) soot.add(x + rnd2(2.4), y + Math.random() * 1.2, z + rnd2(2.4), rnd2(1.5), 1.5 + Math.random() * 2.5, rnd2(1.5), 1.2, 4.5 + Math.random() * 2.5, 1.6 + Math.random() * 1.2, C_SMOKE, 0.75, 0, 1.2);
+      for (i = 0; i < 6; i++) soot.add(x + rnd2(3), 0.3, z + rnd2(3), rnd2(4), 0.5, rnd2(4), 1, 3.5, 1.2, C_DUST2, 0.7, 0, 1.5);
+      shockRing(x, y, z);
+      flash = 1; shake = Math.max(shake, 0.6);
     }
-    function splash(x, z) { for (var i = 0; i < 3; i++) puff(splashTex, x + (Math.random() - 0.5), CC.WATER + 0.5, z + (Math.random() - 0.5), 0.5, 2.2, 0.7, 3); }
+    function splash(x, z) {
+      for (var i = 0; i < 10; i++) { var a = Math.random() * 6.283, sp = 1 + Math.random() * 2.5; soot.add(x, CC.WATER + 0.4, z, Math.cos(a) * sp, 4 + Math.random() * 4, Math.sin(a) * sp, 0.35, 0.2, 0.6 + Math.random() * 0.3, C_WATER, 0.95, CC.GRAV * 0.8, 0); }
+      soot.add(x, CC.WATER + 0.45, z, 0, 0.6, 0, 0.6, 2.4, 0.7, C_WATER, 0.8, 0, 0);
+    }
     var flash = 0, flashLight = new T.PointLight(0xffa040, 0, 30); scene.add(flashLight);
     var reticle = (function () { var g = new T.Group(); var rm = new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthTest: false }), dm = new T.MeshBasicMaterial({ color: 0x1b1f33, transparent: true, depthTest: false });
       g.add(new T.Mesh(new T.RingGeometry(0.55, 0.75, 32), dm)); g.add(new T.Mesh(new T.RingGeometry(0.75, 0.9, 32), rm)); g.add(new T.Mesh(new T.CircleGeometry(0.22, 20), dm));
@@ -741,7 +999,9 @@ var CCScene = (function () {
     function update(dt) {
       time += dt; if (kick > 0) kick = Math.max(0, kick - dt * 5); waterTex.offset.set(time * 0.004, time * 0.006);
       clouds.forEach(function (c, i) { var a = Math.atan2(c.position.z, c.position.x) + dt * 0.004 * (1 + i % 3); var d = Math.hypot(c.position.x, c.position.z); c.position.x = Math.cos(a) * d; c.position.z = Math.sin(a) * d; });
-      fx = fx.filter(function (f) { f.t += dt; var k = f.t / f.life; if (k >= 1) { scene.remove(f.s); f.s.material.dispose(); return false; } var s = f.s0 + (f.s1 - f.s0) * Math.sqrt(k); f.s.scale.set(s, s, 1); f.s.material.opacity = 1 - k; f.s.position.y += f.vy * dt; f.s.position.x += f.vx * dt; f.s.position.z += f.vz * dt; return true; });
+      var uS = pxH * (renderer.getPixelRatio ? renderer.getPixelRatio() : 1) * 0.5 / Math.max(0.05, VIEW.tanV); soot.mat.uniforms.uScale.value = uS; glow.mat.uniforms.uScale.value = uS;
+      soot.update(dt); glow.update(dt); updChips(dt); updRings(dt);
+      if (shake > 0) shake = Math.max(0, shake - dt * 1.6);
       if (flash > 0) { flash = Math.max(0, flash - dt * 3); flashLight.intensity = flash * 60; } else flashLight.intensity = 0;
     }
     function setBoomLight(x, y, z) { flashLight.position.set(x, y + 1, z); }
@@ -834,6 +1094,8 @@ var CCScene = (function () {
       // the shot zoom: the camera rides up to ZOOM_IN of the way toward the landing spot and turns to look at it
       var m = z * ZOOM_IN;
       camera.position.set(bx + (Z[0] - bx) * m, by + (Z[1] + 2 - by) * m, bz + (Z[2] - bz) * m);
+      // a little shake on big hits and TNT (drawn only; it fades in about a third of a second)
+      var sk = shake * shake * VIEW.D * 0.05; if (sk > 0) camera.position.set(camera.position.x + rnd2(sk), camera.position.y + rnd2(sk), camera.position.z + rnd2(sk));
       camera.lookAt(P[0] + (Z[0] - P[0]) * z, P[1] + (Z[1] - P[1]) * z, P[2] + (Z[2] - P[2]) * z); camera.updateMatrixWorld(true);
       placeGun();
     }
@@ -884,7 +1146,7 @@ var CCScene = (function () {
       if (!VIEW.pts) { camera.aspect = aspectNow; camera.fov = 60; camera.updateProjectionMatrix(); }
     }
     return { view: VIEW, renderer: renderer, scene: scene, camera: camera, setPieces: setPieces, fitView: fitView, syncPieces: syncPieces, pickPiece: pickPiece, ballMesh: ballMesh,
-      dust: dust, boom: function (x, y, z) { boom(x, y, z); setBoomLight(x, y, z); }, splash: splash, reticle: reticle, update: update, aimCamera: aimCamera, resize: resize, fancy: fancy, aimGun: aimGun, fireGun: fireGun, muzzle: muzzle };
+      dust: dust, impact: impact, boom: function (x, y, z) { boom(x, y, z); setBoomLight(x, y, z); }, splash: splash, reticle: reticle, update: update, aimCamera: aimCamera, resize: resize, fancy: fancy, aimGun: aimGun, fireGun: fireGun, muzzle: muzzle };
   }
   return { build: build };
 })();
@@ -968,8 +1230,11 @@ var CCScene = (function () {
     return true;
   }
   function onEvents() {
+    var ballHits = 0;
     CC.takeEvents(sim).forEach(function (e) {
-      if (e.t === 'hit') { S.hit(e.m, e.v); if (e.v > 5 && Math.random() < 0.35) SC.dust(e.x, e.y, e.z, false); }
+      // 1.6.0: a cannonball hit throws chips and dust (twice at most a step: a ball hits several small bricks at once);
+      // a brick landing hard kicks up a little (drawing only, scene.js)
+      if (e.t === 'hit') { S.hit(e.m, e.v); if (e.ball) { if (ballHits++ < 2) SC.impact(e.x, e.y, e.z, e.v, true); } else if (e.v > 4 && Math.random() < 0.5) SC.impact(e.x, e.y, e.z, e.v, false); }
       else if (e.t === 'boom') { SC.boom(e.x, e.y, e.z); S.boom(); stats.booms++; }
       else if (e.t === 'splash') { SC.splash(e.x, e.z); S.splash(); }
       else if (e.t === 'down') { stats.bricks++; }
@@ -998,14 +1263,18 @@ var CCScene = (function () {
   }
 
   // ================= loop =================
+  // physics and frame timing (ms, smoothed), read by the tests through window.__cc.perf
+  var perf = { step: 0, stepMax: 0, steps: 0, frame: 16.7, frames: 0 };
   function frame(tms) {
     requestAnimationFrame(frame);
     if (!ready) return;
-    var dt = Math.min(0.1, lastT ? (tms - lastT) / 1000 : 0); lastT = tms;
+    var dt = Math.min(0.1, lastT ? (tms - lastT) / 1000 : 0); lastT = tms; perf.frame = perf.frame * 0.95 + dt * 1000 * 0.05; perf.frames++;
     var paused = sheetOpen() || document.hidden;
     if (sim && !paused && state !== 'idle') {
       acc += dt; var n = 0;
+      var ps0 = performance.now();
       while (acc >= STEP && n < 3) { CC.step(sim, STEP); onEvents(); acc -= STEP; n++; }
+      if (n) { var pms = (performance.now() - ps0) / n; perf.step = perf.step * 0.95 + pms * 0.05; perf.stepMax = Math.max(perf.stepMax, pms); perf.steps += n; }
       if (n === 3) acc = 0;
       checkEnd();
     }
@@ -1198,7 +1467,9 @@ var CCScene = (function () {
   }
   window.__cc = { get sim() { return sim; }, get state() { return state; }, get level() { return level; }, fire: fire, startLevel: startLevel, CC: CC, meta: function () { return meta; }, set yaw(v) { yawTo = v; intro = 0; }, get yaw() { return yaw; },
     bot: function () { if (!sim) return false; var a = CC.botAim(sim); if (!a) return false; yawTo = yaw = a.yaw; intro = 0; return fire(a.p); },
-    project: function (x, y, z) { var v = new T.Vector3(x, y, z).project(SC.camera), r = canvas.getBoundingClientRect(); return [r.left + (v.x + 1) / 2 * r.width, r.top + (1 - v.y) / 2 * r.height]; }, get ready() { return ready; }, get view() { return SC && SC.view; } };
+    project: function (x, y, z) { var v = new T.Vector3(x, y, z).project(SC.camera), r = canvas.getBoundingClientRect(); return [r.left + (v.x + 1) / 2 * r.width, r.top + (1 - v.y) / 2 * r.height]; }, get ready() { return ready; }, get view() { return SC && SC.view; }, perf: perf,
+    pick: function (x, y) { return pointAt(x, y); },
+    awake: function () { return sim ? sim.pieces.filter(function (p) { return !p.gone && p.b.sleepState !== 2; }).length : 0; } };
   init();
 })();
 </script>
