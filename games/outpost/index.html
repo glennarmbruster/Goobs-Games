@@ -1,0 +1,1250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#5a54f0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Goobs-Games">
+<link rel="manifest" href="../../manifest.json">
+<link rel="apple-touch-icon" href="../../icons/icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="../../icons/icon-192.png">
+<link rel="stylesheet" href="../../shared/goobs.css">
+<script src="../../shared/goobs.js"></script>
+<title>Outpost Rush</title>
+<style>
+/* Outpost Rush styles (themes, UI kit, Menu sheet and ad cards come from /shared/goobs.css) */
+.brand svg { border-radius: 10px; }
+/* Full screen (Glenn: "please make sure this game is full screen"): the meadow fills the whole phone edge to edge,
+   behind the notch and the home bar; the kit floats back, the pills, Sound and Menu on top (html.gg-fs-over). */
+html, body { height: 100%; overflow: hidden; }
+html.gg-fs-over body { background: #6cc04a; }
+.stagewrap { flex: 1 1 auto; min-height: 0; width: 100%; display: flex; }
+html.gg-fs-over .stagewrap { position: fixed; inset: 0; }
+.stage { position: relative; flex: 1 1 auto; overflow: hidden; touch-action: none; background: #6cc04a; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.stage canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; touch-action: none; }
+.stage #fx { pointer-events: none; }
+.top .topsp { flex: 1 1 auto; }
+.top .ggpill { pointer-events: none; }
+.lvpill { font-weight: 900; }
+.timepill { font-size: 15px; min-width: 52px; text-align: center; }
+.hint { position: absolute; left: 14px; right: 14px; margin: 0 auto; width: fit-content; bottom: calc(env(safe-area-inset-bottom, 0px) + 14px); z-index: 3; box-sizing: border-box;
+  background: rgba(255,255,255,.93); color: #1b2a4a; font-weight: 800; font-size: 16px; line-height: 1.25; text-align: center; padding: 10px 16px; border-radius: 18px;
+  box-shadow: 0 4px 14px rgba(0,0,0,.2); pointer-events: none; transition: opacity .35s; }
+.hint:empty { display: none; }
+.hint.done { opacity: 0; }
+.finger { position: absolute; left: 0; top: 0; width: 34px; height: 34px; margin: -17px 0 0 -17px; border-radius: 50%; z-index: 3; pointer-events: none; display: none;
+  background: radial-gradient(circle, rgba(255,255,255,.95) 0 38%, rgba(255,255,255,.35) 40% 100%); box-shadow: 0 0 0 3px rgba(40,90,200,.35), 0 4px 10px rgba(0,0,0,.25); }
+.finger.show { display: block; }
+.loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; color: #1d4a16; pointer-events: none; }
+.loading.hide { display: none; }
+.toast { position: absolute; z-index: 4; left: 50%; top: 34%; transform: translateX(-50%); text-align: center; pointer-events: none; opacity: 0; transition: opacity .25s;
+  background: rgba(10,14,36,.8); color: #fff; font-weight: 800; font-size: 15px; padding: 8px 15px; border-radius: 14px; max-width: 86%; }
+.toast.show { opacity: 1; }
+.lvhead { display: flex; justify-content: space-between; align-items: center; font-weight: 800; color: var(--muted); margin: 0 2px 10px; font-size: 15px; }
+.lvhead b { color: var(--ink); }
+.gold { color: #d99a00; font-weight: 900; }
+.gold::before { content: ''; display: inline-block; width: 14px; height: 14px; margin: 0 4px -2px 0; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff6c8 0 15%, #ffc83d 45%, #d08a00 100%); }
+.lvgrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.lv { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); height: 54px; font-weight: 800; font-size: 16px; color: var(--ink); display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1; }
+.lv small { font-size: 11px; color: #e0a800; letter-spacing: -1px; min-height: 12px; }
+.lv.cur { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+.lv:disabled { opacity: .35; }
+.lvpages { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+.lvpages button { font: inherit; font-weight: 800; font-size: 13px; border: 0; border-radius: 10px; padding: 7px 9px; background: var(--surface-2); color: var(--muted); }
+.lvpages button.on { background: var(--accent); color: #fff; }
+.lvpages button[disabled] { opacity: .35; }
+.stars { font-size: 26px; color: #ffc83d; letter-spacing: 2px; }
+.stars .off { color: var(--line-strong); }
+.cardicon svg { border-radius: 16px; }
+.endinfo { display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; font-weight: 800; margin-top: 4px; }
+.menustars { color: #ffb400; letter-spacing: 1px; }
+.sbprobe { position: fixed; left: 0; bottom: 0; width: 1px; height: env(safe-area-inset-bottom, 0px); visibility: hidden; pointer-events: none; }
+.brand h1 { font-size: 21px; }
+@media (max-width: 385px) { .brand h1 { font-size: 19px; } }
+@media (max-width: 360px) { .timepill { display: none; } }
+</style>
+</head>
+<body>
+<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<linearGradient id="opbg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8fdc62"/><stop offset="1" stop-color="#4fae3c"/></linearGradient>
+<symbol id="op-logo" viewBox="0 0 100 100"><rect width="100" height="100" rx="24" fill="url(#opbg)"/>
+<path d="M30 70 L70 34" stroke="#ffffff" stroke-opacity=".55" stroke-width="9" stroke-linecap="round"/>
+<g><ellipse cx="30" cy="84" rx="17" ry="5" fill="#2f6e22" opacity=".35"/><rect x="18" y="56" width="24" height="27" rx="3" fill="#3f7ff0"/><rect x="18" y="62" width="24" height="6" fill="#1b2f66"/><rect x="18" y="73" width="24" height="3" fill="#fff"/>
+<rect x="17" y="40" width="26" height="17" rx="6" fill="#2f6fe0"/><text x="30" y="53" font-family="system-ui,sans-serif" font-weight="900" font-size="13" fill="#fff" text-anchor="middle">12</text></g>
+<g><ellipse cx="70" cy="50" rx="15" ry="4.5" fill="#2f6e22" opacity=".35"/><rect x="60" y="28" width="20" height="21" rx="3" fill="#ea4a4f"/><rect x="60" y="33" width="20" height="5" fill="#5a1418"/>
+<rect x="59" y="14" width="22" height="15" rx="5" fill="#d83a40"/><text x="70" y="25.5" font-family="system-ui,sans-serif" font-weight="900" font-size="11" fill="#fff" text-anchor="middle">5</text></g>
+<g fill="#3f7ff0"><circle cx="44" cy="58" r="3.4"/><circle cx="53" cy="50" r="3.4"/></g></symbol>
+<symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-sound-on" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor" fill-opacity=".15"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19.3 5.7a9 9 0 0 1 0 12.6"/></g></symbol>
+<symbol id="i-sound-off" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor" fill-opacity=".15"/><path d="M16.5 9.5l5 5M21.5 9.5l-5 5"/></g></symbol>
+<symbol id="i-stats" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3"/></g></symbol>
+<symbol id="i-gear" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></g></symbol>
+<symbol id="i-new" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 3v5h-5"/></g></symbol>
+<symbol id="i-levels" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5" fill="currentColor" fill-opacity=".35"/></g></symbol>
+<symbol id="i-help" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.3a2.6 2.6 0 0 1 5 .9c0 1.8-2.5 2.2-2.5 3.9M12 17.3v.2"/></g></symbol>
+<symbol id="i-music" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l11-2v13"/><circle cx="6.5" cy="18" r="2.5" fill="currentColor"/><circle cx="17.5" cy="16" r="2.5" fill="currentColor"/></g></symbol>
+</defs></svg>
+
+<div class="app" id="app">
+  <div class="top">
+    <button class="brand homebtn" id="btnHome" aria-label="Back to all games">
+      <span class="chev" aria-hidden="true">&#8249;</span>
+      <svg viewBox="0 0 100 100" aria-hidden="true"><use href="#op-logo"/></svg>
+      <h1>Outpost Rush</h1>
+    </button>
+    <div class="ggpill lvpill" id="lvPill">Level 1</div>
+    <div class="ggpill timepill" id="timePill">0:00</div>
+    <div class="topsp"></div>
+    <div class="topbtns">
+      <button class="iconbtn" id="btnSound" aria-label="Sound"><svg viewBox="0 0 24 24"><use href="#i-sound-off"/></svg></button>
+    </div>
+  </div>
+
+  <div class="stagewrap" id="stagewrap">
+    <div class="stage" id="stage">
+      <canvas id="cv"></canvas>
+      <canvas id="fx"></canvas>
+      <div class="finger" id="finger"></div>
+      <div class="hint" id="hint"></div>
+      <div class="loading" id="loading">Marching in&hellip;</div>
+      <div class="toast" id="toast"></div>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <button class="tool" id="btnLevels"><svg viewBox="0 0 24 24"><use href="#i-levels"/></svg><span>Levels</span></button>
+    <button class="tool" id="btnHelp"><svg viewBox="0 0 24 24"><use href="#i-help"/></svg><span>How to play</span></button>
+    <button class="tool" id="btnStats"><svg viewBox="0 0 24 24"><use href="#i-stats"/></svg><span>Stats</span></button>
+    <button class="tool" id="btnSettings"><svg viewBox="0 0 24 24"><use href="#i-gear"/></svg><span>Settings</span></button>
+    <button class="tool red" id="btnNew"><svg viewBox="0 0 24 24"><use href="#i-new"/></svg><span>Restart</span></button>
+  </div>
+</div>
+
+<!-- Level map -->
+<div class="overlay" id="ovLevels">
+  <div class="sheet" role="dialog" aria-label="Levels">
+    <h2>Levels</h2>
+    <div class="sheetbody"><div id="lvpagesBox"></div><div class="lvhead" id="lvHead"></div><div class="lvgrid" id="lvgrid"></div></div>
+    <div class="actions"><button class="btn" id="btnCloseLevels">Close</button></div>
+  </div>
+</div>
+
+<!-- Settings -->
+<div class="overlay" id="ovSettings">
+  <div class="sheet" role="dialog" aria-label="Settings">
+    <h2>Settings</h2>
+    <div class="sheetbody">
+      <div class="themelabel">Theme (all games)</div>
+      <div class="themes" id="themes"></div>
+      <label class="row"><div>Sound<small>Marching, hits, captures and cheers.</small></div>
+        <span class="switch"><input type="checkbox" id="setSound"><span></span></span></label>
+      <label class="row"><div>Music<small>A light tune while you play.</small></div>
+        <span class="switch"><input type="checkbox" id="setMusic"><span></span></span></label>
+      <label class="row"><div>Old-time ads<small>Joke ads between games. This switch is shared by all Goobs-Games.</small></div>
+        <span class="switch"><input type="checkbox" id="setAds"><span></span></span></label>
+      <div class="row" id="rowAdEvery"><div>Show an ad every<small>Counted in finished games.</small></div>
+        <div class="stepper"><button id="adLess" aria-label="Fewer">&minus;</button><b id="adEvery">3</b><button id="adMore" aria-label="More">+</button></div></div>
+      <div class="version" id="version">Outpost Rush</div>
+    </div>
+    <div class="actions"><button class="btn red" id="btnCloseSettings">Done</button></div>
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="overlay" id="ovStats">
+  <div class="sheet" role="dialog" aria-label="Stats">
+    <h2>Your Outpost Rush stats</h2>
+    <div class="sheetbody" id="statsBody"></div>
+    <div class="actions"><button class="btn red" id="btnCloseStats">Done</button></div>
+  </div>
+</div>
+
+<!-- How to play -->
+<div class="overlay" id="ovHelp">
+  <div class="sheet" role="dialog" aria-label="How to play">
+    <h2 id="helpTitle">How to play</h2>
+    <div class="sheetbody"><ol class="helplist" id="helpList"></ol></div>
+    <div class="actions"><button class="btn red" id="btnCloseHelp">Let's play</button></div>
+  </div>
+</div>
+
+<!-- Cards -->
+<div class="overlay center" id="ovEnd">
+  <div class="card" role="dialog">
+    <div class="cardicon" id="cardIcon"></div>
+    <h2 id="endTitle"></h2>
+    <p id="endText"></p>
+    <div class="actions" id="endActions"></div>
+  </div>
+</div>
+
+<script>
+/* Outpost Rush rules: the battle simulation (towers, links, troops, fights, capture), the computer player and the
+   level format. Fixed timestep (OP.DT), deterministic (seeded), no drawing: the page (app.js + scene.js) and the
+   Node checks (tools/check.js) run the very same code.
+
+   The map is W x H world units, x to the right, y down the screen (the player is at the bottom).
+   Owners: 0 gray (neutral), 1 blue (the player), 2 red (the computer). */
+var OP = (function () {
+  'use strict';
+  var DT = 1 / 30;          // 30 steps a second
+  var W = 9, H = 17;        // the battlefield (world units)
+  var CAP = 63;             // a tower's top number ("Max")
+  var SPEED = 1.45;         // troops walk this many units a second
+  var EDGE = 0.42;          // troops leave / arrive at this distance from a tower's middle
+  var GROW_IDLE = 0.9;      // seconds per +1 for a tower with no outgoing lines (it keeps its troops)
+  var GROW_SEND = 1.8;      // seconds per +1 for a tower that sends
+  var SEND = 0.55;          // seconds between two troops on one line
+  var CLASH = 0.16;         // two opposing troops closer than this fight
+  var START_CAP = 1;        // a captured tower starts with the soldier that took it
+
+  function rng(seed) {
+    var a = seed >>> 0;
+    return function () { a = (a + 0x6D2B79F5) >>> 0; var t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  }
+  // link slots: 1 below 10, 2 from 10, 3 from 20 (the dots under the number)
+  function slots(n) { return n >= 20 ? 3 : n >= 10 ? 2 : 1; }
+  // the number a tower needs to keep k lines (it never sends itself below this; enemy hits can push it under)
+  function floorFor(k) { return k >= 3 ? 20 : k >= 2 ? 10 : 0; }
+  // floors drawn for a number (the tower visibly grows)
+  function floors(n) { return n < 6 ? 1 : n < 14 ? 2 : n < 24 ? 3 : n < 36 ? 4 : n < 50 ? 5 : 6; }
+
+  // ---------------- a battle ----------------
+  // level: { towers: [[x, y, owner, n], ...], links: [[from, to], ...], ai: { think, margin, commit, ... } }
+  // opts.ai: { 1: params, 2: params } which owners the computer plays (the page: only red; the checks: both)
+  function create(level, opts) {
+    opts = opts || {};
+    var s = { t: 0, tick: 0, towers: [], links: [], units: [], ev: [], nextId: 1, rng: rng(opts.seed || 12345),
+      ai: {}, over: 0, stats: { sent: [0, 0, 0], caps: [0, 0, 0], lost: [0, 0, 0] } };
+    level.towers.forEach(function (d, i) { s.towers.push({ i: i, x: d[0], y: d[1], o: d[2], n: d[3], g: 0, links: [], lastHit: -9 }); });
+    (level.links || []).forEach(function (l) { addLink(s, l[0], l[1], true); });
+    var ai = opts.ai || {};
+    for (var o in ai) if (ai[o]) s.ai[o] = { P: ai[o], next: ai[o].delay || 0.5 };
+    return s;
+  }
+  function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+  function linkFrom(s, a, b) { var L = s.towers[a].links; for (var i = 0; i < L.length; i++) if (L[i].b === b) return L[i]; return null; }
+  // why a new line from a to b isn't allowed for owner o ('' = fine)
+  function whyNot(s, a, b, o) {
+    var A = s.towers[a]; if (!A || A.o !== o) return 'owner';
+    if (a === b || !s.towers[b]) return 'same';
+    if (linkFrom(s, a, b)) return 'dup';
+    if (A.links.length >= slots(A.n)) return 'slots';
+    return '';
+  }
+  function addLink(s, a, b, free) {
+    var A = s.towers[a];
+    if (!free && whyNot(s, a, b, A.o)) return null;
+    // a line back along one of your own lines turns it round (your troops don't walk both ways)
+    var rev = linkFrom(s, b, a); if (rev && rev.o === A.o) cut(s, rev, 'turn');
+    var L = { id: s.nextId++, a: a, b: b, o: A.o, acc: 0.6, t0: s.t, len: dist(A, s.towers[b]) };
+    A.links.push(L); s.links.push(L);
+    s.ev.push({ t: 'link', a: a, b: b, o: A.o, id: L.id });
+    return L;
+  }
+  function cut(s, L, why) {
+    var A = s.towers[L.a], i = A.links.indexOf(L); if (i >= 0) A.links.splice(i, 1);
+    i = s.links.indexOf(L); if (i >= 0) s.links.splice(i, 1);
+    s.ev.push({ t: 'cut', a: L.a, b: L.b, o: L.o, id: L.id, why: why || 'cut' });
+  }
+  function cutById(s, id) { for (var i = 0; i < s.links.length; i++) if (s.links[i].id === id) { cut(s, s.links[i], 'cut'); return true; } return false; }
+  // drop the newest lines a tower can no longer hold
+  function trim(s, T) { while (T.links.length > 1 && T.n < floorFor(T.links.length)) cut(s, T.links[T.links.length - 1], 'drop'); }
+
+  function spawn(s, L) {
+    var A = s.towers[L.a], B = s.towers[L.b], dx = (B.x - A.x) / L.len, dy = (B.y - A.y) / L.len;
+    s.units.push({ id: s.nextId++, o: L.o, a: L.a, b: L.b, ax: A.x, ay: A.y, dx: dx, dy: dy, len: L.len, d: EDGE, dead: false });
+    s.stats.sent[L.o]++;
+  }
+  function capture(s, T, o) {
+    var from = T.o;
+    for (var i = T.links.length - 1; i >= 0; i--) cut(s, T.links[i], 'lost');
+    T.o = o; T.n = START_CAP; T.g = 0;
+    s.stats.caps[o]++; if (from) s.stats.lost[from]++;
+    s.ev.push({ t: 'cap', i: T.i, from: from, o: o });
+  }
+  function arrive(s, u) {
+    var T = s.towers[u.b];
+    if (T.o === u.o) { if (T.n < CAP) { var f0 = floors(T.n); T.n++; if (floors(T.n) > f0 || T.n === 10 || T.n === 20) s.ev.push({ t: 'lvl', i: T.i }); } s.ev.push({ t: 'reinf', i: T.i, o: u.o }); return; }
+    T.n--; T.lastHit = s.t;
+    s.ev.push({ t: 'hit', i: T.i, o: u.o, x: T.x - u.dx * EDGE, y: T.y - u.dy * EDGE });
+    if (T.n <= 0) capture(s, T, u.o); else trim(s, T);
+  }
+
+  function step(s) {
+    var i, j, T, L;
+    s.t += DT; s.tick++;
+    // computer players think
+    for (var o in s.ai) { var A = s.ai[o]; if (s.t >= A.next) { A.next = s.t + A.P.think * (0.85 + 0.3 * s.rng()); think(s, +o, A.P); } }
+    // growth and sending
+    for (i = 0; i < s.towers.length; i++) {
+      T = s.towers[i]; if (!T.o) continue; // gray towers never grow or send
+      T.g += DT / (T.links.length ? GROW_SEND : GROW_IDLE);
+      if (T.g >= 1) { T.g -= 1; if (T.n < CAP) { var f0 = floors(T.n); T.n++; if (floors(T.n) > f0 || T.n === 10 || T.n === 20) s.ev.push({ t: 'lvl', i: i }); } else T.g = 0; }
+      var fl = floorFor(T.links.length);
+      for (j = 0; j < T.links.length; j++) {
+        L = T.links[j]; L.acc += DT / SEND;
+        if (L.acc >= 1) { if (T.n >= 1 && T.n - 1 >= fl) { T.n--; L.acc -= 1; spawn(s, L); s.ev.push({ t: 'send', i: i, o: T.o }); } else L.acc = 1; }
+      }
+    }
+    // walking
+    var st = SPEED * DT;
+    for (i = 0; i < s.units.length; i++) { var u = s.units[i]; u.d += st; }
+    // troops meeting head-on on the same line fight 1:1 (both fall)
+    clashes(s);
+    // arriving
+    var keep = [];
+    for (i = 0; i < s.units.length; i++) { u = s.units[i]; if (u.dead) continue; if (u.d >= u.len - EDGE) arrive(s, u); else keep.push(u); }
+    s.units = keep;
+    // over?
+    if (!s.over) {
+      var blue = 0, other = 0, blueU = 0;
+      for (i = 0; i < s.towers.length; i++) { if (s.towers[i].o === 1) blue++; else other++; }
+      for (i = 0; i < s.units.length; i++) if (s.units[i].o === 1) blueU++;
+      if (!other) s.over = 1; else if (!blue && !blueU) s.over = 2;
+    }
+  }
+  function clashes(s) {
+    var pairs = {}, i, u, k;
+    for (i = 0; i < s.units.length; i++) {
+      u = s.units[i]; var lo = Math.min(u.a, u.b), hi = Math.max(u.a, u.b);
+      k = lo * 1000 + hi; var P = pairs[k] || (pairs[k] = { up: [], dn: [], lo: lo });
+      if (u.a === lo) { u.p = u.d; P.up.push(u); } else { u.p = u.len - u.d; P.dn.push(u); }
+    }
+    for (k in pairs) {
+      var Q = pairs[k]; if (!Q.up.length || !Q.dn.length) continue;
+      Q.up.sort(function (a, b) { return b.p - a.p; }); Q.dn.sort(function (a, b) { return a.p - b.p; });
+      for (i = 0; i < Q.up.length; i++) {
+        var a = Q.up[i];
+        for (var j = 0; j < Q.dn.length; j++) {
+          var b = Q.dn[j]; if (b.dead || b.o === a.o) continue;
+          if (b.p > a.p + CLASH) break; // the nearest enemy coming the other way isn't here yet
+          a.dead = b.dead = true;
+          var px = a.ax + a.dx * a.d, py = a.ay + a.dy * a.d;
+          s.ev.push({ t: 'clash', x: px, y: py, a: a.o, b: b.o, lo: Q.lo, hi: Math.max(a.a, a.b), p: (a.p + b.p) / 2 });
+          break;
+        }
+      }
+    }
+    s.units = s.units.filter(function (x) { return !x.dead; });
+  }
+  function takeEvents(s) { var e = s.ev; s.ev = []; return e; }
+
+  // ---------------- the computer player ----------------
+  // It sees what the player sees (tower numbers, troops on the lines, lines) and acts through the same moves (make a
+  // line, cut a line). P: think (seconds between moves), margin (spare troops it wants before attacking), commit
+  // (how much of what an attack needs it must have to start it: <1 bold, >1 careful), expand (how much it likes gray
+  // towers), attack (false: leaves the player alone), defend (helps its threatened towers), cut (cuts hopeless lines),
+  // acts (moves per think), wait (seconds before its first attack on the player).
+  function think(s, o, P) {
+    var T = s.towers, n = T.length, i, j, k, t, S, X, L;
+    var HZ = P.horizon || 14;            // how far ahead (seconds) it sums what lines will deliver
+    var mine = [], mineTo = [], foeTo = [], inFoe = [], inMine = [];
+    for (i = 0; i < n; i++) { mineTo.push(0); foeTo.push(0); inFoe.push(0); inMine.push(0); if (T[i].o === o) mine.push(T[i]); }
+    if (!mine.length) return;
+    for (i = 0; i < s.units.length; i++) { var u = s.units[i]; if (u.o === o) mineTo[u.b]++; else if (u.o) foeTo[u.b]++; }
+    // what a line will still deliver over the horizon: the source's spare troops (at the send rate) plus what it grows
+    function supply(S, k, hz) { return Math.max(0, Math.min(S.n - floorFor(k), hz / SEND)) + hz / GROW_SEND; }
+    for (i = 0; i < s.links.length; i++) { L = s.links[i]; var v = supply(T[L.a], T[L.a].links.length, HZ); if (L.o === o) inMine[L.b] += v; else inFoe[L.b] += v; }
+    function canStart(S) { return S.links.length < slots(S.n) && S.n - floorFor(S.links.length + 1) >= 1; }
+    function growth(X, hz) { return X.o && X.n < CAP ? hz / (X.links.length ? GROW_SEND : GROW_IDLE) : 0; }
+    var acts = [];
+    // 1. my towers under attack: stop their own hopeless attacks, get help from a safe neighbour
+    if (P.defend !== false) {
+      for (i = 0; i < mine.length; i++) {
+        t = mine[i];
+        var threat = foeTo[t.i] + inFoe[t.i] * 0.5 - t.n - mineTo[t.i] - inMine[t.i] * 0.5 - growth(t, 6);
+        if (threat <= -1) continue;
+        for (j = 0; j < t.links.length; j++) { L = t.links[j]; if (T[L.b].o !== o && s.t - L.t0 > 1.5 && T[L.b].n > mineTo[L.b] + 3) acts.push({ sc: 90 + threat, k: 'cut', L: L }); }
+        for (j = 0; j < mine.length; j++) {
+          S = mine[j]; if (S === t || !canStart(S) || linkFrom(s, S.i, t.i) || linkFrom(s, t.i, S.i)) continue;
+          if (S.n - floorFor(S.links.length + 1) < 5 || foeTo[S.i] + inFoe[S.i] * 0.5 > S.n - 4) continue;
+          acts.push({ sc: 80 + threat * 2 - dist(S, t) * 2, k: 'link', a: S.i, b: t.i });
+        }
+      }
+    }
+    // 2. attack: gray towers first, then weak enemy towers; several of my towers may gang up on one
+    var attackOk = P.attack !== false && s.t >= (P.wait || 0);
+    for (i = 0; i < n; i++) {
+      X = T[i]; if (X.o === o || (X.o && !attackOk)) continue;
+      var cands = [];
+      for (j = 0; j < mine.length; j++) { S = mine[j]; if (canStart(S) && !linkFrom(s, S.i, X.i)) cands.push(S); }
+      if (!cands.length) continue;
+      cands.sort(function (a, b) { return dist(a, X) - dist(b, X); });
+      var trip = dist(cands[0], X) / SPEED;
+      var need = X.n + 1 + growth(X, HZ + trip) + inFoe[X.i] * (X.o ? 1 : 0) + P.margin;
+      var have = mineTo[X.i] + inMine[X.i], pot = have;
+      for (j = 0; j < cands.length && j < (P.gang || 3); j++) pot += supply(cands[j], cands[j].links.length + 1, HZ);
+      var alone = have + supply(cands[0], cands[0].links.length + 1, HZ);
+      if (pot < need * P.commit) continue;
+      S = cands[0];
+      var d = dist(S, X);
+      var sc = 60 - d * 2.2 - need * 0.3 + (alone >= need * P.commit ? 6 : 0) + (X.o ? (P.attackBias || 0) + (X.n < 6 ? 8 : 0) : (P.expand || 0));
+      acts.push({ sc: sc, k: 'link', a: S.i, b: X.i });
+    }
+    // 3. cut lines that no longer pay: hopeless attacks, help that's no longer needed
+    if (P.cut !== false) {
+      for (i = 0; i < mine.length; i++) {
+        S = mine[i];
+        for (j = 0; j < S.links.length; j++) {
+          L = S.links[j]; var B = T[L.b], age = s.t - L.t0; if (age < 4) continue;
+          if (B.o !== o) {
+            var got = mineTo[B.i] + inMine[B.i], want = B.n + growth(B, HZ) + (B.o ? inFoe[B.i] : 0);
+            if (got < want * 0.7) acts.push({ sc: 55 + (want - got) * 0.5, k: 'cut', L: L });
+          } else {
+            var th = foeTo[B.i] + inFoe[B.i] * 0.5;
+            if (th < B.n * 0.5 && (B.n > 30 || S.n < 3)) acts.push({ sc: 42 + (B.n > 50 ? 10 : 0), k: 'cut', L: L });
+          }
+        }
+      }
+    }
+    if (!acts.length) return;
+    acts.sort(function (a, b) { return b.sc - a.sc || (a.a || 0) - (b.a || 0); });
+    var done = 0, used = {};
+    for (i = 0; i < acts.length && done < (P.acts || 1); i++) {
+      var A = acts[i]; if (A.sc < (P.min || 20)) break;
+      if (A.k === 'cut') { if (s.links.indexOf(A.L) < 0 || used['c' + A.L.id]) continue; cut(s, A.L, 'ai'); used['c' + A.L.id] = 1; done++; }
+      else { if (used['a' + A.a] || whyNot(s, A.a, A.b, o)) continue; addLink(s, A.a, A.b); used['a' + A.a] = 1; done++; }
+    }
+  }
+  // ---------------- player moves ----------------
+  function playerLink(s, a, b) { var w = whyNot(s, a, b, 1); if (w) return w; addLink(s, a, b); return ''; }
+
+  // the computer's settings for a level's red player (levels.json may override any of them)
+  function redParams(level) {
+    var R = { think: 2.2, margin: 3, commit: 1.2, expand: 6, attackBias: 0, acts: 1, defend: true, cut: true, wait: 10 };
+    var a = level.ai || {}; for (var k in a) R[k] = a[k];
+    return R;
+  }
+  // the checks' "player": the same computer at a moderate setting, playing blue
+  var BLUE_BOT = { think: 1.0, margin: 2, commit: 1.0, expand: 4, attackBias: 4, acts: 1, defend: true, cut: true, wait: 0 };
+
+  return { DT: DT, W: W, H: H, CAP: CAP, SPEED: SPEED, EDGE: EDGE, GROW_IDLE: GROW_IDLE, GROW_SEND: GROW_SEND, SEND: SEND, START_CAP: START_CAP,
+    rng: rng, slots: slots, floorFor: floorFor, floors: floors, create: create, step: step, takeEvents: takeEvents, whyNot: whyNot,
+    addLink: addLink, cut: cut, cutById: cutById, linkFrom: linkFrom, playerLink: playerLink, think: think, redParams: redParams, BLUE_BOT: BLUE_BOT, dist: dist };
+})();
+if (typeof module !== 'undefined') module.exports = OP;
+</script>
+<script>
+window.OP_LEVELS = [{"towers":[[4.5,14.2,1,10],[3.1,8.8,0,4],[5.2,2.9,2,5]],"links":[],"ai":{"think":3.5,"attack":false,"expand":0,"margin":6,"commit":1.5,"wait":999},"hint":"Drag from your tower to another tower","props":[["crates",7.12,3.33,3.31],["bush",5.35,9.23,4.98],["barrel",7.9,11.75,0.15],["logs",0.45,12.06,0.03],["crates",2.62,12.56,0.1],["bush",5.82,5.05,3.17],["crates",1.91,7.86,0.5]],"target":40,"gold":25},{"towers":[[3.2,14,1,14],[3.2,8.2,0,30],[6.6,10.4,0,3],[6,3,2,6]],"links":[[0,1]],"ai":{"think":3.2,"attack":false,"margin":5,"commit":1.4,"wait":999},"hint":"That line runs into a big tower. Swipe across it to cut it","props":[["bush",2.03,12.43,5.03],["logs",2.24,4.25,0.37],["fence",1.98,7.17,1.57],["crates",7.67,14.21,1.97],["fence",8.42,4.87,4.71],["barrel",0.58,13.64,5.16],["logs",5.05,1.52,0.11]],"target":90,"gold":30},{"towers":[[3.4,14.3,1,24],[1.6,9.4,0,5],[5.3,8.6,0,6],[7.5,10.8,0,5],[4.5,2.8,2,8]],"links":[],"ai":{"think":3,"margin":5,"commit":1.4,"wait":35},"hint":"From 10 a tower can hold 2 lines, from 20 three: watch the dots","props":[["crates",2.02,15.27,0.03],["fence",1.13,4.35,1.57],["crates",2.79,2,3.21],["fence",7.77,4.51,0],["crates",5.28,0.98,1.8],["barrel",7.33,6.15,3.23],["bush",6.34,13.07,0.4]],"target":30,"gold":35},{"towers":[[2.4,14.6,1,22],[6.4,10.2,1,4],[6,3.4,2,14],[2.2,6.8,0,6],[3.8,10.8,0,8]],"links":[],"ai":{"think":2.8,"margin":4,"commit":1.3,"wait":12,"expand":2},"hint":"Drag to one of your own towers to send it help","props":[["fence",6.75,1.98,1.57],["fence",7.77,7.56,3.14],["logs",4.49,15.7,5.14],["fence",7.74,12.42,0],["crates",3.96,7.22,3.21],["bush",2.34,4.13,4.97],["barrel",5.57,14.25,3.63]],"target":25,"gold":40},{"towers":[[2.62,14.96,1,14],[1.42,3.5,2,9],[6.94,7.85,0,3],[2.14,9.21,0,3],[4.19,7.43,0,4]],"links":[],"ai":{"think":2.4,"margin":4,"commit":1.3,"expand":6,"attackBias":0,"wait":22,"acts":1},"props":[["bush",6.17,15.64,0.08],["crates",1.18,1.48,3.35],["crates",7.5,9.59,1.63],["crates",6.8,1.66,0],["fence",0.72,9.05,4.71],["crates",8.03,15.64,5],["crates",8.2,4.35,1.59],["fence",3.04,2.56,3.14]],"target":75,"gold":45},{"towers":[[4.05,14.65,1,14],[2.59,3.45,2,10],[5.36,7.46,0,2],[3.65,9.79,0,2],[7.87,4.91,0,8],[0.83,11.8,0,8]],"links":[],"ai":{"think":2.31,"margin":3.8,"commit":1.27,"expand":6,"attackBias":0,"wait":21,"acts":1},"props":[["logs",7.89,3.3,1.92],["crates",6.1,14.41,3.32],["bush",8.56,15.2,0.16],["crates",5.63,12.77,4.94],["logs",4.86,1.26,3.56],["bush",8.18,11.49,0.42]],"target":70,"gold":50},{"towers":[[3.99,15.04,1,14],[2.08,3.42,2,10],[1.43,7.23,0,3],[7.68,9.69,0,2],[5.53,5.88,0,4],[3.41,10.84,0,4],[5.31,8.61,0,10]],"links":[],"ai":{"think":2.23,"margin":3.6,"commit":1.25,"expand":6,"attackBias":1,"wait":19,"acts":1},"props":[["fence",7.67,2.44,3.14],["fence",3.53,1.11,0],["bush",6.74,14.97,1.85],["crates",6.62,4.92,1.84],["barrel",6.91,13.47,3.38],["fence",1.01,10.31,0],["fence",1.39,12.4,4.71],["fence",1.08,4.45,4.71],["crates",8.22,12.09,1.79]],"target":70,"gold":55},{"towers":[[1.97,15.04,1,13],[2.66,2.06,2,11],[7.37,6.99,0,2],[1.51,10.2,0,1],[5.38,5.47,0,9],[3.87,11.74,0,7],[2.55,7.53,0,9]],"links":[],"ai":{"think":2.14,"margin":3.4,"commit":1.22,"expand":6,"attackBias":1,"wait":18,"acts":1},"props":[["crates",5.74,0.94,1.89],["bush",1.04,6.84,1.63],["logs",8.13,13.65,5.18],["barrel",4.43,14.74,4.84],["crates",7.45,3.05,3.28],["barrel",8.13,10.64,5.19],["bush",0.69,2.55,1.77],["fence",0.48,13.14,0]],"target":75,"gold":60},{"towers":[[2.13,14.04,1,13],[6.48,2.51,2,12],[3.71,5.19,2,7],[7.98,5.66,0,4],[1.15,11.58,0,2],[5.68,7.06,0,2],[3.21,9.95,0,1],[2.27,7.44,0,12]],"links":[],"ai":{"think":2.05,"margin":3.2,"commit":1.19,"expand":6,"attackBias":2,"wait":16,"acts":1},"props":[["crates",1.5,4.67,1.63],["crates",5.18,14.98,5.21],["barrel",0.42,15.94,0.42],["fence",6.46,12.38,4.71],["fence",3.29,15.39,3.14],["logs",8.32,11.35,0.45],["bush",5.03,0.91,1.78],["bush",8,13.98,5.02]],"target":80,"gold":65},{"towers":[[4.5,13.96,1,13],[6.1,2.96,2,12],[2.52,4.89,2,7],[6.7,5.8,0,9],[2.36,11.48,0,10],[1.38,7.14,0,7],[7.53,9.81,0,6],[4.31,7,0,6],[4.67,10.01,0,4]],"links":[],"ai":{"think":1.97,"margin":3,"commit":1.17,"expand":6,"attackBias":2,"wait":15,"acts":1},"props":[["barrel",1.08,5.7,0.04],["fence",8.43,12.64,0],["fence",1.41,13.04,3.14],["crates",5.93,1.22,0.15],["bush",4.14,2.2,1.85],["bush",0.7,4.03,0.44],["crates",8.42,4.8,3.17],["logs",2.72,16.04,5.14],["fence",8.47,8.86,1.57]],"target":85,"gold":70},{"towers":[[3.28,14.73,1,13],[4.1,2.58,2,13],[5.11,5.47,2,8],[1.69,5.6,0,5],[7.59,11.44,0,5],[7.46,4.32,0,4],[1.39,12.42,0,2],[2.94,7.95,0,7],[6.14,9.07,0,7]],"links":[],"ai":{"think":1.88,"margin":2.8,"commit":1.14,"expand":6,"attackBias":2,"wait":13,"acts":1},"props":[["crates",8.34,12.49,3.42],["bush",0.61,9.77,0.01],["bush",6.39,14.35,0.06],["fence",1.04,3.54,4.71],["crates",3.17,1.26,4.85],["crates",0.57,7.52,4.72],["fence",0.51,15.83,0]],"target":90,"gold":75},{"towers":[[5.55,14.84,1,13],[2.49,15.05,1,7],[5.2,1.74,2,14],[1.44,1.85,2,8],[4.58,6.28,0,4],[4.34,10.86,0,3],[1.26,5.76,0,4],[7.45,11.14,0,6],[6.54,7.89,0,4],[2.44,8.93,0,2]],"links":[],"ai":{"think":1.79,"margin":2.6,"commit":1.11,"expand":6,"attackBias":3,"wait":12,"acts":1},"props":[["barrel",0.54,12.14,1.9],["logs",8.55,8.76,1.7],["fence",6.87,15.8,3.14],["crates",8.39,14.1,5.02],["crates",0.45,14.93,1.69],["fence",1.59,10.55,3.14],["fence",7.71,7.09,0],["logs",1.04,8.61,4.72]],"target":100,"gold":80},{"towers":[[1.55,14.74,1,12],[4.79,14.72,1,6],[4.24,3.24,2,14],[7.54,5,2,8],[4.54,7.07,0,5],[4.22,10.09,0,7],[1.15,4.84,0,10],[7.86,11.91,0,9],[1.81,7.96,0,14],[7.48,8.79,0,13]],"links":[],"ai":{"think":1.71,"margin":2.4,"commit":1.09,"expand":6,"attackBias":3,"wait":10,"acts":1},"props":[["logs",0.97,11.08,1.7],["logs",1.32,1.17,3.49],["fence",6.26,1.73,0],["crates",0.41,7.34,3.5],["fence",8.24,2.41,1.57],["barrel",6.43,15.73,0.46],["barrel",3.25,1.69,5.17]],"target":105,"gold":85},{"towers":[[1.91,14.23,1,12],[6.01,14.81,1,6],[1.47,2.68,2,15],[5.15,3.37,2,9],[1.61,6.57,0,15],[7.43,10.27,0,15],[7.45,6.53,0,9],[1.43,10.67,0,7],[4.73,7.21,0,11],[4.05,9.91,0,9]],"links":[],"ai":{"think":1.62,"margin":2.2,"commit":1.06,"expand":6,"attackBias":4,"wait":9,"acts":1},"props":[["bush",0.95,8.9,1.74],["fence",7.68,4.26,4.71],["bush",7.83,13.52,3.6],["fence",3.36,15.72,4.71],["bush",7.85,2.64,3.17],["fence",8.4,15.02,0],["fence",0.84,4.11,1.57],["logs",4.63,1.03,3.35]],"target":105,"gold":90},{"towers":[[2.39,15.51,1,12],[5.24,15.17,1,6],[7.45,3.53,2,16],[1.97,3.39,2,10],[1.24,7.07,0,3],[8,9.79,0,4],[6.86,6.8,0,18],[2.23,10.16,0,18],[4.55,4.49,0,5],[4.65,12.4,0,4]],"links":[],"ai":{"think":1.53,"margin":2,"commit":1.03,"expand":6,"attackBias":4,"wait":7,"acts":1},"props":[["fence",0.58,11.73,4.71],["crates",8.33,7.84,0.4],["fence",2.75,1.48,1.57],["fence",1.19,1.37,4.71],["fence",4.36,2.4,3.14],["bush",8.28,13.44,1.69],["fence",3.07,13.09,4.71]],"target":90,"gold":95},{"towers":[[7.88,14.91,1,12],[4.57,15.18,1,6],[6.88,2.33,2,16],[3.12,5.41,2,10],[3.39,2.28,2,10],[6.27,7.93,0,19],[2.99,8.87,0,21],[7.47,4.96,0,3],[1.57,11.86,0,2],[5.24,4.53,0,19],[4,12.34,0,17]],"links":[],"ai":{"think":1.45,"margin":1.8,"commit":1.01,"expand":6,"attackBias":4,"wait":6,"acts":1},"props":[["logs",8.22,10.67,3.41],["bush",3.47,15.84,3.51],["crates",1.25,6.88,0.34],["bush",1.24,4.9,0.36],["barrel",0.45,8.2,3.36],["bush",1.71,14.5,1.58],["crates",8.45,3.27,0.02]],"target":95,"gold":100},{"towers":[[3.18,14.69,1,12],[7.11,13.73,1,6],[1.3,2.71,2,17],[5.03,1.42,2,10],[5.71,7.93,0,3],[3.33,8.87,0,2],[5.05,5.11,0,5],[3.97,11.74,0,4],[7.76,5.03,0,8],[1.12,12.01,0,8],[1.57,6.9,0,13],[7.31,10.07,0,15]],"links":[],"ai":{"think":1.36,"margin":1.6,"commit":0.98,"expand":6,"attackBias":5,"wait":4,"acts":2},"props":[["fence",8.07,6.99,1.57],["fence",3.49,1.08,3.14],["crates",1.71,15.21,1.86],["fence",8.59,11.64,1.57],["fence",4.32,15.5,1.57],["crates",7.69,16.03,2.04]],"target":75,"gold":105},{"towers":[[7.59,14.83,1,11],[4.44,15.55,1,6],[7.66,2.43,2,18],[4,1.61,2,11],[1.1,3.45,2,11],[3.62,7.82,0,5],[5.44,9.15,0,3],[3.66,4.65,0,15],[5.58,12.12,0,13],[7.6,7.19,0,15],[1.7,9.97,0,13],[1.05,7.46,0,18]],"links":[],"ai":{"think":1.27,"margin":1.4,"commit":0.95,"expand":6,"attackBias":5,"wait":3,"acts":2},"props":[["logs",8.51,9.96,4.98],["logs",1.97,13.59,1.68],["barrel",1.04,15.04,4.89],["fence",0.82,11.33,0],["bush",3.12,15.84,4.82],["bush",1.61,2.04,0.25],["bush",0.59,0.94,2],["crates",8.15,4.07,4.87],["bush",8.08,12,1.82]],"target":85,"gold":110},{"towers":[[6.56,14.4,1,11],[2.61,15.58,1,6],[2.19,1.43,2,18],[6.17,2.96,2,11],[4.63,4.77,2,11],[1.16,5.93,0,9],[8.14,11,0,8],[6.2,6.43,0,6],[2.54,10.38,0,6],[2.37,7.97,0,16],[6.59,9.2,0,15],[7.8,4.7,0,18],[1.22,12.28,0,20]],"links":[],"ai":{"think":1.19,"margin":1.2,"commit":0.93,"expand":6,"attackBias":6,"wait":1,"acts":2},"props":[["bush",7.63,1.1,3.44],["bush",0.47,14.71,4.82],["fence",8.42,14.33,4.71],["crates",8.49,12.49,1.69],["barrel",6.43,16.07,3.61],["bush",0.45,4.35,5.06]],"target":75,"gold":115},{"towers":[[3.67,15.31,1,11],[7.65,14.81,1,6],[6.71,1.47,2,19],[5.02,3.13,2,11],[1.35,4.94,0,15],[7.92,12.22,0,17],[7.91,4.2,0,15],[1.3,12.66,0,17],[7.99,7.45,0,4],[1.12,9.43,0,3],[4.28,6.76,0,5],[4.87,10.28,0,6],[7.09,9.66,0,19]],"links":[],"ai":{"think":1.1,"margin":1,"commit":0.9,"expand":6,"attackBias":6,"wait":0,"acts":2},"props":[["fence",4.62,0.97,0],["logs",0.99,11.24,5.18],["fence",8.53,1.47,3.14],["fence",0.59,2.61,4.71],["fence",2.08,1.07,1.57],["crates",2.77,2.91,0.24],["crates",0.58,15.28,1.93]],"target":90,"gold":120}];
+</script>
+<script>
+/* Outpost Rush sounds: synthesized with Web Audio (no audio files). Effects (march ticks, hits, capture fanfare,
+   level-up blip, cut swish, win / lose) and a light meadow tune (a little plucked melody over a soft bass, made up
+   as it plays from a pentatonic scale). Sound and music switch on and off separately. */
+var OPSound = (function () {
+  'use strict';
+  var ac = null, master = null, fxBus = null, musBus = null, on = false, music = false, playing = false, last = {};
+  function ctx() {
+    if (!on && !music) return null;
+    if (!ac) {
+      var AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null;
+      try { ac = new AC(); } catch (e) { return null; }
+      master = ac.createGain(); master.gain.value = 0.5; master.connect(ac.destination);
+      fxBus = ac.createGain(); fxBus.gain.value = 1; fxBus.connect(master);
+      musBus = ac.createGain(); musBus.gain.value = 0.32; musBus.connect(master);
+    }
+    if (ac.state === 'suspended') { try { ac.resume(); } catch (e) { /* ignore */ } }
+    return ac;
+  }
+  function tone(bus, type, f0, f1, dur, gain, delay) {
+    var a = ctx(); if (!a) return;
+    var t = a.currentTime + (delay || 0), o = a.createOscillator(), g = a.createGain();
+    o.type = type; o.frequency.setValueAtTime(f0, t); if (f1) o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(gain, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(bus); o.start(t); o.stop(t + dur + 0.03);
+  }
+  var nbuf = null;
+  function noise(freq, q, dur, gain, delay) {
+    var a = ctx(); if (!a) return;
+    if (!nbuf) { nbuf = a.createBuffer(1, a.sampleRate, a.sampleRate); var d = nbuf.getChannelData(0); for (var i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
+    var t = a.currentTime + (delay || 0), s = a.createBufferSource(); s.buffer = nbuf;
+    var bp = a.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = freq; bp.Q.value = q;
+    var g = a.createGain(); g.gain.setValueAtTime(gain, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    s.connect(bp); bp.connect(g); g.connect(fxBus); s.start(t, Math.random() * 0.5); s.stop(t + dur + 0.02);
+  }
+  // effects that can come many times a second are rate-limited so a big battle isn't a wall of noise
+  function limit(k, ms) { var n = performance.now(); if (n - (last[k] || 0) < ms) return false; last[k] = n; return true; }
+
+  // ---------- the meadow tune ----------
+  var SCALE = [0, 2, 4, 7, 9, 12, 14, 16], ROOTS = [0, -5, -3, -7], BPM = 112, nextT = 0, beat = 0, timer = 0, R = 1;
+  function rnd() { R = (R * 16807) % 2147483647; return R / 2147483647; }
+  function note(semi) { return 392 * Math.pow(2, semi / 12); } // around G4
+  function pluck(f, t, dur, g) {
+    var a = ac, o = a.createOscillator(), o2 = a.createOscillator(), gn = a.createGain();
+    o.type = 'triangle'; o2.type = 'sine'; o.frequency.value = f; o2.frequency.value = f * 2;
+    gn.gain.setValueAtTime(0.0001, t); gn.gain.exponentialRampToValueAtTime(g, t + 0.012); gn.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    var g2 = a.createGain(); g2.gain.value = 0.25; o2.connect(g2); g2.connect(gn);
+    o.connect(gn); gn.connect(musBus); o.start(t); o2.start(t); o.stop(t + dur + 0.05); o2.stop(t + dur + 0.05);
+  }
+  function schedule() {
+    if (!ac || !music || !playing) return;
+    var spb = 60 / BPM / 2; // eighth notes
+    while (nextT < ac.currentTime + 0.25) {
+      var bar = Math.floor(beat / 8) % 4, root = ROOTS[bar], pos = beat % 8;
+      if (pos === 0 || pos === 4) pluck(note(root - 24), nextT, 0.5, 0.22);          // bass
+      if (pos === 2 || pos === 6) pluck(note(root - 12 + 7), nextT, 0.18, 0.07);     // offbeat chord tick
+      var play = pos % 2 === 0 ? rnd() < 0.8 : rnd() < 0.3;
+      if (play) pluck(note(root + SCALE[Math.floor(rnd() * SCALE.length)]), nextT, 0.28, 0.1);
+      nextT += spb; beat++;
+    }
+  }
+  function startMusic() {
+    if (!music || !playing) return; var a = ctx(); if (!a) return;
+    if (!timer) { nextT = a.currentTime + 0.1; timer = setInterval(schedule, 90); }
+    musBus.gain.cancelScheduledValues(a.currentTime); musBus.gain.setTargetAtTime(0.32, a.currentTime, 0.2);
+  }
+  function stopMusic() { if (timer) { clearInterval(timer); timer = 0; } if (ac && musBus) { musBus.gain.cancelScheduledValues(ac.currentTime); musBus.gain.setTargetAtTime(0.0001, ac.currentTime, 0.05); } }
+
+  return {
+    setEnabled: function (v) { on = !!v; if (on) ctx(); },
+    setMusic: function (v) { music = !!v; if (music) startMusic(); else stopMusic(); },
+    // the tune plays only while a battle runs (not paused, not on a card)
+    playing: function (v) { v = !!v; if (v === playing) return; playing = v; if (v) startMusic(); else stopMusic(); },
+    unlock: function () { if (on || music) { ctx(); if (music && playing && !timer) startMusic(); } },
+    send: function () { if (on && limit('send', 110)) tone(fxBus, 'square', 900 + Math.random() * 120, 700, 0.03, 0.035); },
+    hit: function () { if (on && limit('hit', 70)) { noise(700 + Math.random() * 300, 1.4, 0.07, 0.25); tone(fxBus, 'sine', 180, 90, 0.07, 0.12); } },
+    clash: function () { if (on && limit('clash', 90)) { noise(2400, 3, 0.05, 0.18); tone(fxBus, 'triangle', 1400, 900, 0.04, 0.05); } },
+    reinf: function () { if (on && limit('reinf', 140)) tone(fxBus, 'sine', 660, 880, 0.06, 0.05); },
+    capture: function (mine) {
+      if (!on) return;
+      if (mine) { [523, 659, 784, 1047].forEach(function (f, i) { tone(fxBus, 'triangle', f, 0, 0.16, 0.2, i * 0.07); }); noise(4000, 1, 0.3, 0.1, 0.22); }
+      else { tone(fxBus, 'sawtooth', 330, 165, 0.35, 0.12); tone(fxBus, 'triangle', 262, 131, 0.4, 0.14, 0.05); }
+    },
+    levelUp: function () { if (on && limit('lvl', 120)) { tone(fxBus, 'sine', 880, 1320, 0.09, 0.09); tone(fxBus, 'sine', 1320, 0, 0.1, 0.06, 0.07); } },
+    link: function () { if (on) { tone(fxBus, 'triangle', 520, 780, 0.08, 0.16); noise(3000, 2, 0.05, 0.1); } },
+    cut: function () { if (on) { noise(3200, 1.2, 0.16, 0.3); tone(fxBus, 'sine', 900, 300, 0.12, 0.08); } },
+    nope: function () { if (on) tone(fxBus, 'square', 200, 150, 0.12, 0.08); },
+    win: function () { if (!on) return; [523, 659, 784, 1047, 1319, 1568].forEach(function (f, i) { tone(fxBus, 'triangle', f, 0, i === 5 ? 0.6 : 0.18, 0.24, i * 0.09); }); noise(5000, 1, 0.5, 0.1, 0.45); },
+    lose: function () { if (on) [440, 392, 330, 262].forEach(function (f, i) { tone(fxBus, 'triangle', f, 0, 0.25, 0.2, i * 0.18); }); },
+    ding: function () { if (on) { tone(fxBus, 'sine', 1319, 0, 0.35, 0.22); tone(fxBus, 'sine', 1568, 0, 0.45, 0.18, 0.1); } },
+    sign: function () { if (on) noise(900, 3, 0.07, 0.3); }
+  };
+})();
+</script>
+<script>
+/* Outpost Rush scenery (three.js): a sunny meadow with pine hedges round the field, fences, crates, barrels, logs and
+   bushes; round toy towers that gain floors as they grow, the number on a team-coloured cube on top with 1-3 link dots
+   under it; see-through lanes with marching chevrons; soldiers (instanced: hundreds stay smooth); capture bursts, hit
+   puffs, level-up arrows and the drag line. The camera is orthographic at a fixed 3/4 angle and frames the whole field.
+   OPScene.build(THREE, canvas, OP) returns what the app needs. Drawing only: the rules live in logic.js. */
+var OPScene = (function () {
+  'use strict';
+  var TEAM = [
+    { main: '#a3abb8', dark: '#6f7785', light: '#d7dce4', win: '#4a5160' },   // gray (neutral)
+    { main: '#3f7ff0', dark: '#2356b8', light: '#9cc2ff', win: '#1b2f66' },   // blue (you)
+    { main: '#ea4a4f', dark: '#b3262d', light: '#ffaaa8', win: '#5a1418' }    // red
+  ];
+  var PITCH = 56 * Math.PI / 180;
+
+  function build(T, canvas, OP) {
+    var W = OP.W, H = OP.H;
+    function X(x) { return x - W / 2; }
+    function Z(y) { return y - H / 2; }
+    function lam(c, o) { var m = new T.MeshLambertMaterial(Object.assign({ color: c, flatShading: true }, o || {})); return m; }
+    function ctex(w, h, draw) { var c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h); var t = new T.CanvasTexture(c); t.colorSpace = T.SRGBColorSpace; t.anisotropy = 4; return t; }
+    var R = OP.rng(424242); function rnd(a, b) { return a + (b - a) * R(); }
+
+    // ---------------- renderer, camera, light ----------------
+    var renderer = new T.WebGLRenderer({ canvas: canvas, antialias: true, powerPreference: 'high-performance' });
+    var DPR = Math.min(3, window.devicePixelRatio || 1);
+    renderer.setPixelRatio(DPR);
+    var scene = new T.Scene(); scene.background = new T.Color('#6cc04a');
+    var camera = new T.OrthographicCamera(-5, 5, 5, -5, 0.1, 200);
+    var CD = 60; camera.position.set(0, Math.sin(PITCH) * CD, Math.cos(PITCH) * CD); camera.lookAt(0, 0, 0); camera.updateMatrixWorld();
+    scene.add(new T.HemisphereLight(0xf4fbff, 0x5d8f45, 1.55));
+    var sun = new T.DirectionalLight(0xfff4e0, 1.9); sun.position.set(-6, 14, 8); scene.add(sun);
+
+    // ---------------- ground, hedges, forest ----------------
+    var grassTex = ctex(512, 512, function (x, w, h) {
+      x.fillStyle = '#74c64e'; x.fillRect(0, 0, w, h);
+      for (var i = 0; i < 1800; i++) { var l = rnd(0.86, 1.14); x.fillStyle = 'rgba(' + Math.round(96 * l) + ',' + Math.round(186 * l) + ',' + Math.round(70 * l) + ',.45)'; x.fillRect(rnd(0, w), rnd(0, h), rnd(2, 5), rnd(2, 6)); }
+    });
+    grassTex.wrapS = grassTex.wrapT = T.RepeatWrapping; grassTex.repeat.set(20, 20);
+    var ground = new T.Mesh(new T.PlaneGeometry(120, 120), new T.MeshLambertMaterial({ map: grassTex })); ground.rotation.x = -Math.PI / 2; ground.position.y = -0.02; scene.add(ground);
+    // the field: soft mowed stripes inside the hedge
+    var fieldTex = ctex(64, 512, function (x, w, h) { for (var i = 0; i < 12; i++) { x.fillStyle = i % 2 ? 'rgba(255,255,255,.07)' : 'rgba(40,90,20,.05)'; x.fillRect(0, i * h / 12, w, h / 12); } });
+    var field = new T.Mesh(new T.PlaneGeometry(W + 0.4, H + 0.4), new T.MeshBasicMaterial({ map: fieldTex, transparent: true, depthWrite: false })); field.rotation.x = -Math.PI / 2; field.position.y = -0.01; scene.add(field);
+    // pines: two stacked cones and a trunk, instanced
+    var pineSpots = [];
+    function hedge(x0, y0, x1, y1, step) { var len = Math.hypot(x1 - x0, y1 - y0), k = Math.max(1, Math.round(len / step)); for (var i = 0; i <= k; i++) { var f = i / k; pineSpots.push([x0 + (x1 - x0) * f + rnd(-0.08, 0.08), y0 + (y1 - y0) * f + rnd(-0.08, 0.08), rnd(0.85, 1.05)]); } }
+    var HX = 0.05, HY = 0.1;
+    hedge(-HX - 0.35, -HY - 0.35, W + HX + 0.35, -HY - 0.35, 0.55); hedge(-HX - 0.35, H + HY + 0.35, W + HX + 0.35, H + HY + 0.35, 0.55);
+    hedge(-HX - 0.35, -HY, -HX - 0.35, H + HY, 0.55); hedge(W + HX + 0.35, -HY, W + HX + 0.35, H + HY, 0.55);
+    for (var fi = 0; fi < 520; fi++) { var fx = rnd(-14, W + 14), fy = rnd(-14, H + 14); if (fx > -1.3 && fx < W + 1.3 && fy > -1.3 && fy < H + 1.3) continue; pineSpots.push([fx, fy, rnd(0.9, 1.5)]); }
+    var pineLow = new T.ConeGeometry(0.42, 0.75, 7); pineLow.translate(0, 0.62, 0);
+    var pineTop = new T.ConeGeometry(0.3, 0.6, 7); pineTop.translate(0, 1.05, 0);
+    var trunkG = new T.CylinderGeometry(0.07, 0.09, 0.3, 6); trunkG.translate(0, 0.15, 0);
+    var pineM1 = lam('#2e8a3e'), pineM2 = lam('#3ea34a'), trunkM = lam('#7a5232');
+    var pl = new T.InstancedMesh(pineLow, pineM1, pineSpots.length), pt = new T.InstancedMesh(pineTop, pineM2, pineSpots.length), ptr = new T.InstancedMesh(trunkG, trunkM, pineSpots.length);
+    var mtx = new T.Matrix4(), q = new T.Quaternion(), v3 = new T.Vector3(), sc3 = new T.Vector3(), up = new T.Vector3(0, 1, 0);
+    pineSpots.forEach(function (p, i) { q.setFromAxisAngle(up, rnd(0, 6)); mtx.compose(v3.set(X(p[0]), 0, Z(p[1])), q, sc3.set(p[2], p[2] * rnd(0.9, 1.15), p[2])); pl.setMatrixAt(i, mtx); pt.setMatrixAt(i, mtx); ptr.setMatrixAt(i, mtx); });
+    scene.add(pl); scene.add(pt); scene.add(ptr);
+
+    // blob shadow texture (under towers and props)
+    var blobTex = ctex(64, 64, function (x) { var g = x.createRadialGradient(32, 32, 2, 32, 32, 31); g.addColorStop(0, 'rgba(20,50,10,.42)'); g.addColorStop(1, 'rgba(20,50,10,0)'); x.fillStyle = g; x.fillRect(0, 0, 64, 64); });
+    var blobM = new T.MeshBasicMaterial({ map: blobTex, transparent: true, depthWrite: false });
+    var blobG = new T.PlaneGeometry(1, 1); blobG.rotateX(-Math.PI / 2);
+    function blob(x, y, r, parent) { var m = new T.Mesh(blobG, blobM); m.scale.set(r * 2, 1, r * 2 * 0.9); m.position.set(parent ? 0.12 : X(x) + 0.12, 0.004, parent ? 0.1 : Z(y) + 0.1); (parent || scene).add(m); return m; }
+
+    // ---------------- props ----------------
+    var woodM = lam('#b07a45'), woodDark = lam('#8a5a30'), metalM = lam('#6f6a64'), bushM = lam('#4fb246'), bushM2 = lam('#63c257');
+    var crateTex = ctex(64, 64, function (x, w, h) { x.fillStyle = '#c98f52'; x.fillRect(0, 0, w, h); x.strokeStyle = '#8a5a30'; x.lineWidth = 6; x.strokeRect(3, 3, w - 6, h - 6); x.lineWidth = 5; x.beginPath(); x.moveTo(6, 6); x.lineTo(w - 6, h - 6); x.stroke(); x.fillStyle = 'rgba(0,0,0,.08)'; x.fillRect(0, h / 2, w, 2); });
+    var crateM = new T.MeshLambertMaterial({ map: crateTex });
+    var propGroup = new T.Group(); scene.add(propGroup);
+    function makeProp(p) {
+      var g = new T.Group(), k = p[0];
+      if (k === 'fence') {
+        for (var i = 0; i < 4; i++) { var post = new T.Mesh(new T.BoxGeometry(0.09, 0.42, 0.09), woodDark); post.position.set(-0.75 + i * 0.5, 0.21, 0); g.add(post); }
+        [0.14, 0.3].forEach(function (y) { var r = new T.Mesh(new T.BoxGeometry(1.62, 0.07, 0.05), woodM); r.position.set(0, y, 0.03); g.add(r); });
+        blob(0, 0, 0.5, g).scale.set(1.9, 1, 0.4);
+      } else if (k === 'crates') {
+        var n = 1 + Math.floor(rnd(1, 3.9));
+        var spots = [[0, 0, 0], [0.46, 0, 0.05], [0.22, 0.42, 0.02], [-0.44, 0, -0.08]];
+        for (var c = 0; c < n; c++) { var b = new T.Mesh(new T.BoxGeometry(0.42, 0.42, 0.42), crateM); b.position.set(spots[c][0], 0.21 + spots[c][1], spots[c][2]); b.rotation.y = rnd(-0.2, 0.2); g.add(b); }
+        blob(0, 0, 0.55, g);
+      } else if (k === 'barrel') {
+        for (var bi = 0; bi < 2; bi++) { var br = new T.Mesh(new T.CylinderGeometry(0.17, 0.17, 0.42, 10), woodM); br.position.set(bi * 0.38, 0.21, bi * 0.1); g.add(br);
+          [0.08, 0.34].forEach(function (y) { var band = new T.Mesh(new T.CylinderGeometry(0.18, 0.18, 0.04, 10), metalM); band.position.set(br.position.x, y, br.position.z); g.add(band); }); }
+        blob(0.2, 0, 0.45, g);
+      } else if (k === 'logs') {
+        [[0, 0.1, 0], [0, 0.1, 0.22], [0, 0.29, 0.11]].forEach(function (l) { var m = new T.Mesh(new T.CylinderGeometry(0.1, 0.1, 1.0, 8), woodM); m.rotation.z = Math.PI / 2; m.position.set(l[0], l[1], l[2] - 0.1); g.add(m);
+          var end = new T.Mesh(new T.CircleGeometry(0.085, 8), lam('#e2b77f')); end.position.set(0.501, l[1], l[2] - 0.1); end.rotation.y = Math.PI / 2; g.add(end); });
+        blob(0, 0, 0.6, g).scale.set(1.3, 1, 0.6);
+      } else {
+        [[0, 0.2, 0, 0.32], [0.3, 0.15, 0.1, 0.24], [-0.26, 0.14, 0.08, 0.22]].forEach(function (s, i) { var m = new T.Mesh(new T.IcosahedronGeometry(s[3], 0), i ? bushM2 : bushM); m.position.set(s[0], s[1], s[2]); g.add(m); });
+        blob(0, 0, 0.5, g);
+      }
+      g.position.set(X(p[1]), 0, Z(p[2])); g.rotation.y = p[3];
+      propGroup.add(g);
+    }
+
+    // ---------------- towers ----------------
+    // a floor: team wall with a band of dark windows (canvas texture, one per team); a white ledge between floors
+    var floorTex = TEAM.map(function (c) {
+      return ctex(256, 64, function (x, w, h) {
+        x.fillStyle = c.main; x.fillRect(0, 0, w, h);
+        x.fillStyle = c.light; x.globalAlpha = 0.45; x.fillRect(0, 0, w, 7); x.globalAlpha = 1;
+        x.fillStyle = c.win; for (var i = 0; i < 8; i++) { var wx = i * 32 + 8; x.beginPath(); if (x.roundRect) x.roundRect(wx, 20, 16, 24, 4); else x.rect(wx, 20, 16, 24); x.fill(); }
+        x.fillStyle = 'rgba(255,255,255,.35)'; for (var j = 0; j < 8; j++) x.fillRect(j * 32 + 10, 22, 4, 9);
+      });
+    });
+    var FLOOR_H = 0.34, TOWER_R = 0.47;
+    var floorG = new T.CylinderGeometry(TOWER_R, TOWER_R, FLOOR_H, 16, 1, true); floorG.translate(0, FLOOR_H / 2, 0);
+    var ledgeG = new T.CylinderGeometry(TOWER_R + 0.035, TOWER_R + 0.035, 0.055, 16); ledgeG.translate(0, 0.0275, 0);
+    var baseG = new T.CylinderGeometry(0.62, 0.68, 0.16, 18); baseG.translate(0, 0.08, 0);
+    var doorG = new T.BoxGeometry(0.2, 0.26, 0.06);
+    var floorM = floorTex.map(function (t) { return new T.MeshLambertMaterial({ map: t }); });
+    var teamM = TEAM.map(function (c) { return lam(c.main); }), teamDarkM = TEAM.map(function (c) { return lam(c.dark); });
+    var ledgeLM = TEAM.map(function (c) { return lam(c.light); }), baseM = lam('#d9d2c3'), doorM = lam('#4a3322');
+    // the cube the number sits on: a rounded box
+    var cubeShape = new T.Shape(), cs = 0.36, cr = 0.1;
+    cubeShape.moveTo(-cs + cr, -cs); cubeShape.lineTo(cs - cr, -cs); cubeShape.quadraticCurveTo(cs, -cs, cs, -cs + cr); cubeShape.lineTo(cs, cs - cr); cubeShape.quadraticCurveTo(cs, cs, cs - cr, cs); cubeShape.lineTo(-cs + cr, cs); cubeShape.quadraticCurveTo(-cs, cs, -cs, cs - cr); cubeShape.lineTo(-cs, -cs + cr); cubeShape.quadraticCurveTo(-cs, -cs, -cs + cr, -cs);
+    var cubeG = new T.ExtrudeGeometry(cubeShape, { depth: 0.42, bevelEnabled: true, bevelThickness: 0.06, bevelSize: 0.06, bevelSegments: 2, curveSegments: 4 });
+    cubeG.rotateX(-Math.PI / 2); cubeG.translate(0, 0.06, 0);
+    var cubeTopM = TEAM.map(function (c) { return new T.MeshLambertMaterial({ color: c.main }); });
+
+    var towers = [];
+    function labelDraw(tw) {
+      var c = tw.lc, x = c.getContext('2d'), w = c.width, S = w / 160;
+      x.clearRect(0, 0, w, w);
+      var txt = tw.n >= OP.CAP ? 'Max' : String(tw.n);
+      x.textAlign = 'center'; x.textBaseline = 'middle';
+      x.font = '900 ' + Math.round((txt.length >= 3 ? 54 : 70) * S) + 'px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+      x.lineJoin = 'round'; x.lineWidth = 10 * S; x.strokeStyle = 'rgba(10,20,50,.55)'; x.strokeText(txt, w / 2, 62 * S);
+      x.fillStyle = '#fff'; x.fillText(txt, w / 2, 62 * S);
+      var k = OP.slots(tw.n), used = tw.used, gap = 30 * S, x0 = w / 2 - (k - 1) * gap / 2;
+      for (var i = 0; i < k; i++) {
+        x.beginPath(); x.arc(x0 + i * gap, 116 * S, 10.5 * S, 0, 7);
+        if (i < used) { x.fillStyle = '#fff'; x.fill(); x.lineWidth = 3 * S; x.strokeStyle = 'rgba(10,20,50,.45)'; x.stroke(); }
+        else { x.lineWidth = 4.5 * S; x.strokeStyle = 'rgba(10,20,50,.45)'; x.stroke(); x.lineWidth = 3 * S; x.strokeStyle = '#fff'; x.stroke(); }
+      }
+      tw.tex.needsUpdate = true;
+    }
+    function towerTopY(f) { return 0.16 + f * (FLOOR_H + 0.055); }
+    function buildFloors(tw) {
+      while (tw.fl.children.length) tw.fl.remove(tw.fl.children[0]);
+      var o = tw.o;
+      for (var i = 0; i < tw.f; i++) {
+        var y = 0.16 + i * (FLOOR_H + 0.055);
+        var fm = new T.Mesh(floorG, floorM[o]); fm.position.y = y; fm.rotation.y = i * 0.4; tw.fl.add(fm);
+        var lg = new T.Mesh(ledgeG, i ? ledgeLM[o] : teamDarkM[o]); lg.position.y = y + FLOOR_H; tw.fl.add(lg);
+      }
+      var dr = new T.Mesh(doorG, doorM); dr.position.set(0, 0.29, TOWER_R - 0.01); tw.fl.add(dr);
+      var top = towerTopY(tw.f);
+      tw.cube.position.y = top; tw.cube.material = cubeTopM[o];
+      tw.label.position.set(0, top + 0.5, 0.18);
+    }
+    function setTowers(sim) {
+      towers.forEach(function (tw) { scene.remove(tw.g); tw.tex.dispose(); });
+      towers = sim.towers.map(function (t) {
+        var g = new T.Group(); g.position.set(X(t.x), 0, Z(t.y)); scene.add(g);
+        blob(0, 0, 0.8, g);
+        var base = new T.Mesh(baseG, baseM); g.add(base);
+        var fl = new T.Group(); g.add(fl);
+        var cube = new T.Mesh(cubeG, cubeTopM[t.o]); g.add(cube);
+        var lc = document.createElement('canvas'); lc.width = lc.height = Math.round(160 * Math.min(1.6, Math.max(1, DPR / 1.9)));
+        var tex = new T.CanvasTexture(lc); tex.colorSpace = T.SRGBColorSpace; tex.anisotropy = 4;
+        var label = new T.Sprite(new T.SpriteMaterial({ map: tex, depthTest: false, depthWrite: false, transparent: true })); label.scale.set(1.05, 1.05, 1); label.renderOrder = 10; g.add(label);
+        var tw = { i: t.i, g: g, fl: fl, cube: cube, label: label, lc: lc, tex: tex, o: t.o, n: t.n, used: t.links.length, f: OP.floors(t.n), pop: 0, x: t.x, y: t.y };
+        buildFloors(tw); labelDraw(tw);
+        return tw;
+      });
+    }
+
+    // ---------------- lanes ----------------
+    var laneVS = 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }';
+    var laneFS = 'uniform vec3 col; uniform float len; uniform float time; uniform float op; uniform float flow; varying vec2 vUv;\n' +
+      'void main(){ float u = vUv.x * len; float v = vUv.y - 0.5; float edge = 1.0 - smoothstep(0.40, 0.5, abs(v));\n' +
+      ' float ph = fract((u - abs(v) * 0.7 - time * flow) / 0.62); float ch = smoothstep(0.0, 0.07, ph) * (1.0 - smoothstep(0.22, 0.3, ph));\n' +
+      ' float rim = smoothstep(0.34, 0.42, abs(v)) * edge; vec3 c = mix(col, vec3(1.0), 0.22 + ch * 0.5); c = mix(c, col * 0.75, rim);\n' +
+      ' gl_FragColor = vec4(c, min(1.0, op * edge * (0.95 + 0.2 * ch + 0.2 * rim)));\n#include <colorspace_fragment>\n}';
+    var laneG = new T.PlaneGeometry(1, 1); laneG.rotateX(-Math.PI / 2); laneG.translate(0.5, 0, 0); // x from 0 to 1 along the lane
+    // flip uv so u runs from the source (x=0) to the end (x=1) along the lane, v across
+    (function () { var uv = laneG.attributes.uv, pos = laneG.attributes.position; for (var i = 0; i < uv.count; i++) uv.setXY(i, pos.getX(i), pos.getZ(i) + 0.5); uv.needsUpdate = true; })();
+    function laneMat(team) { return new T.ShaderMaterial({ vertexShader: laneVS, fragmentShader: laneFS, transparent: true, depthWrite: false,
+      uniforms: { col: { value: new T.Color(TEAM[team].main) }, len: { value: 1 }, time: { value: 0 }, op: { value: 0.72 }, flow: { value: 1.0 } } }); }
+    var lanes = {}; // link id -> { mesh, mat, l }
+    var meets = {}; // pair key -> meeting point (distance from the lower-numbered tower)
+    function laneMesh(team) { var m = laneMat(team), me = new T.Mesh(laneG, m); me.renderOrder = 1; scene.add(me); return { mesh: me, mat: m }; }
+    function placeLane(ln, ax, ay, bx, by, w) {
+      var dx = bx - ax, dy = by - ay, len = Math.max(0.01, Math.hypot(dx, dy));
+      ln.mesh.position.set(X(ax), 0.02, Z(ay)); ln.mesh.rotation.y = -Math.atan2(dy, dx); ln.mesh.scale.set(len, 1, w || 0.4); ln.mat.uniforms.len.value = len;
+    }
+
+    // ---------------- soldiers ----------------
+    var MAXU = 700;
+    var bodyG = new T.CapsuleGeometry(0.075, 0.12, 3, 8); bodyG.translate(0, 0.16, 0);
+    var headG = new T.SphereGeometry(0.085, 10, 8); headG.translate(0, 0.35, 0);
+    var uBody = [], uHead = [];
+    [1, 2, 0].forEach(function (o) {
+      var b = new T.InstancedMesh(bodyG, lam(TEAM[o].main, { flatShading: false }), MAXU), h = new T.InstancedMesh(headG, lam(TEAM[o].dark, { flatShading: false }), MAXU);
+      b.count = h.count = 0; b.frustumCulled = h.frustumCulled = false; b.instanceMatrix.setUsage(T.DynamicDrawUsage); h.instanceMatrix.setUsage(T.DynamicDrawUsage);
+      scene.add(b); scene.add(h); uBody[o] = b; uHead[o] = h;
+    });
+
+    // ---------------- effects ----------------
+    var puffTex = ctex(64, 64, function (x) { var g = x.createRadialGradient(32, 32, 1, 32, 32, 31); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.5, 'rgba(255,255,255,.7)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, 64, 64); });
+    var arrowTex = ctex(64, 64, function (x) { x.fillStyle = '#39d353'; x.strokeStyle = '#fff'; x.lineWidth = 5; x.lineJoin = 'round'; x.beginPath(); x.moveTo(32, 6); x.lineTo(56, 32); x.lineTo(42, 32); x.lineTo(42, 58); x.lineTo(22, 58); x.lineTo(22, 32); x.lineTo(8, 32); x.closePath(); x.stroke(); x.fill(); });
+    var fxs = [];
+    function sprite(tex, x, y, z, s, color, life, kind) {
+      var m = new T.Sprite(new T.SpriteMaterial({ map: tex, color: color || 0xffffff, transparent: true, depthWrite: false, depthTest: kind === 'arrow' ? false : true }));
+      m.position.set(x, y, z); m.scale.set(s, s, 1); m.renderOrder = kind === 'arrow' ? 11 : 5; scene.add(m);
+      fxs.push({ m: m, t: 0, life: life, s: s, kind: kind }); return m;
+    }
+    function puff(x, y, big, color) { if (fxs.length > 120) return; sprite(puffTex, X(x) + rnd(-0.05, 0.05), 0.3, Z(y), big ? 0.5 : 0.32, color || 0xffffff, big ? 0.45 : 0.32, 'puff'); }
+    var ringG = new T.RingGeometry(0.5, 0.62, 32); ringG.rotateX(-Math.PI / 2);
+    var chipG = new T.BoxGeometry(0.1, 0.1, 0.1);
+    function burst(i, o) {
+      var tw = towers[i]; if (!tw) return;
+      var p = tw.g.position, top = towerTopY(tw.f);
+      sprite(puffTex, p.x, top * 0.6, p.z, 2.6, new T.Color(TEAM[o].light), 0.5, 'flash');
+      var ring = new T.Mesh(ringG, new T.MeshBasicMaterial({ color: TEAM[o].light, transparent: true, depthWrite: false })); ring.position.set(p.x, 0.05, p.z); scene.add(ring);
+      fxs.push({ m: ring, t: 0, life: 0.6, s: 1, kind: 'ring' });
+      for (var k = 0; k < 12; k++) {
+        var ch = new T.Mesh(chipG, teamM[o]), a = k / 12 * 6.283 + rnd(-0.2, 0.2), sp = rnd(1.5, 3);
+        ch.position.set(p.x, top * 0.7, p.z); scene.add(ch);
+        fxs.push({ m: ch, t: 0, life: 0.8, kind: 'chip', vx: Math.cos(a) * sp, vy: rnd(3, 5), vz: Math.sin(a) * sp });
+      }
+      tw.pop = 1;
+    }
+    function levelUp(i) { var tw = towers[i]; if (!tw) return; var p = tw.g.position; sprite(arrowTex, p.x + 0.55, towerTopY(tw.f) * 0.6 + 0.3, p.z, 0.42, 0xffffff, 0.8, 'arrow'); }
+    function updateFx(dt) {
+      fxs = fxs.filter(function (f) {
+        f.t += dt; var k = f.t / f.life;
+        if (k >= 1) { scene.remove(f.m); if (f.m.material && f.m.material.dispose && f.kind !== 'chip') f.m.material.dispose(); return false; }
+        if (f.kind === 'puff') { var s = f.s * (1 + k * 1.2); f.m.scale.set(s, s, 1); f.m.material.opacity = 1 - k; f.m.position.y += dt * 0.5; }
+        else if (f.kind === 'flash') { var s2 = f.s * (0.5 + k); f.m.scale.set(s2, s2, 1); f.m.material.opacity = (1 - k) * 0.9; }
+        else if (f.kind === 'ring') { var s3 = 1 + k * 2.2; f.m.scale.set(s3, 1, s3); f.m.material.opacity = 1 - k; }
+        else if (f.kind === 'arrow') { f.m.position.y += dt * 0.9; f.m.material.opacity = k < 0.7 ? 1 : (1 - k) / 0.3; }
+        else if (f.kind === 'chip') { f.vy -= 12 * dt; f.m.position.x += f.vx * dt; f.m.position.y = Math.max(0.05, f.m.position.y + f.vy * dt); f.m.position.z += f.vz * dt; f.m.rotation.x += dt * 8; f.m.rotation.z += dt * 6; var cs2 = 1 - k * k; f.m.scale.set(cs2, cs2, cs2); }
+        return true;
+      });
+    }
+
+    // ---------------- drag feedback ----------------
+    var dragLane = laneMesh(1); dragLane.mat.uniforms.op.value = 0.85; dragLane.mat.uniforms.flow.value = 2; dragLane.mesh.visible = false; dragLane.mesh.renderOrder = 3;
+    var ringM = new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, depthWrite: false });
+    var selRing = new T.Mesh(new T.RingGeometry(0.66, 0.8, 36), ringM); selRing.geometry.rotateX(-Math.PI / 2); selRing.visible = false; selRing.renderOrder = 2; scene.add(selRing);
+    var tgtRingM = new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95, depthWrite: false });
+    var tgtRing = new T.Mesh(new T.RingGeometry(0.66, 0.84, 36), tgtRingM); tgtRing.geometry.rotateX(-Math.PI / 2); tgtRing.visible = false; tgtRing.renderOrder = 2; scene.add(tgtRing);
+    function dragShow(from, wx, wy, snap, valid) {
+      var A = towers[from]; if (!A) return dragHide();
+      var bx = wx, by = wy; if (snap >= 0) { bx = towers[snap].x; by = towers[snap].y; }
+      var dx = bx - A.x, dy = by - A.y, d = Math.hypot(dx, dy), e = Math.min(d, OP.EDGE);
+      var end = snap >= 0 ? Math.max(e, d - OP.EDGE) : d;
+      if (d < 0.05) { dragLane.mesh.visible = false; } else {
+        placeLane(dragLane, A.x + dx / d * e, A.y + dy / d * e, A.x + dx / d * end, A.y + dy / d * end, 0.3);
+        dragLane.mat.uniforms.col.value.set(valid ? TEAM[1].light : '#ff3b3b'); dragLane.mesh.visible = true;
+      }
+      selRing.visible = true; selRing.position.set(X(A.x), 0.03, Z(A.y)); ringM.color.set(valid || snap < 0 ? '#ffffff' : '#ff3b3b');
+      tgtRing.visible = snap >= 0; if (snap >= 0) { tgtRing.position.set(X(bx), 0.03, Z(by)); tgtRingM.color.set(valid ? '#ffffff' : '#ff3b3b'); }
+    }
+    function dragHide() { dragLane.mesh.visible = false; selRing.visible = false; tgtRing.visible = false; }
+
+    // ---------------- per frame ----------------
+    var clock = 0, dummy = new T.Object3D();
+    function sync(sim, dt, paused) {
+      if (!paused) clock += dt;
+      var i;
+      // towers: owner, floors, label
+      for (i = 0; i < towers.length; i++) {
+        var tw = towers[i], t = sim.towers[i], f = OP.floors(t.n), used = t.links.length;
+        if (t.o !== tw.o || f !== tw.f) { tw.o = t.o; tw.f = f; buildFloors(tw); }
+        if (t.n !== tw.n || used !== tw.used || tw.o !== tw.lo) { tw.n = t.n; tw.used = used; tw.lo = tw.o; labelDraw(tw); }
+        if (tw.pop > 0) { tw.pop = Math.max(0, tw.pop - dt * 2.5); var ps = 1 + Math.sin(tw.pop * Math.PI) * 0.18; tw.fl.scale.set(ps, 1 + Math.sin(tw.pop * Math.PI) * 0.1, ps); } else tw.fl.scale.set(1, 1, 1);
+        var hit = sim.t - t.lastHit < 0.12 ? 0.94 : 1; tw.cube.scale.set(hit, hit, hit);
+      }
+      // lanes
+      var seen = {};
+      for (i = 0; i < sim.links.length; i++) {
+        var L = sim.links[i], ln = lanes[L.id]; seen[L.id] = 1;
+        if (!ln) { ln = lanes[L.id] = laneMesh(L.o); ln.grow = 0; }
+        var A = sim.towers[L.a], B = sim.towers[L.b], len = L.len, dx = (B.x - A.x) / len, dy = (B.y - A.y) / len;
+        var end = len - OP.EDGE;
+        var rev = OP.linkFrom(sim, L.b, L.a);
+        if (rev && rev.o !== L.o) { var lo = Math.min(L.a, L.b), key = lo * 1000 + Math.max(L.a, L.b), m = meets[key]; var mp = m == null ? len / 2 : m; end = L.a === lo ? mp : len - mp; end = Math.max(OP.EDGE + 0.05, Math.min(len - OP.EDGE, end)); }
+        ln.grow = Math.min(1, ln.grow + dt * 5);
+        var e2 = OP.EDGE + (end - OP.EDGE) * ln.grow;
+        placeLane(ln, A.x + dx * OP.EDGE, A.y + dy * OP.EDGE, A.x + dx * e2, A.y + dy * e2);
+        ln.mat.uniforms.time.value = clock;
+        var stalled = A.n < 1 || A.n - 1 < OP.floorFor(A.links.length);
+        ln.mat.uniforms.flow.value = 1.0; ln.mat.uniforms.op.value = stalled ? 0.6 : 0.8;
+      }
+      for (var id in lanes) if (!seen[id]) { scene.remove(lanes[id].mesh); lanes[id].mat.dispose(); delete lanes[id]; }
+      // soldiers
+      var cnt = [0, 0, 0];
+      for (i = 0; i < sim.units.length; i++) {
+        var u = sim.units[i], o = u.o, c = cnt[o]; if (c >= MAXU) continue;
+        var side = ((u.id * 37) % 7 - 3) * 0.025, bob = Math.abs(Math.sin(clock * 11 + u.id)) * 0.05;
+        var px = u.ax + u.dx * u.d - u.dy * side, py = u.ay + u.dy * u.d + u.dx * side;
+        dummy.position.set(X(px), bob, Z(py)); dummy.rotation.set(0, -Math.atan2(u.dy, u.dx) + Math.PI / 2, Math.sin(clock * 11 + u.id) * 0.12); dummy.scale.set(1.35, 1.35, 1.35); dummy.updateMatrix();
+        uBody[o].setMatrixAt(c, dummy.matrix); uHead[o].setMatrixAt(c, dummy.matrix); cnt[o]++;
+      }
+      [0, 1, 2].forEach(function (o) { uBody[o].count = uHead[o].count = cnt[o]; uBody[o].instanceMatrix.needsUpdate = true; uHead[o].instanceMatrix.needsUpdate = true; });
+      updateFx(paused ? 0 : dt);
+    }
+
+    // ---------------- level, camera fit ----------------
+    var view = { w: 10, h: 10, m: { top: 70, bottom: 20, side: 10 }, box: null };
+    function setLevel(level, sim) {
+      while (propGroup.children.length) propGroup.remove(propGroup.children[0]);
+      (level.props || []).forEach(makeProp);
+      setTowers(sim);
+      for (var id in lanes) { scene.remove(lanes[id].mesh); lanes[id].mat.dispose(); } lanes = {}; meets = {};
+      fxs.forEach(function (f) { scene.remove(f.m); }); fxs = [];
+      var x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+      level.towers.forEach(function (t) { x0 = Math.min(x0, t[0]); x1 = Math.max(x1, t[0]); y0 = Math.min(y0, t[1]); y1 = Math.max(y1, t[1]); });
+      view.box = { x0: Math.min(0.25, x0 - 0.9), x1: Math.max(W - 0.25, x1 + 0.9), y0: y0 - 0.9, y1: y1 + 0.85 };
+      fit();
+    }
+    // frame the whole battlefield (towers at full height included) in the free space between the top buttons and the home bar
+    var tmp = new T.Vector3();
+    function fit() {
+      if (!view.box) return;
+      var b = view.box, pts = [], hTop = towerTopY(6) + 0.95;
+      [b.x0, b.x1].forEach(function (x) { [b.y0, b.y1].forEach(function (y) { pts.push([x, 0, y]); pts.push([x, y === b.y0 ? hTop : 0.6, y]); }); });
+      var inv = camera.matrixWorldInverse, cx0 = 1e9, cx1 = -1e9, cy0 = 1e9, cy1 = -1e9;
+      pts.forEach(function (p) { tmp.set(X(p[0]), p[1], Z(p[2])).applyMatrix4(inv); cx0 = Math.min(cx0, tmp.x); cx1 = Math.max(cx1, tmp.x); cy0 = Math.min(cy0, tmp.y); cy1 = Math.max(cy1, tmp.y); });
+      var m = view.m, aw = Math.max(50, view.w - 2 * m.side), ah = Math.max(50, view.h - m.top - m.bottom);
+      var s = Math.max((cx1 - cx0) / aw, (cy1 - cy0) / ah);
+      var cx = (cx0 + cx1) / 2, cy = (cy0 + cy1) / 2;
+      var yc = m.top + ah / 2; // where the middle of the field goes (px from the top)
+      camera.left = cx - s * view.w / 2; camera.right = cx + s * view.w / 2;
+      camera.top = cy + yc * s; camera.bottom = camera.top - view.h * s;
+      camera.updateProjectionMatrix();
+      view.scale = s;
+    }
+    function resize(w, h, margins) { view.w = w; view.h = h; if (margins) view.m = margins; renderer.setSize(w, h, false); fit(); }
+    // world (field) point -> CSS px in the canvas
+    function project(x, y, h) { tmp.set(X(x), h || 0, Z(y)).project(camera); return [(tmp.x + 1) / 2 * view.w, (1 - tmp.y) / 2 * view.h]; }
+    // CSS px -> field point on the ground
+    var ray = new T.Raycaster(), ndc = new T.Vector2();
+    function groundAt(px, py) {
+      ndc.set(px / view.w * 2 - 1, -(py / view.h * 2 - 1)); ray.setFromCamera(ndc, camera);
+      var o = ray.ray.origin, d = ray.ray.direction; if (Math.abs(d.y) < 1e-6) return null;
+      var t = -o.y / d.y; return [o.x + d.x * t + W / 2, o.z + d.z * t + H / 2];
+    }
+    // a tower on screen: its foot and the top of its number (for picking by finger)
+    function towerScreen(i) { var tw = towers[i]; if (!tw) return null; var a = project(tw.x, tw.y, 0), b = project(tw.x, tw.y, towerTopY(tw.f) + 0.85); return { bx: a[0], by: a[1], tx: b[0], ty: b[1], r: 0.62 / view.scale }; }
+    function meet(lo, hi, p) { var k = lo * 1000 + hi, m = meets[k]; meets[k] = m == null ? p : m + (p - m) * 0.35; }
+    function render() { renderer.render(scene, camera); }
+    return { renderer: renderer, scene: scene, camera: camera, view: view, setLevel: setLevel, sync: sync, resize: resize, project: project, ground: groundAt,
+      towerScreen: towerScreen, dragShow: dragShow, dragHide: dragHide, puff: puff, burst: burst, levelUp: levelUp, meet: meet, render: render, TEAM: TEAM };
+  }
+  return { build: build, TEAM: TEAM };
+})();
+</script>
+<script src="../../shared/ads.js"></script>
+<script>
+/* Outpost Rush app: the battle loop (the fixed-step simulation in logic.js, drawn by scene.js), drag to make a line,
+   swipe to cut one, the lesson hints, stars / gold / level map, stats, saves, sound and music, house ads between
+   levels. three.js comes from /shared and loads when the game opens. */
+(function () {
+  'use strict';
+  var S = OPSound, LEVELS = window.OP_LEVELS || [], T = null;
+  var DT = OP.DT;
+
+  // ================= storage =================
+  var store = Goobs.store('outpost');
+  var settings = { sound: false, music: true, adEvery: 3 };
+  (function () { var s = store.get('settings', {}) || {}; for (var k in settings) if (typeof s[k] === typeof settings[k]) settings[k] = s[k]; settings.adEvery = Math.min(10, Math.max(1, settings.adEvery | 0)); })();
+  function saveSettings() { store.set('settings', settings); }
+  var meta = store.get('meta', null) || {};
+  var MD = { level: 1, open: 1, stars: {}, best: {}, gold: 0, seen: false, finished: 0, lastAdAt: 0 };
+  for (var mk in MD) if (meta[mk] === undefined) meta[mk] = MD[mk];
+  if (typeof meta.stars !== 'object' || !meta.stars) meta.stars = {};
+  if (typeof meta.best !== 'object' || !meta.best) meta.best = {};
+  meta.open = Math.max(1, Math.min(LEVELS.length, meta.open | 0)); meta.level = Math.max(1, Math.min(meta.open, meta.level | 0)); meta.gold = Math.max(0, meta.gold | 0);
+  function saveMeta() { store.set('meta', meta); }
+  var stats = store.get('stats', null) || {};
+  var SD = { tries: 0, wins: 0, losses: 0, captured: 0, lost: 0, sent: 0, links: 0, cuts: 0, goldEarned: 0, playSec: 0 };
+  for (var sk in SD) if (typeof stats[sk] !== 'number') stats[sk] = SD[sk];
+  function saveStats() { store.set('stats', stats); }
+
+  // ================= helpers =================
+  function $(id) { return document.getElementById(id); }
+  function isOpen(id) { return $(id).classList.contains('show'); }
+  function sheetOpen() { return FS.isOpen() || isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovStats') || isOpen('ovHelp') || isOpen('ovLevels') || GoobsAds.isOpen(); }
+  function fmt(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+  function clock(t) { t = Math.floor(t); return Math.floor(t / 60) + ':' + ('0' + t % 60).slice(-2); }
+  function starStr(n) { return n ? '<span class="menustars">' + '★★★'.slice(0, n) + '</span>' : 'no stars yet'; }
+
+  // Full screen: the kit floats back, the level and time pills, Sound and Menu over the meadow; Levels, How to play,
+  // Stats, Settings and Restart live in the Menu sheet. The battle waits while any sheet is open.
+  var FS = Goobs.fullscreen({
+    overlay: true,
+    menu: ['btnLevels', 'btnHelp', 'btnStats', 'btnSettings', 'btnNew'],
+    info: function () {
+      var L = LEVELS[levelNo - 1] || {};
+      return 'Level <b>' + levelNo + '</b> · 3 stars under <b>' + clock(L.target || 60) + '</b> · ' + starStr(meta.stars[levelNo] || 0) + ' · <span class="gold">' + fmt(meta.gold) + '</span>';
+    }
+  });
+
+  // ================= scene =================
+  var host, canvas, fxc, fxx, SC = null, ready = false, probe = null;
+  function resize() {
+    if (!SC) return;
+    var r = host.getBoundingClientRect(), mb = $('ggMenuBtn').getBoundingClientRect().bottom, hint = $('hint');
+    var hb = hint.textContent && !hint.classList.contains('done') ? hint.offsetHeight + 12 : 0;
+    SC.resize(Math.max(10, r.width), Math.max(10, r.height), { top: Math.max(56, mb - r.top + 8), bottom: (probe ? probe.offsetHeight : 0) + 10 + hb, side: 6 });
+    var dpr = Math.min(3, window.devicePixelRatio || 1); fxc.width = Math.round(r.width * dpr); fxc.height = Math.round(r.height * dpr); fxx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  // ================= game =================
+  var sim = null, level = null, levelNo = 1, state = 'idle', acc = 0, lastT = 0, speed = 1, lesson = null, endT = 0;
+  function startLevel(n) {
+    levelNo = Math.max(1, Math.min(LEVELS.length, n)); meta.level = levelNo; saveMeta();
+    level = LEVELS[levelNo - 1];
+    if (!ready) { renderInfo(); return; }
+    sim = OP.create(level, { seed: 1000 + levelNo * 7 + stats.tries, ai: { 2: OP.redParams(level) } });
+    SC.setLevel(level, sim);
+    state = 'play'; acc = 0; endT = 0; stats.tries++; saveStats();
+    drag = null; SC.dragHide(); trail = [];
+    // the lessons: level 1 draw a line, 2 cut one, 3 more lines, 4 send help (the hint fades once you've done it)
+    lesson = level.hint ? { n: levelNo, done: false, t0: 0 } : null;
+    $('hint').textContent = level.hint || ''; $('hint').classList.remove('done');
+    resize(); renderInfo();
+  }
+  function lessonDone() { if (!lesson || lesson.done) return; lesson.done = true; $('hint').classList.add('done'); $('finger').classList.remove('show'); setTimeout(resize, 400); }
+  function onEvents() {
+    OP.takeEvents(sim).forEach(function (e) {
+      if (e.t === 'send') { if (e.o === 1) { stats.sent++; S.send(); } }
+      else if (e.t === 'hit') { SC.puff(e.x, e.y, false); S.hit(); }
+      else if (e.t === 'clash') { SC.puff(e.x, e.y, true, 0xfff2b0); SC.meet(e.lo, e.hi, e.p); S.clash(); }
+      else if (e.t === 'reinf') { S.reinf(); }
+      else if (e.t === 'lvl') { if (sim.towers[e.i].o) { SC.levelUp(e.i); if (sim.towers[e.i].o === 1) S.levelUp(); } }
+      else if (e.t === 'cap') {
+        SC.burst(e.i, e.o); S.capture(e.o === 1);
+        if (e.o === 1) stats.captured++; else if (e.from === 1) stats.lost++;
+        if (e.o === 1 && lesson && lesson.n === 1) lessonDone();
+      }
+      else if (e.t === 'link') { if (e.o === 1 && lesson) { var B = sim.towers[e.b]; if ((lesson.n === 1) || (lesson.n === 3 && sim.towers[e.a].links.length >= 2) || (lesson.n === 4 && B.o === 1)) lessonDone(); } }
+      else if (e.t === 'cut') { if (e.o === 1 && e.why === 'cut') { stats.cuts++; if (lesson && lesson.n === 2) lessonDone(); } }
+    });
+  }
+  function checkEnd() {
+    if (state !== 'play' || !sim.over) return;
+    state = sim.over === 1 ? 'won' : 'lost'; endT = sim.t; S.playing(false);
+    stats.playSec += Math.round(sim.t); saveStats();
+    SC.dragHide(); drag = null;
+    setTimeout(sim.over === 1 ? won : lost, sim.over === 1 ? 1300 : 900);
+  }
+  function starsFor(t) { var tg = level.target || 60; return t <= tg ? 3 : t <= tg * 1.5 ? 2 : 1; }
+  function won() {
+    S.win(); stats.wins++; meta.finished++;
+    var t = endT, st = starsFor(t), first = !meta.stars[levelNo];
+    // gold: the level's amount (half on a replay), plus a bonus for a fast win (+50% at 3 stars, +20% at 2)
+    var base = first ? level.gold : Math.round(level.gold / 2), bonus = st === 3 ? Math.round(base * 0.5) : st === 2 ? Math.round(base * 0.2) : 0, g = base + bonus;
+    meta.gold += g; stats.goldEarned += g;
+    meta.stars[levelNo] = Math.max(meta.stars[levelNo] || 0, st);
+    var prevBest = meta.best[levelNo]; if (!prevBest || t < prevBest) meta.best[levelNo] = Math.round(t * 10) / 10;
+    if (meta.open <= levelNo) meta.open = Math.min(LEVELS.length, levelNo + 1);
+    saveMeta(); saveStats(); renderInfo();
+    var last = levelNo >= LEVELS.length;
+    showCard('Victory!', '<div class="stars">' + [0, 1, 2].map(function (i) { return i < st ? '★' : '<span class="off">★</span>'; }).join('') + '</div>' +
+      '<div class="endinfo"><span>Time <b>' + clock(t) + '</b></span><span class="gold">+' + g + '</span></div>' +
+      (st < 3 ? '<small>3 stars under ' + clock(level.target) + '</small>' : (prevBest && t < prevBest ? '<small>New best time!</small>' : '')) +
+      '<div class="endinfo"><small>Gold: <span class="gold">' + fmt(meta.gold) + '</span></small></div>',
+      last ? [{ label: 'Play it again', red: true, go: function () { between(function () { startLevel(levelNo); }); } }, { label: 'Level map', go: openLevels }] :
+        [{ label: 'Next: level ' + (levelNo + 1), red: true, go: function () { between(function () { startLevel(levelNo + 1); }); } }, { label: 'Play it again', go: function () { between(function () { startLevel(levelNo); }); } }]);
+  }
+  function lost() {
+    S.lose(); stats.losses++; meta.finished++; saveMeta(); saveStats();
+    showCard('Outposts lost', 'Red took your last tower. Tip: let a tower grow (no lines) before you attack, and gang up on one target.',
+      [{ label: 'Try again', red: true, go: function () { between(function () { startLevel(levelNo); }); } }, { label: 'Level map', go: openLevels }]);
+  }
+
+  // ================= loop =================
+  var perf = { frame: 16.7, frames: 0, step: 0, stepMax: 0, sync: 0 };
+  function frame(tms) {
+    requestAnimationFrame(frame);
+    if (!ready) return;
+    var dt = Math.min(0.1, lastT ? (tms - lastT) / 1000 : 0); lastT = tms; perf.frame = perf.frame * 0.95 + dt * 1000 * 0.05; perf.frames++;
+    var paused = sheetOpen() || document.hidden;
+    S.playing(!paused && state === 'play');
+    if (sim && !paused && state !== 'idle') {
+      acc += dt * speed; var n = 0, p0 = performance.now(), maxN = Math.max(4, Math.ceil(speed * 4));
+      while (acc >= DT && n < maxN && (state === 'play' || sim.t - endT < 2)) { OP.step(sim); onEvents(); acc -= DT; n++; if (state === 'play') checkEnd(); }
+      if (n) { var pm = (performance.now() - p0) / n; perf.step = perf.step * 0.9 + pm * 0.1; perf.stepMax = Math.max(perf.stepMax, pm); }
+      if (n >= maxN) acc = 0;
+      if (state === 'play') $('timePill').textContent = clock(sim.t);
+    }
+    if (sim) { var s0 = performance.now(); SC.sync(sim, dt, paused); perf.sync = perf.sync * 0.9 + (performance.now() - s0) * 0.1; }
+    drawTrail(dt);
+    drawFinger(tms);
+    SC.render();
+  }
+
+  // ================= input: drag from your tower to make a line, swipe across a line to cut it =================
+  var drag = null, trail = [];
+  function local(e) { var r = canvas.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
+  function segDist(px, py, ax, ay, bx, by) { var dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy, t = l2 ? ((px - ax) * dx + (py - ay) * dy) / l2 : 0; t = Math.max(0, Math.min(1, t)); return Math.hypot(px - ax - dx * t, py - ay - dy * t); }
+  // the tower under a finger: its whole height counts, plus a forgiving margin
+  function towerAt(p, slack, not) {
+    var best = -1, bd = 1e9;
+    for (var i = 0; i < sim.towers.length; i++) {
+      if (i === not) continue;
+      var ts = SC.towerScreen(i); if (!ts) continue;
+      var d = segDist(p[0], p[1], ts.bx, ts.by, ts.tx, ts.ty) - ts.r;
+      if (d < slack && d < bd) { bd = d; best = i; }
+    }
+    return best;
+  }
+  function onDown(e) {
+    if (!ready || sheetOpen() || state !== 'play' || drag) return;
+    S.unlock(); e.preventDefault();
+    var p = local(e), t = towerAt(p, 16, -1);
+    if (t >= 0 && sim.towers[t].o === 1) drag = { id: e.pointerId, mode: 'link', from: t, snap: -1, valid: false, p: p };
+    else { drag = { id: e.pointerId, mode: 'cut', last: p }; trail = [{ x: p[0], y: p[1], a: 1 }]; }
+    try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+    if (drag.mode === 'link') moveLink(p);
+  }
+  function moveLink(p) {
+    var w = SC.ground(p[0], p[1]); if (!w) return;
+    var A = sim.towers[drag.from];
+    if (A.o !== 1) { SC.dragHide(); drag = null; return; } // lost it meanwhile
+    var snap = Math.hypot(p[0] - drag.p[0], p[1] - drag.p[1]) < 12 ? -1 : towerAt(p, 30, drag.from);
+    drag.snap = snap; drag.valid = snap >= 0 && !OP.whyNot(sim, drag.from, snap, 1);
+    SC.dragShow(drag.from, w[0], w[1], snap, snap < 0 ? A.links.length < OP.slots(A.n) : drag.valid);
+  }
+  function onMove(e) {
+    if (!drag || e.pointerId !== drag.id) return;
+    var p = local(e);
+    if (drag.mode === 'link') { moveLink(p); return; }
+    trail.push({ x: p[0], y: p[1], a: 1 }); if (trail.length > 40) trail.shift();
+    cutAlong(drag.last, p); drag.last = p;
+  }
+  function onUp(e) {
+    if (!drag || e.pointerId !== drag.id) return; var d = drag; drag = null;
+    if (d.mode === 'link') {
+      SC.dragHide();
+      if (state !== 'play' || d.snap < 0) return;
+      var why = OP.whyNot(sim, d.from, d.snap, 1);
+      if (!why) { OP.playerLink(sim, d.from, d.snap); stats.links++; S.link(); onEvents(); }
+      else { S.nope(); if (why === 'slots') { var A = sim.towers[d.from]; toast(A.n < 10 ? 'No free line: a tower needs 10 for a second line' : A.n < 20 ? 'No free line: a tower needs 20 for a third line' : 'All three lines in use: cut one first'); } else if (why === 'dup') toast('Already sending there'); }
+    }
+  }
+  // a swipe cuts any of your lines it crosses (troops already walking carry on)
+  function cross(a, b, c, d) {
+    function o(p, q, r) { return (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]); }
+    var d1 = o(c, d, a), d2 = o(c, d, b), d3 = o(a, b, c), d4 = o(a, b, d);
+    return ((d1 > 0) !== (d2 > 0)) && ((d3 > 0) !== (d4 > 0));
+  }
+  function cutAlong(a, b) {
+    if (state !== 'play') return;
+    for (var i = sim.links.length - 1; i >= 0; i--) {
+      var L = sim.links[i]; if (L.o !== 1) continue;
+      var A = sim.towers[L.a], B = sim.towers[L.b], dx = (B.x - A.x) / L.len, dy = (B.y - A.y) / L.len;
+      var p = SC.project(A.x + dx * OP.EDGE, A.y + dy * OP.EDGE), q = SC.project(B.x - dx * OP.EDGE, B.y - dy * OP.EDGE);
+      if (cross(a, b, p, q)) {
+        OP.cut(sim, L, 'cut'); S.cut();
+        var w = SC.ground(b[0], b[1]); if (w) SC.puff(w[0], w[1], false, 0xffffff);
+        onEvents();
+      }
+    }
+  }
+  function drawTrail(dt) {
+    var w = fxc.width, h = fxc.height; fxx.clearRect(0, 0, w, h);
+    if (!trail.length) return;
+    trail.forEach(function (p) { p.a -= dt * (drag && drag.mode === 'cut' ? 1.6 : 4); });
+    trail = trail.filter(function (p) { return p.a > 0; });
+    if (trail.length < 2) return;
+    fxx.lineCap = 'round'; fxx.lineJoin = 'round';
+    for (var i = 1; i < trail.length; i++) {
+      var a = trail[i - 1], b = trail[i];
+      fxx.strokeStyle = 'rgba(255,255,255,' + (b.a * 0.9).toFixed(3) + ')'; fxx.lineWidth = 2 + 7 * b.a * (i / trail.length);
+      fxx.beginPath(); fxx.moveTo(a.x, a.y); fxx.lineTo(b.x, b.y); fxx.stroke();
+    }
+  }
+  // the lessons' ghost finger: level 1 drags from your tower to the gray one, level 2 swipes across the line,
+  // level 4 drags to your own tower
+  function drawFinger(tms) {
+    var f = $('finger');
+    if (!lesson || lesson.done || state !== 'play' || sheetOpen() || drag || (lesson.n !== 1 && lesson.n !== 2 && lesson.n !== 4)) { f.classList.remove('show'); return; }
+    var k = (tms % 2200) / 2200, a, b;
+    if (lesson.n === 2) {
+      var L = sim.links.filter(function (l) { return l.o === 1; })[0]; if (!L) { f.classList.remove('show'); return; }
+      var A = sim.towers[L.a], B = sim.towers[L.b], mx = (A.x + B.x) / 2, my = (A.y + B.y) / 2;
+      a = SC.project(mx - 1.3, my + 0.2); b = SC.project(mx + 1.3, my - 0.2);
+    } else {
+      var from = -1, to = -1;
+      sim.towers.forEach(function (t, i) { if (t.o === 1 && from < 0) from = i; });
+      if (lesson.n === 1) sim.towers.forEach(function (t, i) { if (t.o === 0 && to < 0) to = i; });
+      else sim.towers.forEach(function (t, i) { if (t.o === 1 && i !== from && to < 0) to = i; });
+      if (from < 0 || to < 0) { f.classList.remove('show'); return; }
+      var s1 = SC.towerScreen(from), s2 = SC.towerScreen(to); a = [(s1.bx + s1.tx) / 2, (s1.by + s1.ty) / 2]; b = [(s2.bx + s2.tx) / 2, (s2.by + s2.ty) / 2];
+    }
+    var m = Math.min(1, Math.max(0, (k - 0.15) / 0.6)), e2 = m * m * (3 - 2 * m);
+    f.style.transform = 'translate(' + (a[0] + (b[0] - a[0]) * e2) + 'px,' + (a[1] + (b[1] - a[1]) * e2) + 'px)';
+    f.style.opacity = k < 0.1 ? k / 0.1 : k > 0.85 ? (1 - k) / 0.15 : 1;
+    f.classList.add('show');
+  }
+
+  // ================= info and sheets =================
+  function renderInfo() {
+    FS.refresh();
+    $('lvPill').textContent = 'Level ' + levelNo;
+    if (!sim || state === 'idle') $('timePill').textContent = '0:00';
+  }
+  var lvPage = 0, PAGE = 20;
+  function openLevels() {
+    var pages = Math.ceil(LEVELS.length / PAGE), regions = ['Meadow'];
+    lvPage = Math.min(pages - 1, Math.floor((levelNo - 1) / PAGE));
+    var tabs = '<div class="lvpages">';
+    for (var q = 0; q < pages; q++) tabs += '<button data-p="' + q + '" class="' + (q === lvPage ? 'on' : '') + '">' + (regions[q] || 'Region ' + (q + 1)) + ' ' + (q * PAGE + 1) + '–' + Math.min(LEVELS.length, (q + 1) * PAGE) + '</button>';
+    tabs += '</div>';
+    var stars = 0; for (var k in meta.stars) stars += meta.stars[k];
+    var h = '';
+    for (var n = lvPage * PAGE + 1; n <= Math.min(LEVELS.length, (lvPage + 1) * PAGE); n++) { var st = meta.stars[n] || 0; h += '<button class="lv' + (n === levelNo ? ' cur' : '') + '" data-n="' + n + '"' + (n > meta.open ? ' disabled' : '') + '>' + n + '<small>' + '★★★'.slice(0, st) + '</small></button>'; }
+    $('lvpagesBox').innerHTML = tabs;
+    $('lvHead').innerHTML = '<span>★ <b>' + stars + '</b> / ' + LEVELS.length * 3 + '</span><span class="gold">' + fmt(meta.gold) + '</span>';
+    $('lvgrid').innerHTML = h; $('ovLevels').classList.add('show');
+  }
+  var toastT = 0;
+  function toast(t) { var el = $('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(function () { el.classList.remove('show'); }, 1800); }
+  function showCard(title, html, buttons) {
+    $('cardIcon').innerHTML = '<svg viewBox="0 0 100 100"><use href="#op-logo"/></svg>';
+    $('endTitle').textContent = title; $('endText').innerHTML = html;
+    var box = $('endActions'); box.innerHTML = '';
+    buttons.forEach(function (b) { var el = document.createElement('button'); el.className = 'btn' + (b.red ? ' red' : ''); el.textContent = b.label; el.addEventListener('click', function () { $('ovEnd').classList.remove('show'); b.go(); }); box.appendChild(el); });
+    $('ovEnd').classList.add('show');
+  }
+  function showAd(done) { GoobsAds.show({ onShow: function () { S.ding(); }, onStep: function () { S.sign(); } }, done); }
+  function between(next) { if (Goobs.adsOn() && meta.finished > 0 && meta.finished % settings.adEvery === 0 && meta.lastAdAt !== meta.finished) { meta.lastAdAt = meta.finished; saveMeta(); next(); showAd(function () {}); return; } next(); }
+  function openHelp() {
+    $('helpTitle').textContent = 'How to play Outpost Rush';
+    $('helpList').innerHTML = [
+      'You are <b>blue</b>. Take every tower on the field to win.',
+      '<b>Drag from your tower to another tower</b> to draw a line. Your soldiers leave one by one and march along it; each one costs the tower 1.',
+      'A soldier that reaches an enemy or gray tower takes 1 off it. At <b>0 the tower is yours</b>. One that reaches your own tower adds 1 (send help to the front).',
+      'Your towers grow by themselves, up to <b>Max</b> (63). A tower with no lines keeps its soldiers and grows twice as fast.',
+      'The dots under the number are lines: one line below 10, <b>two from 10, three from 20</b>. If enemies push a tower below that, it drops its newest line.',
+      '<b>Swipe across one of your lines</b> to cut it. Soldiers already on the way keep going.',
+      'Two enemy lines between the same towers meet head on: soldiers fight one for one where they meet. Gray towers never grow and never fight back.',
+      'Win faster for more stars and gold. Losing costs nothing: try again right away.'
+    ].map(function (x) { return '<li>' + x + '</li>'; }).join('');
+    $('ovHelp').classList.add('show');
+  }
+  function renderStats() {
+    var stars = 0; for (var n in meta.stars) stars += meta.stars[n];
+    var best = 1e9; for (var b in meta.best) best = Math.min(best, meta.best[b]);
+    $('statsBody').innerHTML = '<div class="tiles"><div class="tile"><b>' + Math.max(0, meta.open - 1) + '</b><span>Levels won</span></div><div class="tile"><b>' + stars + '</b><span>Stars</span></div><div class="tile"><b>' + fmt(meta.gold) + '</b><span>Gold</span></div></div>' +
+      '<div class="tiles"><div class="tile"><b>' + fmt(stats.wins) + '</b><span>Wins</span></div><div class="tile"><b>' + fmt(stats.losses) + '</b><span>Losses</span></div><div class="tile"><b>' + (best < 1e9 ? clock(best) : '–') + '</b><span>Fastest win</span></div></div>' +
+      '<div class="tiles"><div class="tile"><b>' + fmt(stats.captured) + '</b><span>Towers taken</span></div><div class="tile"><b>' + fmt(stats.sent) + '</b><span>Soldiers sent</span></div><div class="tile"><b>' + fmt(stats.cuts) + '</b><span>Lines cut</span></div></div>' +
+      '<div class="tiles"><div class="tile"><b>' + fmt(stats.tries) + '</b><span>Battles</span></div><div class="tile"><b>' + clock(stats.playSec) + '</b><span>Time played</span></div><div class="tile"><b>' + fmt(stats.goldEarned) + '</b><span>Gold earned</span></div></div>';
+  }
+
+  // ================= wiring =================
+  function syncSound() {
+    $('btnSound').innerHTML = '<svg viewBox="0 0 24 24"><use href="#i-sound-' + (settings.sound ? 'on' : 'off') + '"/></svg>'; $('btnSound').classList.toggle('on', settings.sound);
+    $('setSound').checked = settings.sound; $('setMusic').checked = settings.music;
+    // the round Sound button mutes everything; Settings has separate switches for effects and music
+    S.setEnabled(settings.sound); S.setMusic(settings.sound && settings.music);
+  }
+  function syncAds() { $('setAds').checked = Goobs.adsOn(); $('adEvery').textContent = settings.adEvery; $('rowAdEvery').classList.toggle('off', !Goobs.adsOn()); }
+  function sheet(btn, ov, close, onOpen) {
+    if (btn) $(btn).addEventListener('click', function () { if (onOpen) onOpen(); $(ov).classList.add('show'); });
+    $(close).addEventListener('click', function () { $(ov).classList.remove('show'); });
+    $(ov).addEventListener('click', function (e) { if (e.target === this) this.classList.remove('show'); });
+  }
+  function init() {
+    Goobs.themePicker($('themes'));
+    host = $('stage'); canvas = $('cv'); fxc = $('fx'); fxx = fxc.getContext('2d');
+    probe = document.createElement('div'); probe.className = 'sbprobe'; document.body.appendChild(probe);
+    canvas.addEventListener('pointerdown', onDown); canvas.addEventListener('pointermove', onMove); canvas.addEventListener('pointerup', onUp);
+    canvas.addEventListener('pointercancel', function () { if (drag && drag.mode === 'link') SC.dragHide(); drag = null; });
+    ['pointerdown', 'touchend', 'click'].forEach(function (ev) { document.addEventListener(ev, function () { S.unlock(); }, { passive: true }); });
+    $('btnHome').addEventListener('click', function () { Goobs.home(); });
+    $('btnNew').addEventListener('click', function () {
+      if (sim && state === 'play' && sim.t > 5) { showCard('Start again?', 'The level starts over from the beginning.', [{ label: 'Start again', red: true, go: function () { startLevel(levelNo); } }, { label: 'Keep playing', go: function () {} }]); return; }
+      startLevel(levelNo);
+    });
+    $('btnLevels').addEventListener('click', openLevels);
+    $('lvgrid').addEventListener('click', function (e) { var b = e.target.closest('button[data-n]'); if (!b) return; $('ovLevels').classList.remove('show'); between(function () { startLevel(+b.dataset.n); }); });
+    sheet(null, 'ovLevels', 'btnCloseLevels');
+    sheet('btnSettings', 'ovSettings', 'btnCloseSettings');
+    sheet('btnStats', 'ovStats', 'btnCloseStats', renderStats);
+    $('btnHelp').addEventListener('click', openHelp);
+    function closeHelp() { $('ovHelp').classList.remove('show'); if (!meta.seen) { meta.seen = true; saveMeta(); } }
+    $('btnCloseHelp').addEventListener('click', closeHelp);
+    $('ovHelp').addEventListener('click', function (e) { if (e.target === this) closeHelp(); });
+    $('btnSound').addEventListener('click', function () { settings.sound = !settings.sound; saveSettings(); syncSound(); S.ding(); });
+    $('setSound').addEventListener('change', function () { settings.sound = this.checked; saveSettings(); syncSound(); S.ding(); });
+    $('setMusic').addEventListener('change', function () { settings.music = this.checked; if (settings.music && !settings.sound) settings.sound = true; saveSettings(); syncSound(); });
+    $('setAds').addEventListener('change', function () { Goobs.setAds(this.checked); syncAds(); });
+    $('adLess').addEventListener('click', function () { settings.adEvery = Math.max(1, settings.adEvery - 1); saveSettings(); syncAds(); });
+    $('adMore').addEventListener('click', function () { settings.adEvery = Math.min(10, settings.adEvery + 1); saveSettings(); syncAds(); });
+    var rq = 0, refit = function () { if (rq) return; rq = requestAnimationFrame(function () { rq = 0; resize(); }); };
+    if (window.ResizeObserver) new ResizeObserver(refit).observe(host);
+    window.addEventListener('resize', refit);
+    syncSound(); syncAds();
+    levelNo = meta.level; renderInfo();
+    if (!meta.seen) openHelp();
+    Goobs.markPlayed('outpost');
+    Goobs.initUpdates({ onVersions: function (v) { $('version').textContent = 'Outpost Rush ' + (v.outpost || '?') + ' · Goobs-Games ' + (v.shell || '?'); } });
+    import('../../shared/three.module.min.js').then(function (m) {
+      T = m;
+      SC = OPScene.build(T, canvas, OP); resize();
+      ready = true; $('loading').classList.add('hide');
+      startLevel(levelNo);
+      requestAnimationFrame(frame);
+      window.__opReady = true;
+    }).catch(function (err) { $('loading').textContent = 'Couldn’t load the game. Check the connection once, then it works offline.'; if (window.console) console.warn(err); });
+  }
+  // test hook
+  window.__op = { get sim() { return sim; }, get state() { return state; }, get level() { return level; }, get levelNo() { return levelNo; }, startLevel: startLevel, OP: OP,
+    get SC() { return SC; }, meta: function () { return meta; }, stats: function () { return stats; }, perf: perf, get ready() { return ready; },
+    set speed(v) { speed = v; }, get speed() { return speed; },
+    towerScreen: function (i) { return SC.towerScreen(i); }, project: function (x, y, h) { var r = canvas.getBoundingClientRect(), p = SC.project(x, y, h); return [r.left + p[0], r.top + p[1]]; },
+    give: function (i, o, n) { var t = sim.towers[i]; if (o !== undefined && o !== t.o) { for (var k = t.links.length - 1; k >= 0; k--) OP.cut(sim, t.links[k], 'lost'); t.o = o; } if (n !== undefined) t.n = n; },
+    link: function (a, b) { return OP.playerLink(sim, a, b); } };
+  init();
+})();
+</script>
+</body>
+</html>
