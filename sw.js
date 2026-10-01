@@ -26,7 +26,7 @@ const VERSIONS = {
   daily: '1.1.0',
   mines: '1.1.0',
   bubbles: '1.2.0',
-  bricks: '1.2.0',
+  bricks: '1.3.0',
   topple: '1.7.0',
   barrage: '1.4.0',
   siege: '1.1.1',

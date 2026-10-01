@@ -50,6 +50,21 @@ html.gg-fs-over .top #btnPause:disabled { opacity: .5; }
 .ready .caps { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; text-align: left; font-size: 13px; color: #d6daf2; }
 .ready .caps b { display: inline-block; width: 30px; text-align: center; border-radius: 8px; color: #fff; font-size: 12px; padding: 1px 0; }
 .ready.compact .caps { display: none; }
+
+/* 1.3.0: the power-up line above the bricks: what the falling capsule is and does (and if it would end yours), or the
+   power-up you have now. Touches go through to the game. */
+.powerline { position: fixed; z-index: 4; height: 26px; box-sizing: border-box; display: none; align-items: center; justify-content: center; gap: 6px;
+  pointer-events: none; color: #e8ebff; font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; padding: 0 6px; }
+.powerline.show { display: flex; }
+.powerline > span { overflow: hidden; text-overflow: ellipsis; }
+.powerline b { flex: none; width: 26px; height: 18px; border-radius: 9px; color: #fff; font-size: 12px; font-weight: 900; line-height: 18px; text-align: center;
+  box-shadow: inset 0 -2px 0 rgba(0,0,0,.18); }
+.powerline strong { font-weight: 900; color: #fff; }
+.powerline small { flex: none; font-size: 11px; font-weight: 800; letter-spacing: .3px; text-transform: uppercase; color: #9aa0c8; }
+.powerline em { font-style: normal; font-weight: 800; color: #ffd43b; }
+.powerline.falling { animation: plpulse 1s ease-in-out infinite alternate; }
+@keyframes plpulse { from { opacity: .82; } to { opacity: 1; } }
+@media (max-width: 380px) { .powerline { font-size: 13px; gap: 5px; } }
 </style>
 </head>
 <body>
@@ -76,6 +91,8 @@ html.gg-fs-over .top #btnPause:disabled { opacity: .5; }
   <div class="stage" id="stage">
     <canvas id="cv"></canvas>
     <div class="ready" id="ready"></div>
+    <!-- 1.3.0: what the falling capsule does (and what it would replace), or the power-up you have, just above the bricks -->
+    <div class="powerline" id="powerline" aria-live="polite"></div>
   </div>
   <div class="top">
     <button class="brand homebtn" id="btnHome" aria-label="Back to all games">
@@ -465,6 +482,10 @@ var BKSound = (function () {
   var S = BKSound, STEP = 1000 / 60, LAST = 32;
   var BCOL = ['', '#ff6b6b', '#ffa94d', '#ffd43b', '#69db7c', '#4dabf7', '#9775fa', '#f783ac', '#3bc9db', '#c9ced6', '#e3b341'];
   var CAPCOL = { S: '#ff922b', C: '#40c057', E: '#4c6ef5', D: '#15aabf', L: '#fa5252', B: '#e64980', P: '#868e96' };
+  // 1.3.0: the one-liner above the bricks says what a falling capsule is ("S" = Slow) and whether catching it would end
+  // the power-up you have, so you can choose to let it fall (Glenn: "If I have laser, and slow is dropping I'll avoid slow")
+  var CAPSHORT = { S: ['Slow', 'slower ball'], C: ['Catch', 'ball sticks to the paddle'], E: ['Expand', 'wider paddle'], D: ['Divide', 'three balls'],
+    L: ['Laser', 'hold to fire'], B: ['Break', 'door to the next level'], P: ['Player', 'extra paddle'] };
   var CAPNAME = { S: 'Slow: the ball slows down', C: 'Catch: the ball sticks to the paddle (tap to let go)', E: 'Expand: a longer paddle', D: 'Divide: three balls', L: 'Laser: tap and hold to fire', B: 'Break: a door opens on the right; slide through it to skip the level', P: 'Player: an extra life' };
 
   // ================= storage =================
@@ -582,6 +603,8 @@ var BKSound = (function () {
   // full screen (1.2.0): the canvas is the whole screen (CSS px VW x VH); the field is W x H cells of k px at (OX, OY),
   // with WALL px walls on its sides and the ceiling band on top. Nothing about the rules changes, only where it's drawn.
   var VW = 390, VH = 844, OX = 0, OY = 0, WALL = 4, bgCache = null, bgKey = '';
+  // 1.3.0: PL px are kept free above the field for the power-up line
+  var PL = 30, plKey = '';
   function fit() {
     // the free space is the .playarea box (under the pills, above the home bar). The field takes all the width it can
     // (less its walls) or the height, on short phones; quarter-pixel steps keep the size stable. It sits
@@ -589,10 +612,11 @@ var BKSound = (function () {
     // height left over goes above it.
     var st = $('stage').getBoundingClientRect(), pa = $('playarea').getBoundingClientRect();
     VW = st.width; VH = st.height;
-    k = Math.max(10, Math.floor(4 * Math.min((pa.width - 2 * WALL) / W, (pa.height - 24) / H)) / 4);
-    var fw = W * k, fh = H * k, spare = Math.max(0, pa.height - fh);
+    k = Math.max(10, Math.floor(4 * Math.min((pa.width - 2 * WALL) / W, (pa.height - 24 - PL) / H)) / 4);
+    var fw = W * k, fh = H * k, spare = Math.max(0, pa.height - PL - fh);
     OX = Math.round(pa.left + (pa.width - fw) / 2);
     OY = Math.round(pa.bottom - Math.min(spare, 96) - fh);
+    var pl = $('powerline').style; pl.left = (OX - WALL) + 'px'; pl.width = (fw + 2 * WALL) + 'px'; pl.top = (OY - PL + 2) + 'px'; plKey = '';
     var r = $('ready').style; r.left = OX + 'px'; r.top = (OY + (BK.TOP - 1.4) * k) + 'px'; r.width = fw + 'px'; r.height = (fh - (BK.TOP - 1.4) * k) + 'px';
     $('ready').classList.toggle('compact', fh < 460);
     dpr = Math.min(3, window.devicePixelRatio || 1);
@@ -620,8 +644,25 @@ var BKSound = (function () {
     document.documentElement.style.setProperty('--bk-bg', bg[0]); // the page behind the canvas matches (overscroll, rotation)
     return bgCache;
   }
+  // the power-up line: a falling capsule wins (its name, what it does, what it would end); otherwise the power-up you have
+  var POWERS = { S: 1, C: 1, E: 1, L: 1 };
+  function capBadge(c) { return '<b style="background:' + CAPCOL[c] + '">' + c + '</b>'; }
+  function powerLine() {
+    var el = $('powerline'), cap = g && !g.over && g.caps.length ? g.caps[0].kind : '', pw = g && !g.over ? g.power : '';
+    var key = cap + '|' + pw + '|' + (g && g.balls.length > 1 ? 'm' : '');
+    if (key === plKey) return;
+    plKey = key;
+    var h = '';
+    if (cap) {
+      var lose = POWERS[pw] && (POWERS[cap] || cap === 'D') && cap !== pw ? ' · <em>ends your ' + CAPSHORT[pw][0] + '</em>' : '';
+      h = capBadge(cap) + '<span><strong>' + CAPSHORT[cap][0] + '</strong>: ' + CAPSHORT[cap][1] + lose + '</span>';
+    } else if (pw) h = '<small>You have</small>' + capBadge(pw) + '<span><strong>' + CAPSHORT[pw][0] + '</strong>: ' + CAPSHORT[pw][1] + '</span>';
+    el.innerHTML = h;
+    el.className = 'powerline' + (h ? ' show' : '') + (cap ? ' falling' : '');
+  }
   function draw() {
     if (!cx || !g) return;
+    powerLine();
     var bg = BGS[(g.level - 1) % BGS.length], now = performance.now(), fw = W * k, fh = H * k, ceil = (BK.TOP - 1.4) * k;
     cx.setTransform(1, 0, 0, 1, 0, 0);
     cx.drawImage(backdrop(bg), 0, 0);
@@ -764,7 +805,7 @@ var BKSound = (function () {
       '<b>Slide</b> your finger anywhere on the screen (under the paddle is handy) to move the paddle (it follows the slide, so your finger doesn’t have to cover the ball). <b>Tap</b> to launch the ball; it goes by itself after 3 seconds.',
       'Keep the ball in play and break every brick. Where the ball lands on the paddle sets its angle: the ends send it off at a slant. It gets faster as you go.',
       'Colored bricks break with one hit. <b>Silver</b> ones take a few hits (more on later levels) and score 50 × the level. <b>Gold</b> ones can’t be broken.',
-      'Catch the falling capsules: ' + BK.CAPS.map(function (c) { return '<b>' + c + '</b> ' + CAPNAME[c].split(': ')[1]; }).join('; ') + '. Only one of Slow, Catch, Expand or Laser works at a time; a new one replaces it. No capsules fall while three balls are in play.',
+      'Catch the falling capsules: ' + BK.CAPS.map(function (c) { return '<b>' + c + '</b> ' + CAPNAME[c].split(': ')[1]; }).join('; ') + '. Only one of Slow, Catch, Expand or Laser works at a time; a new one replaces it (and Divide ends it). The line above the bricks names a falling capsule and says when it would end the power-up you have, so you can let it drop. No capsules fall while three balls are in play.',
       'You have 3 paddles, and get another at 20,000 points and every 60,000 after. 32 levels, each checked to be clearable. After a game over you can carry on from the level you reached (with a fresh score).',
       'Settings: <b>paddle speed</b>, how far it moves for a slide.'
     ].map(function (x) { return '<li>' + x + '</li>'; }).join('');
