@@ -43,7 +43,7 @@ const VERSIONS = {
   shelf: '1.2.0',
   castle: '1.6.0',
   outpost: '0.4.0',
-  getout: '0.1.0',
+  getout: '0.3.0',
   three: '0.186.1',  // shared 3D library; bump only when three.js itself changes
   planck: '1.5.0',   // shared 2D physics library (planck.js); bump only when planck itself changes
   cannon: '0.20.0'   // shared 3D physics library (cannon-es) for Number Nook's Chain Cube
