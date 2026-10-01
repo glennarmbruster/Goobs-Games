@@ -1,0 +1,1164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#120e1c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Goobs-Games">
+<link rel="manifest" href="../../manifest.json">
+<link rel="apple-touch-icon" href="../../icons/icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="../../icons/icon-192.png">
+<link rel="stylesheet" href="../../shared/goobs.css">
+<script src="../../shared/goobs.js"></script>
+<script>
+/* if Strike Alley can't open, say so on screen (never a blank page) and offer a fresh start */
+(function () {
+  var shown = false;
+  function fail(msg) {
+    if (shown || window.__bwReady) return; shown = true;
+    function put() {
+      var d = document.createElement('div');
+      d.style.cssText = 'position:fixed;inset:0;z-index:99;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;background:#f4f5f9;color:#1b1f33;font:600 16px -apple-system,system-ui,sans-serif;text-align:center';
+      d.innerHTML = '<b style="font-size:21px">Strike Alley didn’t open</b><div style="max-width:320px;opacity:.75;font-size:13px">' + String(msg).replace(/[<>&]/g, '') + '</div>';
+      function btn(t, bg, go) { var b = document.createElement('button'); b.textContent = t; b.style.cssText = 'font:800 17px -apple-system,system-ui,sans-serif;padding:13px 24px;border-radius:14px;border:0;color:#fff;background:' + bg; b.onclick = go; d.appendChild(b); }
+      btn('Start fresh', '#5a54f0', function () { try { localStorage.removeItem('bowling.game'); } catch (e) { /* ignore */ } location.reload(); });
+      btn('All games', '#6b7080', function () { location.href = '../../'; });
+      document.body.appendChild(d);
+    }
+    if (document.body) put(); else document.addEventListener('DOMContentLoaded', put);
+  }
+  window.addEventListener('error', function (e) { fail((e.message || 'Something went wrong') + (e.lineno ? ' (line ' + e.lineno + ')' : '')); });
+  setTimeout(function () { if (!window.__bwReady) fail('It took too long to start.'); }, 8000);
+})();
+</script>
+<title>Strike Alley</title>
+<style>
+/* Strike Alley: the 3D alley fills the phone edge to edge; the scoresheet floats at the top, tips and messages over
+   the lane. Touches go to the lane except on buttons. */
+html, body { height: 100%; }
+body { background: #120e1c; overflow: hidden; }
+#cv3 { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; z-index: 0; }
+#swipe { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; }
+html.gg-fs-over .app { position: relative; z-index: 3; height: 100%; pointer-events: none; gap: 0;
+  padding: calc(env(safe-area-inset-top, 0px) + 54px) calc(env(safe-area-inset-right, 0px) + 6px) calc(env(safe-area-inset-bottom, 0px) + 8px) calc(env(safe-area-inset-left, 0px) + 6px); }
+.app button, .app .ggpill { pointer-events: auto; }
+.bwhud { position: fixed; z-index: 7; top: calc(env(safe-area-inset-top, 0px) + 6px); left: 60px; right: 60px; height: 44px; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+.bwhud .ggpill { font-size: 20px; padding: 7px 16px; pointer-events: none; font-variant-numeric: tabular-nums; }
+.bwhud .ggpill small { font-size: 11px; color: var(--muted); font-weight: 800; margin-right: 6px; letter-spacing: .3px; }
+
+/* the scoresheet: nine frames and a wider tenth */
+.sheetrow { display: grid; grid-template-columns: repeat(9, 1fr) 1.45fr; gap: 0; background: rgba(250,247,240,.95); border-radius: 10px; overflow: hidden; box-shadow: 0 4px 14px rgba(0,0,0,.35); flex: none; }
+.fr { border-right: 1px solid #c9c2d6; display: flex; flex-direction: column; min-width: 0; }
+.fr:last-child { border-right: 0; }
+.fr .no { font-size: 9px; font-weight: 800; color: #7a7290; text-align: center; background: #ece6f4; line-height: 13px; }
+.fr .marks { display: flex; justify-content: flex-end; height: 17px; }
+.fr .marks i { font-style: normal; width: 15px; text-align: center; font-size: 12px; font-weight: 800; color: #221a33; line-height: 17px; border-left: 1px solid #ddd6e6; border-bottom: 1px solid #ddd6e6; }
+.fr.tenth .marks i { flex: 1; width: auto; }
+.fr .marks i.x { color: #d4172b; }
+.fr .marks i.s { color: #2563eb; }
+.fr .tot { text-align: center; font-size: 13px; font-weight: 800; color: #221a33; line-height: 18px; height: 18px; font-variant-numeric: tabular-nums; }
+.fr.cur { background: #fff4c7; }
+.fr.cur .no { background: #ffd23f; color: #3a2a00; }
+.subrow { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; flex: none; }
+.subrow span { background: rgba(10,8,20,.62); color: #fff; font-weight: 800; font-size: 13px; padding: 5px 10px; border-radius: 12px; }
+.pindia { width: 54px; height: 47px; background: rgba(10,8,20,.62); border-radius: 12px; padding: 3px; }
+.pindia circle { fill: #fbf8f2; }
+.pindia circle.down { fill: rgba(255,255,255,.14); }
+
+.msg { position: fixed; left: 0; right: 0; top: 34%; text-align: center; pointer-events: none; z-index: 6; font-family: var(--round); font-weight: 900; font-size: 46px; letter-spacing: 1px; color: #fff;
+  text-shadow: 0 3px 0 rgba(0,0,0,.35), 0 0 22px rgba(255,80,200,.7); opacity: 0; transform: scale(.7); transition: opacity .2s, transform .25s cubic-bezier(.2,1.6,.4,1); }
+.msg.show { opacity: 1; transform: scale(1); }
+.msg small { display: block; font-size: 20px; font-weight: 800; letter-spacing: 0; margin-top: 2px; text-shadow: 0 2px 0 rgba(0,0,0,.35); }
+.msg.strike { color: #ffe27a; }
+.msg.spare { color: #8fe9ff; text-shadow: 0 3px 0 rgba(0,0,0,.35), 0 0 22px rgba(80,200,255,.7); }
+.tip { position: fixed; left: 50%; top: 56%; transform: translateX(-50%); max-width: 92vw; text-align: center; pointer-events: none; z-index: 5;
+  background: rgba(10,8,20,.66); color: #fff; font-weight: 700; font-size: 14px; line-height: 1.3; padding: 8px 14px; border-radius: 14px; transition: opacity .3s; }
+.tip.hide { opacity: 0; }
+.speed { position: fixed; right: 10px; bottom: calc(env(safe-area-inset-bottom, 0px) + 18px); z-index: 5; pointer-events: none; background: rgba(10,8,20,.66); color: #ffe27a; font-weight: 800; font-size: 14px; padding: 6px 11px; border-radius: 12px; opacity: 0; transition: opacity .3s; }
+.speed.show { opacity: 1; }
+.loading { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 800; font-size: 17px; pointer-events: none; z-index: 4; }
+.loading.hide { display: none; }
+
+/* sheets */
+.swatches { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 8px; }
+.swatches button { width: 38px; height: 38px; border-radius: 50%; border: 0; box-shadow: inset 0 -5px 8px rgba(0,0,0,.25), 0 1px 3px rgba(0,0,0,.25); }
+.swatches button.on { outline: 3px solid var(--accent); outline-offset: 2px; }
+.row.col { flex-direction: column; align-items: stretch; }
+.endscore { font-size: 54px; font-weight: 900; color: var(--ink); line-height: 1; margin: 2px 0 6px; font-variant-numeric: tabular-nums; }
+.endnote { color: var(--muted); font-size: 15px; margin: 0 0 10px; }
+.hist { display: flex; gap: 4px; align-items: flex-end; height: 70px; margin: 6px 0 12px; }
+.hist i { flex: 1; background: var(--accent); border-radius: 4px 4px 0 0; min-height: 3px; position: relative; }
+.hist i b { position: absolute; top: -15px; left: 0; right: 0; text-align: center; font-size: 10px; color: var(--muted); font-style: normal; }
+.stnote { color: var(--muted); font-size: 13px; margin: 2px 0 6px; }
+</style>
+</head>
+<body>
+<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="bw-logo" viewBox="0 0 100 100"><defs><linearGradient id="bwL" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a1d5c"/><stop offset="1" stop-color="#16102a"/></linearGradient></defs><rect width="100" height="100" rx="24" fill="url(#bwL)"/>
+<path d="M30 92L44 30h12l14 62z" fill="#e7b77c"/><path d="M44 30h12l14 62h-4L54 30h-6L34 92h-4z" fill="#c98d4f" opacity=".5"/>
+<g fill="#fff"><path d="M41 14c-3 0-4.5 3-4 6 .4 2.6 2 4 1.6 7-.6 3.4-3 5.5-3 10 0 3 1 5 2 6h7c1-1 2-3 2-6 0-4.5-2.4-6.6-3-10-.4-3 1.2-4.4 1.6-7 .5-3-1-6-4.2-6z"/><path d="M59 14c-3 0-4.5 3-4 6 .4 2.6 2 4 1.6 7-.6 3.4-3 5.5-3 10 0 3 1 5 2 6h7c1-1 2-3 2-6 0-4.5-2.4-6.6-3-10-.4-3 1.2-4.4 1.6-7 .5-3-1-6-4.2-6z"/></g>
+<g fill="#e0283c"><rect x="37.6" y="25" width="6.8" height="1.6"/><rect x="55.6" y="25" width="6.8" height="1.6"/></g>
+<circle cx="50" cy="72" r="15" fill="#2f7cf6"/><circle cx="46" cy="66" r="2.2" fill="#0b0b10"/><circle cx="52" cy="65" r="2.2" fill="#0b0b10"/><circle cx="49" cy="71" r="2.6" fill="#0b0b10"/></symbol>
+<symbol id="i-undo" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></g></symbol>
+<symbol id="i-restart" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 3v5h-5"/></g></symbol>
+<symbol id="i-hint" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.5 1.1 1.3 1.1 2.2h5c0-.9.4-1.7 1.1-2.2A6 6 0 0 0 12 3z" fill="currentColor" fill-opacity=".2"/></g></symbol>
+<symbol id="i-prev" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-next" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-levels" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5" fill="currentColor" fill-opacity=".35"/></g></symbol>
+<symbol id="i-star" viewBox="0 0 24 24"><path d="M12 2.8l2.8 5.8 6.3.9-4.6 4.4 1.1 6.3L12 17.2l-5.6 3 1.1-6.3-4.6-4.4 6.3-.9z" fill="currentColor" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></symbol>
+<symbol id="i-help" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.3a2.6 2.6 0 0 1 5 .9c0 1.8-2.5 2.2-2.5 3.9M12 17.3v.2"/></g></symbol>
+<symbol id="i-gear" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></g></symbol>
+<symbol id="i-stats" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3"/></g></symbol>
+</defs></svg>
+
+<canvas id="cv3"></canvas>
+<canvas id="swipe"></canvas>
+
+<div class="app" id="app">
+  <div class="top">
+    <button class="brand homebtn" id="btnHome" aria-label="Back to all games">
+      <span class="chev" aria-hidden="true">&#8249;</span>
+      <svg viewBox="0 0 100 100" aria-hidden="true"><use href="#bw-logo"/></svg>
+      <h1>Strike Alley</h1>
+    </button>
+    <div class="topbtns">
+      <button class="iconbtn" id="btnNew" aria-label="New game"><svg viewBox="0 0 24 24"><use href="#i-restart"/></svg></button>
+      <button class="iconbtn" id="btnStats" aria-label="Stats"><svg viewBox="0 0 24 24"><use href="#i-stats"/></svg></button>
+      <button class="iconbtn" id="btnHelp" aria-label="How to play"><svg viewBox="0 0 24 24"><use href="#i-help"/></svg></button>
+      <button class="iconbtn" id="btnSettings" aria-label="Settings"><svg viewBox="0 0 24 24"><use href="#i-gear"/></svg></button>
+    </div>
+  </div>
+  <div class="bwhud"><span class="ggpill" id="pillScore">0</span></div>
+  <!-- the scoresheet: ten frames -->
+  <div class="sheetrow" id="board"></div>
+  <div class="subrow"><span id="frameInfo">Frame 1 · Ball 1</span><svg class="pindia" id="pinDia" viewBox="0 0 64 56"></svg></div>
+  <div class="msg" id="msg"></div>
+  <div class="tip" id="tip"></div>
+  <div class="speed" id="speed"></div>
+  <div class="loading" id="loading">Setting up the lane…</div>
+</div>
+
+<!-- Stats -->
+<div class="overlay" id="ovStats">
+  <div class="sheet" role="dialog" aria-label="Stats">
+    <h2>Your bowling records</h2>
+    <div class="sheetbody" id="statsBody"></div>
+    <div class="actions"><button class="btn red" id="btnCloseStats">Done</button></div>
+  </div>
+</div>
+
+<!-- Settings -->
+<div class="overlay" id="ovSettings">
+  <div class="sheet" role="dialog" aria-label="Settings">
+    <h2>Settings</h2>
+    <div class="sheetbody">
+      <label class="row"><div>Sound<small>Rolling rumble, pin crash and a cheer for strikes.</small></div>
+        <span class="switch"><input type="checkbox" id="setSound"><span></span></span></label>
+      <div class="row col"><div>Your ball<small>Pick a color.</small></div><div class="swatches" id="swatches"></div></div>
+      <label class="row"><div>Show my line<small>A faint stripe where your last ball went.</small></div>
+        <span class="switch"><input type="checkbox" id="setTrail"><span></span></span></label>
+      <label class="row"><div>Left-handed<small>You start on the left of the lane.</small></div>
+        <span class="switch"><input type="checkbox" id="setLefty"><span></span></span></label>
+      <label class="row"><div>Old-time ads<small>Joke ads between games. This switch is shared by all Goobs-Games.</small></div>
+        <span class="switch"><input type="checkbox" id="setAds"><span></span></span></label>
+      <div class="row" id="rowAdEvery"><div>Show an ad every<small>Counted in finished games.</small></div>
+        <div class="stepper"><button id="adLess" aria-label="Fewer">&minus;</button><b id="adEvery">2</b><button id="adMore" aria-label="More">+</button></div></div>
+      <div class="version" id="version">Strike Alley</div>
+    </div>
+    <div class="actions"><button class="btn red" id="btnCloseSettings">Done</button></div>
+  </div>
+</div>
+
+<!-- How to play -->
+<div class="overlay" id="ovHelp">
+  <div class="sheet" role="dialog" aria-label="How to play">
+    <h2>How to bowl</h2>
+    <div class="sheetbody"><ol class="helplist" id="helpList"></ol></div>
+    <div class="actions"><button class="btn red" id="btnCloseHelp">Let's bowl</button></div>
+  </div>
+</div>
+
+<!-- Game over / confirm -->
+<div class="overlay center" id="ovEnd">
+  <div class="card" role="dialog">
+    <div class="cardicon"><svg viewBox="0 0 100 100"><use href="#bw-logo"/></svg></div>
+    <h2 id="endTitle"></h2>
+    <div id="endText"></div>
+    <div class="actions" id="endActions"></div>
+  </div>
+</div>
+
+<script>
+/* Strike Alley logic: a ten-pin lane in real sizes (meters, kilograms), the ball and pin physics (cannon-es, passed in
+   with BW.use so this file also runs in Node for tools/check.mjs), the throw (position, speed, aim, hook), what is
+   left standing, and ten-pin scoring.
+   The lane: foul line at z = 0, head pin 18.29 m (60 ft) down the lane at z = HEAD, x across (+x to the right as the
+   bowler looks down the lane), y up, the lane surface at y = 0. Lane 1.054 m wide (41.5 in), gutters 0.235 m beside
+   it, the pin deck ends 0.87 m past the head pin, then the pit.
+   The ball skids through the oil on the front two thirds of the lane and grabs on the dry back end: the hook is a
+   sideways push that grows from about 11 m to 15 m and stays on until the pins. A ball whose middle leaves the lane
+   drops into the gutter and rolls past the pins (it can't touch them, as on a real lane). */
+var BW = (function () {
+  'use strict';
+  var C = null;
+  var HEAD = 18.288, ROW = 0.3048 * Math.sqrt(3) / 2, PINSP = 0.3048;   // pins 12 in apart in a triangle
+  var LANEW = 1.054, HALF = LANEW / 2, GUT = 0.235, DECK_END = HEAD + 0.87, PIT_END = DECK_END + 1.0;
+  var BALLR = 0.108, PIN_COM = 0.145, PINH = 0.381;   // ball 8.5 in across; a pin 15 in tall (masses in T below)
+  var GRAV = -9.81, DT = 1 / 240;
+  var G_WORLD = 1, G_PINLOW = 2, G_PIN = 4, G_BALL = 16;   // collision groups
+  var OIL_FROM = 11.0, OIL_TO = 15.0;       // the hook ramps in over these meters
+  function use(c) { C = c; }
+  // the pin action, tuned with tools/tune.mjs (pocket hits mostly strike, head-on hits split, light hits leave pins)
+  // tools/tune3.mjs (pocket = right of the head pin; 36 hooked balls a group): pocket about 65% strikes, light hits
+  // and head-on hits leave pins and splits, Brooklyn hits sometimes carry. The pins are a little lighter than the
+  // regulation 1.53 kg and the ball keeps driving through the pin deck (its roll does on a real lane).
+  var T = { ballM: 7.0, pinM: 1.3, deckHook: 1.0, pinLaneMu: 0.22, pinLaneE: 0.15, ballPinMu: 0.12, ballPinE: 0.62, pinPinMu: 0.3, pinPinE: 0.65, pinWallE: 0.45 };
+
+  // pin spots, numbered the usual way (1 the head pin; 7 8 9 10 the back row, 7 on the left)
+  var SPOTS = (function () {
+    var s = [], rows = [[1], [2, 3], [4, 5, 6], [7, 8, 9, 10]];
+    rows.forEach(function (r, ri) { r.forEach(function (n, j) { s[n] = { x: (j - (r.length - 1) / 2) * PINSP, z: HEAD + ri * ROW }; }); });
+    return s;
+  })();
+
+  // ---------------- the world ----------------
+  function makeMaterials() {
+    var m = { lane: new C.Material('lane'), ball: new C.Material('ball'), pin: new C.Material('pin'), wall: new C.Material('wall') };
+    return m;
+  }
+  function pinBody(w, mats) {
+    var b = new C.Body({ mass: T.pinM, material: mats.pin, allowSleep: true, sleepSpeedLimit: 0.06, sleepTimeLimit: 0.25, linearDamping: 0.05, angularDamping: 0.12 });
+    // a flat foot (so a pin stands), then a chain of overlapping spheres following the pin's outline (USBC sizes:
+    // 4.766 in wide at 4.5 in up, a 1.8 in neck at 9.4 in, a 2.55 in head at 13.5 in); the body's origin is the pin's
+    // center of mass, PIN_COM above its foot. No gaps, so pins can't pass through each other.
+    var y = function (h) { return new C.Vec3(0, h - PIN_COM, 0); };
+    // The foot and the part below the belly don't touch the ball (shape filters): their centers are lower than the
+    // ball's, so a hit there would throw the ball up into the air; on a real pin the ball meets the belly first.
+    var foot = new C.Cylinder(0.031, 0.031, 0.04, 10); foot.collisionFilterGroup = G_PINLOW; foot.collisionFilterMask = G_WORLD | G_PINLOW | G_PIN;
+    b.addShape(foot, y(0.02));
+    [[0.072, 0.050], [0.114, 0.0605], [0.155, 0.056], [0.192, 0.045], [0.224, 0.032], [0.255, 0.025], [0.285, 0.028], [0.315, 0.031], [0.345, 0.0323]].forEach(function (s, i) {
+      var sh = new C.Sphere(s[1]);
+      if (i === 0) { sh.collisionFilterGroup = G_PINLOW; sh.collisionFilterMask = G_WORLD | G_PINLOW | G_PIN; }
+      else { sh.collisionFilterGroup = G_PIN; sh.collisionFilterMask = G_WORLD | G_PINLOW | G_PIN | G_BALL; }
+      b.addShape(sh, y(s[0]));
+    });
+    // the shapes' box makes a poor inertia guess for a tall pin: set it from a solid of these proportions
+    b.inertia.set(T.pinM * 0.0115, T.pinM * 0.0016, T.pinM * 0.0115);
+    b.invInertia.set(1 / b.inertia.x, 1 / b.inertia.y, 1 / b.inertia.z);
+    b.updateInertiaWorld(true);
+    return b;
+  }
+  function staticBox(w, mat, hx, hy, hz, x, y, z) {
+    var b = new C.Body({ mass: 0, material: mat }); b.addShape(new C.Box(new C.Vec3(hx, hy, hz))); b.position.set(x, y, z); w.addBody(b); return b;
+  }
+  // a new world with the given pins standing on their spots (or at saved places: [n, x, z, angle] as left standing)
+  function create(pins) {
+    var w = new C.World({ gravity: new C.Vec3(0, GRAV, 0) });
+    w.allowSleep = true;
+    w.solver.iterations = 20; w.solver.tolerance = 1e-5;
+    var M = makeMaterials();
+    w.addContactMaterial(new C.ContactMaterial(M.ball, M.lane, { friction: 0.02, restitution: 0.05 }));
+    w.addContactMaterial(new C.ContactMaterial(M.pin, M.lane, { friction: T.pinLaneMu, restitution: T.pinLaneE }));
+    w.addContactMaterial(new C.ContactMaterial(M.ball, M.pin, { friction: T.ballPinMu, restitution: T.ballPinE }));
+    w.addContactMaterial(new C.ContactMaterial(M.pin, M.pin, { friction: T.pinPinMu, restitution: T.pinPinE }));
+    w.addContactMaterial(new C.ContactMaterial(M.pin, M.wall, { friction: 0.2, restitution: T.pinWallE }));
+    w.addContactMaterial(new C.ContactMaterial(M.ball, M.wall, { friction: 0.1, restitution: 0.2 }));
+    // lane and pin deck (one slab), gutters (lower, beside the deck), kickbacks (side walls by the pins), the pit and
+    // its back cushion
+    staticBox(w, M.lane, HALF, 0.05, DECK_END / 2 + 1, 0, -0.05, DECK_END / 2 - 1);
+    [-1, 1].forEach(function (s) {
+      staticBox(w, M.lane, GUT / 2, 0.05, (PIT_END + 2) / 2, s * (HALF + GUT / 2), -0.14, (PIT_END + 2) / 2 - 2);
+      staticBox(w, M.wall, 0.04, 0.45, 1.5, s * (HALF + GUT + 0.04), 0.3, HEAD + 0.2);
+    });
+    staticBox(w, M.wall, HALF + GUT + 0.1, 0.1, (PIT_END - DECK_END) / 2, 0, -0.45, (DECK_END + PIT_END) / 2);
+    staticBox(w, M.wall, HALF + GUT + 0.1, 0.6, 0.1, 0, 0.1, PIT_END + 0.1);
+    var sim = { w: w, M: M, pins: [], ball: null, t: 0, hook: 0, gutter: 0, ballDone: false, hitT: -1, touched: {}, woke: false };
+    var list = pins || [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(function (n) { return [n, SPOTS[n].x, SPOTS[n].z, 0]; });
+    list.forEach(function (p) {
+      var b = pinBody(w, M); b.position.set(p[1], PIN_COM + 0.0005, p[2]);
+      b.quaternion.setFromAxisAngle(new C.Vec3(0, 1, 0), p[3] || 0);
+      w.addBody(b); b.sleep();
+      b.pinNo = p[0];
+      sim.pins.push({ n: p[0], b: b });
+    });
+    return sim;
+  }
+
+  // ---------------- the throw ----------------
+  // t: { x (start, m from the middle), speed (m/s), angle (radians, + to the right), hook (m/s^2 sideways on the dry
+  //      back end, + toward the right), spin (visual only) }
+  function release(sim, t) {
+    var sh = new C.Sphere(BALLR); sh.collisionFilterGroup = G_BALL; sh.collisionFilterMask = G_WORLD | G_PIN;
+    var b = new C.Body({ mass: T.ballM, material: sim.M.ball, shape: sh, allowSleep: false, linearDamping: 0, angularDamping: 0.01 });
+    b.position.set(clamp(t.x, -HALF + BALLR, HALF - BALLR), BALLR, t.z0 || 0.05);
+    b.velocity.set(Math.sin(t.angle) * t.speed, 0, Math.cos(t.angle) * t.speed);
+    b.angularVelocity.set(t.speed / BALLR * Math.cos(t.angle), 0, -t.speed / BALLR * Math.sin(t.angle));   // rolling the way it goes
+    sim.w.addBody(b);
+    sim.ball = b; sim.hook = t.hook || 0; sim.gutter = 0; sim.ballDone = false; sim.t = 0; sim.hitT = -1; sim.path = [];
+    // the ball has to pass close by a sleeping pin to wake it (a sleeping body is as solid as the floor otherwise)
+  }
+  function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
+  function smooth(a, b, x) { var t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); }
+
+  // one physics step (1/240 s)
+  function step(sim) {
+    var b = sim.ball;
+    if (b && !sim.ballDone) {
+      if (!sim.gutter) {
+        // the hook on the dry back end, until the ball reaches the pins
+        var k = smooth(OIL_FROM, OIL_TO, b.position.z) * (b.position.z < HEAD - 0.3 ? 1 : T.deckHook);
+        if (k > 0 && b.position.z < DECK_END) b.force.x += T.ballM * sim.hook * k;
+        // a small loss of speed along the lane
+        if (b.position.z < HEAD - 0.5) b.force.z -= T.ballM * 0.12;
+        // over the edge: into the gutter (it can't touch the pins from there)
+        if (Math.abs(b.position.x) > HALF + 0.01 && b.position.z < HEAD - 0.35 && sim.hitT < 0) {
+          sim.gutter = b.position.x > 0 ? 1 : -1;
+          b.collisionResponse = false; b.type = C.Body.KINEMATIC; b.mass = 0; b.updateMassProperties();
+          b.velocity.set(0, 0, Math.max(3, b.velocity.z));
+          b.angularVelocity.set(b.velocity.z / BALLR, 0, 0);
+          b.position.y = BALLR - 0.11;
+        }
+      } else {
+        // rolling down the gutter, settling into its middle
+        b.position.x += (sim.gutter * (HALF + GUT / 2) - b.position.x) * 0.08;
+      }
+      // wake every pin as the ball comes near: a sleeping body is as solid as the floor for the step it is hit in, so
+      // a pin flying into a sleeping neighbour would bounce off it like a wall instead of knocking it over
+      if (!sim.gutter && !sim.woke && sim.pins.some(function (p) { return p.b.position.z - b.position.z < 0.8; })) {
+        sim.woke = true; sim.pins.forEach(function (p) { p.b.allowSleep = false; p.b.wakeUp(); });
+      }
+      if (b.position.z > PIT_END - 0.3 || b.position.y < -0.6 || sim.t > 9) { sim.ballDone = true; sim.w.removeBody(b); }
+      if (sim.hitT < 0 && b.position.z > HEAD - 0.25) sim.hitT = sim.t;
+      if (sim.path && (sim.path.length === 0 || sim.t - sim.path[sim.path.length - 1][0] > 0.05)) sim.path.push([sim.t, b.position.x, b.position.z]);
+    }
+    // pins keep each other awake while anything is still moving near them (so none falls asleep mid-tumble)
+    sim.pins.forEach(function (p) {
+      var v = p.b.velocity; if (v.x * v.x + v.z * v.z + v.y * v.y > 0.04) sim.touched[p.n] = 1;
+    });
+    // a pin lying on its side rolls on a tapered body: in a real alley it wobbles to a stop quickly
+    sim.pins.forEach(function (p) {
+      var b = p.b; if (b.sleepState === C.Body.SLEEPING) return;
+      if (upY(b.quaternion) < 0.5 && b.position.y < 0.09) { b.angularVelocity.scale(0.985, b.angularVelocity); b.velocity.x *= 0.995; b.velocity.z *= 0.995; }
+    });
+    sim.w.step(DT);
+    sim.t += DT;
+  }
+  // is everything still? (the ball gone, every pin asleep or barely moving)
+  // (pins already in the pit or the gutters don't matter; a pin still rocking on its foot does)
+  function settled(sim) {
+    if (!sim.ballDone) return false;
+    return sim.pins.every(function (p) {
+      var b = p.b; if (b.sleepState === C.Body.SLEEPING) return true;
+      if (b.position.z > DECK_END || Math.abs(b.position.x) > HALF || b.position.y < 0) return true;
+      if (upY(b.quaternion) < 0.5) return b.velocity.length() < 0.3;      // lying down and only rolling a little
+      return b.velocity.length() < 0.05 && b.angularVelocity.length() < 0.25;
+    });
+  }
+  function upY(q) { return 1 - 2 * (q.x * q.x + q.z * q.z); }   // the pin's up axis, its y component
+  // a pin still counts as standing if it is upright (within 12 degrees) and still on the pin deck
+  function standing(p) {
+    var b = p.b;
+    return upY(b.quaternion) > Math.cos(12 * Math.PI / 180) && Math.abs(b.position.x) < HALF && b.position.z < DECK_END && b.position.y > PIN_COM - 0.03 && b.position.y < PIN_COM + 0.05;
+  }
+  function standingList(sim) { return sim.pins.filter(standing).map(function (p) { return p.n; }); }
+  // what stays for the next ball: each standing pin where it stands now (and which way it faces)
+  function leave(sim) {
+    return sim.pins.filter(standing).map(function (p) {
+      var q = p.b.quaternion, yaw = Math.atan2(2 * (q.w * q.y + q.x * q.z), 1 - 2 * (q.y * q.y + q.x * q.x));
+      return [p.n, +p.b.position.x.toFixed(4), +p.b.position.z.toFixed(4), +yaw.toFixed(3)];
+    });
+  }
+  // play a throw to the end (for the checks and the bot): returns the pins left standing
+  function simulate(pins, t, maxT) {
+    var sim = create(pins); release(sim, t);
+    var lim = (maxT || 9) / DT, n = 0, still = 0;
+    while (n++ < lim) {
+      step(sim);
+      if (settled(sim)) { if (++still > 30) break; } else still = 0;
+    }
+    return { sim: sim, standing: standingList(sim), gutter: !!sim.gutter, time: sim.t };
+  }
+
+  // ---------------- aiming help ----------------
+  // where a ball would cross the head pin's row (no pins in the way); null if it ends in the gutter first
+  function headX(x0, speed, angle, hook) {
+    var sim = create([]); release(sim, { x: x0, speed: speed, angle: angle, hook: hook });
+    var n = 0;
+    while (!sim.ballDone && !sim.gutter && sim.ball.position.z < HEAD && n++ < 4000) step(sim);
+    if (sim.gutter || sim.ballDone) return null;
+    return sim.ball.position.x;
+  }
+  // The swipe's tilt sets the line (as for a straight ball); a hook bends the ball away from that line, but only
+  // KEEP of the bend is kept: the launch angle is turned to take back the rest. So the aim decides where the ball
+  // ends up (give or take), and a hook mostly adds the angle that carries pins: a phone can't read a finger's
+  // curve precisely enough for the curve alone to decide where the ball goes.
+  var KEEP = 0.3;
+  function aim(x0, speed, angle, hook) {
+    if (!hook) return angle;
+    var straight = x0 + Math.tan(angle) * HEAD, curved = headX(x0, speed, angle, hook);
+    if (curved === null) return angle;
+    var want = straight + (curved - straight) * KEEP, lo = angle - 0.08, hi = angle + 0.08;
+    for (var i = 0; i < 16; i++) {
+      var m = (lo + hi) / 2, x = headX(x0, speed, m, hook);
+      if (x === null) { if (m > angle) hi = m; else lo = m; continue; }
+      if (x < want) lo = m; else hi = m;
+    }
+    return (lo + hi) / 2;
+  }
+
+  // ---------------- scoring ----------------
+  // rolls: pins knocked down by each ball in order. Returns frames [{ marks: ['X'] | ['7','/'] | ..., total (running,
+  // null until it can be counted) }] and the score so far; also where the game stands (frame, ball, over).
+  function score(rolls) {
+    var frames = [], i = 0, run = 0;
+    for (var f = 0; f < 10; f++) {
+      var fr = { marks: [], total: null };
+      if (i >= rolls.length) { frames.push(fr); continue; }
+      if (f < 9) {
+        if (rolls[i] === 10) {
+          fr.marks = ['X'];
+          if (rolls.length > i + 2) { run += 10 + rolls[i + 1] + rolls[i + 2]; fr.total = run; }
+          i += 1;
+        } else {
+          var a = rolls[i], b = rolls[i + 1];
+          fr.marks = [mark(a)];
+          if (b === undefined) { i += 1; frames.push(fr); continue; }
+          fr.marks.push(a + b === 10 ? '/' : mark(b));
+          if (a + b === 10) { if (rolls.length > i + 2) { run += 10 + rolls[i + 2]; fr.total = run; } }
+          else { run += a + b; fr.total = run; }
+          i += 2;
+        }
+      } else {
+        // the tenth: a strike or spare earns the extra ball(s)
+        var r = rolls.slice(i, i + 3), m = [];
+        if (r.length > 0) m.push(r[0] === 10 ? 'X' : mark(r[0]));
+        if (r.length > 1) m.push(r[0] === 10 ? (r[1] === 10 ? 'X' : mark(r[1])) : (r[0] + r[1] === 10 ? '/' : mark(r[1])));
+        if (r.length > 2) m.push(r[0] === 10 && r[1] !== 10 ? (r[1] + r[2] === 10 ? '/' : mark(r[2])) : (r[2] === 10 ? 'X' : (r[0] !== 10 && r[0] + r[1] === 10) ? (r[2] === 10 ? 'X' : mark(r[2])) : mark(r[2])));
+        fr.marks = m;
+        var need = (r[0] === 10 || r[0] + r[1] === 10) ? 3 : 2;
+        if (r.length >= need) { run += r.slice(0, need).reduce(function (s, x) { return s + x; }, 0); fr.total = run; }
+        i += r.length;
+      }
+      frames.push(fr);
+    }
+    return { frames: frames, total: run };
+  }
+  function mark(n) { return n === 0 ? '-' : String(n); }
+  // where the game stands after these rolls: frame (0-9), ball in frame (0-2), whether the pins are reset before this
+  // ball (a full rack), and whether the game is over
+  function state(rolls) {
+    var i = 0;
+    for (var f = 0; f < 9; f++) {
+      if (i >= rolls.length) return { frame: f, ball: 0, fresh: true, over: false };
+      if (rolls[i] === 10) { i += 1; continue; }
+      if (i + 1 >= rolls.length) return { frame: f, ball: 1, fresh: false, over: false };
+      i += 2;
+    }
+    var r = rolls.slice(i);
+    if (r.length === 0) return { frame: 9, ball: 0, fresh: true, over: false };
+    if (r.length === 1) return { frame: 9, ball: 1, fresh: r[0] === 10, over: false };
+    if (r.length === 2) {
+      if (r[0] === 10) return { frame: 9, ball: 2, fresh: r[1] === 10, over: false };
+      if (r[0] + r[1] === 10) return { frame: 9, ball: 2, fresh: true, over: false };
+      return { frame: 9, ball: 2, fresh: false, over: true };
+    }
+    return { frame: 9, ball: 3, fresh: false, over: true };
+  }
+
+  return { use: use, T: T, SPOTS: SPOTS, HEAD: HEAD, LANEW: LANEW, HALF: HALF, GUT: GUT, DECK_END: DECK_END, PIT_END: PIT_END, BALLR: BALLR, PINH: PINH, PIN_COM: PIN_COM, DT: DT,
+    OIL_FROM: OIL_FROM, OIL_TO: OIL_TO, create: create, release: release, step: step, settled: settled, standing: standing, standingList: standingList, leave: leave,
+    simulate: simulate, score: score, state: state, upY: upY, headX: headX, aim: aim };
+})();
+if (typeof module !== 'undefined') module.exports = BW;
+</script>
+<script>
+/* Strike Alley sounds: synthesized with Web Audio (no audio files). The ball's roll is a low rumble that follows its
+   speed; pins clack and crash; a strike gets a little fanfare. Off until switched on in Settings. */
+var BWSound = (function () {
+  'use strict';
+  var ac = null, master = null, on = false, noiseBuf = null, roll = null, lastClack = 0;
+  function ctx() {
+    if (!on) return null;
+    if (!ac) {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      try { ac = new AC(); } catch (e) { return null; }
+      master = ac.createGain(); master.gain.value = 0.5; master.connect(ac.destination);
+      noiseBuf = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate);
+      var d = noiseBuf.getChannelData(0); for (var i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    }
+    if (ac.state === 'suspended') { try { ac.resume(); } catch (e) { /* ignore */ } }
+    return ac;
+  }
+  function tone(type, f0, f1, dur, gain, delay) {
+    var a = ctx(); if (!a) return;
+    var t = a.currentTime + (delay || 0), o = a.createOscillator(), g = a.createGain();
+    o.type = type; o.frequency.setValueAtTime(f0, t);
+    if (f1) o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(gain, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + 0.02);
+  }
+  function noise(freq, q, dur, gain, delay, type) {
+    var a = ctx(); if (!a) return;
+    var t = a.currentTime + (delay || 0), s = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
+    s.buffer = noiseBuf; f.type = type || 'bandpass'; f.frequency.value = freq; f.Q.value = q;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(gain, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    s.connect(f); f.connect(g); g.connect(master); s.start(t, Math.random() * 1.5); s.stop(t + dur + 0.05);
+  }
+  // one pin's hollow "tok": a short resonant knock (pins are maple)
+  function clack(level, delay) {
+    var f = 900 + Math.random() * 700;
+    tone('triangle', f, f * 0.6, 0.09, 0.09 * level, delay); noise(f * 1.6, 6, 0.06, 0.12 * level, delay);
+  }
+  return {
+    set: function (v) { on = !!v; if (!on) this.rollStop(); },
+    unlock: function () { ctx(); },
+    // the ball rolling: start, follow its speed (0..1), stop
+    rollStart: function () {
+      var a = ctx(); if (!a || roll) return;
+      var s = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
+      s.buffer = noiseBuf; s.loop = true; f.type = 'lowpass'; f.frequency.value = 180; f.Q.value = 2; g.gain.value = 0.0001;
+      s.connect(f); f.connect(g); g.connect(master); s.start();
+      var o = a.createOscillator(), og = a.createGain(); o.type = 'sine'; o.frequency.value = 52; og.gain.value = 0.0001; o.connect(og); og.connect(master); o.start();
+      roll = { s: s, f: f, g: g, o: o, og: og };
+    },
+    rollLevel: function (v, gutter) {
+      if (!roll || !ac) return; var t = ac.currentTime;
+      roll.g.gain.setTargetAtTime(0.35 * v, t, 0.05); roll.og.gain.setTargetAtTime(0.12 * v, t, 0.05);
+      roll.f.frequency.setTargetAtTime(gutter ? 420 : 140 + 120 * v, t, 0.05);
+    },
+    rollStop: function () {
+      if (!roll || !ac) { roll = null; return; } var r = roll, t = ac.currentTime; roll = null;
+      r.g.gain.setTargetAtTime(0.0001, t, 0.08); r.og.gain.setTargetAtTime(0.0001, t, 0.08);
+      setTimeout(function () { try { r.s.stop(); r.o.stop(); } catch (e) { /* ignore */ } }, 600);
+    },
+    release: function () { noise(220, 1.5, 0.25, 0.35, 0, 'lowpass'); tone('sine', 90, 60, 0.2, 0.25); },
+    gutter: function () { noise(500, 2, 0.18, 0.3); tone('sine', 140, 90, 0.18, 0.15); },
+    // the ball reaching the pins: a crash as big as the hit, with a scatter of knocks after it
+    crash: function (power) {
+      var p = Math.max(0.2, Math.min(1, power));
+      noise(1800, 0.8, 0.5, 0.5 * p); noise(700, 1.2, 0.35, 0.4 * p);
+      for (var i = 0; i < Math.round(3 + 7 * p); i++) clack(0.6 + Math.random() * 0.6, Math.random() * 0.45);
+    },
+    clack: function (level) { var t = Date.now(); if (t - lastClack < 45) return; lastClack = t; clack(Math.min(1.2, level)); },
+    sweep: function () { noise(400, 0.7, 0.6, 0.12, 0, 'lowpass'); },
+    strike: function () { [523.3, 659.3, 784, 1046.5, 1318.5].forEach(function (f, i) { tone('triangle', f, 0, 0.35, 0.16, 0.15 + i * 0.07); }); },
+    spare: function () { [659.3, 880, 1174.7].forEach(function (f, i) { tone('triangle', f, 0, 0.3, 0.15, 0.1 + i * 0.08); }); },
+    miss: function () { tone('sine', 330, 220, 0.3, 0.12, 0.05); },
+    end: function () { [392, 523.3, 659.3, 784, 1046.5].forEach(function (f, i) { tone('triangle', f, 0, 0.4, 0.15, i * 0.1); }); }
+  };
+})();
+</script>
+<script>
+/* Strike Alley scene (three.js): a warm, glossy alley at night. The lane in real sizes (maple boards, the arrows and
+   dots, the foul line), gutters, neighbouring lanes with their own pins, the pin deck and kickbacks, a lit masking
+   panel over the pins, the pit; pins turned on a lathe from the real outline (white with two red neck stripes), the
+   ball (glossy swirl in the chosen color), soft blob shadows, and a faint trail of the last ball's line.
+   BWScene.build(THREE, canvas, BW) returns what the app needs; the app moves the camera. */
+var BWScene = (function () {
+  'use strict';
+  function build(T, canvas, BW) {
+    var R = (function (s) { return function () { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; }; })(20261001);
+    function rnd(a, b) { return a + (b - a) * R(); }
+    function tex(w, h, draw, srgb) { var c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h); var t = new T.CanvasTexture(c); if (srgb !== false) t.colorSpace = T.SRGBColorSpace; t.anisotropy = 8; return t; }
+    var HALF = BW.HALF, GUT = BW.GUT, HEAD = BW.HEAD, DECK = BW.DECK_END, PIT = BW.PIT_END, LW = BW.LANEW;
+    var Z0 = -4.5;                        // the approach starts 4.5 m behind the foul line
+    var PITCH = LW + 2 * GUT + 0.16;      // lane to lane
+
+    // ---------------- renderer, camera, lights ----------------
+    var renderer = new T.WebGLRenderer({ canvas: canvas, antialias: true, powerPreference: 'high-performance' });
+    renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    renderer.toneMapping = T.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.08;
+    var scene = new T.Scene(), BG = new T.Color('#120e1c');
+    scene.background = BG; scene.fog = new T.Fog(BG, 26, 48);
+    var camera = new T.PerspectiveCamera(32, 1, 0.05, 80);
+    scene.add(new T.HemisphereLight(0xffe6c8, 0x2a1f30, 0.9));
+    var key = new T.DirectionalLight(0xfff0dc, 1.4); key.position.set(-2, 8, 4); key.target.position.set(0, 0, 12); scene.add(key); scene.add(key.target);
+    // the pin deck's own bright light, and a warm wash down the lane
+    var deckLight = new T.PointLight(0xfff4e0, 3.2, 6, 1.6); deckLight.position.set(0, 1.5, HEAD + 0.3); scene.add(deckLight);
+    [3, 9, 15].forEach(function (z) { var p = new T.PointLight(0xffd9a8, 1.5, 9, 1.8); p.position.set(0, 2.6, z); scene.add(p); });
+    // reflections: a little dark room with bright light strips over the lanes, so the lane, pins and ball shine
+    try {
+      var env = new T.Scene(); env.background = new T.Color('#1a1424');
+      for (var s = -2; s <= 2; s++) { var strip = new T.Mesh(new T.BoxGeometry(0.25, 0.05, 30), new T.MeshBasicMaterial({ color: s === 0 ? 0xfff2dc : 0xffc98a })); strip.position.set(s * 1.6, 3, 0); env.add(strip); }
+      var glow = new T.Mesh(new T.BoxGeometry(4, 1.2, 0.1), new T.MeshBasicMaterial({ color: 0xff7ad9 })); glow.position.set(0, 1.4, 12); env.add(glow);
+      var pm = new T.PMREMGenerator(renderer); scene.environment = pm.fromScene(env, 0.03).texture; pm.dispose();
+      if ('environmentIntensity' in scene) scene.environmentIntensity = 0.6;
+    } catch (e) { /* reflections are only a nicety */ }
+
+    // ---------------- the lane ----------------
+    // one texture for the whole length: 39 maple boards (a darker pine section on the pin deck and the first meters),
+    // the foul line, approach dots, the dots at 7 ft and the arrows at 15 ft, and the ten pin spots
+    var LEN = DECK - Z0, PXM = 120, TW = 160, TH = Math.round(LEN * PXM);
+    function zpx(z) { return TH - (z - Z0) * PXM; }      // texture y for a lane z (texture top = far end)
+    // (the world is drawn mirrored in x: the camera looks down +z, where the screen's right is -x; so a lane x of +1,
+    // the bowler's right, is drawn at -1. The texture's u runs along the world's +x.)
+    function xpx(x) { return (-x / LW + 0.5) * TW; }
+    var laneTex = tex(TW, TH, function (x) {
+      for (var b = 0; b < 39; b++) {
+        var x0 = b * TW / 39, x1 = (b + 1) * TW / 39, tone = rnd(-1, 1);
+        x.fillStyle = 'rgb(' + Math.round(222 + tone * 10) + ',' + Math.round(176 + tone * 9) + ',' + Math.round(120 + tone * 8) + ')'; x.fillRect(x0, 0, x1 - x0, TH);
+        // grain: long faint streaks
+        for (var g = 0; g < 40; g++) { x.fillStyle = 'rgba(150,95,45,' + rnd(0.04, 0.12).toFixed(2) + ')'; x.fillRect(x0 + rnd(0, x1 - x0 - 1), rnd(0, TH), 1, rnd(20, 160)); }
+        x.fillStyle = 'rgba(110,70,35,.35)'; x.fillRect(x1 - 0.6, 0, 0.6, TH);
+      }
+      // the pine sections are a shade darker: the pin deck and the head (first 4.6 m past the foul line)
+      x.fillStyle = 'rgba(160,90,40,.10)'; x.fillRect(0, zpx(DECK), TW, zpx(HEAD - 0.4) - zpx(DECK)); x.fillRect(0, zpx(4.6), TW, zpx(0) - zpx(4.6));
+      // the approach (behind the foul line) is paler
+      x.fillStyle = 'rgba(255,240,220,.18)'; x.fillRect(0, zpx(0), TW, TH - zpx(0));
+      // foul line
+      x.fillStyle = '#1c1420'; x.fillRect(0, zpx(0) - 3, TW, 6);
+      var bx = function (board) { return (board - 0.5) * TW / 39; };   // board 1 is on the bowler's right (world -x)
+      // approach dots and the dots 7 ft out
+      [3, 5, 8, 11, 14, 20, 26, 29, 32, 35, 37].forEach(function (bd) { [[-0.15], [-1.8], [-3.7]].forEach(function (z) { x.fillStyle = '#3a2418'; x.beginPath(); x.arc(bx(bd), zpx(z[0]), 2.4, 0, 7); x.fill(); }); });
+      [3, 5, 8, 11, 14, 26, 29, 32, 35, 37].forEach(function (bd) { x.fillStyle = '#3a2418'; x.beginPath(); x.arc(bx(bd), zpx(2.13), 2.2, 0, 7); x.fill(); });
+      // the seven arrows (their tips on boards 5 10 15 20 25 30 35, the middle one furthest out)
+      [5, 10, 15, 20, 25, 30, 35].forEach(function (bd) {
+        var tip = 4.57 + (20 - Math.abs(bd - 20)) * 0.0254 * 1.2, cx = bx(bd), ty = zpx(tip);
+        x.fillStyle = '#7a1f1f'; x.beginPath(); x.moveTo(cx, ty); x.lineTo(cx + 3.2, ty + 26); x.lineTo(cx - 3.2, ty + 26); x.closePath(); x.fill();
+        x.fillStyle = '#c23a2e'; x.beginPath(); x.moveTo(cx, ty + 3); x.lineTo(cx + 1.8, ty + 22); x.lineTo(cx - 1.8, ty + 22); x.closePath(); x.fill();
+      });
+      // pin spots
+      for (var n = 1; n <= 10; n++) { var sp = BW.SPOTS[n]; x.fillStyle = 'rgba(60,30,20,.55)'; x.beginPath(); x.arc(xpx(sp.x), zpx(sp.z), 3, 0, 7); x.fill(); }
+    });
+    var laneMat = new T.MeshStandardMaterial({ map: laneTex, roughness: 0.3, metalness: 0.0 });
+    function addLane(xc, main) {
+      var g = new T.PlaneGeometry(LW, LEN); g.rotateX(-Math.PI / 2);
+      var m = new T.Mesh(g, laneMat); m.position.set(xc, 0, Z0 + LEN / 2); scene.add(m);
+      // gutters: half pipes along both sides, past the pin deck into the pit
+      [-1, 1].forEach(function (sd) {
+        var gg = new T.CylinderGeometry(GUT / 2, GUT / 2, PIT - Z0 + 0.5, 20, 1, true, -Math.PI / 2, Math.PI); gg.rotateX(Math.PI / 2);   // the lower half: a trough
+        var gm = new T.Mesh(gg, gutterMat); gm.position.set(xc + sd * (HALF + GUT / 2), 0.02, Z0 + (PIT - Z0 + 0.5) / 2); gm.rotation.z = 0; scene.add(gm);
+      });
+      // capping between lanes, and the kickbacks beside the pin deck
+      [-1, 1].forEach(function (sd) {
+        var cap = new T.Mesh(new T.BoxGeometry(0.16, 0.06, HEAD - 1 - Z0), capMat); cap.position.set(xc + sd * (HALF + GUT + 0.08), 0.03, Z0 + (HEAD - 1 - Z0) / 2); scene.add(cap);
+        var kb = new T.Mesh(new T.BoxGeometry(0.08, 0.9, PIT - HEAD + 1.6), kickMat); kb.position.set(xc + sd * (HALF + GUT + 0.04), 0.45, HEAD - 1 + (PIT - HEAD + 1.6) / 2); scene.add(kb);
+      });
+      // the pit and its dark curtain
+      var pit = new T.Mesh(new T.BoxGeometry(LW + 2 * GUT, 0.05, PIT - DECK), pitMat); pit.position.set(xc, -0.42, (DECK + PIT) / 2); scene.add(pit);
+      var cur = new T.Mesh(new T.PlaneGeometry(LW + 2 * GUT, 1.6), curtainMat); cur.position.set(xc, 0.4, PIT + 0.05); cur.rotation.y = Math.PI; scene.add(cur);
+      // the lane's masking panel over the pins
+      var mk = new T.Mesh(new T.PlaneGeometry(PITCH, PITCH * 280 / 1024), main ? maskMat : maskMat2); mk.position.set(xc, 1.52, HEAD + 0.15); mk.rotation.y = Math.PI; scene.add(mk);
+    }
+    var gutterMat = new T.MeshStandardMaterial({ color: 0x3a3d48, roughness: 0.35, metalness: 0.6, side: T.DoubleSide });
+    var capMat = new T.MeshStandardMaterial({ color: 0x2b2233, roughness: 0.5 });
+    var kickMat = new T.MeshStandardMaterial({ color: 0x241a2c, roughness: 0.6 });
+    var pitMat = new T.MeshStandardMaterial({ color: 0x0a0810, roughness: 1 });
+    var curtainMat = new T.MeshStandardMaterial({ color: 0x0c0a14, roughness: 1 });
+    function maskTex(num, title) {
+      return tex(1024, 280, function (x, w, h) {
+        var g = x.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#2a1240'); g.addColorStop(1, '#120a24'); x.fillStyle = g; x.fillRect(0, 0, w, h);
+        for (var i = 0; i < 70; i++) { x.fillStyle = 'rgba(255,255,255,' + rnd(0.2, 0.8).toFixed(2) + ')'; x.beginPath(); x.arc(rnd(0, w), rnd(0, h), rnd(0.8, 2.4), 0, 7); x.fill(); }
+        // a ringed planet and a shooting star (original artwork)
+        x.strokeStyle = '#ffb347'; x.lineWidth = 6; x.beginPath(); x.ellipse(110, 140, 70, 18, -0.3, 0, 7); x.stroke();
+        x.fillStyle = '#ff7a59'; x.beginPath(); x.arc(110, 140, 42, 0, 7); x.fill();
+        x.strokeStyle = 'rgba(120,230,255,.9)'; x.lineWidth = 5; x.beginPath(); x.moveTo(820, 70); x.lineTo(960, 30); x.stroke();
+        x.fillStyle = '#bff3ff'; x.beginPath(); x.arc(820, 70, 9, 0, 7); x.fill();
+        x.textAlign = 'center'; x.textBaseline = 'middle';
+        x.font = '900 104px Georgia, serif'; x.shadowColor = '#ff4fd8'; x.shadowBlur = 24; x.fillStyle = '#ffe9fb'; x.fillText(title, 540, 128);
+        x.shadowBlur = 0; x.font = '800 40px sans-serif'; x.fillStyle = '#8fe9ff'; x.fillText('LANE ' + num, 540, 224);
+      });
+    }
+    var maskMat = new T.MeshBasicMaterial({ map: maskTex(7, 'STRIKE ALLEY'), toneMapped: false });
+    var maskMat2 = new T.MeshBasicMaterial({ map: maskTex(8, 'STRIKE ALLEY'), toneMapped: false, color: 0x9a90a8 });
+    addLane(0, true);
+    [-1, 1].forEach(function (sd) { addLane(sd * PITCH, false); });
+    // the floor beyond the lanes, side walls far off, a row of ceiling lights
+    var floor = new T.Mesh(new T.PlaneGeometry(14, 60), new T.MeshStandardMaterial({ color: 0x1b1522, roughness: 0.9 })); floor.rotation.x = -Math.PI / 2; floor.position.set(0, -0.02, 18); scene.add(floor);
+    // the ball return hood beside the approach (between this lane and the left one)
+    var hood = new T.Mesh(new T.CapsuleGeometry ? new T.CapsuleGeometry(0.22, 0.6, 6, 12) : new T.SphereGeometry(0.3, 16, 12), new T.MeshStandardMaterial({ color: 0x5a2d82, roughness: 0.3, metalness: 0.2 }));
+    hood.rotation.x = Math.PI / 2; hood.position.set(-PITCH / 2, 0.25, -2.4); scene.add(hood);
+
+    // ---------------- pins ----------------
+    // the outline (inches up, inches across) from the regulation pin, turned on a lathe; stripe edges added as extra
+    // rings so the two red bands are crisp
+    var PROF = [[0, 0], [0, 2.03], [0.3, 2.4], [0.75, 2.83], [1.5, 3.4], [2.25, 3.91], [3.375, 4.51], [4.5, 4.77], [5.6, 4.6], [6.6, 4.2], [7.5, 3.6], [8.4, 2.85], [9.1, 2.2],
+      [9.6, 1.9], [9.95, 1.8], [10.3, 1.82], [10.8, 1.95], [11.6, 2.25], [12.5, 2.5], [13.4, 2.55], [14.1, 2.35], [14.6, 1.85], [14.9, 1.0], [15, 0]];
+    var BANDS = [[9.15, 9.55], [10.0, 10.4]];
+    var pts = [];
+    PROF.forEach(function (p, i) {
+      if (i > 0) BANDS.forEach(function (bd) { [bd[0], bd[1]].forEach(function (hy) { var a = PROF[i - 1]; if (a[0] < hy && p[0] > hy) { var k = (hy - a[0]) / (p[0] - a[0]); pts.push([hy, a[1] + (p[1] - a[1]) * k]); } }); });
+      pts.push(p);
+    });
+    var pinGeo = new T.LatheGeometry(pts.map(function (p) { return new T.Vector2(p[1] / 2 * 0.0254, p[0] * 0.0254); }), 28);
+    pinGeo.translate(0, -BW.PIN_COM, 0);
+    (function () {
+      var pos = pinGeo.attributes.position, col = new Float32Array(pos.count * 3), red = new T.Color('#d4172b'), white = new T.Color('#fbf8f2');
+      for (var i = 0; i < pos.count; i++) {
+        var hIn = (pos.getY(i) + BW.PIN_COM) / 0.0254 + 0.0001, c = white;
+        if ((hIn > BANDS[0][0] + 0.01 && hIn < BANDS[0][1] - 0.01) || (hIn > BANDS[1][0] + 0.01 && hIn < BANDS[1][1] - 0.01)) c = red;
+        col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
+      }
+      pinGeo.setAttribute('color', new T.BufferAttribute(col, 3));
+      pinGeo.computeVertexNormals();
+    })();
+    var pinMat = new T.MeshStandardMaterial({ vertexColors: true, roughness: 0.18, metalness: 0.0 });
+    // the neighbouring lanes' racks (still life)
+    [-1, 1].forEach(function (sd) { for (var n = 1; n <= 10; n++) { var m = new T.Mesh(pinGeo, pinMat); m.position.set(sd * PITCH + BW.SPOTS[n].x, BW.PIN_COM, BW.SPOTS[n].z); scene.add(m); } });
+    // soft round shadows (cheap, and they look right on a glossy lane)
+    var blobTex = tex(64, 64, function (x, w, h) { var g = x.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, 'rgba(0,0,0,.55)'); g.addColorStop(0.6, 'rgba(0,0,0,.25)'); g.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = g; x.fillRect(0, 0, w, h); }, false);
+    var blobMat = new T.MeshBasicMaterial({ map: blobTex, transparent: true, depthWrite: false });
+    function blob(size) { var g = new T.PlaneGeometry(size, size); g.rotateX(-Math.PI / 2); var m = new T.Mesh(g, blobMat.clone()); m.renderOrder = 1; scene.add(m); return m; }
+    var pins = {};
+    for (var pn = 1; pn <= 10; pn++) {
+      var pm2 = new T.Mesh(pinGeo, pinMat.clone()); pm2.material.transparent = true; scene.add(pm2);
+      pins[pn] = { mesh: pm2, shadow: blob(0.22) };
+    }
+    // ---------------- the ball ----------------
+    function ballTex(color) {
+      return tex(512, 256, function (x, w, h) {
+        var base = new T.Color(color), hsl = {}; base.getHSL(hsl);
+        x.fillStyle = color; x.fillRect(0, 0, w, h);
+        // marbled swirls in lighter and darker shades of the color
+        for (var i = 0; i < 46; i++) {
+          var c = new T.Color().setHSL((hsl.h + rnd(-0.05, 0.05) + 1) % 1, Math.min(1, hsl.s * rnd(0.7, 1.1)), Math.max(0.05, Math.min(0.92, hsl.l + rnd(-0.22, 0.25))));
+          x.strokeStyle = '#' + c.getHexString(); x.globalAlpha = rnd(0.25, 0.6); x.lineWidth = rnd(3, 12);
+          x.beginPath(); var px = rnd(0, w), py = rnd(0, h); x.moveTo(px, py);
+          for (var k = 0; k < 4; k++) x.quadraticCurveTo(px + rnd(-90, 90), py + rnd(-50, 50), px += rnd(-80, 80), py += rnd(-40, 40));
+          x.stroke();
+        }
+        x.globalAlpha = 1;
+        // three finger holes
+        [[256, 100, 9], [236, 128, 8], [276, 128, 8]].forEach(function (hc) { x.fillStyle = '#0b0b10'; x.beginPath(); x.arc(hc[0], hc[1], hc[2], 0, 7); x.fill(); });
+      });
+    }
+    var ballMat = new T.MeshStandardMaterial({ map: ballTex('#2f7cf6'), roughness: 0.08, metalness: 0.15 });
+    var ball = new T.Mesh(new T.SphereGeometry(BW.BALLR, 40, 28), ballMat); scene.add(ball);
+    var ballShadow = blob(0.34);
+    function setBallColor(c) { ballMat.map.dispose(); ballMat.map = ballTex(c); ballMat.needsUpdate = true; }
+    // the last ball's line, a faint stripe on the lane
+    var trailN = 120, trailPos = new Float32Array(trailN * 3), trailGeo = new T.BufferGeometry();
+    trailGeo.setAttribute('position', new T.BufferAttribute(trailPos, 3)); trailGeo.setDrawRange(0, 0);
+    var trail = new T.Line(trailGeo, new T.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35 })); scene.add(trail);
+    function setTrail(path) {
+      var n = Math.min(trailN, path.length);
+      for (var i = 0; i < n; i++) { var p = path[Math.floor(i * (path.length - 1) / Math.max(1, n - 1))]; trailPos[i * 3] = -p[1]; trailPos[i * 3 + 1] = 0.004; trailPos[i * 3 + 2] = p[2]; }
+      trailGeo.attributes.position.needsUpdate = true; trailGeo.setDrawRange(0, n);
+    }
+
+    // ---------------- updates from the app ----------------
+    // pins: list of { n, p: {x,y,z}, q: {x,y,z,w}, a (opacity 0..1), s (scale, for the rack dropping in) }
+    function setPins(list) {
+      var seen = {};
+      list.forEach(function (o) {
+        var P = pins[o.n]; seen[o.n] = 1;
+        P.mesh.visible = o.a > 0.01; P.mesh.position.set(-o.p.x, o.p.y, o.p.z); P.mesh.quaternion.set(o.q.x, -o.q.y, -o.q.z, o.q.w);   // mirrored in x
+        P.mesh.material.opacity = o.a; P.mesh.material.transparent = o.a < 0.999; P.mesh.material.depthWrite = o.a > 0.5;
+        var up = 1 - 2 * (o.q.x * o.q.x + o.q.z * o.q.z), h = Math.max(0, o.p.y - 0.03);
+        P.shadow.visible = P.mesh.visible && o.p.y > -0.05 && Math.abs(o.p.x) < HALF + 0.05;
+        P.shadow.position.set(-o.p.x, 0.003, o.p.z); P.shadow.scale.setScalar(up > 0.7 ? 1 : 1.9 - up);
+        P.shadow.material.opacity = Math.max(0, 1 - h * 1.5) * o.a;
+      });
+      for (var n = 1; n <= 10; n++) if (!seen[n]) { pins[n].mesh.visible = false; pins[n].shadow.visible = false; }
+    }
+    function setBall(p, q, visible) {
+      ball.visible = !!visible; ballShadow.visible = !!visible && p.y > -0.02;
+      if (!visible) return;
+      ball.position.set(-p.x, p.y, p.z); if (q) ball.quaternion.set(q.x, -q.y, -q.z, q.w);
+      ballShadow.position.set(-p.x, 0.003, p.z); ballShadow.material.opacity = Math.max(0, 1 - Math.max(0, p.y - BW.BALLR) * 4);
+    }
+    function resize(w, h) { renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+    function render() { renderer.render(scene, camera); }
+    // the camera, in lane coordinates (x mirrored like everything else)
+    function look(p, l) { camera.position.set(-p[0], p[1], p[2]); camera.lookAt(-l[0], l[1], l[2]); }
+    // where a lane point is on the screen (for the drag-to-move and the aim marks)
+    var v3 = new T.Vector3();
+    function toScreen(x, y, z, w, h) { v3.set(-x, y, z).project(camera); return { x: (v3.x + 1) / 2 * w, y: (1 - v3.y) / 2 * h }; }
+    return { renderer: renderer, scene: scene, camera: camera, setPins: setPins, setBall: setBall, setBallColor: setBallColor, setTrail: setTrail, resize: resize, render: render, toScreen: toScreen, look: look };
+  }
+  return { build: build };
+})();
+</script>
+<script src="../../shared/ads.js"></script>
+<script>
+/* Strike Alley app: ten-pin bowling against your own best. Slide sideways to line up, swipe up to roll (faster swipe,
+   faster ball; the swipe's tilt aims it; curve the swipe to hook it). Real physics for the ball and pins (cannon-es
+   through BW in logic.js), the 3D alley (three.js, scene.js), a ten-frame scoresheet with strikes and spares,
+   stats, saves (a game in progress comes back), sound, house ads between games only.
+   three.js and cannon-es come from /shared and load when the game opens. */
+(function () {
+  'use strict';
+  var S = BWSound, T = null, C = null, SC = null, DT = BW.DT;
+
+  // ================= storage =================
+  var store = Goobs.store('bowling');
+  var settings = { sound: false, adEvery: 2, ball: '#2f7cf6', trail: true, lefty: false };
+  (function () { var s = store.get('settings', {}) || {}; for (var k in settings) if (typeof s[k] === typeof settings[k]) settings[k] = s[k]; settings.adEvery = Math.min(10, Math.max(1, settings.adEvery | 0)); })();
+  function saveSettings() { store.set('settings', settings); }
+  var meta = store.get('meta', null) || {};
+  var MD = { games: 0, best: 0, total: 0, strikes: 0, spares: 0, balls: 0, gutters: 0, streak: 0, perfect: 0, hist: [], seen: false, finished: 0, lastAdAt: 0, throws: 0 };
+  for (var mk in MD) if (typeof meta[mk] !== typeof MD[mk]) meta[mk] = MD[mk];
+  if (!Array.isArray(meta.hist)) meta.hist = [];
+  function saveMeta() { store.set('meta', meta); }
+  var BALLS = ['#2f7cf6', '#e0283c', '#8a3ffc', '#12b886', '#ff8a00', '#ff4fb8', '#1d1d2a', '#f2c230'];
+
+  // ================= helpers =================
+  function $(id) { return document.getElementById(id); }
+  function isOpen(id) { var e = $(id); return !!e && e.classList.contains('show'); }
+  function sheetOpen() { return isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovHelp') || isOpen('ovStats') || isOpen('ggMenu') || GoobsAds.isOpen(); }
+  function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
+  var msgT = 0;
+  function message(html, cls, ms) { var m = $('msg'); m.innerHTML = html; m.className = 'msg show ' + (cls || ''); clearTimeout(msgT); msgT = setTimeout(function () { m.className = 'msg'; }, ms || 1500); }
+  var tipT = 0;
+  function tip(text, ms) { var t = $('tip'); clearTimeout(tipT); if (!text) { t.classList.add('hide'); return; } t.innerHTML = text; t.classList.remove('hide'); tipT = setTimeout(function () { t.classList.add('hide'); }, ms || 3500); }
+
+  // ================= the game =================
+  // game: { rolls: pins down per ball, leave: pins left standing for the next ball ([n, x, z, yaw] each) or null for a
+  //         full rack, x: where the bowler stands (m from the middle), streak: strikes in a row now }
+  var turbo = false, game = null, sim = null, phase = 'load', runT = 0, acc = 0, settleN = 0, hitPlayed = false, gutterPlayed = false, sweep = null, lastV = {};
+  function newGame() {
+    game = { rolls: [], leave: null, x: settings.lefty ? -0.2 : 0.2, streak: 0 };
+    store.set('game', game); setupBall();
+  }
+  function loadGame() {
+    var g = store.get('game', null);
+    if (!g || !Array.isArray(g.rolls) || BW.state(g.rolls).over) return false;
+    game = { rolls: g.rolls.filter(function (n) { return n >= 0 && n <= 10; }), leave: Array.isArray(g.leave) ? g.leave : null, x: +g.x || 0, streak: g.streak | 0 };
+    return true;
+  }
+  function saveGame() { if (game) store.set('game', game); }
+  // a new sim for the next ball: the pins as they stand (a full rack or what was left)
+  function setupBall() {
+    var st = BW.state(game.rolls);
+    sim = BW.create(st.fresh ? null : game.leave);
+    phase = 'aim'; runT = 0; acc = 0; settleN = 0; hitPlayed = false; gutterPlayed = false; lastV = {};
+    renderSheet(); renderPins();
+    var first = meta.throws < 3;
+    tip(first ? 'Slide sideways to line up · <b>swipe up</b> to roll<br>Curve your swipe to hook the ball' : st.ball === 0 || st.fresh ? '' : 'Pick up the spare!', first ? 6000 : 2000);
+  }
+  // ---------- the throw ----------
+  function throwBall(t) {
+    if (phase !== 'aim') return;
+    var ang = t.raw ? t.angle : BW.aim(game.x, t.speed, t.angle, t.hook);   // (the checks pass raw angles)
+    BW.release(sim, { x: game.x, speed: t.speed, angle: ang, hook: t.hook });
+    phase = 'roll'; runT = 0; acc = 0; meta.throws++; saveMeta();
+    tip(''); S.release(); S.rollStart();
+    var mph = t.speed * 2.237;
+    $('speed').textContent = mph.toFixed(1) + ' mph' + (Math.abs(t.hook) > 0.25 ? ' · hook' : ''); $('speed').classList.add('show');
+  }
+  // pins knocked down by this ball, and what happens next
+  var NB = { 1: [2, 3], 2: [1, 3, 4, 5], 3: [1, 2, 5, 6], 4: [2, 5, 7, 8], 5: [2, 3, 4, 6, 8, 9], 6: [3, 5, 9, 10], 7: [4, 8], 8: [4, 5, 7, 9], 9: [5, 6, 8, 10], 10: [6, 9] };
+  function isSplit(stand) {
+    if (stand.indexOf(1) >= 0 || stand.length < 2) return false;
+    var seen = {}, groups = 0;
+    stand.forEach(function (n) {
+      if (seen[n]) return; groups++; var q = [n]; seen[n] = 1;
+      while (q.length) { var a = q.pop(); NB[a].forEach(function (b) { if (!seen[b] && stand.indexOf(b) >= 0) { seen[b] = 1; q.push(b); } }); }
+    });
+    return groups >= 2;
+  }
+  function finishBall() {
+    S.rollStop();
+    var before = BW.state(game.rolls), stand = BW.standingList(sim), had = sim.pins.length, down = had - stand.length;
+    game.rolls.push(down);
+    var after = BW.state(game.rolls);
+    meta.balls++;
+    if (sim.gutter) meta.gutters++;
+    var full = before.fresh, cls = '', html;
+    if (full && down === 10) {
+      meta.strikes++; game.streak++; meta.streak = Math.max(meta.streak, game.streak);
+      html = game.streak >= 3 ? (['', '', '', 'TURKEY!', 'HAMBONE!'][game.streak] || game.streak + ' IN A ROW!') + '<small>' + game.streak + ' strikes in a row</small>' : game.streak === 2 ? 'DOUBLE!' : 'STRIKE!';
+      cls = 'strike'; S.strike();
+    } else {
+      if (full) game.streak = 0;
+      if (!full && stand.length === 0) { meta.spares++; html = 'SPARE!'; cls = 'spare'; S.spare(); }
+      else if (sim.gutter) { html = 'Gutter ball'; S.miss(); }
+      else if (down === 0) { html = 'Missed!'; S.miss(); }
+      else html = down + ' pin' + (down === 1 ? '' : 's') + (full && isSplit(stand) ? '<small>Split!</small>' : '');
+    }
+    message(html, cls, cls ? 1800 : 1300);
+    if (settings.trail && sim.path) SC.setTrail(sim.path);
+    // the pinsetter: fallen pins swept away; standing ones stay where they are (or a fresh rack after a strike, a
+    // spare, or the second ball)
+    game.leave = after.fresh || after.over ? null : BW.leave(sim);
+    saveGame(); saveMeta();
+    sweep = { t: 0, stand: stand, fresh: after.fresh || after.over, over: after.over };
+    phase = 'sweep';
+    renderSheet(); renderPins(stand);
+    $('speed').classList.remove('show');
+  }
+  function gameOver() {
+    var sc = BW.score(game.rolls).total, strikes = 0, spares = 0, prevBest = meta.best;
+    // count this game's strikes and spares from its marks
+    BW.score(game.rolls).frames.forEach(function (f) { f.marks.forEach(function (m) { if (m === 'X') strikes++; if (m === '/') spares++; }); });
+    meta.games++; meta.total += sc; meta.best = Math.max(meta.best, sc); meta.hist.push(sc); if (meta.hist.length > 12) meta.hist.shift();
+    if (sc === 300) meta.perfect++;
+    meta.finished++; saveMeta();
+    store.del('game');
+    phase = 'over';
+    S.end();
+    var title = sc === 300 ? 'A perfect game!' : sc > prevBest && meta.games > 1 ? 'New best!' : sc >= 200 ? 'Great game!' : sc >= 150 ? 'Nice game!' : 'Game over';
+    $('endTitle').textContent = title;
+    $('endText').innerHTML = '<div class="endscore">' + sc + '</div><p class="endnote">' + strikes + ' strike' + (strikes === 1 ? '' : 's') + ' · ' + spares + ' spare' + (spares === 1 ? '' : 's') +
+      ' · best ' + meta.best + ' · average ' + Math.round(meta.total / meta.games) + '</p>';
+    var box = $('endActions'); box.innerHTML = '';
+    var b = document.createElement('button'); b.className = 'btn red'; b.textContent = 'New game';
+    b.addEventListener('click', function () { $('ovEnd').classList.remove('show'); between(newGame); });
+    box.appendChild(b);
+    $('ovEnd').classList.add('show');
+  }
+  function between(next) {
+    var f = meta.finished;
+    if (Goobs.adsOn() && f > 0 && f % settings.adEvery === 0 && meta.lastAdAt !== f) { meta.lastAdAt = f; saveMeta(); next(); GoobsAds.show({}, function () {}); return; }
+    next();
+  }
+
+  // ================= the scoresheet and the pin diagram =================
+  function renderSheet() {
+    var sc = BW.score(game.rolls), st = BW.state(game.rolls), h = '';
+    sc.frames.forEach(function (f, i) {
+      var n = i === 9 ? 3 : 2, marks = f.marks.slice();
+      if (i < 9 && marks[0] === 'X') marks = ['', 'X'];
+      var cells = '';
+      for (var k = 0; k < n; k++) { var m = marks[k] || ''; cells += '<i class="' + (m === 'X' ? 'x' : m === '/' ? 's' : '') + '">' + m + '</i>'; }
+      h += '<div class="fr' + (i === 9 ? ' tenth' : '') + (!st.over && st.frame === i ? ' cur' : '') + '"><div class="no">' + (i + 1) + '</div><div class="marks">' + cells + '</div><div class="tot">' + (f.total == null ? '' : f.total) + '</div></div>';
+    });
+    $('board').innerHTML = h;
+    $('pillScore').innerHTML = '<small>SCORE</small>' + sc.total;
+    $('frameInfo').textContent = st.over ? 'Game over' : 'Frame ' + (st.frame + 1) + ' · Ball ' + (st.ball + 1);
+  }
+  function renderPins(stand) {
+    var up = stand || (sim ? sim.pins.map(function (p) { return p.n; }) : []), h = '';
+    for (var n = 1; n <= 10; n++) {
+      var sp = BW.SPOTS[n], x = 32 + sp.x / 0.3048 * 12, y = 50 - (sp.z - BW.HEAD) / 0.264 * 13.2;
+      h += '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="5" class="' + (up.indexOf(n) >= 0 ? '' : 'down') + '"/>';
+    }
+    $('pinDia').innerHTML = h;
+  }
+
+  // ================= drawing the alley =================
+  var W = 390, H = 844, cam = { p: null, l: null };
+  function layout() {
+    W = window.innerWidth; H = window.innerHeight;
+    if (SC) SC.resize(W, H);
+    var c = $('swipe'), d = Math.min(2, window.devicePixelRatio || 1); c.width = W * d; c.height = H * d; c.getContext('2d').setTransform(d, 0, 0, d, 0, 0);
+  }
+  // where the camera wants to be: behind the bowler while aiming, riding down the lane with the ball, then held on
+  // the pins while they fall
+  function camTarget() {
+    var b = sim && sim.ball && !sim.ballDone ? sim.ball.position : null, x = game ? game.x : 0;
+    if (phase === 'aim' || !b && phase !== 'sweep' && phase !== 'roll') return { p: [x * 0.5, 0.98, -3.05], l: [x * 0.1, -0.42, 9.5] };
+    var hold = { p: [0, 1.15, BW.HEAD - 5.6], l: [0, 0.05, BW.HEAD + 0.35] };
+    if (!b) return hold;
+    if (b.z > BW.HEAD - 3.0) return hold;          // (the follow camera is then about where the hold camera is)
+    var z = Math.max(-3.05, b.z - 2.6), k = clamp(b.z / (BW.HEAD - 3.0), 0, 1);
+    return { p: [b.x * 0.5 * (1 - k), 0.98 + 0.17 * k, z], l: [b.x * 0.3 * (1 - k), -0.42 + 0.47 * k, Math.min(BW.HEAD + 0.35, b.z + 10)] };
+  }
+  function updateCamera(dt, snap) {
+    var t = camTarget();
+    if (!cam.p || snap) { cam.p = t.p.slice(); cam.l = t.l.slice(); }
+    var k = 1 - Math.exp(-dt * (phase === 'roll' ? 7 : 3.5));
+    for (var i = 0; i < 3; i++) { cam.p[i] += (t.p[i] - cam.p[i]) * k; cam.l[i] += (t.l[i] - cam.l[i]) * k; }
+    SC.look(cam.p, cam.l);
+  }
+  function drawWorld() {
+    var list = [];
+    if (sim) sim.pins.forEach(function (p) {
+      var a = 1, y = p.b.position.y;
+      if (phase === 'sweep' && sweep) {
+        var standing = sweep.stand.indexOf(p.n) >= 0 && !sweep.fresh;
+        if (!standing) a = clamp(1 - (sweep.t - 0.5) / 0.5, 0, 1);
+      }
+      list.push({ n: p.n, p: { x: p.b.position.x, y: y, z: p.b.position.z }, q: p.b.quaternion, a: a });
+    });
+    // a fresh rack drops into place at the end of the sweep
+    if (phase === 'sweep' && sweep && sweep.fresh && sweep.t > 1.0) {
+      var k = clamp((sweep.t - 1.0) / 0.45, 0, 1); list = [];
+      for (var n = 1; n <= 10; n++) list.push({ n: n, p: { x: BW.SPOTS[n].x, y: BW.PIN_COM + (1 - k) * 0.45, z: BW.SPOTS[n].z }, q: { x: 0, y: 0, z: 0, w: 1 }, a: k });
+    }
+    SC.setPins(list);
+    if (phase === 'aim') SC.setBall({ x: game.x, y: BW.BALLR, z: -0.35 }, null, true);
+    else if (sim && sim.ball && !sim.ballDone) SC.setBall(sim.ball.position, sim.ball.quaternion, true);
+    else SC.setBall({ x: 0, y: 0, z: 0 }, null, false);
+  }
+
+  // ================= the loop =================
+  var lastT = 0;
+  function frame(t) {
+    requestAnimationFrame(frame);
+    if (!SC) return;
+    var dt = Math.min(0.05, (t - lastT) / 1000 || 0.016); lastT = t;
+    var paused = sheetOpen() || document.hidden;
+    if (!paused && (phase === 'roll')) {
+      acc += dt; var n = 0;
+      if (turbo) acc = 3000 * DT;
+      while (acc >= DT && n < (turbo ? 3000 : 16)) { BW.step(sim); acc -= DT; n++; if (turbo && sim.ballDone && BW.settled(sim)) { settleN = 99; break; } }
+      if (n >= 16) acc = 0; if (turbo) acc = 0;     // a slow phone runs the physics a little slower rather than jumping
+      runT += dt;
+      sounds();
+      var done = sim.ballDone && BW.settled(sim);
+      settleN = done ? settleN + 1 : 0;
+      if (settleN > 18 || (sim.hitT >= 0 && sim.t - sim.hitT > 5.5) || sim.t > 11) finishBall();
+    } else if (!paused && phase === 'sweep') {
+      sweep.t += dt;
+      if (sweep.t > 0.5 && !sweep.played) { sweep.played = true; S.sweep(); }
+      if (sweep.t > (sweep.fresh ? 1.5 : 1.05)) { sweep = null; if (BW.state(game.rolls).over) { renderPins(); gameOver(); } else setupBall(); }
+    }
+    if (paused) S.rollLevel(0, false);
+    updateCamera(dt);
+    drawWorld();
+    SC.render();
+    drawSwipe(dt);
+  }
+  function sounds() {
+    var b = sim.ball;
+    if (b && !sim.ballDone) S.rollLevel(clamp(b.velocity.length() / 9, 0, 1) * (b.position.z > BW.DECK_END ? 0 : 1), !!sim.gutter);
+    else S.rollLevel(0, false);
+    if (sim.gutter && !gutterPlayed) { gutterPlayed = true; S.gutter(); }
+    if (sim.hitT >= 0 && !hitPlayed) { hitPlayed = true; S.crash(b ? b.velocity.length() / 9 : 0.5); }
+    if (hitPlayed) sim.pins.forEach(function (p) {
+      var v = p.b.velocity.length(), was = lastV[p.n] || 0;
+      if (Math.abs(v - was) > 1.4 && sim.t - sim.hitT > 0.15) S.clack(Math.abs(v - was) / 4);
+      lastV[p.n] = v;
+    });
+  }
+
+  // ================= swiping =================
+  // a sideways drag moves the bowler; an upward swipe rolls the ball: its speed from how fast the finger moved at
+  // the end, its aim from the swipe's tilt, its hook from how much the swipe curved (bowed right: hooks left)
+  var touch = null, trail = [];
+  function lanePxPerM() { var a = SC.toScreen(-BW.HALF, 0, 0, W, H), b = SC.toScreen(BW.HALF, 0, 0, W, H); return Math.max(60, Math.abs(b.x - a.x) / BW.LANEW); }
+  function onDown(e) {
+    if (phase !== 'aim' || sheetOpen()) return;
+    S.unlock();
+    touch = { id: e.pointerId, x0: e.clientX, y0: e.clientY, mode: null, gx: game.x, pts: [[e.clientX, e.clientY, performance.now()]] };
+    try { $('cv3').setPointerCapture(e.pointerId); } catch (er) { /* ignore */ }
+  }
+  function onMove(e) {
+    if (!touch || e.pointerId !== touch.id) return;
+    var dx = e.clientX - touch.x0, dy = e.clientY - touch.y0;
+    if (!touch.mode && Math.hypot(dx, dy) > 10) touch.mode = Math.abs(dx) > Math.abs(dy) * 1.1 ? 'move' : dy < 0 ? 'throw' : 'none';
+    if (touch.mode === 'move') { game.x = clamp(touch.gx + dx / lanePxPerM() * 0.8, -BW.HALF + BW.BALLR + 0.01, BW.HALF - BW.BALLR - 0.01); }
+    else if (touch.mode === 'throw') { touch.pts.push([e.clientX, e.clientY, performance.now()]); trail = touch.pts.slice(); trailFade = 1; }
+  }
+  function onUp(e) {
+    if (!touch || (e && e.pointerId !== touch.id)) return;
+    var t = touch; touch = null;
+    if (t.mode === 'move') { saveGame(); return; }
+    if (t.mode !== 'throw') { if (!t.mode) tip('Swipe <b>up</b> to roll · slide sideways to move'); return; }
+    var p = t.pts, a = p[0], z = p[p.length - 1];
+    if (a[1] - z[1] < 50) { tip('A longer swipe up rolls the ball'); return; }
+    // speed: the finger's speed over the last ~120 ms, in screen heights a second
+    var i = p.length - 1; while (i > 0 && z[2] - p[i][2] < 120) i--;
+    var dtm = Math.max(16, z[2] - p[i][2]), vy = (p[i][1] - z[1]) / dtm * 1000 / H;
+    var speed = clamp(4.6 + vy * 1.15, 5.2, 10.5);
+    // aim: the swipe's overall tilt
+    var cx = z[0] - a[0], cy = z[1] - a[1], len = Math.hypot(cx, cy);
+    var angle = clamp(Math.atan2(cx, -cy) * 0.035, -0.04, 0.04);
+    // hook: the furthest the path bows away from its straight line, as a share of its length
+    var dev = 0;
+    p.forEach(function (q) { var d = (cx * (q[1] - a[1]) - cy * (q[0] - a[0])) / len; if (Math.abs(d) > Math.abs(dev)) dev = d; });
+    var c = dev / len, hook = Math.abs(c) < 0.03 ? 0 : clamp(-(c - Math.sign(c) * 0.03) * 12, -2.4, 2.4);
+    throwBall({ speed: speed, angle: angle, hook: hook });
+  }
+  var trailFade = 0;
+  function drawSwipe(dt) {
+    var c = $('swipe').getContext('2d'); c.clearRect(0, 0, W, H);
+    if (touch && touch.mode === 'throw') trailFade = 1; else trailFade = Math.max(0, trailFade - dt * 2.5);
+    if (trailFade <= 0 || trail.length < 2) return;
+    c.lineCap = 'round'; c.lineJoin = 'round';
+    c.strokeStyle = 'rgba(255,230,140,' + (0.55 * trailFade).toFixed(2) + ')'; c.lineWidth = 10;
+    c.beginPath(); trail.forEach(function (q, i) { if (i) c.lineTo(q[0], q[1]); else c.moveTo(q[0], q[1]); }); c.stroke();
+    c.strokeStyle = 'rgba(255,255,255,' + (0.8 * trailFade).toFixed(2) + ')'; c.lineWidth = 3; c.stroke();
+  }
+
+  // ================= sheets =================
+  function openStats() {
+    var avg = meta.games ? Math.round(meta.total / meta.games) : 0, sp = meta.balls ? Math.round(meta.strikes * 100 / Math.max(1, meta.games * 10 + meta.strikes * 0)) : 0;
+    var hist = meta.hist.length ? '<p class="stnote">Your last games</p><div class="hist">' + meta.hist.map(function (s) { return '<i style="height:' + Math.max(4, s / 300 * 100) + '%"><b>' + s + '</b></i>'; }).join('') + '</div>' : '';
+    $('statsBody').innerHTML = '<div class="tiles"><div class="tile"><b>' + meta.best + '</b><span>best game</span></div><div class="tile"><b>' + avg + '</b><span>average</span></div><div class="tile"><b>' + meta.games + '</b><span>games</span></div></div>' +
+      '<div class="tiles"><div class="tile"><b>' + meta.strikes + '</b><span>strikes</span></div><div class="tile"><b>' + meta.spares + '</b><span>spares</span></div><div class="tile"><b>' + meta.streak + '</b><span>most in a row</span></div></div>' +
+      '<div class="tiles"><div class="tile"><b>' + meta.balls + '</b><span>balls rolled</span></div><div class="tile"><b>' + meta.gutters + '</b><span>gutter balls</span></div><div class="tile"><b>' + meta.perfect + '</b><span>perfect 300s</span></div></div>' + hist;
+    $('ovStats').classList.add('show');
+  }
+  function openHelp() {
+    $('helpList').innerHTML = [
+      '<b>Line up</b>: slide your finger sideways to move where you stand.',
+      '<b>Roll</b>: swipe up. A faster swipe rolls a faster ball; tilt the swipe to aim left or right.',
+      '<b>Hook</b>: curve your swipe. Bow it out to the right and the ball hooks left near the pins (bow left, it hooks right). The ball skids straight through the oil and grabs on the dry last third of the lane.',
+      'Right-handers aim for the <b>pocket</b> between the 1 and 3 pins (just right of the head pin), coming in at an angle. Head-on hits tend to split.',
+      '<b>Scoring</b>: ten frames, two balls each. A <b>strike</b> (all ten with the first ball) scores 10 plus your next two balls; a <b>spare</b> (all ten with two) scores 10 plus your next ball. A strike or spare in the tenth earns extra balls. A perfect game is 300.',
+      'The arrows on the lane help you aim; Settings → Show my line draws where your last ball went.',
+      'Your game is saved after every ball. Works offline.'
+    ].map(function (x) { return '<li>' + x + '</li>'; }).join('');
+    $('ovHelp').classList.add('show');
+  }
+  function syncSettings() {
+    $('setSound').checked = settings.sound; $('setTrail').checked = settings.trail; $('setLefty').checked = settings.lefty;
+    $('setAds').checked = Goobs.adsOn(); $('adEvery').textContent = settings.adEvery; $('rowAdEvery').classList.toggle('off', !Goobs.adsOn());
+    $('swatches').innerHTML = BALLS.map(function (c) { return '<button style="background:' + c + '" data-c="' + c + '" class="' + (c === settings.ball ? 'on' : '') + '" aria-label="Ball color"></button>'; }).join('');
+  }
+  function confirmNew() {
+    if (!game.rolls.length || phase === 'over') { $('ovEnd').classList.remove('show'); newGame(); return; }
+    $('endTitle').textContent = 'Start a new game?';
+    $('endText').innerHTML = '<p class="endnote">This game (' + BW.score(game.rolls).total + ' so far) will be lost.</p>';
+    var box = $('endActions'); box.innerHTML = '';
+    var y = document.createElement('button'); y.className = 'btn red'; y.textContent = 'New game';
+    y.addEventListener('click', function () { $('ovEnd').classList.remove('show'); store.del('game'); newGame(); });
+    var n = document.createElement('button'); n.className = 'btn'; n.textContent = 'Keep playing';
+    n.addEventListener('click', function () { $('ovEnd').classList.remove('show'); });
+    box.appendChild(y); box.appendChild(n);
+    $('ovEnd').classList.add('show');
+  }
+  function sheet(btn, ov, close, before) {
+    $(btn).addEventListener('click', function () { if (before) before(); else $(ov).classList.add('show'); });
+    $(close).addEventListener('click', function () { $(ov).classList.remove('show'); });
+    $(ov).addEventListener('click', function (e) { if (e.target === this) this.classList.remove('show'); });
+  }
+
+  // ================= start =================
+  function init() {
+    Goobs.fullscreen({ overlay: true, menu: ['btnNew', 'btnStats', 'btnHelp', 'btnSettings'], info: function () {
+      if (!game) return '';
+      var st = BW.state(game.rolls);
+      return '<b>' + (st.over ? 'Game over' : 'Frame ' + (st.frame + 1)) + '</b> · score ' + BW.score(game.rolls).total + (meta.best ? ' · best ' + meta.best : '');
+    } });
+    var cv = $('cv3');
+    cv.addEventListener('pointerdown', onDown); cv.addEventListener('pointermove', onMove);
+    cv.addEventListener('pointerup', onUp); cv.addEventListener('pointercancel', function () { touch = null; });
+    cv.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+    document.addEventListener('touchmove', function (e) { if (e.target === cv && e.cancelable) e.preventDefault(); }, { passive: false });
+    $('btnHome').addEventListener('click', function () { saveGame(); saveMeta(); Goobs.home(); });
+    $('btnNew').addEventListener('click', confirmNew);
+    sheet('btnStats', 'ovStats', 'btnCloseStats', openStats);
+    sheet('btnHelp', 'ovHelp', 'btnCloseHelp', openHelp);
+    sheet('btnSettings', 'ovSettings', 'btnCloseSettings', function () { syncSettings(); $('ovSettings').classList.add('show'); });
+    $('setSound').addEventListener('change', function () { settings.sound = this.checked; saveSettings(); S.set(settings.sound); S.spare(); });
+    $('setTrail').addEventListener('change', function () { settings.trail = this.checked; saveSettings(); if (!settings.trail && SC) SC.setTrail([]); });
+    $('setLefty').addEventListener('change', function () { settings.lefty = this.checked; saveSettings(); if (game && phase === 'aim' && !game.rolls.length) game.x = settings.lefty ? -0.2 : 0.2; });
+    $('swatches').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; settings.ball = b.dataset.c; saveSettings(); if (SC) SC.setBallColor(settings.ball); syncSettings(); });
+    $('setAds').addEventListener('change', function () { Goobs.setAds(this.checked); syncSettings(); });
+    $('adLess').addEventListener('click', function () { settings.adEvery = Math.max(1, settings.adEvery - 1); saveSettings(); syncSettings(); });
+    $('adMore').addEventListener('click', function () { settings.adEvery = Math.min(10, settings.adEvery + 1); saveSettings(); syncSettings(); });
+    S.set(settings.sound);
+    window.addEventListener('resize', layout);
+    document.addEventListener('visibilitychange', function () { if (document.hidden) { saveGame(); saveMeta(); S.rollStop(); } });
+    window.addEventListener('pagehide', function () { saveGame(); saveMeta(); });
+    Goobs.markPlayed('bowling');
+    Goobs.initUpdates({ beforeReload: function () { saveGame(); saveMeta(); }, onVersions: function (v) { $('version').textContent = 'Strike Alley ' + (v.bowling || '?') + ' · Goobs-Games ' + (v.shell || '?'); } });
+    Promise.all([import('../../shared/three.module.min.js'), import('../../shared/cannon-es.min.js')]).then(function (m) {
+      T = m[0]; C = m[1]; BW.use(C);
+      SC = BWScene.build(T, cv, BW); SC.setBallColor(settings.ball);
+      layout();
+      try { if (!loadGame()) newGame(); else setupBall(); } catch (e) { store.del('game'); newGame(); }
+      updateCamera(0, true);
+      $('loading').classList.add('hide');
+      if (!meta.seen) { meta.seen = true; saveMeta(); }
+    }).catch(function (e) { $('loading').textContent = 'The lane didn’t load: ' + e.message; });
+    requestAnimationFrame(frame);
+    window.__bwReady = true;
+  }
+  init();
+
+  // test hook (Playwright and the checks): throw with exact numbers, read the state
+  window.__bw = { get game() { return game; }, get sim() { return sim; }, get phase() { return phase; }, throwBall: throwBall, meta: meta, BW: BW,
+    screen: function (x, y, z) { return SC.toScreen(x, y, z, W, H); }, newGame: newGame, turbo: function (v) { turbo = !!v; } };
+})();
+</script>
+</body>
+</html>

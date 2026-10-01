@@ -807,6 +807,18 @@
       }
     },
     {
+      id: 'bowling', name: 'Strike Alley', blurb: 'Ten-pin bowling: swipe to roll', path: 'games/bowling/',
+      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="bwT" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a1d5c"/><stop offset="1" stop-color="#16102a"/></linearGradient><linearGradient id="bwLn" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c98d4f"/><stop offset="1" stop-color="#f0c48c"/></linearGradient></defs><rect width="100" height="100" fill="url(#bwT)"/>' +
+        '<path d="M28 100L43 36h14l15 64z" fill="url(#bwLn)"/><path d="M36 74l3-3 3 3M47 74l3-3 3 3M58 74l3-3 3 3" stroke="#b5332a" stroke-width="2" fill="none"/>' +
+        '<g fill="#fffaf2"><path d="M43 14c-2.6 0-3.8 2.5-3.4 5 .3 2.2 1.7 3.4 1.4 6-.5 2.9-2.6 4.7-2.6 8.5 0 2.5.8 4.2 1.7 5h5.8c.9-.8 1.7-2.5 1.7-5 0-3.8-2.1-5.6-2.6-8.5-.3-2.6 1.1-3.8 1.4-6 .4-2.5-.8-5-3.4-5z"/><path d="M57 14c-2.6 0-3.8 2.5-3.4 5 .3 2.2 1.7 3.4 1.4 6-.5 2.9-2.6 4.7-2.6 8.5 0 2.5.8 4.2 1.7 5h5.8c.9-.8 1.7-2.5 1.7-5 0-3.8-2.1-5.6-2.6-8.5-.3-2.6 1.1-3.8 1.4-6 .4-2.5-.8-5-3.4-5z"/></g>' +
+        '<g fill="#e0283c"><rect x="40" y="23.5" width="6" height="1.5"/><rect x="54" y="23.5" width="6" height="1.5"/></g>' +
+        '<circle cx="52" cy="80" r="13" fill="#2f7cf6"/><circle cx="48.5" cy="75" r="1.9" fill="#0b0b10"/><circle cx="53.5" cy="74.5" r="1.9" fill="#0b0b10"/><circle cx="51" cy="79" r="2.2" fill="#0b0b10"/><path d="M44 74a10 10 0 0 1 6-5" stroke="#fff" stroke-opacity=".45" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
+      status: function () {
+        var m = readLS('bowling.meta'); if (!m || !(m.games > 0)) return 'Ten-pin bowling: swipe to roll';
+        return 'Best ' + m.best + ' \u00b7 average ' + Math.round(m.total / m.games);
+      }
+    },
+    {
       id: 'links', name: 'Color Link', blurb: 'Connect the dots, fill the board', path: 'games/links/',
       art: '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><radialGradient id="clT" cx=".5" cy="0" r="1.2"><stop offset="0" stop-color="#2c3266"/><stop offset="1" stop-color="#14172f"/></radialGradient></defs><rect width="100" height="100" fill="url(#clT)"/>' +
         '<g stroke="rgba(255,255,255,.1)" stroke-width="1"><path d="M10 30h80M10 50h80M10 70h80M30 10v80M50 10v80M70 10v80"/></g>' +
