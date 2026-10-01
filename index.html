@@ -768,6 +768,21 @@
       }
     },
     {
+      id: 'sudoku', name: 'Ninefold', blurb: 'Classic Sudoku, four levels', path: 'games/sudoku/',
+      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="sdT" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6d66ff"/><stop offset="1" stop-color="#4a43d6"/></linearGradient></defs><rect width="100" height="100" fill="url(#sdT)"/>' +
+        '<rect x="13" y="13" width="74" height="74" rx="9" fill="#fff"/><g stroke="#4a43d6" stroke-width="2.6"><path d="M37.7 13v74M62.3 13v74M13 37.7h74M13 62.3h74"/></g>' +
+        '<g stroke="#d6d9e6" stroke-width="1"><path d="M21.2 13v74M29.4 13v74M45.9 13v74M54.1 13v74M70.6 13v74M78.8 13v74M13 21.2h74M13 29.4h74M13 45.9h74M13 54.1h74M13 70.6h74M13 78.8h74"/></g>' +
+        '<rect x="37.7" y="37.7" width="24.6" height="24.6" fill="#ecebff"/>' +
+        '<g font-family="-apple-system, system-ui, sans-serif" font-weight="800" font-size="12" text-anchor="middle" fill="#1b2130"><text x="25.3" y="33.5">5</text><text x="74.7" y="25.3">3</text><text x="17.1" y="66.6">8</text><text x="66.5" y="83.1">1</text><text x="83" y="58.3">6</text></g>' +
+        '<g font-family="-apple-system, system-ui, sans-serif" font-weight="800" font-size="12" text-anchor="middle" fill="#5a54f0"><text x="50" y="50.1">9</text><text x="41.8" y="58.3">4</text><text x="33.6" y="74.8">2</text></g></svg>',
+      status: function () {
+        var s = readLS('sudoku.stats'), n = 0;
+        if (s) for (var k in s) { n += (s[k] && s[k].solved) || 0; }
+        if (!n) return 'Classic Sudoku, four levels';
+        return n + (n === 1 ? ' puzzle' : ' puzzles') + ' solved';
+      }
+    },
+    {
       id: 'beacon', name: 'Beacon Bound', blurb: 'Run, jump, light the way', path: 'games/beacon/',
       art: '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="bbS" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4fa9f5"/><stop offset="1" stop-color="#c9ecff"/></linearGradient><radialGradient id="bbG"><stop offset="0" stop-color="#fff6c0"/><stop offset=".45" stop-color="#ffd24a" stop-opacity=".7"/><stop offset="1" stop-color="#ffd24a" stop-opacity="0"/></radialGradient></defs>' +
         '<rect width="100" height="100" fill="url(#bbS)"/><path d="M0 70q25-14 50-4t50-6v40H0z" fill="#6cc24a"/><path d="M0 78q30-8 60 0t40-2v24H0z" fill="#4fa83a"/>' +
