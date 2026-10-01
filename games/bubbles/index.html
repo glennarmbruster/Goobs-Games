@@ -43,6 +43,9 @@ html.gg-fs-over, html.gg-fs-over body { background: #1e2a5a; }
 .lv small { font-size: 11px; color: #e0a800; letter-spacing: -1px; }
 .lv.cur { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
 .lv:disabled { opacity: .35; }
+.lv { min-width: 0; }
+.lv.long { font-size: 12px; letter-spacing: -.3px; } /* 1.3.0: five- and six-digit level numbers past the bank */
+.lvmore { grid-column: 1 / -1; }
 .stars { font-size: 26px; color: #ffc83d; letter-spacing: 2px; }
 .stars .off { color: var(--line-strong); }
 .cardicon svg { border-radius: 16px; }
@@ -168,7 +171,9 @@ html.gg-fs-over, html.gg-fs-over body { background: #1e2a5a; }
    launcher at the bottom, bank shots off the side walls, 3 or more of a color pop, bubbles cut off from the top fall,
    the ceiling comes down every few shots, and it's over when a bubble passes the line. Units: bubble diameter = 1.
    Runs in Node (tools/gen.js checks every level with a bot). */
-var FP = (function () {
+// 1.3.0: the module is a named function (FPModule) so the app can rebuild it inside a Web Worker from its own source
+// (a Blob, no extra file) to check the levels it makes past the bank without stalling the page.
+function FPModule() {
   'use strict';
   var COLS = 8, R = 0.5, ROWH = Math.sqrt(3) / 2, LINE = 12;      // rows 0..11 fit above the line
   var WIDTH = COLS;                                                // the playfield is 8 bubbles wide
@@ -328,6 +333,85 @@ var FP = (function () {
     return { rows: grid, drop: Math.max(5, 9 - Math.floor(n / 14)), seed: seed, colors: ncol };
   }
 
+  // ---------- 1.3.0: levels past the bank (101 and on, no end) ----------
+  // The bank (1-100) already reached makeLevel's top tier (9 rows, 6 colors, the ceiling every 5 shots), so past it
+  // the difficulty holds there and the variety comes from rotating the layout (10 shapes), how the colors are laid out
+  // (clumps, bands, columns), 5 or 6 colors, 8 or 9 rows and a mirror. Clumps thin out a little more over levels
+  // 101-400 (the gentle growth), then hold. Every 10th level from 105 on (105, 115, ...) is an easier breather.
+  // Level n, attempt k is always the same layout (seeded by n and k), so every phone gets the same level n.
+  var SHAPES = 10;
+  function holes(shape, r, c, len, rows, flip) {
+    var mid = (len - 1) / 2, dm = Math.abs(c - mid);
+    switch (shape) {
+      case 1: return r > 0 && (c + r) % 4 === 3;                                                  // gaps on a slant
+      case 2: return r >= 2 && r % 2 === 0 && (c === 0 || c === len - 1);                          // notched sides
+      case 3: return r >= rows - 3 && r > 0 && dm > (rows - 1 - r) * 1.2 + 1;                      // a rounded bottom
+      case 4: return r >= 3 && r % 2 === 1 && (c === Math.floor(len / 2) || c === Math.floor((len - 1) / 2)); // a channel
+      case 5: return r >= 2 && dm > Math.max(1, len / 2 - 1 - Math.abs(r - (rows - 1) / 2));      // a diamond / hourglass
+      case 6: return r > 0 && (r * 3 + c + flip) % 5 === 0;                                        // scattered holes
+      case 7: return r >= 3 && dm < 1.5;                                                           // two hanging towers
+      case 8: return r >= 2 && dm < r - 2.5;                                                       // an arch (two legs)
+      case 9: return r % 3 === 2 && (c + flip) % 2 === 0;                                          // perforated rows
+      default: return false;                                                                       // a full block
+    }
+  }
+  function makeLevelPast(n, k) {
+    var seed = (n * 1000 + k) >>> 0, R2 = rng(seed ^ 0x5bd1e995), grow = Math.min(1, Math.max(0, n - 100) / 300);
+    var breather = n % 10 === 5;
+    // after many failed attempts (rare) ease off step by step, so a level is always found
+    var ease = k >= 40 ? 2 : k >= 20 ? 1 : 0;
+    var rows = breather ? 6 + Math.floor(R2() * 2) : (R2() < 0.6 ? 9 : 8) - ease;
+    var ncol = breather ? 4 + Math.floor(R2() * 2) : (R2() < 0.65 ? 6 : 5) - ease;
+    var drop = breather ? 7 : (R2() < 0.75 ? 5 : 6) + ease;
+    var shape = (n * 3 + k) % SHAPES, style = Math.floor(R2() * 5), flip = Math.floor(R2() * 2), off = Math.floor(R2() * ncol);
+    // style: 0-2 clumps (as the bank), 3 bands across, 4 columns; each with some random noise
+    var pl = (breather ? 0.4 : 0.22 - grow * 0.04), pu = pl + (breather ? 0.28 : 0.16 - grow * 0.02);
+    var grid = [];
+    for (var r = 0; r < rows; r++) {
+      var len = rowLen(r), row = '';
+      for (var c = 0; c < len; c++) {
+        if (holes(shape, r, c, len, rows, flip)) { row += '.'; continue; }
+        var up = r > 0 ? grid[r - 1][Math.min(grid[r - 1].length - 1, r % 2 ? c : Math.max(0, c - 1))] : '.';
+        var left = c > 0 ? row[c - 1] : '.', pick = R2(), col;
+        if (style === 3 && pick < 0.7) col = String((Math.floor(r / 2) + off) % ncol);
+        else if (style === 4 && pick < 0.65) col = String((Math.floor((c + (r % 2 ? 0.5 : 0)) / 2) + off) % ncol);
+        else col = pick < pl && left !== '.' ? left : pick < pu && up !== '.' && up !== undefined ? up : String(Math.floor(R2() * ncol));
+        row += col;
+      }
+      grid.push(row);
+    }
+    if (R2() < 0.35) grid = grid.map(function (row, r) { var len = rowLen(r), a = row.split(''); for (var c = 0; c < Math.floor(len / 2); c++) a[len - 1 - c] = a[c]; return a.join(''); });
+    // a shape can leave bubbles with nothing holding them to the top: take those out (they would hang in the air)
+    var on = {}, stack = [];
+    for (var c0 = 0; c0 < grid[0].length; c0++) if (grid[0][c0] !== '.') { on[key(0, c0)] = 1; stack.push([0, c0]); }
+    while (stack.length) { var q = stack.pop(); nbrs(q[0], q[1]).forEach(function (p) { var kk = key(p[0], p[1]); if (!on[kk] && p[0] < grid.length && grid[p[0]][p[1]] !== '.' && grid[p[0]][p[1]] !== undefined) { on[kk] = 1; stack.push(p); } }); }
+    grid = grid.map(function (row, r) { return row.split('').map(function (ch, c) { return on[key(r, c)] ? ch : '.'; }).join(''); });
+    while (grid.length > 1 && /^\.*$/.test(grid[grid.length - 1])) grid.pop();
+    return { rows: grid, drop: drop, seed: seed, colors: ncol, n: n, k: k, breather: breather };
+  }
+  // the bot plays a level with its own seeded bubbles; won = cleared before anything crossed the line
+  // (no time limit in here on purpose: which attempt passes must not depend on how fast the phone is; 400 shots caps it)
+  function botPlay(level) {
+    var g = create(level, 'levels'), shots = 0;
+    while (!g.over && shots < 400) {
+      var a = botAim(g), t = trace(g, a);
+      if (!t.cell) { g.over = true; break; }
+      place(g, t.cell, g.cur); shots++;
+    }
+    return { won: g.won, shots: shots, score: g.score };
+  }
+  // level n past the bank: the first attempt the bot clears. A level always comes out (the attempts ease off).
+  // It must also take the bot a fair number of shots (a layout that drops whole in a few shots is no level; the
+  // bank's top tier mostly takes 15-45), less for a breather.
+  function levelPast(n) {
+    for (var k = 0; k < 200; k++) {
+      var lv = makeLevelPast(n, k), r = botPlay(lv), need = lv.breather ? 6 : k >= 40 ? 8 : 15;
+      if (r.won && r.shots >= need) return { rows: lv.rows, drop: lv.drop, seed: lv.seed, bot: r.shots, n: n, k: k, breather: lv.breather };
+    }
+    // never seen: a short, easy layout the bot is sure to clear
+    return { rows: ['00112233', '0011223', '00112233'], drop: 9, seed: n, bot: 12, n: n, k: -1 };
+  }
+
   // ---------- a bot (used to prove each level can be cleared) ----------
   // tries aims across the whole fan and picks the one that pops/drops the most, else sticks next to its color
   function botAim(g) {
@@ -364,8 +448,10 @@ var FP = (function () {
 
   return { COLS: COLS, R: R, ROWH: ROWH, LINE: LINE, WIDTH: WIDTH, LAUNCH_Y: LAUNCH_Y, SPEED: SPEED, COLORS: COLORS,
     rowLen: rowLen, cellXY: cellXY, key: key, nbrs: nbrs, create: create, trace: trace, place: place, swap: swap, count: count, colorsLeft: colorsLeft,
-    lowest: lowest, makeLevel: makeLevel, botAim: botAim, pushRow: pushRow };
-})();
+    lowest: lowest, makeLevel: makeLevel, botAim: botAim, pushRow: pushRow,
+    makeLevelPast: makeLevelPast, botPlay: botPlay, levelPast: levelPast, source: FPModule.toString() };
+}
+var FP = FPModule();
 if (typeof module !== 'undefined') module.exports = FP;
 </script>
 <script>
@@ -458,15 +544,74 @@ var FPSound = (function () {
   function newSeed() { try { return crypto.getRandomValues(new Uint32Array(1))[0]; } catch (e) { return Math.floor(Math.random() * 4294967296); } }
 
   // ================= game =================
-  var g = null, levelNo = 1, flight = null, fx = [], aim = null, shake = 0, done = false;
+  var g = null, levelNo = 1, flight = null, fx = [], aim = null, shake = 0, done = false, curBot = 20;
+
+  // ================= 1.3.0: levels past the bank, made on the phone =================
+  // Levels 1-100 are the bank (levels.json). From 101 on (no end), level n is made from its number by FP.levelPast
+  // (seeded, so it is the same level on every phone) and only kept once the bot clears it. That takes about a tenth of
+  // a second, sometimes more, so it runs in a Web Worker built from FP's own source (a Blob: no extra file), and the
+  // next level is made while this one is played. If the player gets there first, a small note shows until it's ready.
+  var made = {}, waiting = {}, worker = null, workerBroken = false, wantToken = 0;
+  (function () { var c = store.get('made', null); if (c && typeof c === 'object') for (var n in c) if (c[n] && c[n].rows) made[n] = c[n]; })();
+  function keepMade(n, lv) {
+    made[n] = lv;
+    // keep the last few made levels in the save, so reopening the app on a level past the bank needs no wait
+    var keys = Object.keys(made).map(Number).sort(function (a, b) { return b - a; }), keep = {};
+    keys.forEach(function (k2) { if (Math.abs(k2 - levelNo) <= 3 || k2 === meta.open) keep[k2] = made[k2]; });
+    store.set('made', keep);
+  }
+  function levelReady(n) { return n <= LEVELS.length ? LEVELS[n - 1] : made[n] || null; }
+  function gotLevel(lv) {
+    if (!lv || !lv.rows) return;
+    keepMade(lv.n, lv);
+    var cbs = waiting[lv.n] || []; delete waiting[lv.n];
+    cbs.forEach(function (cb) { cb(lv); });
+  }
+  function makeWorker() {
+    if (worker || workerBroken) return worker;
+    try {
+      var src = 'var FP = (' + FP.source + ')();\nonmessage = function (e) { postMessage(FP.levelPast(e.data)); };';
+      worker = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
+      worker.onmessage = function (e) { gotLevel(e.data); };
+      worker.onerror = function () { workerBroken = true; worker = null; for (var n in waiting) makeHere(+n); };
+    } catch (e) { workerBroken = true; worker = null; }
+    return worker;
+  }
+  // no Worker (very old phone, or it failed): make it on the page, after a beat so the note can show first
+  function makeHere(n) { setTimeout(function () { if (waiting[n]) gotLevel(FP.levelPast(n)); }, 40); }
+  function needLevel(n, cb) {
+    var lv = levelReady(n);
+    if (lv) { if (cb) cb(lv); return; }
+    var first = !waiting[n]; waiting[n] = waiting[n] || []; if (cb) waiting[n].push(cb);
+    if (!first) return;
+    if (makeWorker()) worker.postMessage(n); else makeHere(n);
+  }
+  function prefetch(n) { if (n > LEVELS.length && !levelReady(n)) needLevel(n, null); }
+  var noteT = 0;
+  function note(t) {
+    clearTimeout(noteT); var el = $('toast');
+    if (!t) { if (el.dataset.note) { el.classList.remove('show'); el.dataset.note = ''; } return; }
+    // only if it takes a moment: a level that's ready in a blink shows no note
+    noteT = setTimeout(function () { el.textContent = t; el.dataset.note = '1'; el.classList.add('show'); }, 250);
+  }
   function startLevel(n) {
-    levelNo = Math.max(1, Math.min(LEVELS.length, n));
-    meta.mode = 'levels'; meta.level = levelNo; saveMeta();
-    g = FP.create(LEVELS[levelNo - 1], 'levels');
-    reset();
+    n = Math.max(1, Math.floor(n) || 1);
+    levelNo = n; meta.mode = 'levels'; meta.level = n; saveMeta();
+    var token = ++wantToken, lv = levelReady(n);
+    // not made yet: the old board goes (so nothing can be shot or saved under the new number) until it's ready
+    if (!lv) { g = null; flight = null; aim = null; fx = []; if (cx) cx.clearRect(0, 0, cv.width, cv.height); store.del('game'); note('Making level ' + fmt(n) + '\u2026'); $('hud').innerHTML = pill('Level', fmt(n)); }
+    needLevel(n, function (lv2) {
+      if (token !== wantToken) return;   // the player picked another level meanwhile
+      note(null);
+      curBot = lv2.bot || 20;
+      g = FP.create(lv2, 'levels');
+      reset();
+      prefetch(n + 1);
+    });
   }
   function startEndless() {
     meta.mode = 'endless'; saveMeta();
+    wantToken++; note(null);
     var seed = newSeed(), rows = [];
     // six rows of four colors to start with
     var lv = FP.makeLevel(12, seed); lv.rows = lv.rows.slice(0, 6).map(function (r) { return r.replace(/\./g, '0').replace(/[4-9]/g, function (d) { return String(d % 4); }); });
@@ -475,11 +620,14 @@ var FPSound = (function () {
     reset();
   }
   function reset() { flight = null; fx = []; aim = null; done = false; save(); renderAll(); }
-  function save() { if (g && !g.over) store.set('game', { g: g, level: levelNo, mode: meta.mode }); else store.del('game'); }
+  function save() { if (g && !g.over) store.set('game', { g: g, level: levelNo, mode: meta.mode, bot: curBot }); else store.del('game'); }
   function load() {
     var r = store.get('game', null);
     if (!r || !r.g || !r.g.grid || r.g.over) return false;
-    g = r.g; levelNo = r.level || 1; meta.mode = r.mode === 'endless' ? 'endless' : 'levels'; return true;
+    g = r.g; levelNo = r.level || 1; meta.mode = r.mode === 'endless' ? 'endless' : 'levels';
+    curBot = r.bot || (LEVELS[levelNo - 1] && LEVELS[levelNo - 1].bot) || 20;
+    if (meta.mode === 'levels') prefetch(levelNo + 1);
+    return true;
   }
 
   // ================= loop =================
@@ -530,19 +678,19 @@ var FPSound = (function () {
     saveStats(); save(); renderInfo();
     if (g.over) { done = true; setTimeout(g.won ? won : lost, g.won ? 700 : 900); }
   }
-  function starsFor(n, shots) { var bot = (LEVELS[n - 1] && LEVELS[n - 1].bot) || 20; return shots <= Math.round(bot * 1.15) + 2 ? 3 : shots <= Math.round(bot * 1.7) + 5 ? 2 : 1; }
+  function starsFor(n, shots) { var bot = curBot || 20; return shots <= Math.round(bot * 1.15) + 2 ? 3 : shots <= Math.round(bot * 1.7) + 5 ? 2 : 1; }
   function won() {
     S.win(); stats.cleared++; stats.games++; saveStats();
     meta.finished++;
     var st = starsFor(levelNo, g.shots), before = meta.stars[levelNo] || 0;
     meta.stars[levelNo] = Math.max(before, st);
-    if (meta.open <= levelNo) meta.open = Math.min(LEVELS.length, levelNo + 1);
+    // 1.3.0: no last level: the next one is always there (made on the phone past 100)
+    if (meta.open <= levelNo) meta.open = levelNo + 1;
     saveMeta(); store.del('game');
-    var last = levelNo >= LEVELS.length;
-    showCard('Level ' + levelNo + ' cleared!', '<div class="stars">' + [0, 1, 2].map(function (i) { return i < st ? '★' : '<span class="off">★</span>'; }).join('') + '</div>' +
-      g.shots + ' shots &middot; ' + fmt(g.score) + ' points' + (last ? '<br>That was the last level!' : ''),
-      last ? [{ label: 'Play it again', red: true, go: function () { between(function () { startLevel(levelNo); }); } }] :
-        [{ label: 'Next: level ' + (levelNo + 1), red: true, go: function () { between(function () { startLevel(levelNo + 1); }); } }, { label: 'Play it again', go: function () { between(function () { startLevel(levelNo); }); } }]);
+    prefetch(levelNo + 1);
+    showCard('Level ' + fmt(levelNo) + ' cleared!', '<div class="stars">' + [0, 1, 2].map(function (i) { return i < st ? '★' : '<span class="off">★</span>'; }).join('') + '</div>' +
+      g.shots + ' shots &middot; ' + fmt(g.score) + ' points',
+      [{ label: 'Next: level ' + fmt(levelNo + 1), red: true, go: function () { between(function () { startLevel(levelNo + 1); }); } }, { label: 'Play it again', go: function () { between(function () { startLevel(levelNo); }); } }]);
   }
   function lost() {
     S.lose(); stats.games++; saveStats(); meta.finished++;
@@ -552,7 +700,7 @@ var FPSound = (function () {
       return;
     }
     saveMeta(); store.del('game');
-    showCard('Over the line', 'The bubbles reached the line. ' + FP.count(g) + ' left.', [{ label: 'Try again', red: true, go: function () { between(function () { startLevel(levelNo); }); } }, { label: 'Pick a level', go: openLevels }]);
+    showCard('Over the line', 'The bubbles reached the line. ' + FP.count(g) + ' left.', [{ label: 'Try again', red: true, go: function () { between(function () { startLevel(levelNo); }); } }, { label: 'Pick a level', go: function () { openLevels(); } }]);
   }
 
   // ================= drawing =================
@@ -694,20 +842,25 @@ var FPSound = (function () {
   function renderInfo() {
     if (!g) return;
     // 1.2.0: the counters are pills in the floating top row (the old info row above the field is gone)
-    $('hud').innerHTML = meta.mode === 'levels' ? pill('Level', levelNo) + pill('Bubbles', FP.count(g)) + pill('Score', fmt(g.score))
+    $('hud').innerHTML = meta.mode === 'levels' ? pill('Level', fmt(levelNo)) + pill('Bubbles', FP.count(g)) + pill('Score', fmt(g.score))
       : pill('Score', fmt(g.score)) + pill('Best', fmt(Math.max(meta.endlessBest, g.score)));
     Array.prototype.forEach.call($('modes').children, function (b) { b.classList.toggle('on', b.dataset.mode === meta.mode); });
     $('btnLevels').style.display = meta.mode === 'levels' ? '' : 'none';
   }
   function renderAll() { renderInfo(); draw(); }
-  function openLevels() {
-    var h = '';
-    for (var n = 1; n <= LEVELS.length; n++) {
+  function openLevels(all) {
+    // 1.3.0: the bank plus the levels made past it, up to 30 past the furthest one open (the list grows as you go).
+    // A very long list starts 600 back (thousands of buttons are slow on a phone); a button above shows the rest.
+    var h = '', top = Math.max(LEVELS.length, meta.open + 30), from = all === true || top <= 600 ? 1 : Math.floor((top - 600) / 5) * 5 + 1;
+    if (from > 1) h += '<button class="btn lvmore" id="lvMore">Show levels 1&ndash;' + fmt(from - 1) + '</button>';
+    for (var n = from; n <= top; n++) {
       var st = meta.stars[n] || 0;
-      h += '<button class="lv' + (n === levelNo && meta.mode === 'levels' ? ' cur' : '') + '" data-n="' + n + '"' + (n > meta.open ? ' disabled' : '') + '>' + n + '<small>' + '★★★'.slice(0, st) + '</small></button>';
+      h += '<button class="lv' + (n === levelNo && meta.mode === 'levels' ? ' cur' : '') + (n >= 10000 ? ' long' : '') + '" data-n="' + n + '"' + (n > meta.open ? ' disabled' : '') + '>' + n + '<small>' + '★★★'.slice(0, st) + '</small></button>';
     }
     $('lvgrid').innerHTML = h;
     $('ovLevels').classList.add('show');
+    var cur = $('lvgrid').querySelector('.cur') || $('lvgrid').querySelector('button[data-n="' + Math.min(meta.open, top) + '"]');
+    if (cur && cur.scrollIntoView) cur.scrollIntoView({ block: 'center' });
   }
   var toastT = 0;
   function toast(t) { var el = $('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(function () { el.classList.remove('show'); }, 1500); }
@@ -735,7 +888,7 @@ var FPSound = (function () {
       '<b>Drag</b> anywhere above the launcher to aim (the dotted line shows the way, off one wall), and <b>let go</b> to shoot. Slide your finger back down below the launcher to cancel.',
       'Bubbles stick where they touch. Make a group of <b>3 or more</b> of one color and they <b>pop</b>. Anything left hanging with nothing holding it to the top <b>falls</b>, for big points (each extra falling bubble doubles them).',
       'Bank shots off the side walls to reach tricky spots. <b>Tap the NEXT bubble</b> (or the launcher) to swap the two.',
-      '<b>Levels</b>: clear every bubble. Every few shots the <b>ceiling</b> comes down a row (the gold dots count down). If a bubble crosses the dashed <b>line</b>, the level is lost. Fewer shots earn more stars. 100 levels, each checked to be clearable.',
+      '<b>Levels</b>: clear every bubble. Every few shots the <b>ceiling</b> comes down a row (the gold dots count down). If a bubble crosses the dashed <b>line</b>, the level is lost. Fewer shots earn more stars. The levels never run out: after the first 100, each new one is made on your phone and checked to be clearable before you play it.',
       '<b>Endless</b>: new rows push in from the top every 6 shots. Keep going as long as you can.',
       'Settings: the aim line, and small <b>shapes</b> on the bubbles so colors are easy to tell apart.'
     ].map(function (x) { return '<li>' + x + '</li>'; }).join('');
@@ -764,7 +917,7 @@ var FPSound = (function () {
     // 1.2.0: overlay mode (the top row floats on the soda blue) and the Levels / Endless tabs move to the top of the Menu
     FS = Goobs.fullscreen({ overlay: true, menu: ['btnHelp', 'btnLevels', 'btnStats', 'btnSettings', 'btnNew'], info: function () {
       if (!g) return '';
-      return meta.mode === 'levels' ? 'Level <b>' + levelNo + '</b> of ' + LEVELS.length + ' &middot; ' + FP.count(g) + ' bubbles left' : 'Endless &middot; score <b>' + fmt(g.score) + '</b> &middot; best ' + fmt(Math.max(meta.endlessBest, g.score));
+      return meta.mode === 'levels' ? 'Level <b>' + fmt(levelNo) + '</b> &middot; furthest ' + fmt(meta.open) + ' &middot; ' + FP.count(g) + ' bubbles left' : 'Endless &middot; score <b>' + fmt(g.score) + '</b> &middot; best ' + fmt(Math.max(meta.endlessBest, g.score));
     } });
     FS.list.parentNode.insertBefore($('modes'), FS.list);
     Goobs.themePicker($('themes'));
@@ -787,8 +940,8 @@ var FPSound = (function () {
       if (inGame()) { showCard('Restart?', 'This one starts over.', [{ label: 'Restart', red: true, go: go }, { label: 'Keep playing', go: function () {} }]); return; }
       go();
     });
-    $('btnLevels').addEventListener('click', openLevels);
-    $('lvgrid').addEventListener('click', function (e) { var b = e.target.closest('button[data-n]'); if (!b) return; $('ovLevels').classList.remove('show'); startLevel(+b.dataset.n); });
+    $('btnLevels').addEventListener('click', function () { openLevels(); });
+    $('lvgrid').addEventListener('click', function (e) { if (e.target.closest('#lvMore')) { openLevels(true); return; } var b = e.target.closest('button[data-n]'); if (!b) return; $('ovLevels').classList.remove('show'); startLevel(+b.dataset.n); });
     sheet(null, 'ovLevels', 'btnCloseLevels');
     sheet('btnSettings', 'ovSettings', 'btnCloseSettings');
     sheet('btnStats', 'ovStats', 'btnCloseStats', renderStats);
@@ -817,7 +970,8 @@ var FPSound = (function () {
   }
 
   // hook for automated tests
-  window.__fp = { get g() { return g; }, shoot: shoot, FP: FP, startLevel: startLevel, startEndless: startEndless, meta: function () { return meta; }, get flight() { return flight; }, get k() { return k; } };
+  window.__fp = { get g() { return g; }, shoot: shoot, FP: FP, startLevel: startLevel, startEndless: startEndless, meta: function () { return meta; }, get flight() { return flight; }, get k() { return k; },
+    get levelNo() { return levelNo; }, get curBot() { return curBot; }, made: made, needLevel: needLevel, get worker() { return !!worker; }, setOpen: function (n) { meta.open = n; saveMeta(); } };
 
   init();
 })();

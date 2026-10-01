@@ -53,8 +53,11 @@ html, body { height: 100%; overflow: hidden; background: #8fd3ff; }
 .toast { position: absolute; z-index: 3; left: 50%; top: 32%; transform: translateX(-50%); text-align: center; pointer-events: none; opacity: 0; transition: opacity .25s;
   background: rgba(10,14,36,.78); color: #fff; font-weight: 800; font-size: 16px; padding: 8px 15px; border-radius: 14px; white-space: nowrap; }
 .toast.show { opacity: 1; }
-.lvgrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.lvgrid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
 .lv { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); height: 52px; font-weight: 800; font-size: 16px; color: var(--ink); display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1; }
+/* 1.8.0: the levels never run out, so long numbers get a smaller size to fit the button */
+.lv { min-width: 0; padding: 0; overflow: hidden; }
+.lv.l5 { font-size: 14px; } .lv.l6 { font-size: 12.5px; } .lv.l7 { font-size: 11px; letter-spacing: -0.3px; }
 .lv small { font-size: 11px; color: #e0a800; letter-spacing: -1px; }
 .lv.cur { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
 .lv:disabled { opacity: .35; }
@@ -204,8 +207,12 @@ html, body { height: 100%; overflow: hidden; background: #8fd3ff; }
    sooner, and a level gives fewer spare balls (tools/gen3.mjs proves them all again).
    1.7.0 (Glenn: a stack falls when he hits another one, "it falls too easily"): only pieces next to something moving
    are woken (1.1.1 woke every piece on the table), and the solver runs 30 iterations (was 12) so a stack that is awake
-   but not pushed stands still instead of slowly slumping. tools/gen4.mjs proves every level again. */
-var TF = (function () {
+   but not pushed stands still instead of slowly slumping. tools/gen4.mjs proves every level again.
+   1.8.0 (unlimited levels): levels after the 500 of the bank are made on the phone from the level number (genStart /
+   genRun below, run by the app in a Web Worker) and proven by the same bot proof before they are played. */
+// 1.8.0: the whole of TF is made by TFMake, so the app can hand its source to a Web Worker (a Blob of
+// TFMake.toString()) that makes and proves the levels past the bank without slowing the game down.
+function TFMake() {
   'use strict';
   var C = null;
   // the stand: top at y = 0, centered on x = 0 and z = 0
@@ -614,23 +621,168 @@ var TF = (function () {
     var t = rot(best.x, best.z + 0.1, -th);
     return [t[0], Math.max(0.3, best.y + (R ? (R() - 0.5) * 0.1 : 0)), t[1]];
   }
-  // play a level with the bot; returns shots needed (or 0 if it could not clear it within max shots)
-  function botPlay(level, max, seed) {
-    var lv = { n: level.n, items: level.items, balls: max || 40, round: level.round, spin: level.spin, theta0: level.theta0, stands: level.stands }, sim = create(lv), R = rng(seed || 99), guard = 0;
-    while (!cleared(sim) && guard < 60 * 60 * 6) {
+  // play a level with the bot; returns shots needed (or 0 if it could not clear it within max shots).
+  // 1.8.0: split into botStart / botAdvance so a proof can run a few steps at a time (the level maker below); botPlay
+  // runs it to the end and does exactly what it always did (same steps in the same order, so the bank still replays).
+  var BOT_GUARD = 60 * 60 * 6;
+  function botStart(level, max, seed) {
+    var lv = { n: level.n, items: level.items, balls: max || 40, round: level.round, spin: level.spin, theta0: level.theta0, stands: level.stands };
+    return { sim: create(lv), R: rng(seed || 99), guard: 0, done: false };
+  }
+  // run up to `steps` physics steps; true once the bot has cleared the level, run out of balls, or hit the guard
+  function botAdvance(r, steps) {
+    var sim = r.sim;
+    while (!r.done && steps-- > 0) {
+      if (cleared(sim) || r.guard >= BOT_GUARD) { r.done = true; break; }
       if (sim.ballsLeft > 0 && (settled(sim) || sim.t - sim.lastShotT > 2.4) && sim.t - sim.lastShotT > 0.5) {
-        var tg = botTarget(sim, R); if (tg) shoot(sim, tg);
+        var tg = botTarget(sim, r.R); if (tg) shoot(sim, tg);
+        // the level maker's early cut (genRun): judged the moment a ball is thrown, so it never depends on slicing
+        if (tg && r.onShot && r.onShot(sim)) { r.done = true; r.cut = true; break; }
       }
-      if (sim.ballsLeft <= 0 && !flying(sim) && settled(sim)) break;
-      step(sim); guard++;
+      if (sim.ballsLeft <= 0 && !flying(sim) && settled(sim)) { r.done = true; break; }
+      step(sim); r.guard++;
     }
+    return r.done;
+  }
+  function botPlay(level, max, seed) {
+    var r = botStart(level, max, seed); botAdvance(r, Infinity); var sim = r.sim;
     return { cleared: cleared(sim), shots: sim.shots, t: sim.t, left: left(sim) };
   }
 
+  // ---------------- levels past the bank (1.8.0, "unlimited" levels) ----------------
+  // Levels after the shipped bank are made on the phone from the level number: makeLevel(n, seed) with the same seeds
+  // tools/gen4.mjs tries (n * 7919 + k * 104729, k = 0, 1, 2 ...), proven by the same bot proof the bank had: the bot
+  // clears it with seed 11 within 45 balls and needs at least MINBOT, the level gets ballsFor(n, bot) balls, and the
+  // bot clears it again with seed 23 within those. The first k that passes is level n, so level n is the same level
+  // every time. Past level 300 makeLevel is already at its top tier (3 times the weight, up to 3 iron anchors, the
+  // biggest builds, spinning tables every 3rd level, two tables every 4th), and the prize sets, patterns and shapes
+  // keep turning over, so the hardest band of the bank simply carries on with fresh layouts.
+  // The time budget is counted in physics steps, not seconds (a slow phone must make the same level as a fast one):
+  // an attempt whose two bot runs together need more than GEN_STEPS steps is dropped and the next seed is tried. The
+  // proof runs with detMath (below), so every engine (Node, Chrome, Safari) picks the same k and makes the same level.
+  function MINBOT(n) { return n <= 10 ? 3 : Math.min(8, 3 + Math.floor(n / 50)); }
+  var GEN_STEPS = 12000;
+  // Early cut, to waste less time on layouts that will fail (most are spinning tables, where the bot misses a lot): when
+  // the bot throws its 20th ball with more than 60% of the pieces still on, or its 30th with more than 40%, the layout is
+  // dropped. Measured on 48 spinning-table tries at levels 529-589: it cut 19 of the 28 that failed (each would have
+  // run to 45 balls, about 5,000 steps) and none of the 20 that passed; 27% fewer steps in all. It only ever drops layouts, so every level
+  // still passes the bank's full proof below.
+  function genCut(sim) { var f = left(sim) / sim.items.length; return sim.shots === 20 ? f > 0.6 : sim.shots === 30 ? f > 0.4 : false; }
+  // a short hash of a layout, to skip one that repeats a level of the bank
+  function layoutKey(items) { var s = JSON.stringify(items), h = 2166136261; for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36) + s.length; }
+  // a job that makes level n; skip: an object whose keys are layoutKeys not to repeat (the bank)
+  function genStart(n, skip) { return { n: n, k: -1, skip: skip || {}, lv: null, a: null, b: null, used: 0, steps: 0, tries: 0, level: null }; }
+  // work on the job for up to `steps` physics steps; returns the finished level, or null if it needs more time
+  // ---- the same level on every phone: math that gives the same answer on every JavaScript engine ----
+  // The physics is chaotic, so a last-digit difference in Math.sin/cos/pow/hypot (engines may compute these their own
+  // way: Node and Chrome already differ on sin/cos) changes how the bot's run goes, so which seed passes, so what level
+  // n is. + - * / and Math.sqrt are exact on every engine, so these versions (the classic fdlibm formulas written out
+  // in plain arithmetic) give bit-for-bit the same result everywhere. They are switched in only while a level is being
+  // made and proven (genRun; detMath for tools) and switched back after, so play itself uses the phone's own math.
+  var DM = (function () {
+    var S1 = -1.66666666666666324348e-01, S2 = 8.33333333332248946124e-03, S3 = -1.98412698298579493134e-04, S4 = 2.75573137070700676789e-06, S5 = -2.50507602534068634195e-08, S6 = 1.58969099521155010221e-10;
+    var C1 = 4.16666666666666019037e-02, C2 = -1.38888888888741095749e-03, C3 = 2.48015872894767294178e-05, C4 = -2.75573143513906633035e-07, C5 = 2.08757232129817482790e-09, C6 = -1.13596475577881948265e-11;
+    var INVPIO2 = 6.36619772367581382433e-01, PIO2_1 = 1.57079632673412561417e+00, PIO2_1T = 6.07710050650619224932e-11, PIO4 = 7.85398163397448278999e-01;
+    var LN2HI = 6.93147180369123816490e-01, LN2LO = 1.90821492927058770002e-10, INVLN2 = 1.44269504088896338700e+00, SQ2 = 1.4142135623730951;
+    var P1 = 1.66666666666666019037e-01, P2 = -2.77777777770155933842e-03, P3 = 6.61375632143793436117e-05, P4 = -1.65339022054652515390e-06, P5 = 4.13813679705723846039e-08;
+    var LG1 = 6.666666666666735130e-01, LG2 = 3.999999999940941908e-01, LG3 = 2.857142874366239149e-01, LG4 = 2.222219843214978396e-01, LG5 = 1.818357216161805012e-01, LG6 = 1.531383769920937332e-01, LG7 = 1.479819860511658591e-01;
+    var ATHI = [4.63647609000806093515e-01, 7.85398163397448278999e-01, 9.82793723247329054082e-01, 1.57079632679489655800e+00];
+    var ATLO = [2.26987774529616870924e-17, 3.06161699786838301793e-17, 1.39033110312309984516e-17, 6.12323399573676603587e-17];
+    var AT = [3.33333333333329318027e-01, -1.99999999998764832476e-01, 1.42857142725034663711e-01, -1.11111104054623557880e-01, 9.09088713343650656196e-02, -7.69187620504482999495e-02, 6.66107313738753120669e-02, -5.83357013379057348645e-02, 4.97687799461593236017e-02, -3.65315727442169155270e-02, 1.62858201153657823623e-02];
+    var PI = 3.141592653589793, sqrt = Math.sqrt;
+    function ks(x, y) { var z = x * x, v = z * x, r = S2 + z * (S3 + z * (S4 + z * (S5 + z * S6))); return x - ((z * (0.5 * y - v * r) - y) - v * S1); }
+    function kc(x, y) { var z = x * x, r = z * (C1 + z * (C2 + z * (C3 + z * (C4 + z * (C5 + z * C6))))), hz = 0.5 * z, w = 1 - hz; return w + (((1 - w) - hz) + (z * r - x * y)); }
+    // x = n * pi/2 + (y0 + y1), |y0 + y1| <= pi/4 (fine for the angles here: a table turns at most a few hundred radians)
+    function red(x) { if (x > -PIO4 && x < PIO4) return [0, x, 0]; var n = Math.floor(x * INVPIO2 + 0.5), r = x - n * PIO2_1, w = n * PIO2_1T, y0 = r - w; return [n & 3, y0, (r - y0) - w]; }
+    function sin(x) { if (x !== x || x === Infinity || x === -Infinity) return NaN; var q = red(x), a = q[1], b = q[2]; return q[0] === 0 ? ks(a, b) : q[0] === 1 ? kc(a, b) : q[0] === 2 ? -ks(a, b) : -kc(a, b); }
+    function cos(x) { if (x !== x || x === Infinity || x === -Infinity) return NaN; var q = red(x), a = q[1], b = q[2]; return q[0] === 0 ? kc(a, b) : q[0] === 1 ? -ks(a, b) : q[0] === 2 ? -kc(a, b) : ks(a, b); }
+    function exp(x) {
+      if (x !== x) return NaN; if (x > 709.78) return Infinity; if (x < -745.13) return 0; if (x > -3.7e-9 && x < 3.7e-9) return 1 + x;
+      var k = Math.floor(INVLN2 * x + 0.5), hi = x - k * LN2HI, lo = k * LN2LO, r = hi - lo, t = r * r, c = r - t * (P1 + t * (P2 + t * (P3 + t * (P4 + t * P5)))), y = 1 - ((lo - (r * c) / (2 - c)) - hi);
+      for (; k > 0; k--) y *= 2; for (; k < 0; k++) y *= 0.5; return y;
+    }
+    function log(x) {
+      if (x !== x || x < 0) return NaN; if (x === 0) return -Infinity; if (x === Infinity) return x;
+      var k = 0, m = x; while (m >= SQ2) { m *= 0.5; k++; } while (m < SQ2 * 0.5) { m *= 2; k--; }
+      var f = m - 1, s = f / (2 + f), z = s * s, w = z * z, R = z * (LG1 + w * (LG3 + w * (LG5 + w * LG7))) + w * (LG2 + w * (LG4 + w * LG6)), hf = 0.5 * f * f;
+      return k * LN2HI - ((hf - (s * (hf + R) + k * LN2LO)) - f);
+    }
+    // the physics asks for the same two damping powers every step: keep the last two answers
+    var ax0 = NaN, ay0 = NaN, ar0 = 0, ax1 = NaN, ay1 = NaN, ar1 = 0;
+    function pow(x, y) {
+      if (x === ax0 && y === ay0) return ar0;
+      if (x === ax1 && y === ay1) return ar1;
+      var r = powRaw(x, y); ax1 = ax0; ay1 = ay0; ar1 = ar0; ax0 = x; ay0 = y; ar0 = r; return r;
+    }
+    function powRaw(x, y) {
+      var r;
+      if (y === 0 || x === 1) r = 1; else if (x !== x || y !== y) r = NaN;
+      else if (y === Math.floor(y) && y >= -64 && y <= 64) { r = 1; for (var i = Math.abs(y); i > 0; i--) r *= x; if (y < 0) r = 1 / r; }
+      else if (x > 0 && x !== Infinity && y !== Infinity && y !== -Infinity) r = exp(y * log(x));
+      else r = (DM.native.pow || Math.pow)(x, y); // never needed by the physics (all exact special cases)
+      return r;
+    }
+    function atan(x) {
+      if (x !== x) return NaN; var neg = x < 0, ax = neg ? -x : x, id;
+      if (ax > 7e19) return neg ? -ATHI[3] - ATLO[3] : ATHI[3] + ATLO[3];
+      if (ax < 0.4375) { if (ax < 1.9e-9) return x; id = -1; }
+      else if (ax < 1.1875) { if (ax < 0.6875) { id = 0; ax = (2 * ax - 1) / (2 + ax); } else { id = 1; ax = (ax - 1) / (ax + 1); } }
+      else if (ax < 2.4375) { id = 2; ax = (ax - 1.5) / (1 + 1.5 * ax); } else { id = 3; ax = -1 / ax; }
+      var z = ax * ax, w = z * z, s1 = z * (AT[0] + w * (AT[2] + w * (AT[4] + w * (AT[6] + w * (AT[8] + w * AT[10]))))), s2 = w * (AT[1] + w * (AT[3] + w * (AT[5] + w * (AT[7] + w * AT[9]))));
+      if (id < 0) return x - x * (s1 + s2);
+      z = ATHI[id] - ((ax * (s1 + s2) - ATLO[id]) - ax); return neg ? -z : z;
+    }
+    function atan2(y, x) {
+      if (x !== x || y !== y) return NaN;
+      if (x === 0 || y === 0 || x === Infinity || x === -Infinity || y === Infinity || y === -Infinity) return (DM.native.atan2 || Math.atan2)(y, x); // exact constants
+      var a = atan(y / x); return x > 0 ? a : y > 0 ? a + PI : a - PI;
+    }
+    function asin(x) { return x < -1 || x > 1 ? NaN : x === 1 || x === -1 ? x * PI / 2 : x === 0 ? x : atan2(x, sqrt((1 - x) * (1 + x))); }
+    function acos(x) { return x < -1 || x > 1 ? NaN : x === -1 ? PI : 2 * atan(sqrt((1 - x) / (1 + x))); }
+    function hypot() { var s = 0; for (var i = 0; i < arguments.length; i++) s += arguments[i] * arguments[i]; return sqrt(s); }
+    return { fns: { sin: sin, cos: cos, pow: pow, exp: exp, log: log, atan: atan, atan2: atan2, asin: asin, acos: acos, hypot: hypot }, native: {}, depth: 0 };
+  })();
+  function detOn() { if (DM.depth++ === 0) for (var k in DM.fns) { DM.native[k] = Math[k]; Math[k] = DM.fns[k]; } }
+  function detOff() { if (--DM.depth === 0) for (var k in DM.fns) Math[k] = DM.native[k]; }
+  // run fn with the same-everywhere math (tools: to replay a made level exactly as the phone proved it)
+  function detMath(fn) { detOn(); try { return fn(); } finally { detOff(); } }
+  function genRun(job, steps) { return detMath(function () { return genWork(job, steps); }); }
+  function genWork(job, steps) {
+    while (!job.level && steps > 0) {
+      if (!job.lv) {
+        job.k++; job.tries++;
+        var lv = makeLevel(job.n, job.n * 7919 + job.k * 104729);
+        if (lv.items.length > 72 || lv.items.length < 4 || job.skip[layoutKey(lv.items)]) continue;
+        job.lv = lv; job.a = botStart(lv, 45, 11); job.a.onShot = genCut; job.b = null; job.used = 0; job.cuts = job.cuts || 0;
+      }
+      var r = job.b || job.a, g0 = r.guard, want = Math.min(steps, GEN_STEPS - job.used + 1);
+      botAdvance(r, want);
+      // exact step counts, so the result never depends on how the work was sliced
+      var did = r.guard - g0; steps -= Math.max(1, did); job.used += did; job.steps += did;
+      if (!r.done) { if (job.used > GEN_STEPS) job.lv = null; continue; } // over the budget: next seed
+      var sim = r.sim;
+      if (!job.b) {
+        if (r.cut) { job.cuts++; job.lv = null; continue; }
+        if (!cleared(sim) || sim.shots < MINBOT(job.n)) { job.lv = null; continue; }
+        job.b = botStart(job.lv, ballsFor(job.n, sim.shots), 23);
+        continue;
+      }
+      if (!cleared(sim)) { job.lv = null; continue; }
+      var L = job.lv, out = { n: job.n, name: L.name, items: L.items, balls: ballsFor(job.n, job.a.sim.shots), bot: Math.min(job.a.sim.shots, sim.shots) };
+      ['round', 'spin', 'theta0', 'stands'].forEach(function (f) { if (L[f] !== undefined) out[f] = L[f]; });
+      out.gen = job.k; // which seed it took (k = 0 is the first)
+      job.level = out;
+    }
+    return job.level;
+  }
+  // make level n in one go (Node tools, tests)
+  function genLevel(n, skip) { var job = genStart(n, skip); genRun(job, Infinity); return job.level; }
+
   return { use: use, THEMES: THEMES, themeOf: themeOf, massOf: massOf, massMul: massMul, ballsFor: ballsFor, anchorize: anchorize, anchors: anchors, standKind: standKind, standsOf: standsOf, rot: rot, launchAt: launchAt, SPEED: SPEED, KINDS: KINDS, PW: PW, PD: PD, PT: PT, GROUND: GROUND, LAUNCH: LAUNCH, BALLR: BALLR, BALL_LIFE: BALL_LIFE, SHAPES: SHAPES, PATTERNS: PATTERNS,
     makeLevel: makeLevel, create: create, shoot: shoot, step: step, left: left, cleared: cleared, flying: flying, settled: settled, takeEvents: takeEvents,
-    botTarget: botTarget, botPlay: botPlay, rng: rng };
-})();
+    botTarget: botTarget, botPlay: botPlay, botStart: botStart, botAdvance: botAdvance, rng: rng, MINBOT: MINBOT, layoutKey: layoutKey, genStart: genStart, genRun: genRun, genLevel: genLevel, genCut: genCut, detMath: detMath, DETFNS: DM.fns, GEN_STEPS: GEN_STEPS };
+}
+var TF = TFMake();
 if (typeof module !== 'undefined') module.exports = TF;
 </script>
 <script>
@@ -1273,6 +1425,9 @@ var TFScene = (function () {
 (function () {
   'use strict';
   var S = TFSound, LEVELS = window.TF_LEVELS || [];
+  // 1.8.0: levels never run out. The bank (src/levels.json) is levels 1-BANK; every level after it is made on the phone
+  // from its number (TF.genStart/genRun in logic.js, in a Web Worker) and proven by the bot before it is played.
+  var BANK = LEVELS.length, MAXLV = 9999999;
   var STEP = 1 / 60, T = null, C = null;
   var PIECE_COL = TFScene.PIECE_COL;
 
@@ -1289,15 +1444,105 @@ var TFScene = (function () {
   var MD = { level: 1, open: 1, stars: {}, seen: false, finished: 0, lastAdAt: 0 };
   for (var mk in MD) if (meta[mk] === undefined) meta[mk] = MD[mk];
   if (typeof meta.stars !== 'object' || !meta.stars) meta.stars = {};
-  meta.open = Math.max(1, Math.min(LEVELS.length, meta.open | 0));
-  // more levels arrived: if the last open level is already cleared, the next one opens
-  while (meta.open < LEVELS.length && meta.stars[meta.open]) meta.open++;
+  meta.open = Math.max(1, Math.min(MAXLV, meta.open | 0));
+  // more levels arrived: if the last open level is already cleared, the next one opens (1.8.0: level 500 cleared opens 501)
+  while (meta.open < MAXLV && meta.stars[meta.open]) meta.open++;
   meta.level = Math.max(1, Math.min(meta.open, meta.level | 0));
   function saveMeta() { store.set('meta', meta); }
   var stats = store.get('stats', null) || {};
   var SD = { throws: 0, knocked: 0, cleared: 0, tries: 0 };
   for (var sk in SD) if (typeof stats[sk] !== 'number') stats[sk] = SD[sk];
   function saveStats() { store.set('stats', stats); }
+
+  // ================= levels past the bank (1.8.0) =================
+  // Made levels are kept on the phone (topple.gen, the most recent GEN_KEEP), so a level opens straight away when it is
+  // played again; any one that was dropped is simply made again (level n always comes out the same). GENV marks the
+  // level maker: if a later version changes it, the old saved levels are not mixed in.
+  var GENV = 1, GEN_KEEP = 40, genCache = {}, genWaiting = 0, genLog = [], genSkip = null, GW = null;
+  (function () { var g = store.get('gen', null); if (g && g.v === GENV && g.lv) for (var k in g.lv) if (g.lv[k] && g.lv[k].items) genCache[k] = g.lv[k]; })();
+  function saveGen() {
+    var ks = Object.keys(genCache).map(Number).sort(function (a, b) { return a - b; });
+    // drop the lowest numbers first, but never the level being played
+    while (ks.length > GEN_KEEP) { var i = ks[0] === levelNo ? 1 : 0; delete genCache[ks[i]]; ks.splice(i, 1); }
+    store.set('gen', { v: GENV, lv: genCache });
+  }
+  function levelAt(n) { return n <= BANK ? LEVELS[n - 1] || null : genCache[n] || null; }
+  // the bank's layouts, so a made level never repeats one of them
+  function bankSkip() { if (!genSkip) { genSkip = {}; LEVELS.forEach(function (l) { genSkip[TF.layoutKey(l.items)] = 1; }); } return genSkip; }
+  // The level maker. It runs in a Web Worker built from a Blob: cannon-es (its text, read from the app's own copy and
+  // turned from a module into a plain script) + TFMake's source + TFGenHost's source. If a worker can't be made it runs
+  // here instead, a few physics steps at a time between frames. Either way it takes requests {want: n, pri} and answers
+  // {level, ms}; the most urgent (pri), then lowest level number, is worked on first.
+  // In the worker it keeps itself going with setTimeout (slice: physics steps per turn). On the page (no worker) it is
+  // run from the game's frame loop instead (pump, about `budget` ms a frame): timers between frames can be slowed right
+  // down by the browser, frames can't while the game is on screen. canRun (page only): false until the physics loads.
+  function TFGenHost(post, TF, slice, canRun, budget) {
+    var jobs = {}, busy = false, skip = {}, page = !!canRun;
+    // one turn of work on the most urgent job; false when there is nothing to do (yet)
+    function once(ms) {
+      var best = null, k, j;
+      for (k in jobs) { j = jobs[k]; if (!best || j.pri > best.pri || (j.pri === best.pri && j.n < best.n)) best = j; }
+      if (!best || (page && !canRun())) return false;
+      var t0 = Date.now(), lv;
+      try { do { lv = TF.genRun(best, slice); } while (!lv && (ms || budget) && Date.now() - t0 < (ms || budget)); } catch (e) {
+        if (!page) throw e; // in the worker: its onerror moves the work to the page
+        delete jobs[best.n]; return true; // on the page: give up on that one rather than stall the rest
+      }
+      best.ms += Date.now() - t0;
+      if (lv) { delete jobs[best.n]; post({ level: lv, ms: best.ms, tries: best.tries, steps: best.steps }); }
+      return true;
+    }
+    function work() { if (once()) setTimeout(work, 0); else busy = false; }
+    var h = function (m) {
+      if (m.skip) skip = m.skip;
+      // keep: the levels still wanted (the one being waited for and the next two); any other half-made job is dropped,
+      // so a player who jumps elsewhere doesn't leave the phone making levels nobody asked for
+      if (m.keep) for (var k in jobs) if (m.keep.indexOf(jobs[k].n) < 0) delete jobs[k];
+      if (m.want) { if (!jobs[m.want]) { jobs[m.want] = TF.genStart(m.want, skip); jobs[m.want].ms = 0; } jobs[m.want].pri = m.pri || 0; }
+      if (!page && !busy) { busy = true; setTimeout(work, 0); }
+    };
+    h.pump = once;
+    return h;
+  }
+  function genGot(m) {
+    var lv = m.level; if (!lv || genCache[lv.n]) return;
+    genCache[lv.n] = lv; saveGen();
+    genLog.push({ n: lv.n, ms: m.ms, tries: m.tries, steps: m.steps, where: GW && GW.worker ? 'worker' : 'page' });
+    if (genWaiting === lv.n) { genWaiting = 0; startLevel(lv.n); }
+  }
+  function genLocal() { var h = TFGenHost(genGot, TF, 4, function () { return !!C; }, 7); h({ skip: bankSkip() }); return { send: h, worker: false, pump: h.pump }; }
+  function genSetup() {
+    if (GW) return;
+    GW = { send: function (m) { (GW.q = GW.q || []).push(m); }, worker: false, q: [] }; // requests wait here until the worker is up
+    var fallback = function () {
+      var q = (GW && GW.q) || []; GW = genLocal(); q.forEach(function (m) { GW.send(m); });
+      // a worker that broke mid-way loses its requests: ask again for what is needed now
+      genNeed();
+    };
+    if (!window.Worker || !window.Blob || !window.fetch) { fallback(); return; }
+    fetch('../../shared/cannon-es.min.js').then(function (r) { if (!r.ok) throw new Error('cannon'); return r.text(); }).then(function (txt) {
+      var m = /export\s*\{([^}]*)\}\s*;?\s*$/.exec(txt); if (!m) throw new Error('cannon exports');
+      var names = m[1].split(',').map(function (p) { var a = p.trim().split(/\s+as\s+/); return JSON.stringify(a[1] || a[0]) + ':' + a[0]; });
+      var src = 'var CANNON = (function () {\n' + txt.slice(0, m.index) + '\nreturn {' + names.join(',') + '};\n})();\n' + TFMake.toString() +
+        '\nvar TF = TFMake(); TF.use(CANNON);\nvar H = (' + TFGenHost.toString() + ')(function (m) { self.postMessage(m); }, TF, 240);\n' +
+        'self.onmessage = function (e) { H(e.data); };\n';
+      var url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' })), w = new Worker(url), q = GW.q || [];
+      w.onmessage = function (e) { genGot(e.data); };
+      w.onerror = function (e) { if (e && e.preventDefault) e.preventDefault(); w.terminate(); fallback(); }; // anything wrong in the worker: make levels here instead
+      GW = { send: function (msg) { w.postMessage(msg); }, worker: w };
+      GW.send({ skip: bankSkip() }); q.forEach(function (msg) { GW.send(msg); });
+    }).catch(fallback);
+  }
+  // ask for what the player needs now: the level shown if it isn't made yet (pri 1: the player is waiting for it), and
+  // the next two (pri 0: made ahead while this one is played, two so that one slow level to make, often a spinning
+  // table, is ready in time after a quick one). Anything else still being made is dropped.
+  function genNeed() {
+    var want = [], keep = [];
+    [[levelNo, 1], [levelNo + 1, 0], [levelNo + 2, 0]].forEach(function (w) { if (w[0] > BANK && w[0] <= MAXLV && !genCache[w[0]] && (w[1] === 0 || genWaiting === w[0])) { want.push(w); keep.push(w[0]); } });
+    if (!want.length && !GW) return; // nothing past the bank yet: no worker needed
+    genSetup(); GW.send({ keep: keep });
+    want.forEach(function (w) { GW.send({ want: w[0], pri: w[1] }); });
+  }
 
   // ================= helpers =================
   function $(id) { return document.getElementById(id); }
@@ -1330,11 +1575,15 @@ var TFScene = (function () {
     fx.parts = [];
   }
   function startLevel(n) {
-    levelNo = Math.max(1, Math.min(LEVELS.length, n));
+    levelNo = Math.max(1, Math.min(MAXLV, n | 0));
     meta.level = levelNo; saveMeta();
-    levelData = LEVELS[levelNo - 1];
+    levelData = levelAt(levelNo);
     if (!ready) { renderInfo(); return; }
     clearScene();
+    // 1.8.0: a level past the bank that isn't made yet: say so and start it the moment it's ready
+    if (!levelData) { sim = null; state = 'idle'; genWaiting = levelNo; genNeed(); making(true); renderInfo(); return; }
+    genWaiting = 0; making(false);
+    genNeed(); // make the next ones while this one is played
     sim = TF.create(levelData);
     SC.setStands(TF.standsOf(levelData)); SC.table.rotation.y = sim.theta;
     SC.fit(fitBox(levelData));
@@ -1351,7 +1600,7 @@ var TFScene = (function () {
     if ((levelNo - 1) % 25 === 0 && levelNo > 1) msgs.push('New prizes: ' + TF.THEMES[set].name + (levelNo > 25 ? ', and heavier' : ''));
     if (sk === 'spin') msgs.push('The table spins!'); else if (sk === 'side' || sk === 'back') msgs.push(sk === 'back' ? 'Two tables: one high at the back!' : 'Two tables!');
     // 1.6.0: iron anchors, said on a level that has them when the one before didn't (no save needed)
-    var hasA = TF.anchors(levelData.items), prevA = levelNo > 1 ? TF.anchors(LEVELS[levelNo - 2].items) : 0;
+    var prevLv = levelAt(levelNo - 1), hasA = TF.anchors(levelData.items), prevA = levelNo > 1 && prevLv ? TF.anchors(prevLv.items) : hasA;
     if (hasA && !prevA) msgs.push(hasA > 1 ? hasA + ' iron anchors: extra heavy!' : 'Iron anchor: extra heavy!');
     if (msgs.length) setTimeout(function () { toast(msgs.join(' \u00b7 ')); }, 400);
     aim = clampAimPt(aimHome()); showReticle();
@@ -1410,13 +1659,12 @@ var TFScene = (function () {
     S.win(); stats.cleared++; meta.finished++; saveStats();
     var st = starsFor(sim.shots), before = meta.stars[levelNo] || 0;
     meta.stars[levelNo] = Math.max(before, st);
-    if (meta.open <= levelNo) meta.open = Math.min(LEVELS.length, levelNo + 1);
+    if (meta.open <= levelNo) meta.open = Math.min(MAXLV, levelNo + 1);
     saveMeta();
-    var last = levelNo >= LEVELS.length;
-    showCard('Level ' + levelNo + ' cleared!', '<div class="stars">' + [0, 1, 2].map(function (i) { return i < st ? '★' : '<span class="off">★</span>'; }).join('') + '</div>' +
-      sim.shots + ' of ' + levelData.balls + ' balls used' + (last ? '<br>That was the last stand!' : ''),
-      last ? [{ label: 'Play it again', red: true, go: function () { between(function () { startLevel(levelNo); }); } }, { label: 'Pick a level', go: openLevels }] :
-        [{ label: 'Next: level ' + (levelNo + 1), red: true, go: function () { between(function () { startLevel(levelNo + 1); }); } }, { label: 'Play it again', go: function () { between(function () { startLevel(levelNo); }); } }]);
+    // 1.8.0: there is always a next level (no "last stand" card)
+    showCard('Level ' + fmt(levelNo) + ' cleared!', '<div class="stars">' + [0, 1, 2].map(function (i) { return i < st ? '★' : '<span class="off">★</span>'; }).join('') + '</div>' +
+      sim.shots + ' of ' + levelData.balls + ' balls used',
+      [{ label: 'Next: level ' + fmt(levelNo + 1), red: true, go: function () { between(function () { startLevel(levelNo + 1); }); } }, { label: 'Play it again', go: function () { between(function () { startLevel(levelNo); }); } }]);
   }
   function lost() {
     S.lose(); meta.finished++; saveMeta(); saveStats();
@@ -1452,6 +1700,8 @@ var TFScene = (function () {
     if (!ready) return;
     var dt = Math.min(0.1, lastT ? (tms - lastT) / 1000 : 0); lastT = tms;
     var paused = sheetOpen() || document.hidden;
+    // no worker: levels past the bank are made here, a few ms a frame (more while the player is waiting for one)
+    if (GW && GW.pump) GW.pump(state === 'play' ? 6 : 30);
     if (sim && !paused && state !== 'idle') {
       acc += dt; var n = 0;
       while (acc >= STEP && n < 3) { TF.step(sim, STEP); onEvents(); acc -= STEP; n++; }
@@ -1517,24 +1767,33 @@ var TFScene = (function () {
   function onUp() {}
 
   // ================= info and sheets =================
+  // the small note while a level past the bank is still being made (only if the player got there first)
+  function making(on) { var el = $('loading'); if (on) { el.textContent = 'Making the next level\u2026'; el.classList.remove('hide'); } else if (ready) el.classList.add('hide'); }
   function renderInfo() {
-    var lv = levelData || LEVELS[levelNo - 1], balls = sim ? sim.ballsLeft : lv ? lv.balls : 0, left = sim ? TF.left(sim) : lv ? lv.items.length : 0, st = meta.stars[levelNo] || 0;
-    $('lvPill').innerHTML = 'Level ' + levelNo + (st ? '<small>' + '\u2605\u2605\u2605'.slice(0, st) + '</small>' : '');
-    $('onStand').textContent = left + (left === 1 ? ' piece' : ' pieces') + ' left';
-    var bl = $('ballsLeft'); bl.innerHTML = '<i></i>' + balls; bl.classList.toggle('low', balls <= 3);
-    $('menuInfo').innerHTML = 'Level <b>' + levelNo + '</b> of ' + LEVELS.length + ' \u00b7 ' + (st ? '\u2605\u2605\u2605'.slice(0, st) + ' here' : 'not cleared yet');
+    var lv = levelData || levelAt(levelNo), balls = sim ? sim.ballsLeft : lv ? lv.balls : 0, left = sim ? TF.left(sim) : lv ? lv.items.length : 0, st = meta.stars[levelNo] || 0;
+    $('lvPill').innerHTML = 'Level ' + fmt(levelNo) + (st ? '<small>' + '\u2605\u2605\u2605'.slice(0, st) + '</small>' : '');
+    $('onStand').textContent = lv ? left + (left === 1 ? ' piece' : ' pieces') + ' left' : 'Making\u2026';
+    var bl = $('ballsLeft'); bl.innerHTML = '<i></i>' + (lv ? balls : '\u2013'); bl.classList.toggle('low', !!lv && balls <= 3);
+    // 1.8.0: no "of 500" any more: the furthest level reached instead
+    $('menuInfo').innerHTML = 'Level <b>' + fmt(levelNo) + '</b> \u00b7 furthest <b>' + fmt(meta.open) + '</b> \u00b7 ' + (st ? '\u2605\u2605\u2605'.slice(0, st) + ' here' : 'not cleared yet');
   }
   var lvPage = -1, PAGE = 50;
+  // 1.8.0: the list runs to 30 past the furthest level reached (at least the whole bank) and grows as you go. With many
+  // pages only the first, the last and the ones near the page shown get a tab (at most about ten).
+  function lvShown() { return Math.max(BANK, meta.open + 30, levelNo); }
   function openLevels(keepPage) {
     if (keepPage !== true) lvPage = -1;
-    var pages = Math.ceil(LEVELS.length / PAGE); if (lvPage < 0 || lvPage >= pages) lvPage = Math.floor((levelNo - 1) / PAGE);
-    var tabs = '<div class="lvpages">';
-    for (var q = 0; q < pages; q++) { var a = q * PAGE + 1, b = Math.min(LEVELS.length, (q + 1) * PAGE); tabs += '<button data-p="' + q + '" class="' + (q === lvPage ? 'on' : '') + '"' + (a > meta.open ? ' disabled' : '') + '>' + a + '\u2013' + b + '</button>'; }
+    var top = lvShown(), pages = Math.ceil(top / PAGE); if (lvPage < 0 || lvPage >= pages) lvPage = Math.floor((levelNo - 1) / PAGE);
+    var tabs = '<div class="lvpages">', lo = Math.max(1, Math.min(lvPage - 3, pages - 8)), hi = Math.min(pages - 2, lo + 6);
+    for (var q = 0; q < pages; q++) {
+      if (q > 0 && q < pages - 1 && (q < lo || q > hi)) continue;
+      var a = q * PAGE + 1, b = Math.min(top, (q + 1) * PAGE); tabs += '<button data-p="' + q + '" class="' + (q === lvPage ? 'on' : '') + '"' + (a > meta.open ? ' disabled' : '') + '>' + fmt(a) + '\u2013' + fmt(b) + '</button>'; }
     tabs += '</div>';
     var h = '';
-    for (var n = lvPage * PAGE + 1; n <= Math.min(LEVELS.length, (lvPage + 1) * PAGE); n++) {
+    for (var n = lvPage * PAGE + 1; n <= Math.min(top, (lvPage + 1) * PAGE); n++) {
       var st = meta.stars[n] || 0;
-      h += '<button class="lv' + (n === levelNo ? ' cur' : '') + '" data-n="' + n + '"' + (n > meta.open ? ' disabled' : '') + '>' + n + '<small>' + '\u2605\u2605\u2605'.slice(0, st) + '</small></button>';
+      var dg = String(n).length;
+      h += '<button class="lv' + (dg >= 5 ? ' l' + Math.min(7, dg) : '') + (n === levelNo ? ' cur' : '') + '" data-n="' + n + '"' + (n > meta.open ? ' disabled' : '') + '>' + n + '<small>' + '\u2605\u2605\u2605'.slice(0, st) + '</small></button>';
     }
     $('lvpagesBox').innerHTML = tabs; $('lvgrid').innerHTML = h;
     $('ovLevels').classList.add('show');
@@ -1569,7 +1828,7 @@ var TFScene = (function () {
       'You have a set number of <b>balls</b> (top left). You can throw again before the pieces stop moving.',
       'Hit low to bring a stack down. Ice blocks are heavy, and pieces in the back row hide behind the front.',
       'A piece that lands on the grass is out. A piece left hanging on the edge still counts, so finish it off.',
-      'Fewer balls earn more stars. Balls are tight: only a few to spare. ' + LEVELS.length + ' levels, each one checked: a computer player cleared it twice with the same physics, within the balls you get.'
+      'Fewer balls earn more stars. Balls are tight: only a few to spare. The levels never run out: every level is checked first (a computer player cleared it twice with the same physics, within the balls you get). After level ' + BANK + ' new ones are made and checked on your phone while you play.'
     ].map(function (x) { return '<li>' + x + '</li>'; }).join('');
     $('ovHelp').classList.add('show');
   }
@@ -1628,7 +1887,8 @@ var TFScene = (function () {
     if (window.ResizeObserver) new ResizeObserver(refit).observe(host);
     window.addEventListener('resize', refit);
     syncSound(); syncAds();
-    levelNo = meta.level; levelData = LEVELS[levelNo - 1]; renderInfo();
+    levelNo = meta.level; levelData = levelAt(levelNo); renderInfo();
+    if (!levelData) { genWaiting = levelNo; genNeed(); } // reopened on a made level that was dropped: start making it now
     if (!meta.seen) openHelp();
     Goobs.markPlayed('topple');
     Goobs.initUpdates({ onVersions: function (v) { $('version').textContent = 'Topple Fair ' + (v.topple || '?') + ' · Goobs-Games ' + (v.shell || '?'); } });
@@ -1642,7 +1902,7 @@ var TFScene = (function () {
   }
 
   // hook for automated tests
-  window.__tf = { get sim() { return sim; }, get state() { return state; }, throwAt: throwAt, startLevel: startLevel, TF: TF, meta: function () { return meta; }, stats: function () { return stats; },
+  window.__tf = { get sim() { return sim; }, get state() { return state; }, throwAt: throwAt, startLevel: startLevel, TF: TF, BANK: BANK, levelAt: levelAt, genLog: genLog, get gen() { return { worker: !!(GW && GW.worker), waiting: genWaiting, cached: Object.keys(genCache).map(Number) }; }, meta: function () { return meta; }, stats: function () { return stats; },
     fitPts: function () { return levelData ? fitBox(levelData) : null; }, bot: function () { if (!sim) return false; var t = TF.botTarget(sim); return t ? throwAt(t) : false; }, project: function (x, y, z) { var v = new T.Vector3(x, y, z).project(camera), r = canvas.getBoundingClientRect(); return [r.left + (v.x + 1) / 2 * r.width, r.top + (1 - v.y) / 2 * r.height]; }, get ready() { return ready; }, ring: function () { return aim; }, marker: function () { return { visible: !!(reticle && reticle.visible), age: markT < 0 ? -1 : performance.now() - markT }; } };
 
   init();

@@ -284,7 +284,9 @@ html.gg-fs-over, html.gg-fs-over body { background: #151b3d; }
    a brick's number and a brick at 0 breaks. When every ball is back, the bricks come down a row. A brick reaching the
    bottom row ends the game. Levels (drawn from rules, taller than the screen) are cleared by breaking every brick;
    Endless adds a new row every turn. Runs in Node (tools/gen.js proves the levels with the bot below). */
-var BB = (function () {
+// 1.5.0: the module is a named function (BBModule) so the app can rebuild it inside a Web Worker from its own source
+// (a Blob, no extra file) to make and check the levels past the bank without stalling the page.
+function BBModule() {
   'use strict';
   var COLS = 11, ROWS = 15, BR = 0.16, SPEED = 0.5, SUB = 3, FIRE_GAP = 3, MINVY = 0.16, MAX_STEPS = 60 * 45;
 
@@ -613,11 +615,188 @@ var BB = (function () {
     return { won: g.won, turns: g.turn - 1, balls: g.balls };
   }
 
+  // ---------------- the level maker (1.5.0: moved here from tools/gen.js, unchanged) ----------------
+  // tools/gen.js made and proved the 100 banked levels with these; the game now uses them too, for the levels past the
+  // bank (levelPast below). tools/gen.js and tools/dbg.js use these copies, so there is one level maker.
+  function grid(h, ch) { var g = []; for (var r = 0; r < h; r++) g.push(new Array(COLS).fill(ch || '.')); return g; }
+  function box(g, r0, c0, r1, c1, ch) { for (var r = r0; r <= r1; r++) for (var c = c0; c <= c1; c++) if (g[r] && c >= 0 && c < COLS) g[r][c] = ch; }
+  function frame(g, r0, c0, r1, c1, ch) { for (var c = c0; c <= c1; c++) { g[r0][c] = ch; g[r1][c] = ch; } for (var r = r0; r <= r1; r++) { g[r][c0] = ch; g[r][c1] = ch; } }
+
+  var PATTERNS = {
+    rows: function (R, n) { // loose rows like the classic endless game
+      var h = 7 + Math.floor(R() * 5), g = grid(h);
+      for (var r = 0; r < h; r++) { if (r % 2 && R() < 0.5) continue; for (var c = 0; c < COLS; c++) if (R() < 0.55) g[r][c] = 'b'; }
+      return g;
+    },
+    maze: function (R, n) { // nested frames with a door in each (balls get trapped inside and rattle around)
+      var h = 13, g = grid(h), k = 0;
+      for (var d = 0; d < 5; d++) {
+        var r0 = d * 2, c0 = d * 2, r1 = h - 1 - d * 2, c1 = COLS - 1 - d * 2; if (r1 - r0 < 2 || c1 - c0 < 2) break;
+        frame(g, r0, c0, r1, c1, 'b');
+        var side = (d + Math.floor(R() * 2)) % 4, len = 1;
+        if (side === 0) box(g, r1, c0 + 1 + Math.floor(R() * (c1 - c0 - 1)), r1, c0 + 1 + Math.floor(R() * (c1 - c0 - 1)), '.');
+        else if (side === 1) { var rr = r0 + 1 + Math.floor(R() * (r1 - r0 - 1)); g[rr][c1] = '.'; }
+        else if (side === 2) { var rl = r0 + 1 + Math.floor(R() * (r1 - r0 - 1)); g[rl][c0] = '.'; }
+        else { var cc = c0 + 1 + Math.floor(R() * (c1 - c0 - 1)); g[r1][cc] = '.'; }
+        k++;
+      }
+      // always a way in from below
+      g[h - 1][Math.floor(COLS / 2)] = '.';
+      var mid = Math.floor(h / 2); if (g[mid][Math.floor(COLS / 2)] === '.') g[mid][Math.floor(COLS / 2)] = n > 12 ? 'x' : '+';
+      return g;
+    },
+    bars: function (R, n) { // bars with gaps and posts between them
+      var h = 11 + Math.floor(R() * 5), g = grid(h);
+      for (var r = 0; r < h; r += 2) { box(g, r, 0, r, COLS - 1, 'b'); var gap = Math.floor(R() * (COLS - 2)); g[r][gap] = '.'; g[r][gap + 1] = '.'; if (R() < 0.4) g[r][Math.floor(R() * COLS)] = '.'; }
+      for (var r2 = 1; r2 < h; r2 += 2) if (R() < 0.6) g[r2][Math.floor(R() * COLS)] = 'b';
+      return g;
+    },
+    pyramid: function (R, n) {
+      var h = 6, g = grid(h + 2);
+      for (var r = 0; r < h; r++) { var w = r + 1; for (var c = 5 - Math.floor(w * 0.9); c <= 5 + Math.floor(w * 0.9); c++) if (c >= 0 && c < COLS) g[r + 1][c] = 'b'; }
+      if (R() < 0.5) { g[3][5] = n > 10 ? 'x' : 'b'; }
+      return g;
+    },
+    checker: function (R, n) { var h = 8 + Math.floor(R() * 5), g = grid(h); for (var r = 0; r < h; r++) for (var c = 0; c < COLS; c++) if ((r + c) % 2 === 0) g[r][c] = 'b'; return g; },
+    diamond: function (R, n) {
+      var h = 11, g = grid(h), m = 5;
+      for (var r = 0; r < h; r++) for (var c = 0; c < COLS; c++) { var d = Math.abs(r - m) + Math.abs(c - m); if (d <= 5 && d >= (n > 20 ? 2 : 0)) g[r][c] = 'b'; }
+      if (n > 20) g[m][m] = 'x';
+      return g;
+    },
+    cups: function (R, n) { // U shapes with balls to grab inside
+      var h = 12, g = grid(h);
+      for (var k = 0; k < 3; k++) { var r0 = k * 4, c0 = [0, 4, 7][(k + Math.floor(R() * 3)) % 3], w = 4; box(g, r0, c0, r0 + 2, c0, 'b'); box(g, r0, c0 + w - 1 > COLS - 1 ? COLS - 1 : c0 + w - 1, r0 + 2, c0 + w - 1 > COLS - 1 ? COLS - 1 : c0 + w - 1, 'b'); box(g, r0 + 2, c0, r0 + 2, Math.min(COLS - 1, c0 + w - 1), 'b'); g[r0 + 1][c0 + 1] = '+'; }
+      for (var r = 0; r < h; r++) if (r % 4 === 3) for (var c = 0; c < COLS; c++) if (R() < 0.35) g[r][c] = 'b';
+      return g;
+    },
+    columns: function (R, n) { var h = 10 + Math.floor(R() * 5), g = grid(h); for (var c = 0; c < COLS; c += 2) { var gap = Math.floor(R() * h); for (var r = 0; r < h; r++) if (Math.abs(r - gap) > 1) g[r][c] = 'b'; } return g; },
+    zigzag: function (R, n) { var h = 12, g = grid(h); for (var r = 0; r < h; r++) for (var c = 0; c < COLS; c++) if ((c + r) % 6 < 2 || (c - r + 60) % 6 === 0) g[r][c] = 'b'; return g; },
+    wall: function (R, n) { // a thick wall with holes and a bomb or two inside
+      var h = 7 + Math.floor(R() * 4), g = grid(h, 'b');
+      for (var k = 0; k < 6; k++) g[Math.floor(R() * h)][Math.floor(R() * COLS)] = '.';
+      g[Math.floor(h / 2)][Math.floor(R() * COLS)] = 'x'; if (n > 30) g[Math.floor(R() * h)][Math.floor(R() * COLS)] = 'x';
+      return g;
+    },
+    arrows: function (R, n) { var h = 12, g = grid(h); for (var r = 0; r < h; r++) { var k = r % 6, c1 = 5 - k, c2 = 5 + k; if (c1 >= 0) g[r][c1] = 'b'; if (c2 < COLS) g[r][c2] = 'b'; if (k === 0) box(g, r, 3, r, 7, 'b'); } return g; }
+  };
+  var ORDER = ['rows', 'pyramid', 'bars', 'checker', 'cups', 'diamond', 'maze', 'columns', 'zigzag', 'wall', 'arrows'];
+
+  function makeLevel(n, seed) {
+    var R = rng(seed), name = ORDER[(n - 1) % ORDER.length];
+    if (n > 11 && R() < 0.3) name = ORDER[Math.floor(R() * ORDER.length)];
+    var g = PATTERNS[name](R, n);
+    // taller maps later on: stack a second shape on top
+    if (n > 25 && R() < 0.5) { var extra = PATTERNS[ORDER[Math.floor(R() * ORDER.length)]](R, n); g = extra.concat([new Array(COLS).fill('.')], g); }
+    if (g.length > 30) g = g.slice(g.length - 30);
+    // items: extra balls in empty spots, lasers now and then
+    g.forEach(function (row, r) { var empties = []; row.forEach(function (ch, c) { if (ch === '.') empties.push(c); }); if (empties.length && R() < 0.45) row[empties[Math.floor(R() * empties.length)]] = '+'; if (n > 5 && empties.length > 2 && R() < 0.08) row[empties[Math.floor(R() * empties.length)]] = R() < 0.5 ? 'h' : 'v'; });
+    var balls = Math.min(400, 15 + n * 4); // 15 at level 1, over 100 by level 22, 400 by level 97
+    return { name: name, rows: g.map(function (row) { return row.join(''); }), balls: balls, start: 5 + Math.floor(R() * 3), seed: seed };
+  }
+  function numbers(lv, n, f, seed) {
+    var R = rng(seed ^ 0x9e3779b9), H = lv.rows.length;
+    lv.hp = lv.rows.map(function (s, r) {
+      return s.split('').map(function (ch) {
+        if (ch !== 'b' && ch !== 'x') return 0;
+        var up = 1 + (H - 1 - r) / H * 0.8; // higher up the map: bigger numbers
+        var big = R() < (n > 5 ? 0.1 : 0) ? 4 + R() * 2 : 1; // now and then a big one (4 to 6 times)
+        var v = lv.balls * f * up * (0.7 + R() * 0.6) * (ch === 'x' ? 1.5 : 1) * big;
+        return Math.max(1, Math.round(v));
+      });
+    });
+  }
+  // big blocks (1.4.0): a brick with several hundred (at least 200 and at least 2.5x the level's middle number, i.e. the
+  // "big ones") takes in its neighbours to become one 2x1 (wide), 1x2 (tall) or 2x2 block; the biggest (4x the middle and
+  // 400 or more) try 2x2 first. Neighbours taken in are plain bricks (their numbers are added up) or empty cells; never
+  // bombs, rings, lasers or another big block. Sprinkled, not everywhere: at most 2 a level at 11, one more every 18 levels
+  // (6 from level 82). Writes lv.big = [[r, c, w, h]] with
+  // r, c the block's bottom-left cell, which holds the number; the other cells keep 'b' with 0 (logic turns them into parts).
+  function bigBlocks(lv, n, seed) {
+    if (n <= 10) { delete lv.big; return lv; }
+    var R = rng((seed ^ 0xb16b10c) >>> 0), H = lv.rows.length, rows = lv.rows.map(function (s) { return s.split(''); }), hp = lv.hp.map(function (r) { return r.slice(); });
+    var all = []; rows.forEach(function (row, r) { row.forEach(function (ch, c) { if (ch === 'b') all.push(hp[r][c]); }); });
+    if (!all.length) { delete lv.big; return lv; }
+    all.sort(function (a, b) { return a - b; });
+    var med = all[all.length >> 1], used = {}, big = [];
+    var cand = [];
+    rows.forEach(function (row, r) { row.forEach(function (ch, c) { if (ch === 'b' && hp[r][c] >= 200 && hp[r][c] >= 2.5 * med) cand.push([r, c, hp[r][c]]); }); });
+    cand.sort(function (a, b) { return b[2] - a[2]; });
+    function free(r, c) { return r >= 0 && r < H && c >= 0 && c < 11 && !used[r * 100 + c] && (rows[r][c] === 'b' || rows[r][c] === '.'); }
+    cand.forEach(function (p) {
+      if (big.length >= 2 + Math.floor((n - 10) / 18) || used[p[0] * 100 + p[1]]) return;
+      var shapes = p[2] >= 4 * med && p[2] >= 400 ? [[2, 2], [2, 1], [1, 2]] : R() < 0.5 ? [[2, 1], [1, 2]] : [[1, 2], [2, 1]];
+      for (var si = 0; si < shapes.length; si++) {
+        var w = shapes[si][0], h = shapes[si][1], best = null, bs = -1;
+        // every placement of a w x h box that covers this brick; the one taking in the most bricks wins (ties: random)
+        for (var ar = p[0]; ar <= p[0] + h - 1; ar++) for (var ac = p[1] - w + 1; ac <= p[1]; ac++) {
+          var ok = true, nb = 0;
+          for (var i = 0; i < h && ok; i++) for (var j = 0; j < w; j++) { if (!free(ar - i, ac + j)) { ok = false; break; } if (rows[ar - i][ac + j] === 'b') nb++; }
+          if (!ok) continue;
+          var sc = nb + R() * 0.5; if (sc > bs) { bs = sc; best = [ar, ac]; }
+        }
+        if (!best) continue;
+        var sum = 0, ar2 = best[0], ac2 = best[1];
+        for (var i2 = 0; i2 < h; i2++) for (var j2 = 0; j2 < w; j2++) { var rr = ar2 - i2, cc = ac2 + j2; used[rr * 100 + cc] = 1; if (rows[rr][cc] === 'b') sum += hp[rr][cc]; rows[rr][cc] = 'b'; hp[rr][cc] = 0; }
+        hp[ar2][ac2] = Math.max(p[2], sum);
+        big.push([ar2, ac2, w, h]);
+        return;
+      }
+    });
+    lv.rows = rows.map(function (r) { return r.join(''); }); lv.hp = hp;
+    if (big.length) lv.big = big; else delete lv.big;
+    return lv;
+  }
+  function scale(lv, f) { lv.hp = lv.hp.map(function (r) { return r.map(function (v) { return v ? Math.max(1, Math.round(v * f)) : 0; }); }); }
+
+  // ---------------- 1.5.0: levels past the bank (101 and on, no end), made on the phone ----------------
+  // The bank's top levels have 400 balls and every pattern and item, so past it the difficulty holds at that tier,
+  // with a gentle squeeze over levels 101-400 (the numbers go from 80% to 86% of the pattern's typical "most the bot can
+  // clear"), then hold; every 10th level from 105 (105, 115, ...) is a breather at 60%. Variety: the 11 patterns rotate
+  // (plus the maker's own random swaps and stacked maps), and the big-block count cycles between 4 and 9.
+  // The bank found each map's numbers with a binary search (about 10 bot games): too slow for a phone. Instead the
+  // numbers start from the pattern's typical factor (about the median "most the bot can clear" of the bank's levels
+  // 40-100, rounded down) and the bot plays it with BOTH proof seeds (7, then 19; the same 2-row margin, i.e. the bank's
+  // full standard); if either can't clear it, the numbers come down 20% and it plays again (5 times at most), then the
+  // next layout. Level n, attempt k is always the same (seeded), so every phone gets the same level n; no time limit
+  // inside on purpose (which attempt passes must not depend on the phone's speed). The app runs this in a Web Worker
+  // and makes the next level while the current one is played.
+  var TYPICAL = { rows: 0.78, pyramid: 0.47, bars: 0.74, checker: 0.36, cups: 0.78, diamond: 0.51, maze: 0.47, columns: 0.75, zigzag: 0.6, wall: 0.21, arrows: 0.6 };
+  function makePast(n, k) {
+    var seed = (n * 7919 + k * 104729) >>> 0, lv = makeLevel(n, seed);
+    var breather = n % 10 === 5, grow = Math.min(1, Math.max(0, n - 100) / 300);
+    var ease = breather ? 0.6 : 0.8 + 0.06 * grow;
+    // a stacked map (more rows, more bricks) starts a bit lower
+    var f = (TYPICAL[lv.name] || 0.5) * ease * (lv.rows.length > 14 ? 0.85 : 1);
+    numbers(lv, n, f, seed);
+    // the big-block cap grows with n in the bank (7 at 100); past it, it cycles 4..9 for variety (not for ever up)
+    var L = { n: n, rows: lv.rows, hp: lv.hp, balls: lv.balls, start: lv.start };
+    bigBlocks(L, 46 + ((n * 5) % 6) * 18, seed);   // as if level 46, 64, ... 136: a cap of 4 to 9
+    L.name = lv.name; L.f = +f.toFixed(3); L.seed = seed; L.k = k; if (breather) L.breather = true;
+    return L;
+  }
+  function levelPast(n) {
+    for (var k = 0; k < 12; k++) {
+      var L = makePast(n, k), f = 1;
+      for (var tries = 0; tries < 5; tries++) {
+        var a = botPlay(L, { seed: 7, margin: 2 }), b = a.won ? botPlay(L, { seed: 19, margin: 2 }) : a;
+        // three stars: the bot's turns, the slower of the two games (as in the bank)
+        if (a.won && b.won) { L.bot = Math.max(a.turns, b.turns); if (f < 1) L.scaled = +f.toFixed(3); return L; }
+        scale(L, 0.8); f *= 0.8;
+      }
+    }
+    // never seen: a short loose-rows map with small numbers the bot is sure to clear
+    var E = makeLevel(1, n >>> 0); numbers(E, 1, 0.05, n >>> 0); E.n = n; E.bot = 10; E.k = -1; return E;
+  }
+
   return { COLS: COLS, ROWS: ROWS, BR: BR, SPEED: SPEED, SUB: SUB, FIRE_GAP: FIRE_GAP, rng: rng, isBrick: isBrick,
     create: create, createEndless: createEndless, startShot: startShot, stepShot: stepShot, recall: recall, endTurn: endTurn, rocket: rocket,
     beam: beam, bomb: bomb, halve: halve, anchorOf: anchorOf, isBlock: isBlock, cellAt: cellAt,
-    guide: guide, botAngle: botAngle, botPlay: botPlay, bricksLeft: bricksLeft, lowestBrickRow: lowestBrickRow, aimOk: aimOk, clampAim: clampAim };
-})();
+    guide: guide, botAngle: botAngle, botPlay: botPlay, bricksLeft: bricksLeft, lowestBrickRow: lowestBrickRow, aimOk: aimOk, clampAim: clampAim,
+    makeLevel: makeLevel, numbers: numbers, bigBlocks: bigBlocks, scale: scale, PATTERNS: PATTERNS, ORDER: ORDER,
+    makePast: makePast, levelPast: levelPast, source: BBModule.toString() };
+}
+var BB = BBModule();
 if (typeof module !== 'undefined') module.exports = BB;
 </script>
 <script>
@@ -734,7 +913,8 @@ var BBSound = (function () {
   if (!meta.cleared5 || typeof meta.cleared5 !== 'object') meta.cleared5 = {};
   // old saves keep their rocket / freeze / power counts; the new kinds start at 2
   BOOSTS.forEach(function (b) { if (typeof meta.boost[b.k] !== 'number' || meta.boost[b.k] < 0) meta.boost[b.k] = b.n0; });
-  meta.open = Math.max(1, Math.min(LEVELS.length, meta.open | 0)); meta.level = Math.max(1, Math.min(meta.open, meta.level | 0));
+  // 1.5.0: no top end any more (levels past the bank are made on the phone), so open / level are only kept >= 1
+  meta.open = Math.max(1, meta.open | 0); meta.level = Math.max(1, Math.min(meta.open, meta.level | 0));
   function saveMeta() { store.set('meta', meta); }
   var stats = store.get('stats', null) || {};
   var SD = { shots: 0, balls: 0, broken: 0, cleared: 0, games: 0, bestTurn: 0 };
@@ -759,14 +939,62 @@ var BBSound = (function () {
   }
   // brick color: where its number sits between the level's smallest and biggest (log scale, so 20 and 2,000 both look different)
   function hue(v) { var a = Math.log(Math.max(1, scaleMin)), b = Math.log(Math.max(scaleMin * 2, scaleMax)); return ramp((Math.log(Math.max(1, v)) - a) / (b - a)); }
+  // ---- 1.5.0: levels past the bank (101, 102, ... no end) ----
+  // They are made on the phone by BB.levelPast from the level number (seeded: level n is the same everywhere, every
+  // time) and checked by the bot with both proof seeds, the bank's own standard. That takes a second or a few, so it
+  // runs in a Web Worker rebuilt from logic.js's own source (a Blob, no extra file), and the next level is made while
+  // this one is played. The last few made levels are kept in the save ('made'), so Next, a reload or a replay doesn't
+  // wait. If a Worker can't be had, the level is made here instead (the page pauses for that moment).
+  var BANK = LEVELS.length, made = store.get('made', null) || {}, want = {}, GW = null, waitTok = 0;
+  if (typeof made !== 'object' || Array.isArray(made)) made = {};
+  function levelAt(n) { return n <= BANK ? LEVELS[n - 1] : made[n] || null; }
+  function keepMade(n, lv) {
+    made[n] = lv;
+    // keep the 8 nearest the level being played (the current one, the next, the one before ...)
+    var ks = Object.keys(made).map(Number).sort(function (a, b) { return Math.abs(a - levelNo) - Math.abs(b - levelNo) || a - b; });
+    ks.slice(8).forEach(function (k2) { delete made[k2]; });
+    store.set('made', made);
+  }
+  function gotMade(n, lv) { if (!lv || !lv.rows) return; keepMade(n, lv); var cbs = want[n] || []; delete want[n]; cbs.forEach(function (cb) { cb(lv); }); }
+  function makeHere(n) { setTimeout(function () { if (want[n]) gotMade(n, BB.levelPast(n)); }, 30); }
+  function genSetup() {
+    if (GW) return;
+    try {
+      var src = BB.source + '\nvar BB = BBModule();\n' +
+        'self.onmessage = function (e) { var n = e.data, t = Date.now(), lv = BB.levelPast(n); self.postMessage({ n: n, lv: lv, ms: Date.now() - t }); };\n';
+      var w = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
+      w.onmessage = function (e) { lastMs = e.data.ms; gotMade(e.data.n, e.data.lv); };
+      // anything wrong in the worker: make the levels still wanted here instead
+      w.onerror = function (e) { if (e && e.preventDefault) e.preventDefault(); try { w.terminate(); } catch (x) { /* gone */ } GW = { send: makeHere }; Object.keys(want).forEach(function (k2) { makeHere(+k2); }); };
+      GW = { send: function (n) { w.postMessage(n); } };
+    } catch (e) { GW = { send: makeHere }; }
+  }
+  var lastMs = 0;
+  // ask for level n (cb when it's ready); a level already made (or in the bank) answers at once
+  function need(n, cb) {
+    var lv = levelAt(n); if (lv) { if (cb) cb(lv); return; }
+    var first = !want[n]; want[n] = want[n] || []; if (cb) want[n].push(cb);
+    if (first) { genSetup(); GW.send(n); }
+  }
   // 1.4.0: a new level / Endless opens the start card (pick up to two power-ups and the ball) unless quick (tests)
   function startLevel(n, quick) {
-    levelNo = Math.max(1, Math.min(LEVELS.length, n));
+    n = Math.max(1, Math.floor(+n) || 1);
+    var lv = levelAt(n);
+    if (!lv) {
+      // not made yet (usually it was made ahead while the level before was played, so this is rare): a small card
+      var tok = ++waitTok;
+      showCard('Level ' + fmt(n), (n === levelNo + 1 ? 'Making the next level&hellip;' : 'Making this level&hellip;'), [{ label: 'Pick a level', go: function () { if (tok === waitTok) waitTok++; openLevels(); } }]);
+      need(n, function () { if (tok !== waitTok) return; waitTok++; $('ovEnd').classList.remove('show'); startLevel(n, quick); });
+      return;
+    }
+    waitTok++;
+    levelNo = n;
     meta.mode = 'levels'; meta.level = levelNo; saveMeta();
-    g = BB.create(LEVELS[levelNo - 1]); scaleMax = maxHp();
+    g = BB.create(lv); scaleMax = maxHp();
     reset(); if (!quick) openStart();
+    need(n + 1); // make the next one now, while this one is played (nothing to do inside the bank)
   }
-  function startEndless(quick) { meta.mode = 'endless'; saveMeta(); g = BB.createEndless(newSeed()); scaleMax = 2; scaleMin = 1; reset(); if (quick !== true) openStart(); }
+  function startEndless(quick) { waitTok++; meta.mode = 'endless'; saveMeta(); g = BB.createEndless(newSeed()); scaleMax = 2; scaleMin = 1; reset(); if (quick !== true) openStart(); }
   function reset() { shot = null; phase = 'aim'; aim = null; tgt = null; fx = []; beams = []; dropT = 0; landVis = {}; save(); renderAll(); }
   function save() { if (g && !g.over) store.set('game', { g: g, level: levelNo, mode: g.mode, scaleMax: scaleMax }); else store.del('game'); }
   function load() {
@@ -806,7 +1034,7 @@ var BBSound = (function () {
     if (g.over) { phase = 'over'; save(); setTimeout(lost, 700); renderAll(); return; }
     phase = 'aim'; save(); renderAll();
   }
-  function starsFor(turns) { var bot = (LEVELS[levelNo - 1] && LEVELS[levelNo - 1].bot) || 10; return turns <= bot ? 3 : turns <= bot + 3 ? 2 : 1; }
+  function starsFor(turns) { var bot = (levelAt(levelNo) && levelAt(levelNo).bot) || 10; return turns <= bot ? 3 : turns <= bot + 3 ? 2 : 1; }
   function won() {
     S.win(); stats.cleared++; stats.games++; saveStats(); meta.finished++;
     var turns = g.turn - 1, st = starsFor(turns), before = meta.stars[levelNo] || 0, gift = '';
@@ -818,13 +1046,12 @@ var BBSound = (function () {
     if (levelNo % 5 === 0 && !meta.cleared5[levelNo]) { meta.cleared5[levelNo] = 1; giveOne('Level ' + levelNo + ' cleared'); }
     var newBall = BALLS.filter(function (b) { return b.at === levelNo && b.at > Math.max(0, meta.open - 1); })[0];
     if (newBall) gift += '<br><small>New ball: ' + newBall.name + ' (Menu, Balls)</small>';
-    if (meta.open <= levelNo) meta.open = Math.min(LEVELS.length, levelNo + 1);
+    // 1.5.0: there is always a next level (no "last level" card any more)
+    if (meta.open <= levelNo) meta.open = levelNo + 1;
     saveMeta(); store.del('game'); renderBar();
-    var last = levelNo >= LEVELS.length;
-    showCard('Level ' + levelNo + ' cleared!', '<div class="stars">' + [0, 1, 2].map(function (i) { return i < st ? '★' : '<span class="off">★</span>'; }).join('') + '</div>' +
-      turns + ' turn' + (turns === 1 ? '' : 's') + gift + (last ? '<br>That was the last level!' : ''),
-      last ? [{ label: 'Play it again', red: true, go: function () { between(function () { startLevel(levelNo); }); } }, { label: 'Pick a level', go: openLevels }] :
-        [{ label: 'Next: level ' + (levelNo + 1), red: true, go: function () { between(function () { startLevel(levelNo + 1); }); } }, { label: 'Play it again', go: function () { between(function () { startLevel(levelNo); }); } }]);
+    showCard('Level ' + fmt(levelNo) + ' cleared!', '<div class="stars">' + [0, 1, 2].map(function (i) { return i < st ? '★' : '<span class="off">★</span>'; }).join('') + '</div>' +
+      turns + ' turn' + (turns === 1 ? '' : 's') + gift,
+      [{ label: 'Next: level ' + fmt(levelNo + 1), red: true, go: function () { between(function () { startLevel(levelNo + 1); }); } }, { label: 'Play it again', go: function () { between(function () { startLevel(levelNo); }); } }]);
   }
   function lost() {
     S.lose(); stats.games++; saveStats(); meta.finished++;
@@ -1161,7 +1388,7 @@ var BBSound = (function () {
     var h;
     // 1.3.0: the counters are pills in the floating top row (the old info row above the field is gone)
     if (g.mode === 'levels') {
-      var bot = (LEVELS[levelNo - 1] && LEVELS[levelNo - 1].bot) || 0, t = g.turn;
+      var bot = (levelAt(levelNo) && levelAt(levelNo).bot) || 0, t = g.turn;
       h = pill('Level', levelNo) + pill('Bricks', BB.bricksLeft(g)) + pill('Turn ' + t, '<span class="st">' + (t <= bot ? '★★★' : t <= bot + 3 ? '★★' : '★') + '</span>');
     } else {
       h = pill('Turn', g.turn) + pill('Balls', g.balls) + pill('Best', Math.max(meta.endlessBest, g.turn - 1));
@@ -1194,13 +1421,17 @@ var BBSound = (function () {
   }
   function renderAll() { renderInfo(); renderBar(); draw(); }
   function openLevels() {
-    var h = '';
-    for (var n = 1; n <= LEVELS.length; n++) {
+    // 1.5.0: the bank plus the made-on-the-phone levels up to 30 past the furthest open one (the list grows as you go)
+    var h = '', top = Math.max(BANK, meta.open + 30, levelNo);
+    for (var n = 1; n <= top; n++) {
       var st = meta.stars[n] || 0;
       h += '<button class="lv' + (n === levelNo && g && g.mode === 'levels' ? ' cur' : '') + '" data-n="' + n + '"' + (n > meta.open ? ' disabled' : '') + '>' + n + '<small>' + '★★★'.slice(0, st) + '</small></button>';
     }
     $('lvgrid').innerHTML = h;
     $('ovLevels').classList.add('show');
+    // a long list: start at the level being played (or the furthest open one)
+    var cur = $('lvgrid').querySelector('.cur') || $('lvgrid').querySelector('[data-n="' + meta.open + '"]');
+    if (cur && cur.scrollIntoView) cur.scrollIntoView({ block: 'center' });
   }
   var toastT = 0;
   function toast(t) { var el = $('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(function () { el.classList.remove('show'); }, 1600); }
@@ -1226,8 +1457,8 @@ var BBSound = (function () {
   var picks = [];
   function openStart() {
     picks = [];
-    var lv = LEVELS[levelNo - 1] || {};
-    $('stTitle').textContent = g.mode === 'levels' ? 'Level ' + levelNo : 'Endless';
+    var lv = levelAt(levelNo) || {};
+    $('stTitle').textContent = g.mode === 'levels' ? 'Level ' + fmt(levelNo) : 'Endless';
     $('stInfo').innerHTML = g.mode === 'levels' ? fmt(g.balls) + ' balls &middot; ' + BB.bricksLeft(g) + ' bricks &middot; <span style="color:#e0a800">★★★</span> in ' + (lv.bot || '?') + ' turns or fewer'
       : 'One ball to start, a new row every turn &middot; best ' + meta.endlessBest;
     renderStart(); $('ovStart').classList.add('show');
@@ -1275,7 +1506,7 @@ var BBSound = (function () {
       '<b>Power-ups</b> (the bar under the field, before a shot): <b>rocket</b> clears the lowest row, <b>beam</b> (tap a brick) hits its whole row and column, <b>bomb</b> (tap a spot) breaks a 3×3, <b>halve</b> halves every number, <b>freeze</b> keeps the bricks still after the shot, <b>power</b> doubles every hit, <b>extra balls</b> adds half as many again, and the <b>bouncer</b> bounces every ball off the floor once. Menu, Power-ups has the details.',
       'Before each level you can <b>start with</b> up to two of them, and pick your <b>ball</b> (new ones open as you clear levels). New three-star finishes and every fifth level earn more power-ups.',
       'The <b>fast</b> button speeds up a long turn (it also speeds up by itself); the <b>down arrow</b> brings all the balls home.',
-      '<b>Levels</b>: break every brick, including the ones still coming down from above. Fewer turns earn more stars. 100 levels, each cleared by a computer player with room to spare. <b>Endless</b>: a new row every turn; how long can you last?'
+      '<b>Levels</b>: break every brick, including the ones still coming down from above. Fewer turns earn more stars. There is no last level: the first 100 are hand-checked, and after that new ones keep coming, each made on your phone and cleared by a computer player (twice) with room to spare before you get it. <b>Endless</b>: a new row every turn; how long can you last?'
     ].map(function (x) { return '<li>' + x + '</li>'; }).join('');
     $('ovHelp').classList.add('show');
   }
@@ -1302,7 +1533,7 @@ var BBSound = (function () {
     // 1.3.0: overlay mode (the top row floats on the navy) and the Levels / Endless tabs move to the top of the Menu
     FS = Goobs.fullscreen({ overlay: true, menu: ['btnHelp', 'btnLevels', 'btnBalls', 'btnPowers', 'btnStats', 'btnSettings', 'btnNew'], info: function () {
       if (!g) return '';
-      return g.mode === 'levels' ? 'Level <b>' + levelNo + '</b> of ' + LEVELS.length + ' &middot; ' + BB.bricksLeft(g) + ' bricks left &middot; turn ' + g.turn : 'Endless &middot; turn <b>' + g.turn + '</b> &middot; best ' + Math.max(meta.endlessBest, g.turn - 1);
+      return g.mode === 'levels' ? 'Level <b>' + fmt(levelNo) + '</b> &middot; ' + BB.bricksLeft(g) + ' bricks left &middot; turn ' + g.turn : 'Endless &middot; turn <b>' + g.turn + '</b> &middot; best ' + Math.max(meta.endlessBest, g.turn - 1);
     } });
     FS.list.parentNode.insertBefore($('modes'), FS.list);
     Goobs.themePicker($('themes'));
@@ -1313,9 +1544,9 @@ var BBSound = (function () {
     ['pointerdown', 'touchend', 'click'].forEach(function (ev) { document.addEventListener(ev, function () { S.unlock(); }, { passive: true }); });
     $('btnHome').addEventListener('click', function () { save(); Goobs.home(); });
     $('modes').addEventListener('click', function (e) {
-      var b = e.target.closest('button'); if (!b || !g) return;
+      var b = e.target.closest('button'); if (!b) return;
       FS.close();
-      if (b.dataset.mode === g.mode) return;
+      if (g && b.dataset.mode === g.mode) return; // 1.5.0: g can be null while the first level is being made
       var go = b.dataset.mode === 'endless' ? startEndless : function () { startLevel(meta.level); };
       if (inGame() && phase !== 'over') { showCard('Leave this game?', 'It ends here.', [{ label: 'Leave it', red: true, go: go }, { label: 'Keep playing', go: function () {} }]); return; }
       go();
@@ -1368,7 +1599,8 @@ var BBSound = (function () {
     document.addEventListener('visibilitychange', function () { if (document.hidden) save(); });
     window.addEventListener('pagehide', save);
     syncSound(); syncAds(); fit();
-    if (!load()) { if (meta.mode === 'endless') startEndless(); else startLevel(Math.min(meta.level, meta.open)); } else { phase = 'aim'; renderAll(); }
+    if (!load()) { if (meta.mode === 'endless') startEndless(); else startLevel(Math.min(meta.level, meta.open)); }
+    else { phase = 'aim'; renderAll(); if (g.mode === 'levels') { need(levelNo); need(levelNo + 1); } } // 1.5.0: the stars need the level; and the next one
     if (!meta.seen) openHelp();
     lastT = performance.now(); requestAnimationFrame(frame);
     Goobs.markPlayed('barrage');
@@ -1378,7 +1610,8 @@ var BBSound = (function () {
   // hook for automated tests
   window.__bb = { get g() { return g; }, get phase() { return phase; }, fire: fire, BB: BB, startLevel: startLevel, startEndless: startEndless, meta: function () { return meta; },
     get tgt() { return tgt; }, settings: function () { return settings; }, BALLS: BALLS, BOOSTS: BOOSTS, maxHp: function () { scaleMax = maxHp(); },
-    bot: function () { return phase === 'aim' && g && !g.over ? fire(BB.botAngle(g)) : false; }, get k() { return k; },  get shot() { return shot; }, useBoost: useBoost, stats: function () { return stats; } };
+    bot: function () { return phase === 'aim' && g && !g.over ? fire(BB.botAngle(g)) : false; }, get k() { return k; },  get shot() { return shot; }, useBoost: useBoost, stats: function () { return stats; },
+    BANK: BANK, levelAt: levelAt, need: need, made: function () { return made; }, lastMs: function () { return lastMs; }, get levelNo() { return levelNo; } };
 
   init();
 })();

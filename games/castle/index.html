@@ -28,6 +28,8 @@
 .badge { position: relative; z-index: 1; min-width: 40px; height: 40px; padding: 8px 4px 0; box-sizing: border-box; text-align: center; font-weight: 900; font-size: 17px; color: #3a2a00;
   background: #ffd23f; border: 3px solid #3a2a00; clip-path: polygon(0 18%, 20% 18%, 20% 0, 40% 0, 40% 18%, 60% 18%, 60% 0, 80% 0, 80% 18%, 100% 18%, 100% 100%, 0 100%); }
 .badge.next { background: #3a3f48; color: #fff; border-color: #1b1f24; }
+/* 1.7.0: endless levels: four or more digits get a smaller number so the bar keeps its length */
+.bar.big .badge { font-size: 13px; padding-top: 11px; letter-spacing: -.3px; }
 .track { position: relative; flex: 1; height: 22px; margin: 0 -3px; background: #3a3f48; border: 3px solid #1b1f24; overflow: hidden; }
 .track .fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: linear-gradient(#ffe27a, #ffc21e); transition: width .25s; }
 .track .goal { position: absolute; top: -2px; bottom: -2px; width: 3px; background: #fff; box-shadow: 0 0 4px rgba(0,0,0,.4); }
@@ -39,11 +41,16 @@
 .toast { position: absolute; left: 50%; top: 30%; transform: translateX(-50%); text-align: center; pointer-events: none; opacity: 0; transition: opacity .25s;
   background: rgba(10,14,36,.78); color: #fff; font-weight: 800; font-size: 16px; padding: 8px 15px; border-radius: 14px; white-space: nowrap; }
 .toast.show { opacity: 1; }
+/* 1.7.0: shown only if the player reaches a level the phone is still making */
+.making { position: absolute; left: 50%; top: 42%; transform: translateX(-50%); pointer-events: none; display: none; background: rgba(10,14,36,.78); color: #fff; font-weight: 800; font-size: 16px; padding: 10px 18px; border-radius: 16px; white-space: nowrap; }
+.making.show { display: block; }
 .lvgrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
 .lv { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); height: 52px; font-weight: 800; font-size: 16px; color: var(--ink); display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1; }
 .lv small { font-size: 11px; color: #e0a800; letter-spacing: -1px; }
 .lv.cur { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
 .lv:disabled { opacity: .35; }
+.lvgrid .lv { min-width: 0; letter-spacing: -.3px; }
+.lvpages .gap { align-self: center; color: var(--muted); font-weight: 800; padding: 0 2px; }
 .stars { font-size: 26px; color: #ffc83d; letter-spacing: 2px; }
 .stars .off { color: var(--line-strong); }
 .cardicon svg { border-radius: 16px; }
@@ -108,6 +115,7 @@ html.gg-fs-over .hud { top: calc(env(safe-area-inset-top, 0px) + 58px); left: ca
         <div class="balls" id="balls"></div>
       </div>
       <div class="loading" id="loading">Building the castle&hellip;</div>
+      <div class="making" id="making">Making the next level&hellip;</div>
       <div class="toast" id="toast"></div>
     </div>
   </div>
@@ -179,7 +187,7 @@ html.gg-fs-over .hud { top: calc(env(safe-area-inset-top, 0px) + 58px); left: ca
   </div>
 </div>
 
-<script>
+<script id="cc-logic">
 /* Castle Crumble logic: castles of stone bricks on a grassy island; fire cannonballs to knock them down. Knock down
    enough of the castle (the bar at the top) before the cannonballs run out. cannon-es does the physics (passed in
    with CC.use, so this file runs in the browser and in Node for the level checks).
@@ -320,13 +328,16 @@ var CC = (function () {
       wall(out, xl, zb + 1, xl, zf - TW, wh, false, false, R); wall(out, xr, zb + 1, xr, zf - TW, wh, false, false, R);
     }
   }
-  function makeLevel(n, seed) {
+  // ex (1.7.0, only for the levels made past the bank; the banked levels pass nothing and build exactly as before):
+  // { more: extra layouts in the pool, mirror: build it left-right flipped, tnt: extra TNT crates on the grass }
+  function makeLevel(n, seed, ex) {
     var R = rng(seed || n * 9973 + 7), out = [], s = Math.min(1, (n - 1) / 40);
     // heights: 1.5.0's units scaled to rows (0.8 of the size, two rows a unit)
     var th = function (lo, hi) { return Math.max(2, Math.round(K * (lo + (hi - lo) * (0.35 + 0.65 * s) * (0.75 + R() * 0.25)))); };
     var wr = function (lo, hi) { return Math.max(4, th(lo, hi)); }; // walls: at least 4 rows (room for the door)
     var tnt = function () { return n >= 3 && R() < 0.25 + s * 0.4; };
     var pool = n < 8 ? ['watch', 'gatehouse', 'tall'] : n < 16 ? ['watch', 'gatehouse', 'fort', 'keepyard', 'tall'] : TEMPLATES;
+    if (ex && ex.more) pool = pool.concat(ex.more);
     var tpl = n === 1 ? 'watch' : n === 2 ? 'gatehouse' : n === 3 ? 'watch' : n === 4 ? 'tall' : n === 5 ? 'gatehouse' : pool[Math.floor(R() * pool.length)];
     var roofs = R() < 0.75, g, d, tx, tz;
     if (tpl === 'watch') { // a tower with walls running off two ways (an open corner of a castle)
@@ -366,6 +377,19 @@ var CC = (function () {
       var tk = s > 0.3 ? 4 : 2;
       [[-5, -5], [5, -5], [5, 5], [-5, 5]].slice(0, tk).forEach(function (c) { tower(out, q(c[0]), q(c[1] > 0 ? 4 : -4), th(3, 6), roofs); });
       if (n >= 3) wall(out, -q(3), q(5), q(3), q(5), Math.max(3, th(1, 2)), false, tnt(), R);
+    } else if (tpl === 'curtain') { // 1.7.0: three towers in a row joined by two walls (one with a gate), a tall one in the middle
+      var cx2 = q(6 + Math.floor(R() * 2)), cz = q(1), cwh = wr(2, 4);
+      tower(out, -cx2, cz, th(4, 7), roofs); tower(out, 0, cz, th(5, 9), roofs); tower(out, cx2, cz, th(4, 7), roofs);
+      var gl = R() < 0.5;
+      wall(out, -cx2 + TW, cz, -TW, cz, cwh, gl, tnt(), R); wall(out, TW, cz, cx2 - TW, cz, cwh, !gl, tnt(), R);
+      if (R() < 0.6) tower(out, 0, cz - q(4), th(3, 6), roofs); // a little tower behind
+    } else if (tpl === 'cross') { // 1.7.0: a keep in the middle, four walls running out to four small towers
+      var ca = q(7), cwh2 = wr(2, 3), kr = R() < 0.7;
+      keep(out, 0, 0, th(4, 6), kr);
+      [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (d2) {
+        tower(out, d2[0] * ca, d2[1] * ca, th(3, 5), roofs);
+        wall(out, d2[0] * KW, d2[1] * KW, d2[0] * (ca - TW), d2[1] * (ca - TW), cwh2, false, d2[1] > 0 && tnt(), R);
+      });
     } else { // citadel: a keep inside four towers and walls
       var hc = q(7), cw = 4;
       [[-hc, -hc], [hc, -hc], [hc, hc], [-hc, hc]].forEach(function (c) { tower(out, c[0], c[1], th(4, 7), roofs); });
@@ -375,6 +399,15 @@ var CC = (function () {
     }
     // a few TNT crates on the grass next to the walls (from level 6)
     if (n >= 6 && R() < 0.4 + s * 0.3) { var bx0 = out[Math.floor(R() * out.length)]; out.push(['tnt', Math.round(bx0[1] * 2) / 2, 0.375, Math.round(bx0[3] * 2) / 2 + (R() < 0.5 ? 1.25 : -1.25), 0.75, 0.75, 0.75]); }
+    // 1.7.0 (made past the bank only): a powder store, a few more crates on the grass just in front of the castle
+    // (where the player can see them from the start), spread along its front
+    if (ex && ex.tnt) {
+      var fz0 = -1e9, lx = 1e9, hx = -1e9;
+      out.forEach(function (p) { fz0 = Math.max(fz0, p[3] + p[6] / 2); lx = Math.min(lx, p[1]); hx = Math.max(hx, p[1]); });
+      for (var et = 0; et < ex.tnt; et++) out.push(['tnt', Math.round((lx + (hx - lx) * (et + 0.5 + (R() - 0.5) * 0.6) / ex.tnt) * 2) / 2, 0.375, Math.round((fz0 + 0.55 + R() * 0.4) * 4) / 4, 0.75, 0.75, 0.75]);
+    }
+    // 1.7.0 (made past the bank only): built the other way round (left and right swapped), for variety
+    if (ex && ex.mirror) out.forEach(function (p) { p[1] = p[1] ? -p[1] : 0; });
     // keep it light enough for a phone: a castle over the budget is rolled again
     if (!PHYS.noBudget && out.length > levelMax(n)) return null;
     // parts must not overlap (walls meeting towers); a TNT crate that would sit inside something is left out
@@ -619,17 +652,100 @@ var CC = (function () {
     if (Math.hypot(p.x, p.z) < 1.5) yaw = R ? R() * Math.PI * 2 : 0;
     return { yaw: yaw, p: [p.x, Math.max(0.3, p.y), p.z] };
   }
-  function botPlay(level, max, seed) {
-    var lv = { n: level.n, seed: level.seed, pieces: level.pieces, balls: max || 30, target: level.target }, sim = create(lv), R = rng(seed || 5), guard = 0;
-    while (!won(sim) && guard < 60 * 150) {
-      if (sim.ballsLeft > 0 && sim.t - sim.lastShotT > 1.1) { var a = botAim(sim, R); if (a) shoot(sim, a.yaw, a.p); } // a shot every second or so, like a player
-      if (sim.ballsLeft <= 0 && !flying(sim) && (settled(sim) || sim.t - sim.lastShotT > 5)) break;
-      step(sim); guard++;
-    }
-    return { won: won(sim), shots: sim.shots, t: sim.t, progress: progress(sim) };
+  // 1.7.0: the bot game can be run a step at a time (botStart, then botTick until it says done), so the phone can
+  // play it in slices; botPlay runs it to the end. Same moves, same physics, same answer as before.
+  function botStart(level, max, seed) {
+    var lv = { n: level.n, seed: level.seed, pieces: level.pieces, balls: max || 30, target: level.target };
+    return { sim: create(lv), R: rng(seed || 5), guard: 0, done: false };
+  }
+  function botTick(st) {
+    var sim = st.sim;
+    if (won(sim) || st.guard >= 60 * 150) { st.done = true; return true; }
+    if (sim.ballsLeft > 0 && sim.t - sim.lastShotT > 1.1) { var a = botAim(sim, st.R); if (a) shoot(sim, a.yaw, a.p); } // a shot every second or so, like a player
+    if (sim.ballsLeft <= 0 && !flying(sim) && (settled(sim) || sim.t - sim.lastShotT > 5)) { st.done = true; return true; }
+    step(sim); st.guard++; return false;
+  }
+  function botResult(st) { var sim = st.sim; return { won: won(sim), shots: sim.shots, t: sim.t, progress: progress(sim) }; }
+  function botPlay(level, max, seed) { var st = botStart(level, max, seed); while (!botTick(st)) { /* play on */ } return botResult(st); }
+
+  // ---------------- endless levels (1.7.0) ----------------
+  // Glenn: "i would like 'unlimited' levels in the way most of the ios games offer unlimited". Levels 1-400 are the
+  // banked, proven ones (src/levels.json). Past 400 a level is made on the phone from its number, the way tools/gen.mjs
+  // made the bank: roll k's castle is makeLevel(n, n*9973 + 7 + k*31337) (the very same seed formula), it must stand
+  // with every brick awake, the bot must knock it down with 40 cannonballs (seed 5), and then again (seed 17) with only
+  // the cannonballs the level will give. The first roll that passes is the level. makeLevel's castles are already at
+  // the top tier from level 41 (all eight layouts, tallest towers, biggest yards, most TNT, the 680-piece budget), so
+  // the castles keep their variety for ever; what still grows, gently, is the spare cannonballs: half the bot's count
+  // at 401, down to 40% by 700 (never fewer than 3 spare). Every level ending in 5 is a breather: a smaller castle
+  // built as one of levels 16-30 (75% goal), so the run has the ups and downs the bank's "easier first in each ten" gave.
+  // Variety for the top tier (endlessStyle, from the level number only): two more layouts join the eight (a curtain
+  // wall of three towers, a cross of four walls round a keep), half the castles are built mirrored, about one in six
+  // is a powder store (2-3 extra TNT crates on the grass), and the stone and roofs take one of five looks (grey stone
+  // with slate, sandstone with red tiles, red brick with dark slate, dark basalt with copper green, pale limestone
+  // with blue), never the same look two levels running.
+  var BANKED = 400, GEN = { rolls: 8, bots: 40 }, MORE = ['curtain', 'cross'];
+  function endlessBuildAs(n) { return n % 10 === 5 ? 16 + Math.floor(n / 10) % 15 : n; }
+  function endlessSeed(n, k) { return (n * 9973 + 7 + k * 31337) % 4294967296; }
+  function endlessStyle(n) {
+    var h = Math.floor(rng(n * 7919 + 13)() * 1e6);
+    return { more: MORE, mirror: (h & 1) === 1, tnt: h % 6 === 0 ? 2 + (h >> 1) % 2 : 0, theme: (3 * n + Math.floor(n / 7)) % 5 };
+  }
+  function endlessShape(n, k) { var ex = endlessStyle(n), L = makeLevel(endlessBuildAs(n), endlessSeed(n, k), ex); if (L) { L.n = n; L.theme = ex.theme; L.powder = ex.tnt > 0; } return L; }
+  function endlessSpare(n, bot) { var f = n % 10 === 5 ? 0.5 : 0.5 - 0.1 * Math.min(1, Math.max(0, n - BANKED) / 300); return Math.max(3, Math.ceil(bot * f)); }
+  // the level the game plays past the bank: row = [roll, cannonballs, bot's shots, 'p' proven / 'r' rule]
+  function endlessLevel(n, row) { var L = endlessShape(n, row[0]); if (!L) return null; L.balls = row[1]; L.bot = row[2]; L.how = row[3]; return L; }
+  // The safe rule, used only when no roll passes within GEN.rolls tries or the phone runs out of time: the first roll
+  // that stood (else the first that built) with RULE cannonballs. Measured (see the doc): in the bank's levels
+  // 41-400 the bot's first game (40 cannonballs) never needed more than 25 (95% needed 19 or fewer) and no level
+  // gives more than 38; in the 28 sampled generated levels (tools/endless.mjs --rule) the bot won all 56 games (seeds 17 and 23) with 40.
+  var RULE = { balls: 40, bot: 16 };
+  // A job: makes level n a slice at a time. job.run(ms) works for about ms milliseconds and returns the row once
+  // it's done (else null: call again); job.giveUp() returns the safe-rule row at once.
+  function genJob(n) {
+    var j = { n: n, k: -1, tried: 0, phase: 'next', L: null, sim: null, i: 0, st: null, a: null, balls: 0, firstK: -1, stoodK: -1, steps: 0, res: null };
+    var now = typeof performance !== 'undefined' ? function () { return performance.now(); } : Date.now;
+    j.giveUp = function () {
+      if (j.res) return j.res;
+      var k = j.stoodK >= 0 ? j.stoodK : j.firstK;
+      for (var kk = 0; k < 0 && kk < 40; kk++) if (endlessShape(n, kk)) k = kk;
+      j.res = [Math.max(0, k), RULE.balls, RULE.bot, 'r']; return j.res;
+    };
+    j.run = function (ms) {
+      var t0 = now();
+      while (!j.res) {
+        if (j.phase === 'next') {
+          if (j.tried >= GEN.rolls || j.k >= 39) return j.giveUp();
+          j.k++; j.L = endlessShape(n, j.k); if (!j.L) continue;
+          j.tried++; if (j.firstK < 0) j.firstK = j.k;
+          // 1. it must stand on its own: every brick woken for 3 s (tools/gen.mjs's stands(), a step at a time)
+          j.sim = create(j.L); j.sim.pieces.forEach(function (p) { p.b.wakeUp(); }); j.i = 0; j.phase = 'stand';
+        } else if (j.phase === 'stand') {
+          step(j.sim); j.steps++;
+          var i = j.i++, asleep = i > 30 && j.sim.pieces.every(function (p) { return p.gone || p.b.sleepState === 2; });
+          if (asleep || j.i >= 180) {
+            if (progress(j.sim) > 0.005) j.phase = 'next';
+            else { if (j.stoodK < 0) j.stoodK = j.k; j.st = botStart(j.L, GEN.bots, 5); j.phase = 'a'; }
+            j.sim = null;
+          }
+        } else if (j.phase === 'a') { // 2. the bot with plenty of cannonballs
+          j.steps++;
+          if (botTick(j.st)) {
+            j.a = botResult(j.st);
+            if (!j.a.won || j.a.shots < 2) j.phase = 'next';
+            else { j.balls = j.a.shots + endlessSpare(n, j.a.shots); j.st = botStart(j.L, j.balls, 17); j.phase = 'b'; }
+          }
+        } else { // 3. again, another way, with only the level's cannonballs
+          j.steps++;
+          if (botTick(j.st)) { var b = botResult(j.st); if (b.won) j.res = [j.k, j.balls, Math.min(j.a.shots, b.shots), 'p']; else j.phase = 'next'; j.st = null; }
+        }
+        if (!j.res && now() - t0 >= ms) return null;
+      }
+      return j.res;
+    };
+    return j;
   }
 
-  return { use: use, rng: rng, TYPES: TYPES, CAM: CAM, ISLAND: ISLAND, WATER: WATER, BALLR: BALLR, GRAV: GRAV, SPEED: SPEED, CELL: CELL, PHYS: PHYS, levelMax: levelMax, makeLevel: makeLevel, level: level, create: create, camAt: camAt, launchAt: launchAt,
+  return { BANKED: BANKED, GEN: GEN, RULE: RULE, endlessStyle: endlessStyle, endlessLevel: endlessLevel, endlessShape: endlessShape, endlessBuildAs: endlessBuildAs, endlessSpare: endlessSpare, genJob: genJob, botStart: botStart, botTick: botTick, botResult: botResult, use: use, rng: rng, TYPES: TYPES, CAM: CAM, ISLAND: ISLAND, WATER: WATER, BALLR: BALLR, GRAV: GRAV, SPEED: SPEED, CELL: CELL, PHYS: PHYS, levelMax: levelMax, makeLevel: makeLevel, level: level, create: create, camAt: camAt, launchAt: launchAt,
     setBall: function (m, r, v) { BALLM = m; if (r) BALLR = r; if (v) SPEED = v; }, BURST: BURST, shoot: shoot, step: step, progress: progress, won: won, flying: flying, settled: settled, takeEvents: takeEvents, botAim: botAim, botPlay: botPlay, target: target };
 })();
 if (typeof module !== 'undefined') module.exports = CC;
@@ -804,6 +920,11 @@ var CCScene = (function () {
       return g;
     }
     var roofM = std({ color: 0x3a4f5c, roughness: 0.7, flatShading: true });
+    // 1.7.0: looks for the levels made past the bank (logic.js endlessStyle; the banked levels are all look 0): a tint
+    // on every stone brick and its chips, and the roof colour. 0 grey stone, slate roofs; 1 sandstone, red tiles;
+    // 2 red brick, dark slate; 3 dark basalt, copper green; 4 pale limestone, blue.
+    var THEMES = [{ stone: [1, 1, 1], roof: 0x3a4f5c }, { stone: [1.06, 0.92, 0.7], roof: 0xa8492c }, { stone: [1.02, 0.6, 0.5], roof: 0x343c46 },
+      { stone: [0.58, 0.6, 0.66], roof: 0x3f8c72 }, { stone: [1.12, 1.1, 1.04], roof: 0x2f5598 }], tint = THEMES[0].stone;
     var woodTex = tex(128, 128, function (x, w, h) { x.fillStyle = '#8a5a2e'; x.fillRect(0, 0, w, h); for (var i = 0; i < 4; i++) { x.fillStyle = i % 2 ? '#94633a' : '#7e5028'; x.fillRect(i * 32 + 2, 0, 28, h); } x.fillStyle = '#3a3f48'; x.fillRect(0, 20, w, 10); x.fillRect(0, h - 30, w, 10); });
     var woodM = std({ map: woodTex, roughness: 0.85 });
     var tntTex = tex(128, 128, function (x, w, h) { x.fillStyle = '#d42a2a'; x.fillRect(0, 0, w, h); x.fillStyle = '#8a1414'; x.fillRect(0, 0, w, 10); x.fillRect(0, h - 10, w, 10); x.fillRect(0, 0, 10, h); x.fillRect(w - 10, 0, 10, h); x.fillStyle = '#fff3d0'; x.fillRect(10, 42, w - 20, 44); x.fillStyle = '#1b1b1b'; x.font = 'bold 38px sans-serif'; x.textAlign = 'center'; x.fillText('TNT', w / 2, 78); });
@@ -830,14 +951,16 @@ var CCScene = (function () {
       groups[key] = { geo: geo, mat: mat, list: [] };
       return key;
     }
-    function setPieces(pieces) {
+    function setPieces(pieces, theme) {
+      var TH = THEMES[theme | 0] || THEMES[0]; tint = TH.stone; roofM.color.setHex(TH.roof);
+      chips.length = 0; chipMesh.count = 0; // 1.7.0: the last castle's rubble chips don't lie about on the next one's grass
       Object.keys(groups).forEach(function (k) { if (groups[k].mesh) { castle.remove(groups[k].mesh); groups[k].mesh.dispose(); groups[k].mesh = null; } groups[k].list = []; });
       slots = [];
       pieces.forEach(function (p, i) { var k = shapeFor(p); slots[i] = { key: k, idx: groups[k].list.length, scale: 1, gone: false }; groups[k].list.push(i); });
       Object.keys(groups).forEach(function (k) {
         var G = groups[k]; if (!G.list.length) return;
         var m = new T.InstancedMesh(G.geo, G.mat, G.list.length); m.castShadow = fancy; m.receiveShadow = fancy; m.userData.key = k;
-        G.list.forEach(function (pi, j) { var l = Array.isArray(G.mat) ? rnd(0.8, 1.08) : 1; m.setColorAt(j, col.setRGB(l, l, l * rnd(0.98, 1.03))); });
+        G.list.forEach(function (pi, j) { var l = Array.isArray(G.mat) ? rnd(0.8, 1.08) : 1; m.setColorAt(j, Array.isArray(G.mat) ? col.setRGB(l * tint[0], l * tint[1], l * tint[2] * rnd(0.98, 1.03)) : col.setRGB(1, 1, 1)); });
         G.mesh = m; castle.add(m);
       });
       pieces.forEach(function (p, i) { tmpQ.identity(); place(i, p[1], p[2], p[3], tmpQ, 1); });
@@ -921,10 +1044,10 @@ var CCScene = (function () {
       if (chips.length >= CHIPS) chips.shift();
       chips.push({ x: x, y: y, z: z, vx: vx, vy: vy, vz: vz, s: s, t: 0, life: s > 0.16 ? 3.2 + Math.random() * 2.2 : 1.1 + Math.random() * 0.9, rx: Math.random() * 6, ry: Math.random() * 6, wx: (Math.random() - 0.5) * 18, wy: (Math.random() - 0.5) * 18, c: c });
     }
-    function burst(x, y, z, n, speed, up, sMin, sMax, tint) {
+    function burst(x, y, z, n, speed, up, sMin, sMax, tint2) { // tint2: some chips this colour (TNT crate red); the rest are stone in this level's look
       for (var i = 0; i < n; i++) {
         var a = Math.random() * 6.283, h = Math.random(), sp = speed * (0.4 + Math.random() * 0.6);
-        var l = 0.62 + Math.random() * 0.35, c = tint && Math.random() < 0.45 ? tint : [l, l, l * (0.97 + Math.random() * 0.06)];
+        var l = 0.62 + Math.random() * 0.35, c = tint2 && Math.random() < 0.45 ? tint2 : [l * tint[0], l * tint[1], l * tint[2] * (0.97 + Math.random() * 0.06)];
         chip(x + (Math.random() - 0.5) * 0.3, y + (Math.random() - 0.3) * 0.3, z + (Math.random() - 0.5) * 0.3, Math.cos(a) * sp * (1 - h * 0.5), up * (0.5 + h) + Math.random() * 2, Math.sin(a) * sp * (1 - h * 0.5), sMin + Math.random() * (sMax - sMin), c);
       }
     }
@@ -1170,7 +1293,9 @@ var CCScene = (function () {
   var MD = { level: 1, open: 1, stars: {}, seen: false, finished: 0, lastAdAt: 0, mode: 'siege' };
   for (var mk in MD) if (meta[mk] === undefined) meta[mk] = MD[mk];
   if (typeof meta.stars !== 'object' || !meta.stars) meta.stars = {};
-  meta.open = Math.max(1, Math.min(LEVELS.length, meta.open | 0)); meta.level = Math.max(1, Math.min(meta.open, meta.level | 0));
+  // 1.7.0: no last level (levels past the bank are made on the phone), so open/level are only kept sane
+  var BANK = LEVELS.length, MAXLV = 9999999;
+  meta.open = Math.max(1, Math.min(MAXLV, meta.open | 0)); meta.level = Math.max(1, Math.min(meta.open, meta.level | 0));
   function saveMeta() { store.set('meta', meta); }
   var stats = store.get('stats', null) || {};
   var SD = { shots: 0, bricks: 0, booms: 0, wins: 0, tries: 0 };
@@ -1189,10 +1314,123 @@ var CCScene = (function () {
     overlay: true,
     menu: ['btnHelp', 'btnLevels', 'btnStats', 'btnSettings', 'btnNew'],
     info: function () {
-      var lv = level || CC.level(levelNo, LEVELS), st = meta.stars[levelNo] || 0;
+      var lv = level || levelFor(levelNo), st = meta.stars[levelNo] || 0;
+      if (!lv) return 'Level <b>' + fmt(levelNo) + '</b> · being made…';
       return 'Level <b>' + levelNo + '</b> · ' + Math.round((lv ? lv.target : 0.7) * 100) + '% down to win · ' + (st ? '<span class="menustars">' + '★★★'.slice(0, st) + '</span>' : 'no stars yet');
     }
   });
+
+  // ================= levels past the bank (1.7.0) =================
+  // Glenn: "i would like 'unlimited' levels in the way most of the ios games offer unlimited". Levels 1-400 come from
+  // src/levels.json. A level past that is made here from its number by CC.genJob (logic.js: the same castle seeds and
+  // the same bot proof as tools/gen.mjs), in a Web Worker so the game never stutters, while the level before it is
+  // being played (prefetch). The answer (roll, cannonballs, bot's count) is kept in the save, so a level, once made,
+  // never changes on this phone. If the worker can't start, the job runs on the page in small slices instead; if a
+  // level takes longer than BUDGET, the safe rule (logic.js RULE) gives its cannonballs.
+  var genRows = store.get('gen', null) || {};
+  if (typeof genRows !== 'object') genRows = {};
+  function levelFor(n) {
+    if (n <= BANK) return CC.level(n, LEVELS);
+    var row = genRows[n]; if (!row) return null;
+    var L = CC.endlessLevel(n, row); if (!L) { delete genRows[n]; store.set('gen', genRows); }
+    return L;
+  }
+  var maker = (function () {
+    // BUDGET: how long a level may take to make while the one before it is played; HURRY: how much longer once the
+    // player is waiting for it (then the safe rule gives the cannonballs)
+    var BUDGET = 60000, HURRY = 12000, worker = null, mode = 'off', busy = 0, queue = [], waiters = {}, main = null, last = null, made = 0;
+    // the worker's own code: logic.js (the inlined <script id="cc-logic">) plus this function's source, as a module
+    // worker built from a Blob (no extra files). cannon-es is handed over as text and imported from a Blob too, so
+    // the worker needs no network and no service worker.
+    function workerMain() {
+      var ok = false, q = [], cur = null;
+      // the job runs in slices of 150 ms so a "hurry" message (the player is now waiting for this level) gets through
+      function go(d) {
+        var t0 = Date.now(), j = CC.genJob(d.n); cur = { n: d.n, end: t0 + d.budget };
+        (function slice() {
+          var row = j.run(150); if (!row && Date.now() >= cur.end) row = j.giveUp();
+          if (!row) { setTimeout(slice, 0); return; }
+          cur = null; self.postMessage({ n: d.n, row: row, ms: Date.now() - t0, tried: j.tried, steps: j.steps });
+          if (q.length) go(q.shift());
+        })();
+      }
+      self.onmessage = function (e) {
+        var d = e.data;
+        if (d.hurry) { if (cur && cur.n === d.hurry) cur.end = Math.min(cur.end, Date.now() + d.ms); return; }
+        if (d.cannon) {
+          import(URL.createObjectURL(new Blob([d.cannon], { type: 'text/javascript' }))).then(function (m) { CC.use(m); ok = true; self.postMessage({ ready: true }); if (q.length) go(q.shift()); },
+            function (err) { self.postMessage({ fail: String((err && err.message) || err) }); });
+          return;
+        }
+        if (ok && !cur) go(d); else q.push(d);
+      };
+    }
+    function dead(why) {
+      if (worker) { try { worker.terminate(); } catch (e) { /* gone */ } }
+      worker = null; mode = 'page'; last = { fail: why };
+      if (busy) { queue.unshift(busy); busy = 0; }
+      pump();
+    }
+    function start() {
+      mode = 'starting';
+      var src = $('cc-logic').textContent + '\n(' + workerMain.toString() + ')();\n';
+      fetch(new URL('../../shared/cannon-es.min.js', location.href).href).then(function (r) { if (!r.ok) throw new Error('cannon ' + r.status); return r.text(); }).then(function (txt) {
+        var w = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })), { type: 'module' });
+        var to = setTimeout(function () { if (worker === w && mode === 'starting') dead('worker did not start'); }, 10000);
+        w.onmessage = function (e) {
+          var d = e.data;
+          if (worker !== w) return;
+          if (d.ready) { clearTimeout(to); mode = 'worker'; pump(); return; }
+          if (d.fail) { clearTimeout(to); dead(d.fail); return; }
+          if (d.n !== busy) return;
+          busy = 0; finish(d.n, d.row, { ms: d.ms, tried: d.tried, steps: d.steps, where: 'worker' });
+        };
+        w.onerror = function (e) { clearTimeout(to); if (worker === w) dead('worker error ' + ((e && e.message) || '')); };
+        worker = w; w.postMessage({ cannon: txt });
+      }).catch(function (e) { dead(String((e && e.message) || e)); });
+    }
+    function finish(n, row, info) {
+      if (!genRows[n] && row) { genRows[n] = row; store.set('gen', genRows); made++; }
+      info.n = n; info.row = genRows[n]; if (!info.cached) last = info;
+      var w = waiters[n] || []; delete waiters[n];
+      w.forEach(function (cb) { cb(); });
+      pump();
+    }
+    function pump() {
+      while (queue.length && genRows[queue[0]]) { var c = queue.shift(); finish(c, null, { cached: true }); }
+      if (!queue.length) return;
+      if (mode === 'off') { start(); return; }
+      if (mode === 'worker' && !busy) { busy = queue.shift(); worker.postMessage({ n: busy, budget: waiters[busy] ? HURRY : BUDGET }); }
+      else if (mode === 'page' && !main) { var n = queue.shift(); main = { n: n, job: CC.genJob(n), spent: 0, t0: performance.now(), hurry: waiters[n] ? performance.now() + HURRY : 0 }; }
+    }
+    // want level n made; urgent: the player is waiting for it (it goes first; a prefetch in the worker is dropped)
+    function want(n, urgent, cb) {
+      if (genRows[n]) { if (cb) cb(); return; }
+      if (cb) (waiters[n] = waiters[n] || []).push(cb);
+      if (busy === n || (main && main.n === n)) { // already being made: if the player is now waiting, cap the time left
+        if (urgent && busy === n && worker) worker.postMessage({ hurry: n, ms: HURRY });
+        if (urgent && main && main.n === n) main.hurry = Math.min(main.hurry || 1e15, performance.now() + HURRY);
+        return;
+      }
+      // only one prefetch is kept: anything queued that nobody is waiting for is dropped (the player moved on)
+      queue = queue.filter(function (x) { return x !== n && waiters[x]; });
+      if (urgent) {
+        queue.unshift(n);
+        if (mode === 'worker' && busy && !waiters[busy]) { busy = 0; try { worker.terminate(); } catch (e) { /* gone */ } worker = null; mode = 'off'; }
+        if (main && !waiters[main.n]) main = null;
+      } else queue.push(n);
+      pump();
+    }
+    // the page fallback: a few ms a frame while a level is being played, most of the frame while the player waits
+    function tick(waiting) {
+      if (!main) return;
+      var t0 = performance.now(), row = main.job.run(waiting ? 40 : 4); main.spent += performance.now() - t0;
+      // (on the page the job only gets a few ms a frame while a level is played, so its budget is longer then)
+      if (!row && (performance.now() - main.t0 > BUDGET * (waiting ? 1 : 4) || performance.now() > (main.hurry || 1e15))) row = main.job.giveUp();
+      if (row) { var m = main; main = null; finish(m.n, row, { ms: Math.round(m.spent), tried: m.job.tried, steps: m.job.steps, where: 'page' }); }
+    }
+    return { want: want, tick: tick, info: function () { return { mode: mode, busy: busy, queue: queue.slice(), main: main && main.n, last: last, made: made }; } };
+  })();
 
   // ================= scene =================
   var host, canvas, SC = null, ready = false, raycaster = null, probe = null;
@@ -1206,12 +1444,21 @@ var CCScene = (function () {
   // ================= game =================
   var sim = null, level = null, levelNo = 1, state = 'idle', acc = 0, lastT = 0, balls = [], yaw = 0, yawTo = 0, intro = 0, markT = -1, zoom = { z: 0, z0: 0, p: [0, 0, 0], t: 0, fl: 1, phase: 0 };
   function startLevel(n) {
-    levelNo = Math.max(1, Math.min(LEVELS.length, n)); meta.level = levelNo; saveMeta();
-    level = CC.level(levelNo, LEVELS);
+    levelNo = Math.max(1, Math.min(MAXLV, n | 0)); meta.level = levelNo; saveMeta();
+    level = levelFor(levelNo);
+    if (!level) { // 1.7.0: past the bank and not made yet on this phone: wait for it ("Making the next level...")
+      var want = levelNo; sim = null; state = 'making'; renderInfo();
+      if (ready) { balls.forEach(function (b) { SC.scene.remove(b.mesh); }); balls = []; SC.setPieces([]); }
+      $('making').classList.add('show');
+      maker.want(want, true, function () { if (levelNo === want && state === 'making') startLevel(want); });
+      return;
+    }
+    $('making').classList.remove('show');
+    if (levelNo + 1 > BANK) maker.want(levelNo + 1, false); // make the next one while this one is played
     if (!ready) { renderInfo(); return; }
     balls.forEach(function (b) { SC.scene.remove(b.mesh); }); balls = [];
     sim = CC.create(level);
-    SC.setPieces(level.pieces);
+    SC.setPieces(level.pieces, level.theme); // 1.7.0: a made-past-the-bank level has its own look (stone and roofs)
     SC.fitView(level.pieces); zoom.phase = 0; zoom.z = 0; // the camera frames this castle (scene.js), fixed for the level
     state = 'play'; acc = 0; stats.tries++; saveStats();
     yawTo = yaw = 0; intro = 1; // square on to the castle's front; the camera glides in from a little further back
@@ -1249,9 +1496,9 @@ var CCScene = (function () {
   function won() {
     S.win(); stats.wins++; meta.finished++; saveStats();
     var st = starsFor(sim.shots); meta.stars[levelNo] = Math.max(meta.stars[levelNo] || 0, st);
-    if (meta.open <= levelNo) meta.open = Math.min(LEVELS.length, levelNo + 1);
+    if (meta.open <= levelNo) meta.open = Math.min(MAXLV, levelNo + 1);
     saveMeta(); renderInfo();
-    var last = levelNo >= LEVELS.length;
+    var last = levelNo >= MAXLV;
     showCard('Castle crumbled!', '<div class="stars">' + [0, 1, 2].map(function (i) { return i < st ? '★' : '<span class="off">★</span>'; }).join('') + '</div>' +
       Math.round(CC.progress(sim) * 100) + '% knocked down with ' + sim.shots + ' of ' + level.balls + ' cannonballs.',
       last ? [{ label: 'Play it again', red: true, go: function () { between(function () { startLevel(levelNo); }); } }] :
@@ -1270,6 +1517,7 @@ var CCScene = (function () {
     if (!ready) return;
     var dt = Math.min(0.1, lastT ? (tms - lastT) / 1000 : 0); lastT = tms; perf.frame = perf.frame * 0.95 + dt * 1000 * 0.05; perf.frames++;
     var paused = sheetOpen() || document.hidden;
+    maker.tick(state === 'making');
     if (sim && !paused && state !== 'idle') {
       acc += dt; var n = 0;
       var ps0 = performance.now();
@@ -1363,22 +1611,28 @@ var CCScene = (function () {
   }
   function renderInfo() {
     // the goal and this level's stars are in the Menu sheet's info line; the bar in the top row shows the level
-    var lv = level || CC.level(levelNo, LEVELS), bl = sim ? sim.ballsLeft : lv ? lv.balls : 0;
+    var lv = level || levelFor(levelNo), bl = sim ? sim.ballsLeft : lv ? lv.balls : 0;
     FS.refresh();
     $('lvNow').textContent = levelNo; $('lvNext').textContent = levelNo + 1;
-    $('balls').innerHTML = '<i></i>× ' + bl; $('balls').classList.toggle('low', bl <= 2);
+    $('hudbar').classList.toggle('big', levelNo + 1 >= 1000); // 1.7.0: four-digit level numbers in the badges
+    $('balls').innerHTML = '<i></i>× ' + (lv ? bl : '…'); $('balls').classList.toggle('low', !!lv && bl <= 2);
     $('barGoal').style.left = 'calc(100% - 3px)';
     if (!sim) { $('barFill').style.width = '0%'; lastPct = -1; } else { lastPct = -1; renderBar(); }
   }
   var lvPage = -1, PAGE = 50;
   function openLevels(keepPage) {
     if (keepPage !== true) lvPage = -1;
-    var pages = Math.ceil(LEVELS.length / PAGE); if (lvPage < 0 || lvPage >= pages) lvPage = Math.floor((levelNo - 1) / PAGE);
-    var tabs = '<div class="lvpages">';
-    for (var q = 0; q < pages; q++) { var a = q * PAGE + 1, b = Math.min(LEVELS.length, (q + 1) * PAGE); tabs += '<button data-p="' + q + '" class="' + (q === lvPage ? 'on' : '') + '"' + (a > meta.open ? ' disabled' : '') + '>' + a + '–' + b + '</button>'; }
+    // 1.7.0: the banked levels plus the made-on-the-phone ones up to 30 past the furthest reached (more as you go);
+    // with many pages, the tabs show the first page, the ones round this page and the last
+    var top = Math.max(BANK, meta.open + 30), pages = Math.ceil(top / PAGE); if (lvPage < 0 || lvPage >= pages) lvPage = Math.floor((levelNo - 1) / PAGE);
+    var tabs = '<div class="lvpages">', w0 = Math.max(1, Math.min(lvPage - 3, pages - 8)), gap = 0;
+    for (var q = 0; q < pages; q++) {
+      if (pages > 9 && q > 0 && q < pages - 1 && (q < w0 || q >= w0 + 7)) { var gq = q < w0 ? 1 : 2; if (gap !== gq) { gap = gq; tabs += '<span class="gap">…</span>'; } continue; }
+      var a = q * PAGE + 1, b = Math.min(top, (q + 1) * PAGE); tabs += '<button data-p="' + q + '" class="' + (q === lvPage ? 'on' : '') + '"' + (a > meta.open ? ' disabled' : '') + '>' + fmt(a) + '–' + fmt(b) + '</button>';
+    }
     tabs += '</div>';
     var h = '';
-    for (var n = lvPage * PAGE + 1; n <= Math.min(LEVELS.length, (lvPage + 1) * PAGE); n++) { var st = meta.stars[n] || 0; h += '<button class="lv' + (n === levelNo ? ' cur' : '') + '" data-n="' + n + '"' + (n > meta.open ? ' disabled' : '') + '>' + n + '<small>' + '★★★'.slice(0, st) + '</small></button>'; }
+    for (var n = lvPage * PAGE + 1; n <= Math.min(top, (lvPage + 1) * PAGE); n++) { var st = meta.stars[n] || 0; h += '<button class="lv' + (n === levelNo ? ' cur' : '') + '" data-n="' + n + '"' + (n > meta.open ? ' disabled' : '') + '>' + n + '<small>' + '★★★'.slice(0, st) + '</small></button>'; }
     $('lvpagesBox').innerHTML = tabs; $('lvgrid').innerHTML = h; $('ovLevels').classList.add('show');
   }
   var toastT = 0;
@@ -1400,13 +1654,13 @@ var CCScene = (function () {
       'Fill the bar at the top: knock down enough of the castle (the white line is the goal) before your cannonballs run out.',
       'Hit low: knock out the bottom of a tower and everything above comes down. Bricks that fall into the sea are gone for good.',
       '<b>TNT</b> crates blow up when hit or knocked over, and take everything near them with them.',
-      'Fewer cannonballs earn more stars. ' + LEVELS.length + ' castles, each one checked: a computer player knocked it down with the same physics, with cannonballs to spare.'
+      'Fewer cannonballs earn more stars. The levels never run out, and every castle is checked first: a computer player knocks it down with the same physics, with cannonballs to spare. The first ' + BANK + ' were checked ahead of time; after that your phone builds and checks the next castle while you play.'
     ].map(function (x) { return '<li>' + x + '</li>'; }).join('');
     $('ovHelp').classList.add('show');
   }
   function renderStats() {
     var stars = 0; for (var n in meta.stars) stars += meta.stars[n];
-    $('statsBody').innerHTML = '<div class="tiles"><div class="tile"><b>' + Math.max(0, meta.open - 1) + '</b><span>Castles crumbled</span></div><div class="tile"><b>' + stars + '</b><span>Stars</span></div><div class="tile"><b>' + fmt(stats.tries) + '</b><span>Tries</span></div></div>' +
+    $('statsBody').innerHTML = '<div class="tiles"><div class="tile"><b>' + fmt(Math.max(0, meta.open - 1)) + '</b><span>Castles crumbled</span></div><div class="tile"><b>' + stars + '</b><span>Stars</span></div><div class="tile"><b>' + fmt(stats.tries) + '</b><span>Tries</span></div></div>' +
       '<div class="tiles"><div class="tile"><b>' + fmt(stats.shots) + '</b><span>Cannonballs</span></div><div class="tile"><b>' + fmt(stats.bricks) + '</b><span>Bricks down</span></div><div class="tile"><b>' + fmt(stats.booms) + '</b><span>TNT blasts</span></div></div>';
   }
 
@@ -1468,7 +1722,7 @@ var CCScene = (function () {
   window.__cc = { get sim() { return sim; }, get state() { return state; }, get level() { return level; }, fire: fire, startLevel: startLevel, CC: CC, meta: function () { return meta; }, set yaw(v) { yawTo = v; intro = 0; }, get yaw() { return yaw; },
     bot: function () { if (!sim) return false; var a = CC.botAim(sim); if (!a) return false; yawTo = yaw = a.yaw; intro = 0; return fire(a.p); },
     project: function (x, y, z) { var v = new T.Vector3(x, y, z).project(SC.camera), r = canvas.getBoundingClientRect(); return [r.left + (v.x + 1) / 2 * r.width, r.top + (1 - v.y) / 2 * r.height]; }, get ready() { return ready; }, get view() { return SC && SC.view; }, perf: perf,
-    pick: function (x, y) { return pointAt(x, y); },
+    pick: function (x, y) { return pointAt(x, y); }, maker: function () { return maker.info(); }, genRows: function () { return genRows; },
     awake: function () { return sim ? sim.pieces.filter(function (p) { return !p.gone && p.b.sleepState !== 2; }).length : 0; } };
   init();
 })();

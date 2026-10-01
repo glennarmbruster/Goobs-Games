@@ -542,7 +542,7 @@
         var m = readLS('bubbles.meta');
         if (!m) return 'Aim, match three, pop';
         var stars = 0; if (m.stars) Object.keys(m.stars).forEach(function (k) { stars += m.stars[k]; });
-        return 'Level ' + Math.min(100, m.open || 1) + (stars ? ' \u00b7 ' + stars + ' \u2605' : '');
+        return 'Level ' + (m.open || 1) + (stars ? ' \u00b7 ' + stars + ' \u2605' : '');
       }
     },
     {

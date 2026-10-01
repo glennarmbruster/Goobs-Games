@@ -71,6 +71,10 @@
 .lvpages button { font: inherit; font-weight: 800; font-size: 13px; border: 0; border-radius: 10px; padding: 7px 9px; background: var(--surface-2); color: var(--muted); }
 .lvpages button.on { background: var(--accent); color: #fff; }
 .lvpages button[disabled] { opacity: .35; }
+/* past the bank (1.2.0) level numbers get long: keep five columns and shrink 4-6 digit numbers to fit the buttons */
+#lvgrid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+#lvgrid .lv.d4 { font-size: 17px; } #lvgrid .lv.d5 { font-size: 14px; } #lvgrid .lv.d6 { font-size: 12px; }
+.lvpages .gap { align-self: center; color: var(--muted); font-weight: 800; padding: 0 2px; }
 /* iPhone SE width: keep "Buzz Off!" readable next to a three-digit level */
 @media (max-width: 380px) { html.gg-fs .top .brand h1 { font-size: 18px; } .bzlv { padding: 6px 8px; } }
 </style>
@@ -196,7 +200,9 @@
    World units are meters, y points up; the screen shows x 0..10 and y 0..16. Draw one line, then the line falls
    under gravity, the hives let their bees out, and the bees chase the pup. Keep every pup safe until the clock runs
    out. A bee touching a pup, a pup touching spikes, water or lava, or a pup falling off the screen loses the level. */
-var BZ = (function () {
+// The whole module is one factory function so the page can also start it inside a Web Worker (made from a Blob of
+// this function's source plus planck.js) to make and prove levels past the bank without freezing the game (1.2.0).
+function BZWorld() {
   'use strict';
   var pl = typeof planck !== 'undefined' ? planck : null;
   function use(p) { pl = p; }
@@ -375,9 +381,255 @@ var BZ = (function () {
     var n = 0; while (!S.over && n < 60 * 30) { step(S); n++; }
     return { won: S.over === 'won', why: S.pets.map(function (p) { return p.hurt; }).filter(Boolean)[0] || null, t: +S.t.toFixed(2), drawn: drawn, ink: ink, S: S };
   }
+  // ================================================================ making levels (1.2.0) ================================================================
+  // The level maker used to live only in tools/gen.js (Node). It moved here so the phone can make levels past the 500
+  // banked ones from the level number (seeded: level n is the same level every time), proving each one the same way the
+  // bank was proven. tools/gen.js now calls make(n); for n <= BANK it is the exact same recipe that made levels.json.
+  var BANK = 500;
+  function rect(x0, y0, x1, y1) { return [[x0, y0], [x1, y0], [x1, y1], [x0, y1]]; }
+  function r2(v) { return Math.round(v * 100) / 100; }
+  function roundLevel(lv) {
+    lv.terrain = lv.terrain.map(function (a) { return a.map(function (p) { return [r2(p[0]), r2(p[1])]; }); });
+    ['pets', 'hives', 'crates', 'maces', 'spikes', 'pools'].forEach(function (k) { if (lv[k]) lv[k].forEach(function (o) { for (var q in o) if (typeof o[q] === 'number') o[q] = r2(o[q]); }); });
+    return lv;
+  }
+  // each pattern returns { terrain, pets, hives, crates, maces, spikes, pools } for difficulty d (0..1, a little more past
+  // the bank); R is the seeded random. The order of R() calls is part of the recipe: changing it changes every level.
+  function hivesFor(R, d, n, avoidX, yLo) {
+    var out = [], total = Math.round(7 + d * 20 + R() * 4), per = Math.max(4, Math.round(total / n));
+    for (var i = 0; i < n; i++) {
+      var x, tries = 0;
+      do { x = 1.2 + R() * 7.6; tries++; } while (tries < 30 && (Math.abs(x - avoidX) < 1.6 || out.some(function (h) { return Math.abs(h.x - x) < 2; })));
+      out.push({ x: x, y: (yLo || 9) + R() * (13.2 - (yLo || 9)), n: per });
+    }
+    return out;
+  }
+  function nHives(R, d) { return d < 0.15 ? 1 : d < 0.45 ? 1 + (R() < 0.5 ? 1 : 0) : 1 + (R() < 0.6 ? 1 : 0) + (d > 0.7 && R() < 0.4 ? 1 : 0); }
+  var P = {
+    flat: function (R, d) {
+      var g = 2.4 + R() * 1.6, x = 2.5 + R() * 5;
+      return { terrain: [rect(0, 0, 10, g)], pets: [{ x: x, y: g + PET_R + 0.01 }], hives: hivesFor(R, d, nHives(R, d), x) };
+    },
+    pit: function (R, d) {
+      var g = 3 + R() * 1.5, w = 1.5 + R() * 0.8, depth = 1.2 + R() * 0.9, x = 2.5 + R() * 5, x0 = x - w / 2, x1 = x + w / 2, fl = g - depth;
+      var lv = { terrain: [rect(0, 0, x0, g), rect(x1, 0, 10, g), rect(x0, 0, x1, fl)], pets: [{ x: x, y: fl + PET_R + 0.01 }], hives: hivesFor(R, d, nHives(R, d), x), spikes: [] };
+      if (d > 0.2 && R() < 0.6) { lv.spikes.push({ x: x0, y: fl + 1.25, w: g - fl - 1.25, dir: 'right' }); lv.spikes.push({ x: x1, y: fl + 1.25, w: g - fl - 1.25, dir: 'left' }); lv.spikes = lv.spikes.filter(function (s) { return s.w > 0.3; }); }
+      return lv;
+    },
+    hill: function (R, d) {
+      var g = 2.2 + R() * 0.8, left = R() < 0.5, top = g + 3 + R() * 2.5, tx = 3.5 + R() * 1.5;
+      // a slope rising to one side with a flat terrace for the pup
+      var terr = [rect(0, 0, 10, g)], ty = g + (top - g) * (0.35 + R() * 0.3);
+      if (left) { terr.push([[0, g], [tx, g], [0, top]]); terr.push(rect(tx - 1.6, g, tx + 0.2, ty)); }
+      else { terr.push([[10 - tx, g], [10, g], [10, top]]); terr.push(rect(10 - tx - 0.2, g, 10 - tx + 1.6, ty)); }
+      var pxx = left ? tx - 0.7 : 10 - tx + 0.7;
+      return { terrain: terr, pets: [{ x: pxx, y: ty + PET_R + 0.01 }], hives: hivesFor(R, d, nHives(R, d), pxx) };
+    },
+    pillar: function (R, d) {
+      var g = 2.6 + R() * 1.2, gap0 = 2.3 + R() * 1.6, gap1 = gap0 + 3.4 + R() * 1.4, pw = 1.3 + R() * 0.5, px = (gap0 + gap1) / 2 + (R() - 0.5), ph = g + (R() - 0.5) * 1.2;
+      var kind = R() < 0.5 ? 'water' : 'lava';
+      return { terrain: [rect(0, 0, gap0, g), rect(gap1, 0, 10, g), rect(gap0, 0, gap1, 0.4), rect(px - pw / 2, 0.4, px + pw / 2, ph)], pets: [{ x: px, y: ph + PET_R + 0.01 }], hives: hivesFor(R, d, nHives(R, d), px), pools: [{ x0: gap0, x1: gap1, y0: 0.4, y1: g - 0.5, kind: kind }] };
+    },
+    crates: function (R, d) {
+      var g = 2.4 + R() * 1, x = 3 + R() * 4, h = 1 + Math.floor(R() * 2), cw = 0.8, span = 2.4 + R() * 0.6, crates = [];
+      for (var k = 0; k < h; k++) { crates.push({ x: x - span / 2 + cw / 2, y: g + cw / 2 + k * cw + 0.005 * k, w: cw, h: cw }); crates.push({ x: x + span / 2 - cw / 2, y: g + cw / 2 + k * cw + 0.005 * k, w: cw, h: cw }); }
+      var by = g + h * cw + 0.12;
+      crates.push({ x: x, y: by, w: span + 0.2, h: 0.24 });
+      return { terrain: [rect(0, 0, 10, g)], crates: crates, pets: [{ x: x, y: by + 0.12 + PET_R + 0.02 }], hives: hivesFor(R, d, nHives(R, d), x) };
+    },
+    alcove: function (R, d) {
+      var g = 2.4 + R() * 1.2, left = R() < 0.5, hy = 10 + R() * 2.5, x = left ? 6 + R() * 2 : 2 + R() * 2;
+      // the hive sits in a notch in a wall at the side; there may be a second hive in the open
+      var terr = [rect(0, 0, 10, g)], wx0 = left ? 0 : 7.6, wx1 = left ? 2.4 : 10;
+      terr.push(rect(wx0, hy + 1.1, wx1, hy + 2.2)); terr.push(rect(wx0, hy - 2.2, wx1, hy - 1.1));
+      terr.push(left ? rect(0, hy - 1.1, 0.8, hy + 1.1) : rect(9.2, hy - 1.1, 10, hy + 1.1));
+      var hives = [{ x: left ? 1.5 : 8.5, y: hy, n: Math.round(8 + d * 14) }];
+      if (d > 0.4 && R() < 0.5) hives.push(hivesFor(R, d, 1, x)[0]);
+      return { terrain: terr, pets: [{ x: x, y: g + PET_R + 0.01 }], hives: hives };
+    },
+    maces: function (R, d) {
+      var lv = R() < 0.5 ? P.flat(R, d) : P.hill(R, d), p = lv.pets[0];
+      var side = R() < 0.5 ? -1 : 1;
+      lv.maces = [{ x: p.x + side * (1.9 + R() * 0.5), y: p.y + 0.4 + R() * 1.2, r: 0.45 }];
+      if (d > 0.5 && R() < 0.5) lv.maces.push({ x: p.x - side * (2 + R() * 0.6), y: p.y + 1 + R() * 1.4, r: 0.4 });
+      return lv;
+    },
+    two: function (R, d) {
+      var g = 2.4 + R() * 1.4, x1 = 2 + R() * 1.6, x2 = 6.4 + R() * 1.6;
+      var lv = { terrain: [rect(0, 0, 10, g)], pets: [{ x: x1, y: g + PET_R + 0.01 }, { x: x2, y: g + PET_R + 0.01 }], hives: hivesFor(R, d, nHives(R, d), 5) };
+      if (R() < 0.4) { lv.terrain.push(rect(4.4, g, 5.6, g + 1 + R() * 2)); }
+      return lv;
+    },
+    island: function (R, d) {
+      var w = 1.9 + R() * 1.2, x = 3 + R() * 4, ih = 2.4 + R() * 1.2, kind = R() < 0.65 ? 'water' : 'lava';
+      return { terrain: [rect(0, 0, 10, 0.4), rect(0, 0.4, 0.6, ih + 0.8), rect(9.4, 0.4, 10, ih + 0.8), rect(x - w / 2, 0.4, x + w / 2, ih)], pets: [{ x: x, y: ih + PET_R + 0.01 }], hives: hivesFor(R, d, nHives(R, d), x), pools: [{ x0: 0.6, x1: 9.4, y0: 0.4, y1: ih - 0.9, kind: kind }] };
+    },
+    ledge: function (R, d) {
+      var g = 1.6 + R() * 0.6, lw = 2.2 + R() * 1.2, x = 3 + R() * 4, ly = 6 + R() * 2;
+      var lv = { terrain: [rect(0, 0, 10, g), rect(x - lw / 2, ly - 0.5, x + lw / 2, ly)], pets: [{ x: x, y: ly + PET_R + 0.01 }], hives: [] };
+      // bees from above and from below
+      var hs = hivesFor(R, d, Math.max(2, nHives(R, d)), x, 9), lh = hs[hs.length - 1];
+      lh.y = g + 1.2 + R() * 1.5; lh.x = x + (R() < 0.5 ? -1 : 1) * (2.2 + R()); lh.x = Math.max(1, Math.min(9, lh.x));
+      lv.hives = hs; return lv;
+    }
+  };
+  var ORDER = ['flat', 'pit', 'hill', 'crates', 'alcove', 'pillar', 'maces', 'two', 'island', 'ledge'];
+  // the bank's pattern choice (levels 1..500)
+  function bankPattern(n, R) {
+    if (n <= 3) return 'flat';
+    if (n <= 12) return ['flat', 'pit', 'hill', 'alcove', 'crates', 'flat', 'pit', 'two', 'hill'][(n - 4) % 9];
+    var avail = ORDER.filter(function (p, i) { return n > 12 + i * 2; });
+    return R() < 0.7 ? avail[(n * 7) % avail.length] : avail[Math.floor(R() * avail.length)];
+  }
+  // past the bank every run of ten levels (501-510, 511-520, ...) uses each of the ten patterns once, in a seeded order,
+  // so the same kind of level never comes twice in a row and none is left out for long
+  function blockOrder(b) {
+    var R = rng(b * 7333 + 11), a = ORDER.slice();
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(R() * (i + 1)), t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function endlessPattern(n) {
+    var i = n - BANK - 1, b = Math.floor(i / 10), a = blockOrder(b);
+    if (b > 0 && a[0] === blockOrder(b - 1)[9]) { var t = a[0]; a[0] = a[1]; a[1] = t; }
+    return a[i % 10];
+  }
+  // levels ending in 5 past the bank are breathers: fewer, slower bees (about level 150's), as iOS puzzle games do
+  function BREATHER(n) { return n > BANK && n % 10 === 5; }
+  // past the bank the difficulty keeps growing gently for 300 levels (a few more bees, a little more rage), then holds
+  function endlessD(n) { return BREATHER(n) ? 0.55 : 1 + 0.15 * Math.min(1, (n - BANK) / 300); }
+
+  // twist for variety past the bank: a spiked mace beside the pup on a level that didn't have one, if it fits clear of
+  // the ground, the hives and the water
+  function distPoly(x, y, poly) {
+    var inside = true, best = 1e9;
+    for (var i = 0; i < poly.length; i++) {
+      var a = poly[i], b = poly[(i + 1) % poly.length], ex = b[0] - a[0], ey = b[1] - a[1], L2 = ex * ex + ey * ey || 1e-9;
+      var t = Math.max(0, Math.min(1, ((x - a[0]) * ex + (y - a[1]) * ey) / L2)), qx = a[0] + ex * t - x, qy = a[1] + ey * t - y;
+      best = Math.min(best, Math.hypot(qx, qy));
+      if (ex * (y - a[1]) - ey * (x - a[0]) < 0) inside = false;
+    }
+    return inside ? 0 : best;
+  }
+  function addMace(lv, R) {
+    if (lv.maces || lv.pets.length !== 1) return false;
+    var p = lv.pets[0], side = R() < 0.5 ? -1 : 1, r = 0.42;
+    for (var s = 0; s < 2; s++, side = -side) {
+      var x = p.x + side * (1.9 + R() * 0.5), y = p.y + 0.4 + R() * 1.2;
+      if (x < 0.8 || x > WW - 0.8) continue;
+      if (lv.terrain.some(function (t) { return distPoly(x, y, t) < r + 0.25; })) continue;
+      if ((lv.hives || []).some(function (h) { return Math.hypot(h.x - x, h.y - y) < HIVE_R + r + 0.5; })) continue;
+      if ((lv.pools || []).some(function (q) { return x > q.x0 - r && x < q.x1 + r && y < q.y1 + r; })) continue;
+      if ((lv.crates || []).some(function (c) { return Math.abs(c.x - x) < c.w / 2 + r + 0.2 && Math.abs(c.y - y) < c.h / 2 + r + 0.2; })) continue;
+      lv.maces = [{ x: x, y: y, r: r }]; return true;
+    }
+    return false;
+  }
+
+  // past the bank a layout is also thrown out (and the next try made) when hives overlap each other, the ground or a
+  // pup: the bank's alcove recipe can put its open-air hive right on the wall hive, which looks like a mistake
+  function tidy(lv) {
+    var H = lv.hives || [];
+    for (var i = 0; i < H.length; i++) {
+      for (var j = i + 1; j < H.length; j++) if (Math.hypot(H[i].x - H[j].x, H[i].y - H[j].y) < 2 * HIVE_R + 0.4) return false;
+      for (var t = 0; t < lv.terrain.length; t++) if (distPoly(H[i].x, H[i].y, lv.terrain[t]) < HIVE_R + 0.03) return false;
+      for (var q = 0; q < lv.pets.length; q++) if (Math.hypot(H[i].x - lv.pets[q].x, H[i].y - lv.pets[q].y) < HIVE_R + PET_R + 0.6) return false;
+    }
+    return true;
+  }
+
+  // ---------------------------------------------------------------- lines a person might draw ----------------------------------------------------------------
+  function arc(cx, cy, r, a0, a1, n) { var out = []; for (var k = 0; k <= n; k++) { var a = a0 + (a1 - a0) * k / n; out.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]); } return out; }
+  function candidates(lv) {
+    var C = [];
+    lv.pets.forEach(function (p) {
+      [0.8, 0.95, 1.1, 1.3, 1.6, 2.0].forEach(function (r) { [-0.25, 0, 0.3, 0.7].forEach(function (a) { C.push({ k: r < 1 ? 'hat' : 'dome', pts: arc(p.x, p.y, r, Math.PI + a, -a, Math.max(10, Math.round(r * 12))) }); }); });
+      [1.5, 2, 2.6].forEach(function (w) { [0.8, 1.3].forEach(function (h) { [0.3, 1, 2.2].forEach(function (dn) {
+        var x0 = p.x - w / 2, x1 = p.x + w / 2, top = p.y + h, bot = p.y - dn, pts = [], x, y;
+        for (y = bot; y < top; y += 0.3) pts.push([x0, y]);
+        for (x = x0; x < x1; x += 0.3) pts.push([x, top]);
+        for (y = top; y > bot; y -= 0.3) pts.push([x1, y]);
+        C.push({ k: 'cage', pts: pts });
+      }); }); });
+      [2, 3, 4, 6].forEach(function (sw) { [0.75, 1.1].forEach(function (h) { var pts = []; for (var x = p.x - sw / 2; x <= p.x + sw / 2 + 1e-6; x += 0.3) pts.push([x, p.y + h]); C.push({ k: 'lid', pts: pts }); }); });
+    });
+    (lv.hives || []).forEach(function (h) { [1.0, 1.25].forEach(function (r) { C.push({ k: 'seal', pts: arc(h.x, h.y, r, -Math.PI / 2, Math.PI * 1.5 + 0.35, Math.round(r * 16)) }); }); });
+    // one line over two pups: a dome over each, joined along the top
+    if (lv.pets.length === 2) {
+      var a = lv.pets[0], b = lv.pets[1];
+      [0.95, 1.2].forEach(function (r) { var pts = arc(a.x, a.y, r, Math.PI, Math.PI / 2, 8).concat([[b.x, b.y + r]]).concat(arc(b.x, b.y, r, Math.PI / 2, 0, 8)); C.push({ k: 'bridge', pts: pts }); });
+      [1.2, 1.6].forEach(function (h) { var pts = []; for (var x = a.x - 1; x <= b.x + 1; x += 0.3) pts.push([x, a.y + h]); C.push({ k: 'longlid', pts: pts }); });
+      var mx = (a.x + b.x) / 2, rr = (b.x - a.x) / 2 + 1.1; C.push({ k: 'bigdome', pts: arc(mx, a.y, rr, Math.PI, 0, 30) });
+    }
+    return C;
+  }
+  // the hint should look like a proper shield: a tiny hat on the pup's head counts as 2.5 m longer when choosing
+  function cost(c) { return c.ink + (c.k === 'hat' ? 2.5 : 0); }
+
+  // ---------------------------------------------------------------- proving ----------------------------------------------------------------
+  // kept only when: with no line the pup gets hurt in at least 2 of 3 bee seeds (it isn't free), and some line a person
+  // could draw saves every pup in all 3 bee seeds and still does when drawn roughly (points moved up to 8 cm) in 2 of 3
+  function solve(lv) {
+    var noLine = [1, 2, 3].filter(function (s) { return !simulate(lv, [], s).won; }).length;
+    if (noLine < 2) return { reason: 'free' };
+    lv.ink = 99;
+    var tried = candidates(lv).map(function (c) { var S = create(lv, 1); c.pts.forEach(function (p) { addPoint(S, p[0], p[1]); }); return { k: c.k, pts: S.stroke.map(function (p) { return [r2(p[0]), r2(p[1])]; }), ink: S.ink }; })
+      .filter(function (c) { return c.pts.length >= 3 && c.ink > 1; }).sort(function (a, b) { return cost(a) - cost(b); });
+    for (var i = 0; i < tried.length; i++) {
+      var c = tried[i];
+      if (!simulate(lv, c.pts, 1).won) continue;
+      if (!simulate(lv, c.pts, 2).won || !simulate(lv, c.pts, 3).won) continue;
+      var rough = [11, 12, 13].filter(function (s) { return simulate(lv, c.pts, s, 0.08).won; }).length;
+      if (rough < 2) continue;
+      return { best: c };
+    }
+    return { reason: 'unsolved' };
+  }
+  function keep(n, name, lv, best, d) {
+    var f = Math.max(1.4, 2.2 - 0.7 * d), out = { n: n, name: name };
+    for (var q in lv) out[q] = lv[q];
+    out.ink = r2(Math.max(best.ink * f, best.ink + 2.5)); out.best = r2(best.ink); out.hint = best.pts; out.how = best.k;
+    return out;
+  }
+  // make level n: returns the level (same shape as levels.json) or null if nothing passed (the page then falls back to a
+  // banked level). info, if given, collects { tries, free, unsolved }. Only the attempt count limits the work, never the
+  // clock, so a slow phone makes exactly the same level as a fast one.
+  function make(n, info) {
+    info = info || {}; info.tries = 0; info.free = 0; info.unsolved = 0;
+    var k, R, lv, res, pat, d;
+    if (n <= BANK) {
+      // the recipe that made levels.json (do not change: tools/gen.js re-makes the bank with it)
+      d = Math.min(1, (n - 1) / 280);
+      for (k = 0; k < 40; k++) {
+        R = rng(n * 7919 + k * 104729); pat = bankPattern(n, R); lv = roundLevel(P[pat](R, d));
+        lv.rage = r2(1 + d * 0.6); lv.time = 10; info.tries++;
+        res = solve(lv); if (res.best) return keep(n, pat, lv, res.best, d);
+        info[res.reason]++;
+      }
+      return null;
+    }
+    // past the bank: the rotated pattern at the endless difficulty (30 tries), then the same pattern as a breather
+    // (10 tries), then a plain flat breather (10 tries)
+    var plan = [[endlessPattern(n), endlessD(n), 30], [endlessPattern(n), 0.55, 10], ['flat', 0.55, 10]];
+    for (var s = 0; s < plan.length; s++) {
+      pat = plan[s][0]; d = plan[s][1];
+      for (k = 0; k < plan[s][2]; k++) {
+        var seed = (n * 7919 + (s * 40 + k) * 104729 + 0x5bd1) >>> 0;
+        R = rng(seed); lv = P[pat](R, d);
+        var name = pat, R2 = rng(seed ^ 0x2c1b3c6d);
+        if (d >= 1 && R2() < 0.3 && addMace(lv, R2)) name += '+mace';
+        lv = roundLevel(lv); lv.rage = r2(1 + d * 0.6); lv.time = 10; info.tries++;
+        if (!tidy(lv)) { info.untidy = (info.untidy || 0) + 1; continue; }
+        res = solve(lv); if (res.best) return keep(n, name, lv, res.best, d);
+        info[res.reason]++;
+      }
+    }
+    return null;
+  }
   return { use: use, create: create, addPoint: addPoint, start: start, step: step, takeEvents: takeEvents, inkLeft: inkLeft, simulate: simulate, spikeRow: spikeRow, rng: rng,
+    make: make, BANK: BANK, BREATHER: BREATHER, endlessPattern: endlessPattern,
     DT: DT, WW: WW, WH: WH, PET_R: PET_R, BEE_R: BEE_R, LINE_R: LINE_R, HIVE_R: HIVE_R };
-})();
+}
+var BZ = BZWorld();
 if (typeof module !== 'undefined') module.exports = BZ;
 </script>
 <script>
@@ -575,10 +827,11 @@ var BZSound = (function () {
 <script>
 /* Buzz Off! app: draw one line with a finger to shield Biscuit the pup, then the line drops, the hives open and the
    bees chase him for ten seconds. Ink bar with star marks, the countdown clock, hints, a paged level picker, stars,
-   stats, saves and house ads between levels. */
+   stats, saves and house ads between levels. Levels 1-500 are the proven bank; from 501 on (1.2.0) each level is
+   made on the phone from its number (BZ.make in world.js, in a Web Worker) and proven before it is played. */
 (function () {
   'use strict';
-  var S_ = BZSound, LEVELS = window.BZ_LEVELS || [];
+  var S_ = BZSound, LEVELS = window.BZ_LEVELS || [], MAXLV = 999999;
 
   // ================= storage =================
   var store = Goobs.store('buzz');
@@ -589,13 +842,69 @@ var BZSound = (function () {
   var MD = { level: 1, open: 1, stars: {}, seen: false, finished: 0, lastAdAt: 0 };
   for (var mk in MD) if (meta[mk] === undefined) meta[mk] = MD[mk];
   if (!meta.stars || typeof meta.stars !== 'object') meta.stars = {};
-  meta.open = Math.max(1, Math.min(LEVELS.length, meta.open | 0));
-  while (meta.open < LEVELS.length && meta.stars[meta.open]) meta.open++;
+  // no top end since 1.2.0 (levels past the bank are made on the phone); stars are kept by level number in an object
+  meta.open = Math.max(1, Math.min(MAXLV, meta.open | 0));
+  while (meta.open < MAXLV && meta.stars[meta.open]) meta.open++;
   meta.level = Math.max(1, Math.min(meta.open, meta.level | 0));
   function saveMeta() { store.set('meta', meta); }
   var stats = store.get('stats', null) || {};
   ['played', 'saved', 'stung', 'hints', 'ink', 'perfect'].forEach(function (k) { if (typeof stats[k] !== 'number') stats[k] = 0; });
   function saveStats() { store.set('stats', stats); }
+
+  // ================= levels past the bank (1.2.0) =================
+  // Level n > 500 is made by BZ.make(n): seeded by n, so it is the same level every time, and kept only once a line is
+  // proven to save the pup (the same proof as the bank). Making one takes about a second or two, so it runs in a Web
+  // Worker built from a Blob (planck.js, fetched through the offline cache, plus world.js's own factory function) and the
+  // next level is made while the current one is played. If the Worker can't start, levels are made on the main thread.
+  // The level being played and the next one are saved, so reopening the app doesn't have to make them again.
+  var GEN = { cache: {}, wait: {}, queue: [], busy: 0, worker: null, mode: '', log: [] };
+  (function () { var g = store.get('gen', null); if (g && typeof g === 'object') for (var q in g) if (g[q] && g[q].hint && g[q].n === +q) GEN.cache[q] = g[q]; })();
+  function levelAt(n) { return n <= LEVELS.length ? LEVELS[n - 1] : GEN.cache[n] || null; }
+  function saveGen() {
+    var keep = {}, cur = meta.level;
+    Object.keys(GEN.cache).map(Number).sort(function (a, b) { return Math.abs(a - cur) - Math.abs(b - cur); }).slice(0, 4).forEach(function (q) { keep[q] = GEN.cache[q]; });
+    store.set('gen', keep);
+  }
+  function gotLevel(n, lv, ms, info, where) {
+    // nothing passed in 50 tries (not seen in testing): use a proven top-tier banked level so there's never a dead end
+    if (!lv) { lv = JSON.parse(JSON.stringify(LEVELS[LEVELS.length - 50 + (n - 1) % 50])); lv.n = n; lv.name += ' (bank)'; }
+    GEN.cache[n] = lv; GEN.log.push({ n: n, ms: Math.round(ms), tries: info ? info.tries : 0, where: where, name: lv.name });
+    var mine = Object.keys(GEN.cache).map(Number).sort(function (a, b) { return Math.abs(a - lvNo) - Math.abs(b - lvNo); });
+    mine.slice(40).forEach(function (q) { delete GEN.cache[q]; });
+    saveGen();
+    var w = GEN.wait[n] || []; delete GEN.wait[n]; w.forEach(function (f) { f(lv); });
+  }
+  function pump() {
+    if (GEN.busy || !GEN.queue.length || GEN.mode === 'starting') return;
+    var n = GEN.queue.shift(); if (GEN.cache[n]) { pump(); return; }
+    GEN.busy = n;
+    if (GEN.mode === 'worker') { GEN.worker.postMessage(n); return; }
+    // main-thread fallback: freezes the page for a second or two, so it waits a moment for the note to show first
+    setTimeout(function () { var t = performance.now(), info = {}, lv = BZ.make(n, info); GEN.busy = 0; gotLevel(n, lv, performance.now() - t, info, 'main'); pump(); }, 60);
+  }
+  function startWorker() {
+    if (GEN.mode) return;
+    GEN.mode = 'starting';
+    function fallback() { if (GEN.worker) { try { GEN.worker.terminate(); } catch (e) { /* ignore */ } } GEN.worker = null; var b = GEN.busy; GEN.busy = 0; GEN.mode = 'main'; if (b && !GEN.cache[b]) GEN.queue.unshift(b); pump(); }
+    try {
+      if (!window.Worker || !window.Blob || !window.fetch || typeof BZWorld !== 'function') { fallback(); return; }
+      fetch('../../shared/planck.min.js').then(function (r) { if (!r.ok) throw new Error('planck ' + r.status); return r.text(); }).then(function (pk) {
+        var src = pk + '\n;var BZ = (' + BZWorld.toString() + ')();\n' +
+          'self.onmessage = function (e) { var n = e.data, t = Date.now(), info = {}, lv = BZ.make(n, info); self.postMessage({ n: n, lv: lv, ms: Date.now() - t, info: info }); };';
+        var w = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
+        w.onmessage = function (e) { var d = e.data; GEN.busy = 0; gotLevel(d.n, d.lv, d.ms, d.info, 'worker'); pump(); };
+        w.onerror = function () { fallback(); };
+        GEN.worker = w; GEN.mode = 'worker'; pump();
+      }).catch(fallback);
+    } catch (err) { fallback(); }
+  }
+  // ask for level n (no-op for banked or made levels); cb(level) when it's ready
+  function need(n, cb) {
+    var lv = levelAt(n); if (lv) { if (cb) cb(lv); return; }
+    if (cb) (GEN.wait[n] = GEN.wait[n] || []).push(cb);
+    if (GEN.busy !== n && GEN.queue.indexOf(n) < 0) { if (cb) GEN.queue.unshift(n); else GEN.queue.push(n); }
+    startWorker(); pump();
+  }
 
   function $(id) { return document.getElementById(id); }
   function isOpen(id) { return $(id).classList.contains('show'); }
@@ -603,9 +912,21 @@ var BZSound = (function () {
 
   // ================= level state =================
   var lvNo = meta.level, L = null, S = null, state = 'draw', hint = null, fx = [], endT = 0, parts = [], drawing = false, clockShown = -1;
+  var making = 0;
   function startLevel(n) {
-    lvNo = Math.max(1, Math.min(LEVELS.length, n)); meta.level = lvNo; saveMeta();
-    L = LEVELS[lvNo - 1]; S = BZ.create(L, (Date.now() & 0xffff) + 1); state = 'draw'; hint = null; fx = []; parts = []; drawing = false;
+    n = Math.max(1, Math.min(MAXLV, n | 0));
+    if (!levelAt(n)) {
+      // not made yet (the player got there before the Worker finished, or jumped far ahead): say so and wait
+      // (the note is picked before lvNo moves on, so "next" means one past the level just played)
+      tip(n === lvNo + 1 ? 'Making the next level…' : 'Making level ' + n + '…', true);
+      making = n; lvNo = n; meta.level = n; saveMeta(); state = 'wait'; hint = null; drawing = false; renderInfo();
+      need(n, function () { if (making === n) startLevel(n); });
+      return;
+    }
+    making = 0; lvNo = n; meta.level = lvNo; saveMeta();
+    L = levelAt(lvNo); S = BZ.create(L, (Date.now() & 0xffff) + 1); state = 'draw'; hint = null; fx = []; parts = []; drawing = false;
+    // make the next level now, while this one is played
+    if (lvNo + 1 > LEVELS.length) need(lvNo + 1);
     stats.played++; saveStats(); S_.buzzOff();
     cache = null; renderInfo(); renderInk(); setClock(L.time || 10);
     tip(lvNo <= 2 ? 'Draw one line to shield Biscuit from the bees!' : lvNo === 3 ? 'Tip: bees find gaps. Close it off down to the ground.' : '');
@@ -620,14 +941,13 @@ var BZSound = (function () {
   function won() {
     state = 'won'; endT = performance.now(); S_.buzzOff(); S_.woof(); S_.win(); confetti();
     var st = stars(S.ink), before = meta.stars[lvNo] || 0;
-    meta.stars[lvNo] = Math.max(before, st); if (meta.open <= lvNo) meta.open = Math.min(LEVELS.length, lvNo + 1);
+    meta.stars[lvNo] = Math.max(before, st); if (meta.open <= lvNo) meta.open = Math.min(MAXLV, lvNo + 1);
     meta.finished++; stats.saved++; if (st === 3) stats.perfect++; saveMeta(); saveStats(); renderInfo();
-    var last = lvNo >= LEVELS.length;
+    // there is always a next level (1.2.0: no more "That was the last level!")
     setTimeout(function () {
       showCard('Biscuit is safe!', '<div class="stars">' + [0, 1, 2].map(function (i) { return i < st ? '★' : '<span class="off">★</span>'; }).join('') + '</div>' +
-        (st < 3 ? 'Use less ink for more stars.' : 'Perfect shield!') + (last ? '<br>That was the last level!' : ''),
-        last ? [{ label: 'Play it again', red: true, go: function () { between(function () { startLevel(lvNo); }); } }, { label: 'Pick a level', go: function () { openLevels(); } }]
-          : [{ label: 'Next level', red: true, go: function () { between(function () { startLevel(lvNo + 1); }); } }, { label: 'Play it again', go: function () { between(function () { startLevel(lvNo); }); } }]);
+        (st < 3 ? 'Use less ink for more stars.' : 'Perfect shield!'),
+        [{ label: 'Next level', red: true, go: function () { between(function () { startLevel(lvNo + 1); }); } }, { label: 'Play it again', go: function () { between(function () { startLevel(lvNo); }); } }]);
     }, 1100);
   }
   function lost(why) {
@@ -725,13 +1045,15 @@ var BZSound = (function () {
     parts = parts.filter(function (p) { p.t++; p.x += p.vx; p.y += p.vy; p.vy += 0.03 * DPR; p.rot += p.vr; return p.t < p.life && p.y < H + 20; });
     parts.forEach(function (p) { cx.globalAlpha = Math.max(0, 1 - p.t / p.life); cx.fillStyle = p.c; cx.save(); cx.translate(p.x, p.y); cx.rotate(p.rot); cx.fillRect(-p.r, -p.r * 0.5, p.r * 2, p.r); cx.restore(); });
     cx.globalAlpha = 1;
+    // while the next level is being made, the old scene fades back into the paper behind the "Making…" note
+    if (state === 'wait') { cx.globalAlpha = 0.8; cx.drawImage(cache.bg, 0, 0, W, H); cx.globalAlpha = 1; }
   }
   function confetti() { for (var i = 0; i < 90; i++) parts.push({ x: Math.random() * W, y: -10 - Math.random() * H * 0.4, vx: (Math.random() - 0.5) * 2, vy: 2 + Math.random() * 3, t: 0, life: 170, c: ['#ffd21e', '#ff5a5a', '#3a8cff', '#5ad15a', '#ff7ac8'][i % 5], r: 3 + Math.random() * 3, rot: Math.random() * 6, vr: (Math.random() - 0.5) * 0.3 }); }
   var acc = 0, last = 0;
   function frame(now) {
     requestAnimationFrame(frame);
     var dt = last ? Math.min(0.1, (now - last) / 1000) : 1 / 60; last = now;
-    if (S && state !== 'draw' && !sheetOpen() && !document.hidden) {
+    if (S && (state === 'play' || state === 'won' || state === 'lost') && !sheetOpen() && !document.hidden) {
       acc += dt; var n = 0;
       while (acc >= BZ.DT && n < 4) {
         acc -= BZ.DT; n++; BZ.step(S);
@@ -776,10 +1098,11 @@ var BZSound = (function () {
     $('info').innerHTML = 'Level ' + lvNo + ' <i>' + '★★★'.slice(0, st) + '<span>' + '★★★'.slice(st) + '</span></i>';
   }
   var tipT = 0;
-  function tip(t) { var el = $('tip'); clearTimeout(tipT); if (!t) { el.classList.remove('show'); return; } el.textContent = t; el.classList.add('show'); tipT = setTimeout(function () { el.classList.remove('show'); }, 5000); }
+  function tip(t, stay) { var el = $('tip'); clearTimeout(tipT); if (!t) { el.classList.remove('show'); return; } el.textContent = t; el.classList.add('show'); if (!stay) tipT = setTimeout(function () { el.classList.remove('show'); }, 5000); }
   var toastT = 0;
   function toast(t) { var el = $('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(function () { el.classList.remove('show'); }, 2000); }
   function showHint(keep) {
+    if (state === 'wait') return;
     if (state !== 'draw') { toast('Restart to try the hint'); return; }
     if (S.stroke.length) { S = BZ.create(L, (Date.now() & 0xffff) + 1); renderInk(); }
     hint = { t0: performance.now(), keep: !!keep }; if (!keep) { stats.hints++; saveStats(); S_.hint(); }
@@ -794,14 +1117,21 @@ var BZSound = (function () {
   function showAd(done2) { GoobsAds.show({ onShow: function () { S_.ding(); }, onStep: function () { S_.sign(); } }, done2); }
   function between(next) { if (Goobs.adsOn() && meta.finished > 0 && meta.finished % settings.adEvery === 0 && meta.lastAdAt !== meta.finished) { meta.lastAdAt = meta.finished; saveMeta(); next(); showAd(function () {}); return; } next(); }
   var lvPage = -1, PAGE = 50;
+  // the picker shows the bank plus the made levels up to 30 past the furthest one reached (growing as you go); with
+  // many pages the tabs show the first, a few around the current page and the last, so the row stays short
   function openLevels(keepPage) {
     if (keepPage !== true) lvPage = -1;
-    var pages = Math.ceil(LEVELS.length / PAGE); if (lvPage < 0 || lvPage >= pages) lvPage = Math.floor((lvNo - 1) / PAGE);
-    var tabs = '<div class="lvpages">';
-    for (var q = 0; q < pages; q++) { var a = q * PAGE + 1, b = Math.min(LEVELS.length, (q + 1) * PAGE); tabs += '<button data-p="' + q + '" class="' + (q === lvPage ? 'on' : '') + '"' + (a > meta.open ? ' disabled' : '') + '>' + a + '–' + b + '</button>'; }
+    var top = Math.min(MAXLV, Math.max(LEVELS.length, meta.open + 30, lvNo)), pages = Math.ceil(top / PAGE);
+    if (lvPage < 0 || lvPage >= pages) lvPage = Math.floor((lvNo - 1) / PAGE);
+    var tabs = '<div class="lvpages">', gap = false;
+    for (var q = 0; q < pages; q++) {
+      if (pages > 12 && q > 0 && q < pages - 1 && Math.abs(q - lvPage) > 2) { if (!gap) tabs += '<span class="gap">…</span>'; gap = true; continue; }
+      gap = false;
+      var a = q * PAGE + 1, b = Math.min(top, (q + 1) * PAGE); tabs += '<button data-p="' + q + '" class="' + (q === lvPage ? 'on' : '') + '"' + (a > meta.open ? ' disabled' : '') + '>' + a + '–' + b + '</button>';
+    }
     tabs += '</div>';
     var h = '';
-    for (var n = lvPage * PAGE + 1; n <= Math.min(LEVELS.length, (lvPage + 1) * PAGE); n++) { var st = meta.stars[n] || 0; h += '<button class="lv' + (n === lvNo ? ' cur' : '') + '" data-n="' + n + '"' + (n > meta.open ? ' disabled' : '') + '>' + n + '<small>' + '★★★'.slice(0, st) + '</small></button>'; }
+    for (var n = lvPage * PAGE + 1; n <= Math.min(top, (lvPage + 1) * PAGE); n++) { var st = meta.stars[n] || 0; h += '<button class="lv d' + Math.min(6, String(n).length) + (n === lvNo ? ' cur' : '') + '" data-n="' + n + '"' + (n > meta.open ? ' disabled' : '') + '>' + n + '<small>' + '★★★'.slice(0, st) + '</small></button>'; }
     $('lvpagesBox').innerHTML = tabs; $('lvgrid').innerHTML = h; $('ovLevels').classList.add('show');
   }
   function openHelp() {
@@ -834,7 +1164,7 @@ var BZSound = (function () {
     // the time). The bees and Biscuit stop while the Menu is open.
     Goobs.fullscreen({ menu: ['btnHelp', 'btnLevels', 'btnStats', 'btnSettings'], info: function () {
       var st = meta.stars[lvNo] || 0, total = 0; for (var q in meta.stars) total += meta.stars[q];
-      return 'Level <b>' + lvNo + '</b> of ' + LEVELS.length + ' &middot; ' + (st ? st + ' of 3 stars here' : 'not saved yet') + ' &middot; ' + total + ' stars in all';
+      return 'Level <b>' + lvNo + '</b> &middot; furthest ' + meta.open + ' &middot; ' + (st ? st + ' of 3 stars here' : 'not saved yet') + ' &middot; ' + total + ' stars in all';
     } });
     Goobs.themePicker($('themes'));
     cv = $('cv'); cx = cv.getContext('2d');
@@ -870,6 +1200,7 @@ var BZSound = (function () {
     Goobs.initUpdates({ onVersions: function (v) { $('version').textContent = 'Buzz Off! ' + (v.buzz || '?') + ' · Goobs-Games ' + (v.shell || '?'); } });
   }
   window.__bz = { get S() { return S; }, get L() { return L; }, get state() { return state; }, startLevel: startLevel, BZ: BZ, meta: function () { return meta; },
+    gen: GEN, levelAt: levelAt, need: need,
     drawPts: function (pts) { S = BZ.create(L, 1); pts.forEach(function (p) { BZ.addPoint(S, p[0], p[1]); }); renderInk(); begin(); }, screen: function (x, y) { var r = cv.getBoundingClientRect(); return [r.left + sx(x), r.top + sy(y)]; } };
   init();
 })();
