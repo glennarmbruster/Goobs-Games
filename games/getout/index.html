@@ -165,6 +165,76 @@ html.go-lane .lane { display: block; }
 .finnext { position: absolute; z-index: 2; left: 0; right: 0; margin: 0 auto; width: 270px; bottom: calc(env(safe-area-inset-bottom, 0px) + 28px);
   opacity: 0; pointer-events: none; transition: opacity .6s; }
 .finnext.show { opacity: 1; pointer-events: auto; }
+
+/* 0.4.0: Keyhole Lane's street scene, the Stars & trophies screen, livelier room-complete stars */
+.lanescene { margin: 0 -14px 10px; height: 132px; overflow: hidden; border-radius: 0 0 22px 22px; box-shadow: 0 10px 24px rgba(0,0,0,.35); }
+.lanescene svg { width: 100%; height: 132px; display: block; }
+.lanescene .tw { animation: gotw 3.2s ease-in-out infinite; }
+.lanescene .smoke { animation: gosmoke 4s ease-out infinite; }
+.lanescene .beam { transform-origin: 176px 28px; animation: gobeam 5s ease-in-out infinite; }
+.lanescene .cog { transform-origin: 231px 72px; animation: gocog 9s linear infinite; }
+@keyframes gotw { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
+@keyframes gosmoke { 0% { transform: translate(0, 0) scale(.6); opacity: .5; } 100% { transform: translate(6px, -22px) scale(1.8); opacity: 0; } }
+@keyframes gobeam { 0%, 100% { transform: rotate(-10deg); opacity: .9; } 50% { transform: rotate(12deg); opacity: .55; } }
+@keyframes gocog { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .lanescene * { animation: none !important; } }
+.trbtn { display: flex; align-items: center; gap: 10px; width: 100%; margin: 0 0 12px; padding: 0 14px; height: 54px; border-radius: 16px; border: 1px solid rgba(255,224,138,.55);
+  background: linear-gradient(135deg, rgba(255,224,138,.28), rgba(232,176,64,.14)); color: #fff4dc; font-weight: 800; font-size: 16px; }
+.trbtn svg { width: 24px; height: 24px; color: #ffd76a; flex: none; }
+.trbtn span { flex: 1; text-align: left; }
+.trbtn b { color: #ffd76a; font-size: 15px; }
+.trbtn:active { transform: scale(.98); }
+
+.overlay.trophy { background: radial-gradient(120% 70% at 50% 0%, #3a3a6a 0%, #1d2442 45%, #120d18 100%); align-items: stretch; flex-direction: column; z-index: 20;
+  -webkit-backdrop-filter: none; backdrop-filter: none; color: #fff4dc; }
+.trtop { flex: none; display: flex; align-items: center; gap: 10px; padding: calc(env(safe-area-inset-top, 0px) + 10px) calc(env(safe-area-inset-right, 0px) + 14px) 8px calc(env(safe-area-inset-left, 0px) + 12px); }
+.trtop h2 { margin: 0; font: 900 26px/1.1 Georgia, serif; color: #ffe08a; text-shadow: 0 2px 0 #6a3a10; }
+.trclose { width: 44px; height: 44px; border-radius: 22px; border: 0; background: rgba(255,248,230,.9); color: #3a2410; display: grid; place-items: center; padding: 0; box-shadow: 0 3px 10px rgba(0,0,0,.35); }
+.trclose svg { width: 24px; height: 24px; }
+.trbody { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 4px calc(env(safe-area-inset-right, 0px) + 14px) calc(env(safe-area-inset-bottom, 0px) + 24px) calc(env(safe-area-inset-left, 0px) + 14px);
+  max-width: 560px; width: 100%; margin: 0 auto; box-sizing: border-box; }
+.trtotal { text-align: center; padding: 10px 12px 12px; border-radius: 20px; background: rgba(255,244,220,.08); border: 1px solid rgba(255,224,138,.3); }
+.trbig { display: flex; align-items: baseline; justify-content: center; gap: 8px; }
+.trbig span { font-size: 38px; color: #ffc83d; text-shadow: 0 0 16px rgba(255,200,60,.6); }
+.trbig b { font: 900 46px/1 Georgia, serif; color: #fff4dc; }
+.trbig small { font-size: 16px; font-weight: 800; color: #c9d4ee; }
+.trbar { height: 12px; border-radius: 6px; background: rgba(0,0,0,.35); margin: 8px 8px 6px; overflow: hidden; box-shadow: inset 0 1px 3px rgba(0,0,0,.5); }
+.trbar i { display: block; height: 100%; border-radius: 6px; background: linear-gradient(90deg, #8f5f1a, #f7dc8a 60%, #d9a640); }
+.trtotal p { margin: 4px 4px 0; font-size: 14px; font-weight: 600; color: #c9d4ee; }
+.trpieces { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin: 14px 0 4px; }
+.trpieces div { text-align: center; font-size: 12px; font-weight: 800; color: #8f98b8; }
+.trpieces i { width: 48px; height: 48px; margin: 0 auto 4px; border-radius: 24px; display: grid; place-items: center; border: 2px dashed rgba(255,224,138,.35); font: 900 20px Georgia, serif; font-style: normal; color: rgba(255,224,138,.4); }
+.trpieces .got i { border: 0; background: radial-gradient(circle at 35% 30%, #fff1b8, #d9a640 55%, #8f5f1a); box-shadow: 0 0 14px rgba(255,214,107,.55); }
+.trpieces .got { color: #ffe08a; }
+.trpieces svg { width: 32px; height: 32px; }
+.trsub { text-align: center; margin: 2px 0 12px; font-size: 13px; font-weight: 700; color: #c9d4ee; }
+.trhead { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 0 0 6px; font-size: 13px; text-align: center; color: #ffe08a; text-transform: uppercase; letter-spacing: .6px; }
+.trhead span { display: none; }
+.trroom { margin: 0 0 10px; padding: 9px; border-radius: 18px; background: rgba(255,244,220,.07); border: 1px solid rgba(255,224,138,.2); }
+.trname { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 15px; margin: 0 2px 7px; }
+.trname .rn { width: 24px; height: 24px; border-radius: 12px; flex: none; display: grid; place-items: center; font: 900 14px Georgia, serif; color: #3a2410;
+  background: radial-gradient(circle at 35% 30%, #fff1b8, #d9a640 55%, #8f5f1a); }
+.trcells { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.trcell { border-radius: 13px; padding: 6px 4px 7px; text-align: center; background: #fff4dc; color: #3a2410; min-height: 70px; box-sizing: border-box; }
+.trcell.full { background: linear-gradient(160deg, #fff6d6, #ffe08a); box-shadow: 0 0 12px rgba(255,214,107,.45); }
+.trcell.none { background: rgba(255,244,220,.12); color: #c9d4ee; }
+.trcell b { display: block; font-size: 17px; font-weight: 900; margin-top: 1px; }
+.trcell small { display: block; font-size: 12px; font-weight: 700; color: #8a6a40; }
+.trcell.none small { color: #9aa3c2; margin-top: 6px; }
+.trst { font-size: 17px; letter-spacing: 1px; line-height: 1; }
+.trst i { font-style: normal; color: rgba(120,100,70,.28); }
+.trcell.none .trst i { color: rgba(255,244,220,.22); }
+.trst i.on { color: #f0a800; text-shadow: 0 1px 0 #8a5a00; }
+.trlegend { text-align: center; font-size: 13px; font-weight: 600; color: #9aa3c2; margin: 4px 0 12px; }
+.trfin { width: 100%; min-height: 52px; font-size: 17px; }
+
+#doneStars i { font-style: normal; display: inline-block; animation: gostar .5s cubic-bezier(.3,1.6,.5,1) both; }
+#doneStars i.off { color: var(--line-strong); }
+@keyframes gostar { 0% { transform: scale(0) rotate(-40deg); opacity: 0; } 100% { transform: none; opacity: 1; } }
+.donepar { text-align: center; margin: -4px 0 8px; font-size: 13px; font-weight: 700; color: var(--muted); }
+.donepiece { animation: goshine 2.4s ease-in-out infinite; }
+@keyframes goshine { 0%, 100% { box-shadow: 0 0 18px rgba(255,214,107,.55); } 50% { box-shadow: 0 0 34px rgba(255,214,107,.95); } }
+.room { background: linear-gradient(160deg, rgba(255,244,220,.11), rgba(255,244,220,.05)); }
 </style>
 </head>
 <body>
@@ -232,7 +302,9 @@ html.go-lane .lane { display: block; }
       <svg viewBox="0 0 100 100" aria-hidden="true"><use href="#go-logo"/></svg>
       <div><h1 id="laneTitle">Get Out!</h1><p>Five locked rooms on Keyhole Lane</p></div>
     </div>
+    <div class="lanescene" id="laneScene"></div>
     <div class="pieces" id="pieces"></div>
+    <button class="trbtn" id="lnTrophy"><svg viewBox="0 0 24 24"><use href="#i-stats"/></svg><span>Stars &amp; trophies</span><b id="lnTrophyN">0 of 45</b></button>
     <div class="rooms" id="rooms"></div>
     <div class="lanebtns">
       <button class="tool finbtn" id="lnFinale"><svg viewBox="0 0 24 24"><use href="#i-star"/></svg><span>Put the five pieces together</span></button>
@@ -293,11 +365,18 @@ html.go-lane .lane { display: block; }
     <div class="donepiece" id="donePiece"></div>
     <h2 id="doneTitle">You got out!</h2>
     <div class="stars" id="doneStars"></div>
+    <p class="donepar" id="donePar"></p>
     <div class="tiles"><div class="tile"><b id="doneTime">0:00</b><span>time</span></div><div class="tile"><b id="doneHints">0</b><span>hints</span></div></div>
     <p class="wrennote" id="doneNote"></p>
     <p class="donepieces" id="donePieces"></p>
     <div class="actions"><button class="btn gold" id="doneFinale">Put the five pieces together</button><button class="btn red" id="doneLane">Back to Keyhole Lane</button><button class="btn" id="doneAgain">Play again (new puzzles)</button></div>
   </div>
+</div>
+
+<!-- Stars & trophies (from Keyhole Lane): every room x difficulty, full screen -->
+<div class="overlay trophy" id="ovTrophy">
+  <div class="trtop"><button class="trclose" id="trophyClose" aria-label="Back"><svg viewBox="0 0 24 24"><use href="#i-back"/></svg></button><h2>Stars &amp; trophies</h2></div>
+  <div class="trbody" id="trophyBody"></div>
 </div>
 
 <!-- Confirm -->
@@ -413,6 +492,7 @@ var GOEngine = (function () {
     index(R);
     var st = { f: {}, inv: [], done: {}, pz: {} };
     for (var id in R.puzzles) st.pz[id] = JSON.parse(JSON.stringify(R.puzzles[id].init));
+    R.par = parFor(R, diff);
     return { room: room, diff: diff, seed: seed, P: P, R: R, st: st };
   }
   // rebuild a run from a save (P and R are rebuilt from the seed: the same seed always rolls the same values)
@@ -420,7 +500,7 @@ var GOEngine = (function () {
     var run = newRun(room, diff, seed);
     if (saved) {
       run.st.f = saved.f || {}; run.st.inv = saved.inv || []; run.st.done = saved.done || {};
-      for (var id in saved.pz || {}) if (run.st.pz[id]) run.st.pz[id] = saved.pz[id];
+      for (var id in saved.pz || {}) if (run.st.pz[id] && fits(run.R.puzzles[id], saved.pz[id])) run.st.pz[id] = saved.pz[id];
     }
     return run;
   }
@@ -748,7 +828,8 @@ var GOEngine = (function () {
 
   // ---------- generators for the bigger widgets (rooms call these from roll(), with the playthrough's seeded rng) ----------
   // pipes: a winding route from the inlet to the outlet, the pieces on it, random pieces elsewhere, everything turned at random
-  function genPipes(r, w, h, minLen, maxLen, tees) {
+  // 0.4.0: minTaps / maxTaps bound the turns the planned route still needs at the start (so a big board is never a slog)
+  function genPipes(r, w, h, minLen, maxLen, tees, minTaps, maxTaps) {
     for (var tries = 0; tries < 400; tries++) {
       var src = r.int(h), dst = r.int(h), path = null, seen = {}, visits = 0;
       var dfs = function (c, list) {
@@ -778,7 +859,14 @@ var GOEngine = (function () {
         need.push({ i: c, need: m }); onPath[c] = true;
       });
       var pz = { type: 'pipes', w: w, h: h, src: src, dst: dst, tiles: tiles, path: need }, st;
-      do { st = { r: tiles.map(function () { return r.int(4); }) }; } while (PZ.pipes.solved(pz, st));
+      var taps = function (q) { var n = 0; need.forEach(function (c) { var k = 0; while (k < 4 && (pipeMask(tiles[c.i], (q.r[c.i] + k) % 4) & c.need) !== c.need) k++; n += k; }); return n; };
+      var okInit = false;
+      for (var g2 = 0; g2 < 300 && !okInit; g2++) {
+        st = { r: tiles.map(function () { return r.int(4); }) };
+        var tp = taps(st);
+        okInit = !PZ.pipes.solved(pz, st) && (minTaps == null || (tp >= minTaps && tp <= maxTaps));
+      }
+      if (!okInit) continue;
       pz.init = st;
       return pz;
     }
@@ -786,9 +874,11 @@ var GOEngine = (function () {
   }
   // sliding blocks: a random tray; every layout its blocks can slide into is explored, and the start is a layout whose
   // fewest taps to free the target block falls in [lo, hi] (moves are reversible, so one search from the freed layouts
-  // gives every layout's distance). Falls back to the hardest layout found.
+  // gives every layout's distance). Falls back to the hardest layout found within hi.
+  // 0.4.0: layouts are packed into one number (3 bits per block) and searched with typed arrays, and a tray whose
+  // layouts run past CAP is dropped early: a new Hard Workshop game used to take about a third of a second to start.
   function genBlocks(r, n, count, lo, hi) {
-    var best = null;
+    var best = null, CAP = 5000;
     for (var tries = 0; tries < 60; tries++) {
       var ty = (n / 2 | 0) - 1 + (n > 5 ? r.int(2) : 0), blocks = [{ len: 2, v: false, at: ty }], p = [n - 2], occ = {};
       var mark = function (b, q) { for (var k = 0; k < b.len; k++) { var cc = q + k; occ[b.v ? cc * n + b.at : b.at * n + cc] = 1; } };
@@ -801,36 +891,90 @@ var GOEngine = (function () {
         if (!free) continue;
         blocks.push(b); p.push(q); mark(b, q);
       }
-      var pz = { type: 'blocks', n: n, blocks: blocks };
-      // every layout reachable from here (occupancy built once per layout: this runs for every new game)
-      var key = function (pp) { return pp.join(','); }, idx = {}, list = [p.slice()], nb = [], NB = blocks.length;
-      idx[key(p)] = 0;
-      for (var qi = 0; qi < list.length && list.length < 5000; qi++) {
-        nb[qi] = [];
-        var cur = list[qi], og = new Array(n * n);
-        for (var bi = 0; bi < NB; bi++) { var B = blocks[bi]; for (var k2 = 0; k2 < B.len; k2++) { var c2 = cur[bi] + k2; og[B.v ? c2 * n + B.at : B.at * n + c2] = 1; } }
+      var pz = { type: 'blocks', n: n, blocks: blocks }, NB = blocks.length;
+      var enc = function (pp) { var v = 0; for (var i = NB - 1; i >= 0; i--) v = v * 8 + pp[i]; return v; };
+      var idx = new Map(), list = [enc(p)], nb = [], og = new Uint8Array(n * n), cur = new Array(NB), over = false;
+      idx.set(list[0], 0);
+      for (var qi = 0; qi < list.length; qi++) {
+        if (list.length > CAP) { over = true; break; }
+        var code = list[qi], bi, B, k2, c2;
+        for (bi = 0; bi < NB; bi++) { cur[bi] = code % 8; code = Math.floor(code / 8); }
+        og.fill(0);
+        for (bi = 0; bi < NB; bi++) { B = blocks[bi]; for (k2 = 0; k2 < B.len; k2++) { c2 = cur[bi] + k2; og[B.v ? c2 * n + B.at : B.at * n + c2] = 1; } }
+        var mine = [];
         for (bi = 0; bi < NB; bi++) {
           B = blocks[bi];
           for (var d = -1; d <= 1; d += 2) {
             var to = cur[bi] + d; if (to < 0 || to + B.len > n) continue;
             var ce = d > 0 ? to + B.len - 1 : to; if (og[B.v ? ce * n + B.at : B.at * n + ce]) continue;
-            var np = cur.slice(); np[bi] = to;
-            var kk = key(np); if (idx[kk] == null) { idx[kk] = list.length; list.push(np); }
-            nb[qi].push(idx[kk]);
+            var kk = list[qi] + d * Math.pow(8, bi), j = idx.get(kk);
+            if (j === undefined) { j = list.length; idx.set(kk, j); list.push(kk); }
+            mine.push(j);
           }
         }
+        nb[qi] = mine;
       }
-      if (list.length >= 5000) continue;
-      // distance of every layout to the nearest freed one
-      var dist = [], qq = [];
-      list.forEach(function (pp, i) { if (pp[0] + 2 === n) { dist[i] = 0; qq.push(i); } });
-      for (var h = 0; h < qq.length; h++) nb[qq[h]].forEach(function (j) { if (dist[j] == null) { dist[j] = dist[qq[h]] + 1; qq.push(j); } });
+      if (over) continue;
+      // distance of every layout to the nearest freed one (the target's left cell is the lowest 3 bits)
+      var dist = new Int32Array(list.length).fill(-1), qq = [];
+      list.forEach(function (v, i) { if (v % 8 + 2 === n) { dist[i] = 0; qq.push(i); } });
+      for (var h = 0; h < qq.length; h++) nb[qq[h]].forEach(function (j) { if (dist[j] < 0) { dist[j] = dist[qq[h]] + 1; qq.push(j); } });
+      var dec = function (v) { var o = []; for (var i = 0; i < NB; i++) { o.push(v % 8); v = Math.floor(v / 8); } return o; };
       var ok = [], far = -1, farI = -1;
-      list.forEach(function (pp, i) { var dd = dist[i]; if (dd >= lo && dd <= hi) ok.push(i); if (dd <= hi && dd > far) { far = dd; farI = i; } });
-      if (ok.length) { var top = 0; ok.forEach(function (i) { if (dist[i] > top) top = dist[i]; }); ok = ok.filter(function (i) { return dist[i] >= top - 1; }); var pick = ok[r.int(ok.length)]; pz.init = { p: list[pick].slice() }; pz.best = dist[pick]; return pz; }
-      if (farI >= 0 && (!best || far > best.best)) { best = pz; pz.init = { p: list[farI].slice() }; pz.best = far; }
+      for (var i2 = 0; i2 < list.length; i2++) { var dd = dist[i2]; if (dd >= lo && dd <= hi) ok.push(i2); if (dd <= hi && dd > far) { far = dd; farI = i2; } }
+      if (ok.length) { var top = 0; ok.forEach(function (i) { if (dist[i] > top) top = dist[i]; }); ok = ok.filter(function (i) { return dist[i] >= top - 1; }); var pick = ok[r.int(ok.length)]; pz.init = { p: dec(list[pick]) }; pz.best = dist[pick]; return pz; }
+      if (farI >= 0 && (!best || far > best.best)) { best = pz; pz.init = { p: dec(list[farI]) }; pz.best = far; }
     }
     return best;
+  }
+  // the sliding picture box: a scramble of exactly `walk` gap moves (never straight back), so the fewest moves that
+  // solve it are at most `walk`; re-rolled until the tiles are at least `lo` moves away by Manhattan distance (a lower
+  // bound), so it is never too easy either. path: where the gap went (tests unwind it; the game never shows it).
+  function genSlider(r, n, walk, lo) {
+    var N = n * n, tiles, moves;
+    for (var tries = 0; tries < 200; tries++) {
+      tiles = []; moves = []; var blank = N - 1, last = -1, i;
+      for (i = 0; i < N; i++) tiles.push(i);
+      for (var s = 0; s < walk; s++) {
+        var bx = blank % n, by = (blank / n) | 0, opts = [];
+        if (bx > 0) opts.push(blank - 1); if (bx < n - 1) opts.push(blank + 1); if (by > 0) opts.push(blank - n); if (by < n - 1) opts.push(blank + n);
+        opts = opts.filter(function (o) { return o !== last; });
+        var o = r.pick(opts), t = tiles[o]; tiles[o] = tiles[blank]; tiles[blank] = t; last = blank; blank = o; moves.push(o);
+      }
+      if (manhattan(n, tiles) >= lo) break;
+    }
+    return { n: n, tiles: tiles, path: [N - 1].concat(moves) };
+  }
+  function manhattan(n, t) { var d = 0; for (var i = 0; i < t.length; i++) { var v = t[i]; if (v === n * n - 1) continue; d += Math.abs(v % n - i % n) + Math.abs(((v / n) | 0) - ((i / n) | 0)); } return d; }
+  // the fewest taps a widget still needs (pipes: turns on the planned route; rings: turns outside in)
+  function pzTaps(pz, s) { return pzMoves(pz, s).length; }
+
+  // ---------- stars: a time target scaled by the length of the chain ----------
+  // par = the room's actions (take, use, combine, solve, tap; red herrings not counted) x a per-action time by difficulty,
+  // rounded up to the next half minute. The checker prints the table (and checks it).
+  var PAR_PER = { e: 45, m: 55, h: 70 };
+  function actions(R) { return R.steps.filter(function (s) { return !s.herring && !s.auto && /^(take|use|combine|solve|act)$/.test(s.kind); }).length; }
+  function parFor(R, diff) { return Math.ceil(actions(R) * PAR_PER[diff] / 30) * 30; }
+  // Easy (hints are free): 3 stars within par, 2 within twice par. Medium and Hard: 3, minus one for any hint, one more
+  // for 4 or more hints, one for going over par; never below 1.
+  function stars(diff, ms, hints, par) {
+    if (diff === 'e') return ms <= par * 1000 ? 3 : ms <= par * 2000 ? 2 : 1;
+    return Math.max(1, 3 - (hints > 0 ? 1 : 0) - (hints > 3 ? 1 : 0) - (ms > par * 1000 ? 1 : 0));
+  }
+
+  // a saved widget state that no longer fits its puzzle (a game saved by an older version whose puzzle is now rolled
+  // differently) starts fresh instead of breaking the puzzle
+  function fits(pz, s) {
+    var i0 = pz.init;
+    if (!s || typeof s !== 'object') return false;
+    for (var k in i0) if (Array.isArray(i0[k]) && (!Array.isArray(s[k]) || s[k].length !== i0[k].length)) return false;
+    if (pz.type === 'sequence') { for (var i = 0; i < s.got.length; i++) if (s.got[i] !== pz.answer[i]) return false; }
+    if (pz.type === 'slider') { var t = s.t.slice().sort(function (a, b) { return a - b; }); for (i = 0; i < t.length; i++) if (t[i] !== i) return false; }
+    if (pz.type === 'blocks') {
+      var cells = {};
+      for (i = 0; i < pz.blocks.length; i++) { var b = pz.blocks[i]; for (var k2 = 0; k2 < b.len; k2++) { var c = s.p[i] + k2; if (c < 0 || c >= pz.n) return false; var key = b.v ? c * pz.n + b.at : b.at * pz.n + c; if (cells[key]) return false; cells[key] = 1; } }
+    }
+    return true;
   }
 
   // ---------- the story frame: brass pieces and the finale ----------
@@ -846,7 +990,8 @@ var GOEngine = (function () {
   }
   function pieceCount(p) { var n = 0; for (var i = 1; i <= PIECES; i++) if (p && p[i]) n++; return n; }
 
-  return { rng: rng, newRun: newRun, genPipes: genPipes, genBlocks: genBlocks, pipeFlow: pipeFlow, pipeMask: pipeMask, blocksSolve: blocksSolve,
+  return { rng: rng, newRun: newRun, genPipes: genPipes, genBlocks: genBlocks, genSlider: genSlider, manhattan: manhattan, pzTaps: pzTaps,
+    actions: actions, parFor: parFor, stars: stars, PAR_PER: PAR_PER, fits: fits, sliderSolve: sliderSolve, pipeFlow: pipeFlow, pipeMask: pipeMask, blocksSolve: blocksSolve,
     earnPiece: earnPiece, pieceCount: pieceCount, PIECES: PIECES, loadRun: loadRun, index: index, has: has, can: can, apply: apply, won: won,
     needed: needed, hint: hint, plan: plan, clone: clone, PZ: PZ, pzOp: pzOp, pzSolved: pzSolved, pzMoves: pzMoves };
 })();
@@ -858,6 +1003,7 @@ if (typeof module !== 'undefined') module.exports = GOEngine;
    layout from L). Puzzle answers live only in the rolled values P, never in this file's text. */
 var GORoom1 = (function () {
   'use strict';
+  var GE = typeof GOEngine !== 'undefined' ? GOEngine : require('../engine.js');
 
   var EVENTS = [
     { id: 'kite', label: 'Flew a kite on Windy Hill' },
@@ -950,19 +1096,9 @@ var GORoom1 = (function () {
       P.globe = r.shuffle(P.globeSet).slice(0, diff === 'm' ? 4 : 5);
       do { P.globeStart = P.globe.map(function () { return r.int(P.globeSet.length); }); }
       while (P.globeStart.every(function (k, j) { return P.globeSet[k] === P.globe[j]; }));
-      // the sliding picture box: a scramble made of legal moves, so it can always be solved
-      var sn = diff === 'm' ? 3 : 4, N = sn * sn, tiles = [], blank = N - 1, last = -1, moves = [];
-      for (i = 0; i < N; i++) tiles.push(i);
-      var steps = diff === 'm' ? 60 : 80;
-      for (var s = 0; s < steps || isSolved(tiles); s++) {
-        var bx = blank % sn, by = (blank / sn) | 0, opts = [];
-        if (bx > 0) opts.push(blank - 1); if (bx < sn - 1) opts.push(blank + 1); if (by > 0) opts.push(blank - sn); if (by < sn - 1) opts.push(blank + sn);
-        opts = opts.filter(function (o) { return o !== last; });
-        var o = r.pick(opts), t = tiles[o]; tiles[o] = tiles[blank]; tiles[blank] = t; last = blank; blank = o; moves.push(o);
-        if (s > 400) break;
-      }
-      // path: where the gap went from the solved board (tests use it to unwind; the game never shows it)
-      P.slider = { n: sn, tiles: tiles, path: [N - 1].concat(moves) };
+      // the sliding picture box: a scramble made of legal moves, so it can always be solved. 0.4.0: a fixed number of
+      // gap moves bounds the fewest moves that solve it (Medium 16, Hard 24), with a floor so it is never trivial
+      P.slider = diff === 'm' ? GE.genSlider(r, 3, 16, 8) : GE.genSlider(r, 4, 24, 14);
       // which candidate book is the special one (Medium: one of 4; Hard: one of 6)
       P.bookCount = diff === 'm' ? 4 : 6; P.book = r.int(P.bookCount);
     }
@@ -1215,7 +1351,7 @@ var GORoom1 = (function () {
     } else hs('clockz', { id: 'lens', r: L.caseLens, step: 'take_lens', show: function (st) { return st.f['f:clockOpen'] && !st.done.take_lens; } });
 
     var R = { id: 1, diff: diff, steps: steps, views: views, puzzles: puzzles, clues: clues, items: items, goal: 'f:doorOpen',
-      walls: ['door', 'shelf', 'desk', 'fire'], start: 'door', par: { e: 8, m: 15, h: 25 }[diff] * 60 };
+      walls: ['door', 'shelf', 'desk', 'fire'], start: 'door' };
     return R;
   }
   // candidate book rectangles on the close-up shelves (art.js draws a matching book in each)
@@ -1307,7 +1443,8 @@ var GORoom2 = (function () {
     var P = { diff: diff }, i;
     var n = { e: 3, m: 4, h: 5 }[diff];
     // the jukebox: songs on title strips with letter+number codes
-    var letters = diff === 'h' ? ['A', 'B', 'C'] : ['A', 'B'], nums = diff === 'e' ? 4 : 5;
+    // (0.4.0: Hard has 12 songs, A-C x 1-4, instead of 15: still the most to search, less scanning)
+    var letters = diff === 'h' ? ['A', 'B', 'C'] : ['A', 'B'], nums = diff === 'm' ? 5 : 4;
     var titles = r.shuffle(SONGS).slice(0, letters.length * nums);
     P.songs = [];
     letters.forEach(function (Lt, li) { for (var k = 1; k <= nums; k++) P.songs.push({ code: Lt + k, title: titles[li * nums + k - 1] }); });
@@ -1391,7 +1528,8 @@ var GORoom2 = (function () {
   function riddle(P) {
     var parts = P.order.map(function (o) { return (o.q === 1 ? (/^[AEIOU]/.test(o.name) ? 'an ' : 'a ') + o.name : NUMW[o.q] + ' ' + plural(o.name)); });
     var list = parts.length === 2 ? parts.join(' and ') : parts.slice(0, -1).join(', ') + ' and ' + parts[parts.length - 1];
-    return (P.diff === 'h' ? 'Saturday supper: ' : 'Wren’s usual: ') + list + '. Ring it up!';
+    // (0.4.0: Easy says what to do with the prices)
+    return (P.diff === 'h' ? 'Saturday supper: ' : 'Wren’s usual: ') + list + (P.diff === 'e' ? '. Add up the prices and ring it up!' : '. Ring it up!');
   }
   function colorName(id) { for (var i = 0; i < COLORS.length; i++) if (COLORS[i].id === id) return COLORS[i].name; return id; }
   function appName(id) { for (var i = 0; i < APPS.length; i++) if (APPS[i].id === id) return APPS[i].name; return id; }
@@ -1634,7 +1772,7 @@ var GORoom2 = (function () {
       say: function (st) { return st.f['f:fbOpen'] ? 'An empty fuse socket.' : 'The fuse box cover is held by four screws.'; } });
 
     var R = { id: 2, diff: diff, steps: steps, views: views, puzzles: puzzles, clues: clues, items: items, goal: 'f:doorOpen',
-      walls: ['door', 'counter', 'juke', 'kitchen'], start: 'door', par: { e: 10, m: 18, h: 28 }[diff] * 60,
+      walls: ['door', 'counter', 'juke', 'kitchen'], start: 'door',
       nope: [{ items: ['dime', 'nickel'], say: 'Two coins. Still not rich.' }] };
     return R;
   }
@@ -1665,6 +1803,7 @@ if (typeof module !== 'undefined') module.exports = GORoom2;
    floor line at y=1100; art3.js draws the same layout from L. Answers live only in the rolled values P. */
 var GORoom3 = (function () {
   'use strict';
+  var GE = typeof GOEngine !== 'undefined' ? GOEngine : require('../engine.js');
 
   // twelve original signal flags (art3.js draws them); the chart in the signal book maps ten of them to digits
   var FLAGS = ['halves', 'cross', 'checks', 'diagonal', 'disc', 'stripes', 'triangle', 'saltire', 'border', 'star', 'quarters', 'wave'];
@@ -1738,6 +1877,16 @@ var GORoom3 = (function () {
       var set = r.shuffle(LENSSYM).slice(0, k), a = r.int(k), s0;
       do { s0 = r.int(k); } while (s0 === a);
       P.rings.push(set); P.ringAns.push(set[a]); P.ringStart.push(s0);
+    }
+    // 0.4.0, Hard (linked rings): the starts are re-rolled until the whole lens takes 8-14 taps worked outside in (it
+    // could take up to 28), and the outer ring always needs turning, so the link always matters
+    if (diff === 'h') {
+      var lz = { type: 'rings', rings: P.rings, answer: P.ringAns, link: true };
+      for (var g = 0; g < 400; g++) {
+        var tp = GE.pzTaps(lz, { o: P.ringStart }), outer = P.rings[0][P.ringStart[0]] !== P.ringAns[0];
+        if (tp >= 8 && tp <= 14 && outer && !GE.pzSolved(lz, { o: P.ringStart })) break;
+        P.ringStart = P.ringStart.map(function () { return r.int(k); });
+      }
     }
     // Medium, Hard: Far Point light's flash pattern (short / long), answered on the signal lamp
     if (diff !== 'e') {
@@ -2014,7 +2163,7 @@ var GORoom3 = (function () {
     }
 
     var R = { id: 3, diff: diff, steps: steps, views: views, puzzles: puzzles, clues: clues, items: items, goal: 'f:doorOpen',
-      walls: ['door', 'lens', 'desk', 'window'], start: 'door', par: { e: 10, m: 18, h: 28 }[diff] * 60,
+      walls: ['door', 'lens', 'desk', 'window'], start: 'door',
       nope: [{ items: ['lantern', 'matches'], say: 'The lantern’s tank is empty. It needs oil first.' },
         { items: ['lanternW', 'matches'], say: 'The lantern’s tank is still empty.' }] };
     if (H) R.nope.push({ items: ['lantern', 'oil'], say: 'The lantern has no wick. The oil would just leak out.' });
@@ -2198,7 +2347,8 @@ var GORoom4 = (function () {
       var nd = M ? 4 : 5;
       do { P.code = []; for (i = 0; i < nd; i++) P.code.push(r.int(10)); } while (P.code.every(function (x) { return x === P.code[0]; }));
       // the sliding tray in the cabinet's bottom drawer
-      P.tray = M ? GE.genBlocks(r, 5, 7, 10, 20) : GE.genBlocks(r, 6, 8, 14, 34);
+      // (0.4.0: fewest slides Medium 8-13, Hard 12-18; it used to run to 20 / 34)
+      P.tray = M ? GE.genBlocks(r, 5, 7, 8, 13) : GE.genBlocks(r, 6, 8, 12, 18);
       var bc = r.shuffle(BOXCOL); P.tray.blocks.forEach(function (b, k) { b.col = k ? bc[k - 1] : 'red'; });
     }
     if (H) {
@@ -2260,7 +2410,7 @@ var GORoom4 = (function () {
     step({ id: 'see_card', kind: 'see', view: 'notez', add: ['k:card'], clue: 'card',
       hint: ['Aunt Wren left a note on the workbench.', 'Read the card pinned on the workbench.', 'Look at the workbench, then read the note card.'] });
     views.notez.enter = 'see_card';
-    clues.card = { kind: 'card', lines: cardLines(P), final: E ? 'Set my tall clock to the true time.' : 'Only my tall clock tells true time.' };
+    clues.card = { kind: 'card', lines: cardLines(P), final: E ? 'Set my tall clock to the true time. (A fast clock shows a later time than the real one.)' : 'Only my tall clock tells true time.' };
     step({ id: 'see_clocks', kind: 'see', view: 'clocksz', add: ['k:clocks'], clue: 'clocks',
       hint: ['Every cuckoo clock on that wall shows a different time.', 'Look closely at the cuckoo clocks and their times.', 'Turn to the wall of cuckoo clocks and tap them for a close look.'] });
     views.clocksz.enter = 'see_clocks';
@@ -2282,7 +2432,7 @@ var GORoom4 = (function () {
         hint: ['It’s very dark at the workbench.', 'The big skylight has a blind. There’s a cord.', 'Pull the skylight blind’s cord on the left of the workbench wall.'] });
     }
     if (!E) {
-      step({ id: 'use_watch', kind: 'use', item: 'watch', target: 'stage', view: 'magz', need: H ? ['i:watch', 'f:moon'] : ['i:watch'], add: ['k:marks'], show: 'magview', clue: 'marks', snd: 'click',
+      step({ id: 'use_watch', kind: 'use', item: 'watch', target: 'stage', view: 'magz', need: H ? ['i:watch', 'f:moon'] : ['i:watch'], add: ['k:marks'], del: ['i:watch'], show: 'magview', clue: 'marks', snd: 'click',
         wait: 'Too dark to make out anything that tiny. If only more light came in.',
         hint: ['The watch has tiny marks on its back.', 'The bench magnifier can make tiny things big.', 'Select the pocket watch, look at the magnifier and tap the little stage under its lens.'] });
       clues.marks = { kind: 'marks', digits: P.code.slice() };
@@ -2449,7 +2599,7 @@ var GORoom4 = (function () {
     hs('testerz', { id: 'main', r: L.testerBase, step: 'take_main', show: function (st) { return st.f['f:springsOK'] && !st.done.take_main; } });
 
     var R = { id: 4, diff: diff, steps: steps, views: views, puzzles: puzzles, clues: clues, items: items, goal: 'f:doorOpen',
-      walls: ['door', 'bench', 'cuckoos', 'drawers'], start: 'door', par: { e: 10, m: 20, h: 30 }[diff] * 60,
+      walls: ['door', 'bench', 'cuckoos', 'drawers'], start: 'door',
       nope: [{ items: ['wkey', 'main'], say: 'The mainspring goes in the gear board’s motor first.' }, { items: ['watch', 'wkey'], say: 'The watch is stopped for good. Its tiny marks are what matter.' }] };
     return R;
   }
@@ -2608,7 +2758,8 @@ var GORoom5 = (function () {
     P.growAns = P.pots.slice().sort(function (a, b) { return H ? b.stage - a.stage : a.stage - b.stage; }).map(function (p) { return p.tag; });
     if (P.growAns.join() === POTTAG.slice(0, np).join()) { /* already in order left to right: fine, the pots still need tapping */ }
     // the pipes under the fountain grate
-    P.pipes = E ? GE.genPipes(r, 3, 3, 5, 7, 0) : M ? GE.genPipes(r, 4, 4, 7, 10, 0.1) : GE.genPipes(r, 5, 5, 10, 14, 0.15);
+    // (0.4.0: the turns the route needs at the start are bounded: Easy 2-8, Medium 5-10, Hard 8-13 on a route of 9-12 pieces)
+    P.pipes = E ? GE.genPipes(r, 3, 3, 5, 7, 0, 2, 8) : M ? GE.genPipes(r, 4, 4, 7, 10, 0.1, 5, 10) : GE.genPipes(r, 5, 5, 9, 12, 0.15, 8, 13);
     // the seed cabinet
     var nd = { e: 3, m: 4, h: 5 }[diff], lg = null;
     while (!lg) lg = genLogic(r, nd, diff);
@@ -2760,7 +2911,7 @@ var GORoom5 = (function () {
     step({ id: 'see_card', kind: 'see', view: 'cardz', add: ['k:card'], clue: 'card',
       hint: ['Aunt Wren pinned a card by the seed cabinet.', 'The card says which seed packet goes in which drawer.', 'Turn to the potting bench wall and read the card next to the seed cabinet.'] });
     views.cardz.enter = 'see_card';
-    clues.card = { kind: 'logic', says: P.seedSays.slice(), n: P.seedAns.length };
+    clues.card = { kind: 'logic', says: P.seedSays.slice(), n: P.seedAns.length, tip: E ? 'Every line is true. Tap a drawer’s label to change it.' : null };
     step({ id: 'solve_seeds', kind: 'solve', puzzle: 'seeds', view: 'seedz', know: ['k:card'], add: ['f:seedOpen'], snd: 'unlock',
       hint: ['The seed cabinet’s drawers have labels you can change.', 'Use the card’s clues to work out which packet goes in which drawer. Rule things out one by one.', 'Label the drawers, left to right: ' + cWords + '.'] });
     puzzles.seeds = { type: 'symbols', view: 'seedz', step: 'solve_seeds', set: P.seedSet.slice(), answer: P.seedAns.slice(), init: { s: P.seedStart.slice() }, tap: 'tick' };
@@ -2835,7 +2986,7 @@ var GORoom5 = (function () {
     if (H) hs('chestz', { id: 'shears', r: L.shears, step: 'take_shears', show: function (st) { return st.f['f:chestOpen'] && !st.done.take_shears; } });
 
     var R = { id: 5, diff: diff, steps: steps, views: views, puzzles: puzzles, clues: clues, items: items, goal: 'f:doorOpen',
-      walls: ['door', 'fountain', 'panes', 'potting'], start: 'door', par: { e: 12, m: 22, h: 32 }[diff] * 60, doorMs: 3600,
+      walls: ['door', 'fountain', 'panes', 'potting'], start: 'door', doorMs: 3600,
       nope: [{ items: ['can', 'food'], say: 'The can is empty. Fill it with water first.' }, { items: ['seed', 'can'], say: 'Seeds go in soil, not in the watering can.' }],
       wrong: [{ item: 'handle', target: 'brambles', say: 'The brambles are in the way. You’d need something sharp.' },
         { item: 'canFull', target: 'pot', say: E ? 'Plant something first.' : 'Plain water won’t grow anything overnight. It needs a little help.' },
@@ -2906,22 +3057,56 @@ var GOArt = (function () {
     var f = function (v) { return Math.max(0, Math.min(255, Math.round(k < 0 ? v * (1 + k) : v + (255 - v) * k))); };
     return 'rgb(' + f(r) + ',' + f(g) + ',' + f(b) + ')';
   }
-  // wood: a soft gradient plus grain lines
+  // wood: a soft gradient, long grain lines of a few weights, the odd knot, and a lit top-left edge (0.4.0: richer grain)
   function wood(c, x, y, w, h, base, vertical, seed) {
     c.save(); c.beginPath(); c.rect(x, y, w, h); c.clip();
-    c.fillStyle = vertical ? lin(c, x, y, x + w, y, [[0, shade(base, -0.12)], [0.5, base], [1, shade(base, -0.18)]]) : lin(c, x, y, x, y + h, [[0, shade(base, 0.06)], [1, shade(base, -0.16)]]);
+    c.fillStyle = vertical ? lin(c, x, y, x + w, y, [[0, shade(base, -0.14)], [0.35, shade(base, 0.05)], [0.55, base], [1, shade(base, -0.2)]]) : lin(c, x, y, x, y + h, [[0, shade(base, 0.08)], [0.4, base], [1, shade(base, -0.18)]]);
     c.fillRect(x, y, w, h);
-    var r = seeded(seed || 7), n = Math.max(3, Math.floor((vertical ? w : h) / 14));
-    c.strokeStyle = shade(base, -0.3); c.globalAlpha = 0.22; c.lineWidth = 1.6;
+    var r = seeded(seed || 7), n = Math.max(4, Math.floor((vertical ? w : h) / 9));
     for (var i = 0; i < n; i++) {
       c.beginPath();
-      if (vertical) { var gx = x + r() * w; c.moveTo(gx, y); c.bezierCurveTo(gx + (r() - 0.5) * 16, y + h * 0.3, gx + (r() - 0.5) * 16, y + h * 0.7, gx + (r() - 0.5) * 10, y + h); }
-      else { var gy = y + r() * h; c.moveTo(x, gy); c.bezierCurveTo(x + w * 0.3, gy + (r() - 0.5) * 12, x + w * 0.7, gy + (r() - 0.5) * 12, x + w, gy + (r() - 0.5) * 8); }
+      c.strokeStyle = r() < 0.35 ? shade(base, 0.22) : shade(base, -0.34); c.globalAlpha = 0.12 + r() * 0.16; c.lineWidth = 0.8 + r() * 1.6;
+      if (vertical) { var gx = x + r() * w; c.moveTo(gx, y); c.bezierCurveTo(gx + (r() - 0.5) * 18, y + h * 0.3, gx + (r() - 0.5) * 18, y + h * 0.7, gx + (r() - 0.5) * 12, y + h); }
+      else { var gy = y + r() * h; c.moveTo(x, gy); c.bezierCurveTo(x + w * 0.3, gy + (r() - 0.5) * 14, x + w * 0.7, gy + (r() - 0.5) * 14, x + w, gy + (r() - 0.5) * 9); }
       c.stroke();
     }
+    // a knot or two where there's room
+    var knots = (w * h > 9000) ? 1 + (r() < 0.4 ? 1 : 0) : 0;
+    for (var k = 0; k < knots; k++) {
+      var kx = x + w * (0.2 + r() * 0.6), ky = y + h * (0.2 + r() * 0.6), kr = Math.min(w, h) * (0.06 + r() * 0.05) + 3;
+      c.globalAlpha = 0.28; c.strokeStyle = shade(base, -0.4); c.lineWidth = 1.4;
+      for (var q = 0; q < 3; q++) { c.beginPath(); c.ellipse(kx, ky, vertical ? kr * (0.5 + q * 0.4) : kr * (1 + q * 0.9), vertical ? kr * (1 + q * 0.9) : kr * (0.5 + q * 0.4), 0, 0, TAU); c.stroke(); }
+      c.fillStyle = shade(base, -0.4); c.globalAlpha = 0.3; c.beginPath(); c.ellipse(kx, ky, vertical ? kr * 0.35 : kr * 0.7, vertical ? kr * 0.7 : kr * 0.35, 0, 0, TAU); c.fill();
+    }
+    // the lit edge and the shaded edge
+    c.globalAlpha = 0.35; c.fillStyle = 'rgba(255,236,200,.8)'; if (vertical) c.fillRect(x, y, Math.min(3, w * 0.05), h); else c.fillRect(x, y, w, Math.min(3, h * 0.08));
+    c.globalAlpha = 0.3; c.fillStyle = 'rgba(20,8,0,.9)'; if (vertical) c.fillRect(x + w - Math.min(3, w * 0.05), y, Math.min(3, w * 0.05), h); else c.fillRect(x, y + h - Math.min(3, h * 0.08), w, Math.min(3, h * 0.08));
     c.restore();
   }
-  function brass(c, x0, y0, x1, y1) { return lin(c, x0, y0, x1, y1, [[0, '#f7dc8a'], [0.45, '#d9a640'], [1, '#8f5f1a']]); }
+  // brass: a polished band of light across it (0.4.0: a sharper specular highlight and a warm reflected under-light)
+  function brass(c, x0, y0, x1, y1) { return lin(c, x0, y0, x1, y1, [[0, '#fff6d2'], [0.12, '#f6d888'], [0.32, '#d9a640'], [0.55, '#9a6a1e'], [0.72, '#c58f34'], [0.86, '#f0c870'], [1, '#7a4e12']]); }
+  // a glass or varnish sheen: a soft diagonal streak of light (draw over glass, chrome, polished wood)
+  function gloss(c, x, y, w, h, a) {
+    c.save(); c.beginPath(); c.rect(x, y, w, h); c.clip(); c.globalAlpha = a == null ? 0.22 : a;
+    c.fillStyle = lin(c, x, y, x + w, y + h, [[0, 'rgba(255,255,255,0)'], [0.32, 'rgba(255,255,255,0)'], [0.4, 'rgba(255,255,255,.9)'], [0.47, 'rgba(255,255,255,.15)'], [0.55, 'rgba(255,255,255,.55)'], [0.6, 'rgba(255,255,255,0)'], [1, 'rgba(255,255,255,0)']]);
+    c.fillRect(x, y, w, h); c.restore();
+  }
+  // a little specular star (light catching a knob, a rivet, a bead of glass)
+  function spec(c, x, y, r, a) {
+    c.save(); c.globalCompositeOperation = 'lighter'; c.globalAlpha = a == null ? 0.9 : a;
+    c.fillStyle = rad(c, x, y, 0, r, [[0, 'rgba(255,255,240,1)'], [0.25, 'rgba(255,250,220,.6)'], [1, 'rgba(255,240,200,0)']]); c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
+    c.strokeStyle = 'rgba(255,255,240,.7)'; c.lineWidth = Math.max(1, r * 0.08); c.beginPath(); c.moveTo(x - r * 0.9, y); c.lineTo(x + r * 0.9, y); c.moveTo(x, y - r * 0.9); c.lineTo(x, y + r * 0.9); c.stroke();
+    c.restore();
+  }
+  // fabric: a fine woven texture over a shape already filled (clip to it first); col is the thread colour
+  function weave(c, x, y, w, h, col, a) {
+    c.save(); c.globalAlpha = a == null ? 0.16 : a; c.strokeStyle = col || '#000'; c.lineWidth = 1.2; c.beginPath();
+    for (var i = x; i < x + w; i += 6) { c.moveTo(i, y); c.lineTo(i, y + h); }
+    for (var j = y; j < y + h; j += 6) { c.moveTo(x, j); c.lineTo(x + w, j); }
+    c.stroke(); c.globalAlpha = (a == null ? 0.16 : a) * 0.6; c.strokeStyle = 'rgba(255,255,255,.6)'; c.beginPath();
+    for (i = x + 3; i < x + w; i += 12) { c.moveTo(i, y); c.lineTo(i + h * 0.2, y + h); }
+    c.stroke(); c.restore();
+  }
   function dropShadow(c, blur, dy, a) { c.shadowColor = 'rgba(20,8,0,' + (a || 0.45) + ')'; c.shadowBlur = blur; c.shadowOffsetY = dy || 0; c.shadowOffsetX = 0; }
   function noShadow(c) { c.shadowColor = 'transparent'; c.shadowBlur = 0; c.shadowOffsetY = 0; }
 
@@ -2973,6 +3158,16 @@ var GOArt = (function () {
     for (var x = Math.floor(e.x0 / 140) * 140; x < e.x1; x += 140) {
       c.beginPath(); c.moveTo(x, 1100); c.lineTo(500 + (x - 500) * 2.2, 1100 + 600); c.stroke();
     }
+    // 0.4.0: planks of slightly different tones, with grain, and a sheen where the light falls
+    var rs = seeded(17);
+    for (x = Math.floor(e.x0 / 140) * 140; x < e.x1; x += 140) {
+      c.save(); c.beginPath(); c.moveTo(x, 1100); c.lineTo(x + 140, 1100); c.lineTo(500 + (x + 140 - 500) * 2.2, 1700); c.lineTo(500 + (x - 500) * 2.2, 1700); c.closePath(); c.clip();
+      c.fillStyle = rs() < 0.5 ? 'rgba(255,210,150,.05)' : 'rgba(30,10,0,.08)'; c.fillRect(e.x0, 1100, e.x1 - e.x0, y1 - 1100);
+      c.strokeStyle = 'rgba(40,16,4,.18)'; c.lineWidth = 1.2;
+      for (var gk = 0; gk < 3; gk++) { var ox = 20 + rs() * 100; c.beginPath(); c.moveTo(x + ox, 1100); c.lineTo(500 + (x + ox - 500) * 2.2 + (rs() - 0.5) * 30, 1700); c.stroke(); }
+      c.restore();
+    }
+    c.fillStyle = lin(c, 0, 1100, 0, Math.min(y1, 1500), [[0, 'rgba(255,220,170,0)'], [0.25, 'rgba(255,220,170,.07)'], [1, 'rgba(255,220,170,0)']]); c.fillRect(e.x0, 1100, e.x1 - e.x0, Math.min(y1, 1500) - 1100);
     c.fillStyle = 'rgba(0,0,0,.25)'; c.fillRect(e.x0, 1100, e.x1 - e.x0, 10);
   }
   function rug(c, cx, y, w, col) {
@@ -2981,7 +3176,15 @@ var GOArt = (function () {
     c.fillStyle = col; c.fill(); c.lineWidth = 14; c.strokeStyle = '#d8a84a'; c.stroke();
     c.beginPath(); c.moveTo(cx - w / 2 + 70, y + 22); c.lineTo(cx + w / 2 - 70, y + 22); c.lineTo(cx + w / 2 - 20, y + 178); c.lineTo(cx - w / 2 + 20, y + 178); c.closePath();
     c.lineWidth = 4; c.strokeStyle = 'rgba(255,220,150,.5)'; c.stroke();
+    // 0.4.0: the weave, a medallion and the fringe
+    c.beginPath(); c.moveTo(cx - w / 2 + 40, y); c.lineTo(cx + w / 2 - 40, y); c.lineTo(cx + w / 2 + 40, y + 200); c.lineTo(cx - w / 2 - 40, y + 200); c.closePath(); c.clip();
+    weave(c, cx - w / 2 - 40, y, w + 80, 200, '#1a0808', 0.2);
+    c.globalAlpha = 0.35; c.strokeStyle = '#e8b860'; c.lineWidth = 3; c.beginPath(); c.ellipse(cx, y + 100, w * 0.18, 46, 0, 0, TAU); c.stroke();
+    c.beginPath(); c.ellipse(cx, y + 100, w * 0.1, 24, 0, 0, TAU); c.stroke();
     c.restore();
+    c.save(); c.strokeStyle = '#e8d2a0'; c.lineWidth = 3; c.globalAlpha = 0.8; c.beginPath();
+    for (var fx = cx - w / 2 - 36; fx <= cx + w / 2 + 36; fx += 12) { c.moveTo(fx, y + 202); c.lineTo(fx + 2, y + 222); }
+    c.stroke(); c.restore();
   }
   // warm light: a soft glow at the light source, darker edges
   function light(c, e, lx, ly, r, col, edge) {
@@ -3235,6 +3438,7 @@ var GOArt = (function () {
       c.translate(x, y); c.scale(sw / w, 1); c.translate(-x, -y);
     }
     wood(c, x, y, w, h, '#7b4526', true, 11);
+    gloss(c, x, y, w, h, 0.1);
     var pw = (w - 90) / 2, ph = [h * 0.22, h * 0.36, h * 0.22], py = y + 36;
     for (var r = 0; r < 3; r++) {
       for (var k = 0; k < 2; k++) {
@@ -3249,6 +3453,7 @@ var GOArt = (function () {
       var kx = x + w * 0.87, ky = y + h * 0.53;
       box(c, kx - 18, ky - 40, 36, 130, 12, brass(c, kx - 18, 0, kx + 18, 0), '#5a3a10', 2);
       dropShadow(c, 8, 3); circ(c, kx, ky, 22, rad(c, kx - 7, ky - 7, 2, 24, [[0, '#fff1b8'], [1, '#a8741f']])); noShadow(c);
+      spec(c, kx - 8, ky - 9, 14, 0.8);
       c.fillStyle = '#1a0e06'; c.beginPath(); c.arc(kx, ky + 50, 7, 0, TAU); c.fill(); c.fillRect(kx - 3.5, ky + 50, 7, 22);
       if (X && X.diff === 'h') {
         // the ring cover above the handle (small here; the close-up is the puzzle)
@@ -3276,6 +3481,10 @@ var GOArt = (function () {
     for (var yy = 330; yy < 820; yy += 12) { c.beginPath(); for (var xx = x - 110; xx < x + 110; xx += 12) { c.moveTo(xx, yy); c.lineTo(xx + 6, yy + 6); c.lineTo(xx + 12, yy); } c.stroke(); }
     c.restore();
     line(c, x, 360, x + 4, 800, 'rgba(40,20,5,.5)', 3);
+    // 0.4.0: the coat's folds catch the light
+    [[-60, 0.10, 'rgba(255,230,180,'], [-38, 0.14, 'rgba(40,20,5,'], [52, 0.12, 'rgba(255,230,180,'], [70, 0.16, 'rgba(40,20,5,']].forEach(function (f) {
+      c.fillStyle = lin(c, 0, 470, 0, 800, [[0, f[2] + '0)'], [0.4, f[2] + f[1] + ')'], [1, f[2] + '0)']]); c.beginPath(); c.moveTo(x + f[0] - 6, 470); c.lineTo(x + f[0] + 6, 470); c.lineTo(x + f[0] * 1.15 + 9, 805); c.lineTo(x + f[0] * 1.15 - 9, 805); c.fill();
+    });
     [430, 520, 610].forEach(function (b) { circ(c, x + 12, b, 7, '#3a2410'); });
     // collar and scarf
     c.fillStyle = '#7a5226'; c.beginPath(); c.moveTo(x - 30, 330); c.lineTo(x - 6, 410); c.lineTo(x, 340); c.lineTo(x + 6, 410); c.lineTo(x + 30, 330); c.closePath(); c.fill();
@@ -3921,14 +4130,24 @@ var GOArt = (function () {
   var ROOMART = {};
   function roomArt(X) { var id = X && (X.R ? X.R.id : X.room); return id && id !== 1 ? ROOMART[id] : null; }
   function draw(c, view, X) {
-    var ra = roomArt(X); if (ra) return ra.draw(c, view, X);
-    if (/^ph_/.test(view)) return V.ph(c, X, view.slice(3));
-    if (V[view]) V[view](c, X);
+    var ra = roomArt(X);
+    if (ra) ra.draw(c, view, X);
+    else if (/^ph_/.test(view)) V.ph(c, X, view.slice(3));
+    else if (V[view]) V[view](c, X);
+    // 0.4.0: the room's light, shadows, vignette and grain over every view (cached with the view's picture)
+    if (typeof GOAtmos !== 'undefined') GOAtmos.grade(c, view, X);
   }
-  // does this view move by itself (flames, neon, waves)? then the app redraws it every frame
+  // does this view move by itself (flames, neon, waves, the room's ambient animation)? then the app redraws it
   function animated(view, X) { var ra = roomArt(X); return ra ? !!ra.animated(view, X) : /^(fire|hearth|mantelz)$/.test(view); }
-  // moving bits drawn every frame over the cached scene: flames, candle flames, the swinging pendulum
+  function ambient(view, X) { return typeof GOAtmos !== 'undefined' && GOAtmos.animated(view, X); }
+  // moving bits drawn every frame over the cached scene: flames, candle flames, the swinging pendulum; then the
+  // room's ambient layer (firelight, neon hum, rain, dust, fireflies)
   function dyn(c, view, X, t) {
+    var r = dyn0(c, view, X, t);
+    if (typeof GOAtmos !== 'undefined' && GOAtmos.dyn(c, view, X, t)) r = true;
+    return r;
+  }
+  function dyn0(c, view, X, t) {
     var ra = roomArt(X); if (ra) return ra.dyn(c, view, X, t);
     if (view === 'fire') {
       flames(c, 370, 1030, 0.9, t);
@@ -3954,10 +4173,10 @@ var GOArt = (function () {
   function clockAngle(cx, cy, x, y) { var a = Math.atan2(x - cx, -(y - cy)); return a < 0 ? a + TAU : a; }
 
   // the drawing kit, shared with the other rooms' art modules
-  var H = { rr: rr, lin: lin, rad: rad, box: box, circ: circ, line: line, txt: txt, seeded: seeded, shade: shade, wood: wood, brass: brass,
+  var H = { rr: rr, lin: lin, rad: rad, box: box, circ: circ, line: line, txt: txt, seeded: seeded, shade: shade, wood: wood, brass: brass, gloss: gloss, spec: spec, weave: weave,
     dropShadow: dropShadow, noShadow: noShadow, light: light, sym: sym, wrap: wrap, clockFace: clockFace, closeBg: closeBg, item: item,
     SERIF: SERIF, SANS: SANS, HAND: HAND, PI: PI, TAU: TAU };
-  return { draw: draw, dyn: dyn, item: item, animated: animated, sym: sym, evIcon: evIcon, hands: hands, clockAngle: clockAngle, photo: photo, rr: rr, H: H,
+  return { draw: draw, dyn: dyn, item: item, animated: animated, ambient: ambient, sym: sym, evIcon: evIcon, hands: hands, clockAngle: clockAngle, photo: photo, rr: rr, H: H,
     register: function (id, mod) { ROOMART[id] = mod; } };
 })();
 
@@ -3975,7 +4194,8 @@ var GOArt2 = (function () {
   var DIRTY = '#2a2030';
 
   function powered(X) { return X.diff === 'e' || !!X.st.f['f:power']; }
-  function chrome(c, x0, y0, x1, y1) { return lin(c, x0, y0, x1, y1, [[0, '#ffffff'], [0.35, '#c9d2dc'], [0.55, '#8d98a6'], [0.8, '#e9eef3'], [1, '#9aa5b2']]); }
+  // chrome: hard bands of sky and floor reflected in it (0.4.0: sharper bands, a dark horizon line, a pink neon kiss)
+  function chrome(c, x0, y0, x1, y1) { return lin(c, x0, y0, x1, y1, [[0, '#ffffff'], [0.18, '#dfe6ee'], [0.36, '#aab6c4'], [0.47, '#5d6876'], [0.5, '#3e4652'], [0.56, '#c0cad6'], [0.74, '#f4f7fa'], [0.86, '#ffd6ea'], [1, '#8a95a3']]); }
 
   // ================= room surfaces =================
   function wallDiner(c, e, lowTop) {
@@ -7133,6 +7353,7 @@ var GOArt5 = (function () {
     txt(c, 'My seed drawers (1 is on the left)', 0, -470, 40, '#3a5a2a', { font: HAND, italic: true, weight: 700 });
     var y = -380, size = cl.says.length > 5 ? 38 : 44;
     cl.says.forEach(function (l, i) { y = wrapLines(c, '• ' + l, 0, y, 680, size) + 18; });
+    if (cl.tip) wrapLines(c, cl.tip, 0, y + 40, 680, 38);
     txt(c, '— W.', 260, 470, 48, '#2a2a5a', { font: HAND, italic: true });
     c.restore();
   };
@@ -7343,7 +7564,22 @@ var GOFinale = (function () {
     return { x: cx + Math.sin(a) * rx, y: cy - (1 - Math.cos(a)) * ry * 0.9 - Math.sin(a * 2) * ry * 0.15, dir: Math.cos(a) >= 0 ? 1 : -1 };
   }
   var trail = [];
+  // 0.4.0 art pass: the scene, then a soft warm bloom at the centre, a vignette and drifting golden motes
   function draw(c, w, h, t) {
+    draw0(c, w, h, t);
+    c.save(); c.globalAlpha = 1;
+    c.globalCompositeOperation = 'screen';
+    c.fillStyle = rad(c, w / 2, h * 0.45, 0, Math.max(w, h) * 0.5, [[0, 'rgba(255,214,140,' + (0.10 + 0.04 * Math.sin(t * 1.3)).toFixed(3) + ')'], [1, 'rgba(255,200,120,0)']]); c.fillRect(0, 0, w, h);
+    c.globalCompositeOperation = 'lighter';
+    for (var i = 0; i < 16; i++) {
+      var a = Math.sin(i * 91.7) * 43758.5453, b = a - Math.floor(a), x = (b * w + t * (8 + i)) % w, y = h - ((t * (14 + i * 2) + i * 97) % (h + 40));
+      c.fillStyle = 'rgba(255,220,150,' + (0.25 + 0.25 * Math.sin(t * 2 + i)).toFixed(3) + ')'; c.beginPath(); c.arc(x, y, 1.6 + (i % 3), 0, TAU); c.fill();
+    }
+    c.globalCompositeOperation = 'source-over';
+    c.fillStyle = rad(c, w / 2, h / 2, Math.min(w, h) * 0.45, Math.hypot(w, h) * 0.6, [[0, 'rgba(0,0,10,0)'], [1, 'rgba(0,0,10,.55)']]); c.fillRect(0, 0, w, h);
+    c.restore();
+  }
+  function draw0(c, w, h, t) {
     var cx = w / 2, cy = h * 0.45, u = Math.min(w, h * 0.62) / 400;
     sky(c, w, h, t);
     c.globalAlpha = 1;
@@ -7415,25 +7651,268 @@ var GOFinale = (function () {
 
   return { draw: draw, cues: cues, END: END, letter: letter, wren: wren };
 })();
+
+/* Get Out! atmosphere (0.4.0 art pass): one lighting and texture pass over every scene, per room, plus small ambient
+   animations. GOArt.draw() calls grade() after a room has drawn a view (so it lands in the cached picture: no cost per
+   frame), GOArt.dyn() calls dyn() every frame for the moving bits (the app throttles those and stops them while a sheet
+   or the Menu is open, and the browser stops them when the app is hidden).
+   grade(): ambient occlusion (the floor and ceiling seams, the room's corners, soft contact shadows under everything that
+   stands on the floor, found from the wall's own tap spots), the room's light (a coloured key light blended soft-light,
+   a fall-off away from it), light shafts where the room has a skylight or moonlight, a vignette and a fine grain that
+   reads as paper, plaster and fabric. Close-ups get a lighter version so clue text stays crisp and high in contrast.
+   Logical frame as everywhere: 1000 x 1400, floor at y = 1100; X.ext is the visible rectangle. */
+var GOAtmos = (function () {
+  'use strict';
+  var TAU = Math.PI * 2;
+  // per room: key light colour, the dark colour things fall off to (and how far), the key light's place on each wall,
+  // a second accent light, and light shafts (dir: the slant of the shafts)
+  var CFG = {
+    1: { key: '255,176,96', amb: '34,16,6', fall: 0.4, grainFloor: true, at: { door: [500, 150], shelf: [300, 140], desk: [265, 610], fire: [370, 960] },
+      acc: { shelf: [830, 330, '120,150,255', 0.22] } },
+    2: { key: '255,150,205', amb: '24,16,44', fall: 0.26, at: { door: [500, 170], counter: [500, 60], juke: [240, 560], kitchen: [500, 120] },
+      acc: { door: [500, 170, '255,60,160', 0.18], juke: [240, 520, '90,230,255', 0.16], counter: [820, 120, '90,230,255', 0.12], kitchen: [160, 200, '255,90,170', 0.1] }, gloss: true },
+    3: { key: '255,150,110', amb: '18,16,48', fall: 0.36, grainFloor: true, at: { door: [500, 260], lens: [500, 500], desk: [380, 320], window: [500, 360] },
+      acc: { window: [180, 360, '140,150,255', 0.16], door: [880, 300, '140,150,255', 0.14] } },
+    4: { key: '170,200,255', amb: '16,18,34', fall: 0.3, grainFloor: true, at: { door: [520, 120], bench: [500, -40], cuckoos: [520, 140], drawers: [420, 120] },
+      acc: { bench: [200, 520, '255,190,110', 0.22], door: [140, 760, '255,180,100', 0.12], drawers: [760, 640, '255,180,100', 0.12] },
+      shafts: { bench: [500, -60, 0.18, '200,220,255'], cuckoos: [620, -120, 0.12, '200,220,255'], door: [380, -120, 0.1, '200,220,255'], drawers: [300, -120, 0.1, '200,220,255'] } },
+    5: { key: '175,205,255', amb: '6,16,36', fall: 0.34, at: { door: [700, 60], fountain: [640, 80], panes: [500, 260], potting: [720, 80] },
+      acc: { panes: [500, 300, '255,170,220', 0.14], fountain: [420, 640, '120,220,255', 0.1] },
+      shafts: { door: [760, -80, 0.14, '200,225,255'], fountain: [700, -80, 0.13, '200,225,255'], potting: [760, -80, 0.12, '200,225,255'], panes: [520, -100, 0.1, '230,210,255'] } }
+  };
+  // glass and polish catching the light (gloss: x, y, w, h, strength; spec: x, y, radius), per room and wall
+  var SHINE = {
+    1: { door: { gloss: [[730, 430, 160, 190, 0.28]] }, shelf: { gloss: [[712, 170, 236, 320, 0.22]], spec: [[790, 680, 22]] },
+      desk: { gloss: [[290, 170, 420, 330, 0.14]], spec: [[255, 470, 16]] }, fire: { gloss: [[725, 175, 180, 190, 0.22]], spec: [[320, 285, 18], [610, 360, 10]] } },
+    2: { door: { gloss: [[380, 330, 240, 770, 0.2], [30, 326, 306, 494, 0.14], [666, 326, 320, 300, 0.12]], spec: [[160, 575, 26], [880, 470, 14]] },
+      counter: { gloss: [[60, 430, 250, 220, 0.26], [690, 392, 240, 258, 0.16]], spec: [[860, 420, 16]] }, juke: { gloss: [[470, 150, 480, 330, 0.16], [90, 320, 300, 300, 0.12]], spec: [[160, 360, 18]] },
+      kitchen: { gloss: [[300, 190, 400, 300, 0.12]], spec: [[870, 170, 14]] } },
+    3: { door: { gloss: [[434, 375, 132, 132, 0.35], [0, 150, 370, 460, 0.08], [630, 150, 370, 460, 0.08]], spec: [[478, 418, 22], [770, 420, 14]] },
+      lens: { gloss: [[300, 130, 400, 740, 0.16]], spec: [[430, 300, 26], [560, 560, 18]] }, desk: { gloss: [[80, 250, 210, 290, 0.2], [720, 240, 210, 210, 0.2]], spec: [[150, 300, 14], [790, 290, 14]] },
+      window: { gloss: [[60, 100, 880, 560, 0.12]], spec: [[470, 520, 16]] } },
+    4: { door: { gloss: [[440, 130, 120, 120, 0.3], [770, 180, 160, 160, 0.26]], spec: [[475, 160, 14], [805, 215, 16], [690, 820, 10]] },
+      bench: { gloss: [[160, 0, 680, 120, 0.2]], spec: [[160, 450, 18], [780, 690, 12]] }, cuckoos: { spec: [[150, 210, 12], [470, 180, 12], [800, 210, 12]] },
+      drawers: { spec: [[760, 520, 14], [300, 300, 10], [520, 300, 10]] } },
+    5: { door: { gloss: [[0, -200, 1000, 1000, 0.08], [380, 360, 240, 740, 0.2]], spec: [[790, 990, 16]] },
+      fountain: { gloss: [[0, -200, 1000, 900, 0.07], [760, 360, 220, 320, 0.22]], spec: [[500, 470, 18]] },
+      panes: { gloss: [[200, 60, 600, 600, 0.12]], spec: [[420, 220, 22]] }, potting: { gloss: [[0, -200, 1000, 700, 0.06], [680, 260, 240, 300, 0.1]], spec: [[860, 520, 12]] } }
+  };
+  function roomOf(X) { return X && (X.R ? X.R.id : X.room) || 1; }
+  function isWall(view, X) { var v = X && X.R && X.R.views && X.R.views[view]; return !!(v && v.wall != null); }
+  function rgba(c, a) { return 'rgba(' + c + ',' + a + ')'; }
+  function radial(c, x, y, r0, r1, stops) { var g = c.createRadialGradient(x, y, r0, x, y, r1); stops.forEach(function (s) { g.addColorStop(s[0], s[1]); }); return g; }
+  function linear(c, x0, y0, x1, y1, stops) { var g = c.createLinearGradient(x0, y0, x1, y1); stops.forEach(function (s) { g.addColorStop(s[0], s[1]); }); return g; }
+
+  // a fine grain, made once: soft value noise in a small tile, laid in device pixels so it stays fine on any phone
+  var grainCv = null;
+  function grain() {
+    if (grainCv || typeof document === 'undefined') return grainCv;
+    var n = 96; grainCv = document.createElement('canvas'); grainCv.width = grainCv.height = n;
+    var g = grainCv.getContext('2d'), im = g.createImageData(n, n), a = 12345;
+    for (var i = 0; i < n * n; i++) { a = (a * 16807) % 2147483647; var v = 128 + ((a % 96) - 48); im.data[i * 4] = im.data[i * 4 + 1] = im.data[i * 4 + 2] = v; im.data[i * 4 + 3] = 255; }
+    g.putImageData(im, 0, 0);
+    return grainCv;
+  }
+
+  function grade(c, view, X) {
+    var e = X.ext, room = roomOf(X), C = CFG[room]; if (!C || !e) return;
+    var wall = isWall(view, X), w = e.x1 - e.x0, h = e.y1 - e.y0, at = (C.at && C.at[view]) || (wall ? [500, 200] : [500, 400]);
+    c.save();
+    if (wall) {
+      // --- ambient occlusion: the floor seam, the ceiling, the room's corners ---
+      c.fillStyle = linear(c, 0, 1030, 0, 1160, [[0, 'rgba(0,0,0,0)'], [0.52, 'rgba(0,0,0,.26)'], [0.56, 'rgba(0,0,0,.30)'], [1, 'rgba(0,0,0,0)']]);
+      c.fillRect(e.x0, 1030, w, 130);
+      if (e.y0 < 200) { c.fillStyle = linear(c, 0, Math.min(e.y0, 0), 0, 200, [[0, 'rgba(0,0,0,.32)'], [1, 'rgba(0,0,0,0)']]); c.fillRect(e.x0, e.y0, w, 200 - e.y0); }
+      var cw = Math.max(90, w * 0.12);
+      c.fillStyle = linear(c, e.x0, 0, e.x0 + cw, 0, [[0, 'rgba(0,0,0,.24)'], [1, 'rgba(0,0,0,0)']]); c.fillRect(e.x0, e.y0, cw, h);
+      c.fillStyle = linear(c, e.x1, 0, e.x1 - cw, 0, [[0, 'rgba(0,0,0,.24)'], [1, 'rgba(0,0,0,0)']]); c.fillRect(e.x1 - cw, e.y0, cw, h);
+      // soft contact shadows where things meet the floor (the wall's tap spots say where the furniture stands)
+      var hs = (X.R.views[view].hs || []);
+      hs.forEach(function (s) {
+        var r = s.r; if (!r || r.c || r[2] < 70) return;
+        var by = r[1] + r[3]; if (by < 1040 || by > 1190) return;
+        var cx = r[0] + r[2] / 2, rx = Math.min(r[2] * 0.55, 160), ry = 14 + rx * 0.03;
+        c.save(); c.translate(cx, Math.min(by, 1180) - 4); c.scale(1, ry / rx);
+        c.fillStyle = radial(c, 0, 0, rx * 0.15, rx, [[0, 'rgba(0,0,0,.24)'], [1, 'rgba(0,0,0,0)']]);
+        c.beginPath(); c.arc(0, 0, rx, 0, TAU); c.fill(); c.restore();
+      });
+    }
+    // --- the floor: worn grain along the boards, and a pool of the room's light reflected under its source ---
+    if (wall && e.y1 > 1110) {
+      var fb = Math.min(e.y1, 1700);
+      if (C.grainFloor) {
+        var a = 977; c.lineWidth = 1.5;
+        for (var gi = 0; gi < 70; gi++) {
+          a = (a * 16807) % 2147483647; var gx = -400 + (a % 1800); a = (a * 16807) % 2147483647; var gl = 0.3 + (a % 100) / 160;
+          c.strokeStyle = gi % 3 ? 'rgba(30,12,2,.13)' : 'rgba(255,220,170,.07)';
+          c.beginPath(); c.moveTo(500 + (gx - 500) * 1.05, 1104 + (a % 40)); c.lineTo(500 + (gx - 500) * (1.05 + gl * 1.6), 1104 + (a % 40) + gl * 600); c.stroke();
+        }
+      }
+      c.save(); c.globalCompositeOperation = 'screen'; c.translate(at[0], 1100 + (fb - 1100) * 0.32); c.scale(1, 0.28);
+      c.fillStyle = radial(c, 0, 0, 0, 420, [[0, rgba(C.key, 0.16)], [1, rgba(C.key, 0)]]); c.beginPath(); c.arc(0, 0, 420, 0, TAU); c.fill(); c.restore();
+    }
+    // --- the room's light: a coloured key light (soft-light), then a fall-off away from it ---
+    var R = Math.max(w, h) * 0.95;
+    c.globalCompositeOperation = 'soft-light';
+    c.fillStyle = radial(c, at[0], at[1], 0, R * 0.8, [[0, rgba(C.key, wall ? 0.55 : 0.3)], [1, rgba(C.key, 0)]]);
+    c.fillRect(e.x0, e.y0, w, h);
+    var acc = C.acc && C.acc[view];
+    if (acc) { c.globalCompositeOperation = 'screen'; c.fillStyle = radial(c, acc[0], acc[1], 0, 520, [[0, rgba(acc[2], acc[3])], [1, rgba(acc[2], 0)]]); c.fillRect(e.x0, e.y0, w, h); }
+    c.globalCompositeOperation = 'multiply';
+    c.fillStyle = radial(c, at[0], at[1], R * (wall ? 0.42 : 0.6), R * 1.15, [[0, 'rgba(255,255,255,1)'], [1, rgba(mixWhite(C.amb, wall ? 1 - C.fall : 1 - C.fall * 0.45), 1)]]);
+    c.fillRect(e.x0, e.y0, w, h);
+    // --- light shafts (the workshop's skylight, the greenhouse's moonlight) ---
+    var sh = wall && C.shafts && C.shafts[view];
+    if (sh) {
+      c.globalCompositeOperation = 'screen';
+      for (var k = 0; k < 3; k++) {
+        var x0 = sh[0] - 160 + k * 150, slant = 0.38, top = Math.min(e.y0, -100), bot = 1300;
+        c.fillStyle = linear(c, 0, top, 0, bot, [[0, rgba(sh[3], sh[2] * (k === 1 ? 1 : 0.6))], [0.75, rgba(sh[3], sh[2] * 0.25)], [1, rgba(sh[3], 0)]]);
+        c.beginPath(); c.moveTo(x0, top); c.lineTo(x0 + 90 - k * 10, top);
+        c.lineTo(x0 + 90 - k * 10 - (bot - top) * slant + 140, bot); c.lineTo(x0 - (bot - top) * slant, bot); c.closePath(); c.fill();
+      }
+    }
+    // --- glass and polish catching the light ---
+    var shine = wall && SHINE[room] && SHINE[room][view], AH = typeof GOArt !== 'undefined' && GOArt.H;
+    if (shine && AH && AH.gloss) {
+      c.globalCompositeOperation = 'source-over';
+      (shine.gloss || []).forEach(function (g) { AH.gloss(c, g[0], g[1], g[2], g[3], g[4]); });
+      (shine.spec || []).forEach(function (p) { AH.spec(c, p[0], p[1], p[2], 0.75); });
+    }
+    // --- glossy floor (the diner's checkerboard catches the neon) ---
+    if (wall && C.gloss && e.y1 > 1100) {
+      c.globalCompositeOperation = 'screen';
+      c.fillStyle = linear(c, 0, 1100, 0, Math.min(e.y1, 1400), [[0, 'rgba(255,140,210,.16)'], [0.4, 'rgba(120,230,255,.06)'], [1, 'rgba(0,0,0,0)']]);
+      c.fillRect(e.x0, 1100, w, Math.min(e.y1, 1400) - 1100);
+    }
+    // --- vignette ---
+    c.globalCompositeOperation = 'source-over';
+    var vx = 500, vy = wall ? 680 : 700, far = Math.max(Math.hypot(e.x0 - vx, e.y0 - vy), Math.hypot(e.x1 - vx, e.y1 - vy));
+    c.fillStyle = radial(c, vx, vy, wall ? 520 : 700, far, [[0, 'rgba(0,0,0,0)'], [1, rgba(C.amb, wall ? 0.6 : 0.45)]]);
+    c.fillRect(e.x0, e.y0, w, h);
+    // --- grain (device pixels) ---
+    var gc = grain();
+    if (gc) {
+      c.setTransform(2, 0, 0, 2, 0, 0);
+      c.globalCompositeOperation = 'overlay'; c.globalAlpha = wall ? 0.05 : 0.025;
+      c.fillStyle = c.createPattern(gc, 'repeat'); c.fillRect(0, 0, c.canvas.width, c.canvas.height);
+    }
+    c.restore();
+  }
+  // a dark colour lifted toward white by k (0 = the colour, 1 = white): the multiply layer's edge colour
+  function mixWhite(col, k) { return col.split(',').map(function (v) { return Math.round(+v + (255 - v) * k); }).join(','); }
+
+  // ================= ambient animations (cheap: a few dozen shapes a frame) =================
+  // which views move by themselves because of the room's atmosphere (every wall of every room)
+  function animated(view, X) { return isWall(view, X); }
+  // smooth noise from a few sines: flicker that never looks like a metronome
+  function flick(t, s) { return 0.5 + 0.25 * Math.sin(t * 7.3 + s) + 0.15 * Math.sin(t * 13.1 + s * 2) + 0.1 * Math.sin(t * 23.7 + s * 3); }
+  function hash(i) { var x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }
+  function motes(c, cx, cy, rw, rh, n, t, col, seed) {
+    c.save(); c.globalCompositeOperation = 'lighter';
+    for (var i = 0; i < n; i++) {
+      var a = hash(i + seed), b = hash(i * 3.1 + seed), sp = 0.02 + 0.03 * hash(i * 7.7 + seed);
+      var x = cx + (((a + t * sp) % 1) - 0.5) * rw + Math.sin(t * 0.6 + i) * 18, y = cy + (((b + t * sp * 0.6) % 1) - 0.5) * rh;
+      var tw = 0.35 + 0.65 * Math.abs(Math.sin(t * 1.3 + i * 2.1));
+      c.fillStyle = rgba(col, 0.55 * tw); c.beginPath(); c.arc(x, y, 2.2 + 2 * hash(i + 99), 0, TAU); c.fill();
+    }
+    c.restore();
+  }
+  function dyn(c, view, X, t) {
+    if (!isWall(view, X)) return false;
+    var room = roomOf(X), e = X.ext, w = e.x1 - e.x0, h = e.y1 - e.y0, C = CFG[room], at = (C.at && C.at[view]) || [500, 200];
+    c.save();
+    if (room === 1) {
+      // firelight breathing on every wall (strongest on the fireplace wall), dust in the lamplight
+      var fx = view === 'fire' ? [370, 960, 0.11] : view === 'desk' ? [1040, 1000, 0.05] : view === 'door' ? [-60, 1000, 0.05] : [500, 1250, 0.035];
+      c.globalCompositeOperation = 'lighter';
+      c.fillStyle = radial(c, fx[0], fx[1], 0, 760, [[0, 'rgba(255,140,50,' + (fx[2] * flick(t, 1)).toFixed(3) + ')'], [1, 'rgba(255,120,40,0)']]);
+      c.fillRect(e.x0, e.y0, w, h);
+      motes(c, at[0], at[1] + 120, 520, 520, 14, t, '255,225,170', view.length);
+    } else if (room === 2) {
+      // the neon hums: a slow breathing glow, and now and then a stutter
+      var on = X.diff === 'e' || !!X.st.f['f:power'];
+      if (on) {
+        var cyc = t % 7.3, stut = cyc > 6.6 && cyc < 6.95 && Math.sin(t * 60) > 0 ? 0.25 : 1, br = (0.75 + 0.25 * Math.sin(t * 2.2)) * stut;
+        c.globalCompositeOperation = 'lighter';
+        c.fillStyle = radial(c, at[0], at[1], 0, 640, [[0, 'rgba(255,60,160,' + (0.10 * br).toFixed(3) + ')'], [1, 'rgba(255,60,160,0)']]);
+        c.fillRect(e.x0, e.y0, w, h);
+        if (view === 'door') { c.fillStyle = 'rgba(255,90,180,' + (0.06 * (1 - stut)).toFixed(3) + ')'; c.fillRect(e.x0, e.y0, w, h); }
+      }
+    } else if (room === 3) {
+      // rain on the glass: fine streaks blown sideways, a few drops running down; lightning far off now and then
+      c.globalCompositeOperation = 'lighter'; c.strokeStyle = 'rgba(200,215,255,.16)'; c.lineWidth = 2; c.lineCap = 'round';
+      c.beginPath();
+      for (var i = 0; i < 42; i++) {
+        var rx = e.x0 + ((hash(i) * w + t * 260 + i * 37) % (w + 200)) - 100, ry = e.y0 + ((hash(i * 2.3) * h + t * 900 * (0.8 + hash(i * 5) * 0.4)) % h);
+        c.moveTo(rx, ry); c.lineTo(rx - 9, ry + 34);
+      }
+      c.stroke();
+      for (var d = 0; d < 9; d++) {
+        var dx = e.x0 + hash(d * 9.1) * w, dy = e.y0 + ((hash(d * 4.4) + t * (0.04 + 0.05 * hash(d))) % 1) * h * 0.8;
+        c.fillStyle = 'rgba(220,235,255,.32)'; c.beginPath(); c.ellipse(dx, dy, 4, 6, 0, 0, TAU); c.fill();
+        c.fillStyle = 'rgba(220,235,255,.10)'; c.fillRect(dx - 1.5, dy - 60, 3, 56);
+      }
+      var lc = t % 11.5;
+      if (lc < 0.32) { var la = lc < 0.08 || (lc > 0.16 && lc < 0.26) ? 0.16 : 0.04; c.fillStyle = 'rgba(210,220,255,' + la + ')'; c.fillRect(e.x0, e.y0, w, h); }
+    } else if (room === 4) {
+      // dust turning slowly in the skylight's light
+      var sx = (C.shafts[view] || [500])[0];
+      motes(c, sx - 80, 520, 420, 900, 16, t, '215,228,255', view.length * 3);
+    } else if (room === 5) {
+      // fireflies drifting and blinking among the plants
+      c.globalCompositeOperation = 'lighter';
+      for (var f = 0; f < 9; f++) {
+        var p = t * (0.07 + 0.04 * hash(f)) + f * 2.4, x = 500 + Math.sin(p) * 430 + Math.sin(p * 2.7 + f) * 40, y = 860 + Math.cos(p * 1.4) * 170 + Math.sin(p * 3.3) * 30;
+        var bl = Math.max(0, Math.sin(t * (1.2 + hash(f * 3)) + f * 1.9)); if (bl < 0.05) continue;
+        c.fillStyle = radial(c, x, y, 0, 26, [[0, 'rgba(230,255,140,' + (0.85 * bl).toFixed(3) + ')'], [0.3, 'rgba(190,255,120,' + (0.3 * bl).toFixed(3) + ')'], [1, 'rgba(160,255,100,0)']]);
+        c.beginPath(); c.arc(x, y, 26, 0, TAU); c.fill();
+      }
+    }
+    c.restore();
+    return true;
+  }
+  return { grade: grade, dyn: dyn, animated: animated, CFG: CFG };
+})();
 </script>
 <script>
-/* Get Out! sounds: all synthesized with Web Audio (original, no files). Effects and the room's ambient loop
-   switch on and off separately. Ambient loops: the study (a slow warm chord pad and a crackling fire), the diner (a soft
-   doo-wop shuffle on a jukebox piano and a fridge hum), the lighthouse (wind, waves, rain, a low pad and a far bell buoy),
-   the workshop (a roomful of clocks ticking at their own speeds, a warm pad, a music-box phrase now and then) and the
-   greenhouse (crickets, a frog or two, a soft trickle and a celesta pad under the moon). */
+/* Get Out! sounds: all synthesized with Web Audio (original, no files). Effects and the room's ambient loop switch on and
+   off separately. 0.4.0 sound pass: a mixer (an effects bus and a music bus into a gentle compressor, and a small
+   generated room reverb both can send to), fuller layered ambient loops (pad + texture + an occasional motif) and new
+   foley (drawer slide, lock clunk, unlock chime, door creak and fanfare, paper rustle, pick-up sparkle, a soft "thunk"
+   for a wrong try, a bell for hints).
+   Ambient loops: the study (a warm chord pad, the fire's crackle and rumble, a slow tick-tock, a few piano notes now and
+   then), the diner (the jukebox muffled through the wall, the fridge humming and clunking, a faint neon buzz), the
+   lighthouse (wind, rain, waves, a dark pad, gulls, a far foghorn and a bell buoy), the workshop (clocks ticking at their
+   own speeds, a warm pad, a music-box phrase, sometimes a far cuckoo) and the greenhouse (crickets and katydids, a frog,
+   a soft trickle and drips, a celesta pad, now and then an owl). */
 var GOSound = (function () {
   'use strict';
-  var ac = null, master = null, fxOn = true, musicOn = true, amb = null, wantAmb = null;
+  var ac = null, out = null, master = null, musBus = null, rev = null, revSend = null, fxOn = true, musicOn = true, amb = null, wantAmb = null, nbuf = null;
   function ctx() {
     if (!ac) {
       var AC = window.AudioContext || window.webkitAudioContext;
       if (!AC) return null;
       try { ac = new AC(); } catch (e) { return null; }
-      master = ac.createGain(); master.gain.value = 0.55; master.connect(ac.destination);
+      // mixer: effects (master) and music (musBus) into a soft compressor; both can send to the room reverb
+      var comp = ac.createDynamicsCompressor();
+      comp.threshold.value = -18; comp.knee.value = 12; comp.ratio.value = 3; comp.attack.value = 0.01; comp.release.value = 0.25;
+      out = ac.createGain(); out.gain.value = 0.85; comp.connect(out); out.connect(ac.destination);
+      master = ac.createGain(); master.gain.value = 0.62; master.connect(comp);
+      musBus = ac.createGain(); musBus.gain.value = 0.5; musBus.connect(comp);
+      try {
+        rev = ac.createConvolver(); var len = Math.floor(ac.sampleRate * 2.2), ir = ac.createBuffer(2, len, ac.sampleRate);
+        for (var ch = 0; ch < 2; ch++) { var d = ir.getChannelData(ch); for (var i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3.2); }
+        rev.buffer = ir; var rg = ac.createGain(); rg.gain.value = 0.32; rev.connect(rg); rg.connect(comp);
+        revSend = ac.createGain(); revSend.gain.value = 0.22; master.connect(revSend); revSend.connect(rev);
+      } catch (e) { rev = null; }
     }
     if (ac.state === 'suspended') { try { ac.resume(); } catch (e) { /* ignore */ } }
     return ac;
+  }
+  function noiseBuf(a) {
+    if (!nbuf) { nbuf = a.createBuffer(1, a.sampleRate * 3, a.sampleRate); var d = nbuf.getChannelData(0); for (var i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
+    return nbuf;
   }
   function tone(type, f0, f1, dur, gain, delay, dest) {
     var a = ctx(); if (!a) return;
@@ -7444,133 +7923,157 @@ var GOSound = (function () {
     g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(gain, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     o.connect(g); g.connect(dest || master); o.start(t); o.stop(t + dur + 0.05);
   }
+  // a burst of filtered noise that dies away (one shared noise buffer, read from a random place)
   function noise(freq, q, dur, gain, delay, type, dest) {
     var a = ctx(); if (!a) return;
-    var t = a.currentTime + Math.max(0, delay || 0), len = Math.max(1, Math.floor(a.sampleRate * dur));
-    var buf = a.createBuffer(1, len, a.sampleRate), d = buf.getChannelData(0);
-    for (var i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2);
-    var s = a.createBufferSource(); s.buffer = buf;
+    var t = a.currentTime + Math.max(0, delay || 0), s = a.createBufferSource(); s.buffer = noiseBuf(a);
     var f = a.createBiquadFilter(); f.type = type || 'bandpass'; f.frequency.value = freq; f.Q.value = q;
-    var g = a.createGain(); g.gain.value = gain;
-    s.connect(f); f.connect(g); g.connect(dest || master); s.start(t);
+    var g = a.createGain(); g.gain.setValueAtTime(gain, t); g.gain.exponentialRampToValueAtTime(0.0001, t + Math.max(0.02, dur));
+    s.connect(f); f.connect(g); g.connect(dest || master); s.start(t, Math.random() * 2); s.stop(t + dur + 0.05);
   }
+  // a noise sweep (slides, whooshes): the filter glides from f0 to f1, the level swells and fades
+  function sweep(f0, f1, dur, gain, delay, q, dest) {
+    var a = ctx(); if (!a) return;
+    var t = a.currentTime + Math.max(0, delay || 0), s = a.createBufferSource(); s.buffer = noiseBuf(a);
+    var f = a.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = q || 1.2; f.frequency.setValueAtTime(f0, t); f.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    var g = a.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(gain, t + dur * 0.35); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    s.connect(f); f.connect(g); g.connect(dest || master); s.start(t, Math.random() * 2); s.stop(t + dur + 0.05);
+  }
+  // a little bell: a few inharmonic partials (hints, chimes, glints)
+  function bell(f, dur, gain, delay, dest) { [[1, 1], [2.76, 0.35], [5.4, 0.12]].forEach(function (p) { tone('sine', f * p[0], 0, dur / (p[0] > 1 ? 1.6 : 1), gain * p[1], delay, dest); }); }
   function fx(fn) { return function () { if (fxOn && ctx()) fn.apply(null, arguments); }; }
 
-  // ---------- the ambient loops ----------
-  var CHORDS = [[110, 164.8, 220, 277.2], [98, 146.8, 196, 246.9], [87.3, 130.8, 174.6, 220], [98, 146.8, 196, 293.7]];
-  var noiseBuf = null;
-  function loopNoise(a) {
-    if (!noiseBuf) { noiseBuf = a.createBuffer(1, a.sampleRate * 3, a.sampleRate); var d = noiseBuf.getChannelData(0); for (var i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
-    var src = a.createBufferSource(); src.buffer = noiseBuf; src.loop = true; return src;
-  }
-  // a plucked note at time t (the diner's jukebox piano and bass)
+  // ---------- the ambient loops (each: a pad, a texture and an occasional motif) ----------
+  function loopNoise(a) { var src = a.createBufferSource(); src.buffer = noiseBuf(a); src.loop = true; return src; }
   function pluck(a, dest, f, t, dur, gain, type) {
     var o = a.createOscillator(), g = a.createGain(); o.type = type || 'triangle'; o.frequency.value = f;
     g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(gain, t + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     o.connect(g); g.connect(dest); o.start(t); o.stop(t + dur + 0.05);
   }
+  // a slow pad of sustained notes through a lowpass whose cutoff drifts; returns {oscs, set(chord)}
+  function pad(a, bus, chord, type, gain, cut) {
+    var lp = a.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = cut || 900; lp.Q.value = 0.7; lp.connect(bus);
+    var lfo = a.createOscillator(), lg = a.createGain(); lfo.frequency.value = 0.07; lg.gain.value = (cut || 900) * 0.35; lfo.connect(lg); lg.connect(lp.frequency); lfo.start();
+    var oscs = [lfo];
+    chord.forEach(function (f, i) { var o = a.createOscillator(), g = a.createGain(); o.type = type || 'sine'; o.frequency.value = f; o.detune.value = (i - 1.5) * 5; g.gain.value = gain; o.connect(g); g.connect(lp); o.start(); oscs.push(o); });
+    return { oscs: oscs, set: function (ch) { oscs.slice(1).forEach(function (o, i) { if (ch[i]) o.frequency.setTargetAtTime(ch[i], a.currentTime, 1.4); }); } };
+  }
+  // a looped noise bed (fire rumble, wind, rain, a trickle), returns its gain and filter so a loop can move them
+  function bed(a, bus, type, freq, q, gain) {
+    var src = loopNoise(a), f = a.createBiquadFilter(), g = a.createGain();
+    f.type = type; f.frequency.value = freq; f.Q.value = q; g.gain.value = gain; src.connect(f); f.connect(g); g.connect(bus); src.start(0, Math.random() * 2);
+    return { src: src, f: f, g: g };
+  }
+  function send(a, bus, amt) { if (!rev) return bus; var g = a.createGain(); g.gain.value = amt; g.connect(rev); var m = a.createGain(); m.connect(bus); m.connect(g); return m; }
   var AMB = {
-    // the diner: I-vi-IV-V in a slow 12/8 shuffle, piano triplets, a walking bass, brushes, a fridge hum
+    // the study: warm pad, the fire's rumble and crackle, the grandfather clock's slow tick-tock, a few piano notes
+    study: function (a, bus) {
+      var CH = [[110, 164.8, 220, 277.2], [98, 146.8, 196, 246.9], [87.3, 130.8, 174.6, 220], [98, 146.8, 196, 293.7]];
+      var p = pad(a, bus, CH[0], 'triangle', 0.024, 900), fire = bed(a, bus, 'lowpass', 380, 0.6, 0.05), wet = send(a, bus, 0.5), k = 0, tk = 0;
+      var t1 = setInterval(function () {
+        if (Math.random() < 0.55) noise(2500 + Math.random() * 3000, 1.2, 0.03 + Math.random() * 0.04, 0.05 + Math.random() * 0.08, 0, 'bandpass', bus);
+        if (Math.random() < 0.05) noise(420, 0.7, 0.4, 0.05, 0, 'lowpass', bus);
+        fire.g.gain.setTargetAtTime(0.035 + Math.random() * 0.04, a.currentTime, 0.3);
+      }, 140);
+      var t2 = setInterval(function () { tk++; noise(tk % 2 ? 2100 : 1700, 9, 0.03, 0.035, 0, 'bandpass', bus); }, 1000);
+      var t3 = setInterval(function () {
+        k = (k + 1) % CH.length; p.set(CH[k]);
+        if (Math.random() < 0.5) { var ch = CH[k]; [ch[3] * 2, ch[2] * 2, ch[1] * 2, ch[2] * 2].forEach(function (f, i) { pluck(a, wet, f, a.currentTime + 0.6 + i * 0.55, 1.6, 0.03); pluck(a, wet, f * 2, a.currentTime + 0.6 + i * 0.55, 0.7, 0.008, 'sine'); }); }
+      }, 7000);
+      return { oscs: p.oscs.concat([fire.src]), timers: [t1, t2, t3] };
+    },
+    // the diner: the jukebox's doo-wop shuffle muffled as if through the wall, the fridge humming (and now and then its
+    // compressor clunking on), a faint neon buzz
     diner: function (a, bus) {
-      var lp = a.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2400; lp.connect(bus);
-      var hum = a.createOscillator(), hg = a.createGain(); hum.type = 'sine'; hum.frequency.value = 58; hg.gain.value = 0.018; hum.connect(hg); hg.connect(bus); hum.start();
+      var lp = a.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1150; lp.Q.value = 0.9; var wet = send(a, lp, 0.35); lp.connect(bus);
+      var hum = a.createOscillator(), h2 = a.createOscillator(), hg = a.createGain(); hum.type = 'sine'; hum.frequency.value = 58; h2.type = 'sine'; h2.frequency.value = 116.6; hg.gain.value = 0.02; hum.connect(hg); h2.connect(hg); hg.connect(bus); hum.start(); h2.start();
+      var buzz = a.createOscillator(), bf = a.createBiquadFilter(), bg = a.createGain(); buzz.type = 'sawtooth'; buzz.frequency.value = 120; bf.type = 'bandpass'; bf.frequency.value = 2600; bf.Q.value = 5; bg.gain.value = 0.006; buzz.connect(bf); bf.connect(bg); bg.connect(bus); buzz.start();
       var C = [[261.6, 329.6, 392], [220, 261.6, 329.6], [174.6, 220, 261.6], [196, 246.9, 293.7]], B = [65.4, 55, 43.65, 49];
+      var MEL = [[659.3, 587.3, 523.3], [523.3, 440, 392], [440, 523.3, 587.3], [587.3, 493.9, 392]];
       var beat = 0.78, k = 0, next = a.currentTime + 0.3;
       var tm = setInterval(function () {
         while (next < a.currentTime + 1.2) {
           var bar = Math.floor(k / 4) % 4, b4 = k % 4, ch = C[bar];
-          for (var j = 0; j < 3; j++) pluck(a, lp, ch[(j + b4) % 3] * (j === 1 ? 2 : 1), next + j * beat / 3, 0.5, j ? 0.022 : 0.03);
+          for (var j = 0; j < 3; j++) pluck(a, wet, ch[(j + b4) % 3] * (j === 1 ? 2 : 1), next + j * beat / 3, 0.5, j ? 0.022 : 0.03);
           pluck(a, lp, B[bar] * (b4 === 2 ? 1.5 : b4 === 3 ? 1.335 : 1), next, 0.6, 0.09, 'sine');
-          if (b4 % 2) noise(5200, 0.8, 0.12, 0.035, next - a.currentTime, 'highpass', bus);
+          if (b4 === 0 && Math.floor(k / 16) % 2) pluck(a, wet, MEL[bar][0], next, 1.1, 0.035, 'sine');
+          if (b4 === 2 && Math.floor(k / 16) % 2) pluck(a, wet, MEL[bar][1], next, 0.8, 0.03, 'sine');
+          if (b4 % 2) noise(5200, 0.8, 0.12, 0.03, next - a.currentTime, 'highpass', bus);
           k++; next += beat;
         }
       }, 250);
-      return { oscs: [hum], timers: [tm] };
+      var t2 = setInterval(function () {
+        if (Math.random() < 0.18) { noise(160, 1, 0.25, 0.08, 0, 'lowpass', bus); hg.gain.setTargetAtTime(0.03, a.currentTime, 0.4); setTimeout(function () { if (hg) hg.gain.setTargetAtTime(0.02, a.currentTime, 2); }, 6000); }
+        if (Math.random() < 0.25) for (var i = 0; i < 3; i++) noise(3200, 3, 0.02, 0.02, Math.random() * 0.3, 'bandpass', bus);
+      }, 5000);
+      return { oscs: [hum, h2, buzz], timers: [tm, t2] };
     },
-    // the workshop: several clocks ticking at different speeds (each a little click), a warm pad, sometimes a music-box phrase
+    // the workshop: clocks ticking at their own speeds, a warm pad, a music-box phrase now and then, a far cuckoo
     workshop: function (a, bus) {
-      var lp = a.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 800; lp.connect(bus);
-      var PAD = [[130.8, 196, 261.6], [146.8, 220, 293.7], [116.5, 174.6, 233.1], [130.8, 164.8, 246.9]], oscs = [];
-      for (var i = 0; i < 3; i++) { var o = a.createOscillator(), g = a.createGain(); o.type = 'triangle'; o.frequency.value = PAD[0][i]; o.detune.value = (i - 1) * 5; g.gain.value = 0.022; o.connect(g); g.connect(lp); o.start(); oscs.push(o); }
-      var pk = 0, clocks = [{ p: 1.0, f: 3200, n: 0 }, { p: 0.75, f: 2400, n: 0 }, { p: 1.3, f: 4200, n: 0 }, { p: 0.5, f: 5200, n: 0 }];
+      var PAD = [[130.8, 196, 261.6], [146.8, 220, 293.7], [116.5, 174.6, 233.1], [130.8, 164.8, 246.9]], p = pad(a, bus, PAD[0], 'triangle', 0.02, 800), wet = send(a, bus, 0.5), pk = 0;
+      var clocks = [{ p: 1.0, f: 3200 }, { p: 0.75, f: 2400 }, { p: 1.3, f: 4200 }, { p: 0.5, f: 5200 }, { p: 2.0, f: 900 }];
       clocks.forEach(function (c) { c.n = a.currentTime + 0.2 + Math.random(); });
       var t1 = setInterval(function () {
         clocks.forEach(function (c, k) {
-          while (c.n < a.currentTime + 0.5) { noise(c.f * (k % 2 && Math.round(c.n / c.p) % 2 ? 0.8 : 1), 6, 0.018, k === 3 ? 0.05 : 0.09, c.n - a.currentTime, 'bandpass', bus); c.n += c.p; }
+          while (c.n < a.currentTime + 0.5) { noise(c.f * (k % 2 && Math.round(c.n / c.p) % 2 ? 0.8 : 1), k === 4 ? 4 : 6, k === 4 ? 0.06 : 0.018, k === 3 ? 0.04 : k === 4 ? 0.07 : 0.08, c.n - a.currentTime, 'bandpass', bus); c.n += c.p; }
         });
       }, 150);
       var MB = [[784, 659.3, 523.3, 659.3, 784, 1046.5], [698.5, 587.3, 493.9, 587.3, 698.5, 784], [659.3, 784, 880, 784, 659.3, 523.3]];
       var t2 = setInterval(function () {
-        pk = (pk + 1) % PAD.length; oscs.forEach(function (o, i) { o.frequency.setTargetAtTime(PAD[pk][i], a.currentTime, 1.4); });
-        if (Math.random() < 0.35) { var ph = MB[Math.floor(Math.random() * MB.length)]; ph.forEach(function (f, j) { tone('sine', f, 0, 0.7, 0.025, 0.4 + j * 0.28, bus); tone('sine', f * 2.01, 0, 0.35, 0.008, 0.4 + j * 0.28, bus); }); }
+        pk = (pk + 1) % PAD.length; p.set(PAD[pk]);
+        var r = Math.random();
+        if (r < 0.35) { var ph = MB[Math.floor(Math.random() * MB.length)]; ph.forEach(function (f, j) { tone('sine', f, 0, 0.7, 0.022, 0.4 + j * 0.28, wet); tone('sine', f * 2.01, 0, 0.35, 0.007, 0.4 + j * 0.28, wet); }); }
+        else if (r < 0.45) { [0, 0.55].forEach(function (d) { tone('sine', 659.3, 0, 0.26, 0.025, 0.3 + d, wet); tone('sine', 523.3, 0, 0.4, 0.025, 0.58 + d, wet); }); }
       }, 7000);
-      return { oscs: oscs, timers: [t1, t2] };
+      return { oscs: p.oscs, timers: [t1, t2] };
     },
-    // the greenhouse at night: crickets chirping in pulses, a frog now and then, a soft trickle, a slow celesta pad
+    // the greenhouse at night: crickets, a katydid pulse, a frog, a trickle and drips, a celesta pad, now and then an owl
     greenhouse: function (a, bus) {
-      var tr = loopNoise(a), bp = a.createBiquadFilter(), tg = a.createGain();
-      bp.type = 'bandpass'; bp.frequency.value = 1800; bp.Q.value = 0.8; tg.gain.value = 0.018; tr.connect(bp); bp.connect(tg); tg.connect(bus); tr.start();
-      var lp = a.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1200; lp.connect(bus);
-      var PAD = [[174.6, 220, 261.6], [196, 246.9, 293.7], [164.8, 207.7, 246.9], [174.6, 220, 293.7]], oscs = [tr];
-      for (var i = 0; i < 3; i++) { var o = a.createOscillator(), g = a.createGain(); o.type = 'sine'; o.frequency.value = PAD[0][i]; g.gain.value = 0.024; o.connect(g); g.connect(lp); o.start(); oscs.push(o); }
-      var pk = 0;
+      var tr = bed(a, bus, 'bandpass', 1800, 0.8, 0.016), wet = send(a, bus, 0.55);
+      var PAD = [[174.6, 220, 261.6], [196, 246.9, 293.7], [164.8, 207.7, 246.9], [174.6, 220, 293.7]], p = pad(a, bus, PAD[0], 'sine', 0.022, 1200), pk = 0;
+      // the katydid: a band of noise gated by a fast pulse
+      var kd = bed(a, bus, 'bandpass', 6200, 6, 0), gate = a.createOscillator(), gg = a.createGain(); gate.type = 'square'; gate.frequency.value = 6.5; gg.gain.value = 0.006; gate.connect(gg); gg.connect(kd.g.gain); gate.start();
       var t1 = setInterval(function () {
-        // two crickets, each a burst of quick high chirps
-        for (var c = 0; c < 2; c++) if (Math.random() < 0.6) { var f = c ? 4400 : 5100, d0 = Math.random() * 0.6; for (var k = 0; k < 4; k++) tone('sine', f, 0, 0.03, 0.012, d0 + k * 0.045, bus); }
-        if (Math.random() < 0.05) { tone('sine', 140, 110, 0.18, 0.05, 0, bus); tone('sine', 150, 120, 0.16, 0.04, 0.24, bus); } // a frog
-        if (Math.random() < 0.08) { var ce = [1046.5, 1318.5, 1568, 1760][Math.floor(Math.random() * 4)]; tone('sine', ce, 0, 1.4, 0.02, 0, bus); }
+        for (var c = 0; c < 2; c++) if (Math.random() < 0.6) { var f = c ? 4400 : 5100, d0 = Math.random() * 0.6; for (var k = 0; k < 4; k++) tone('sine', f, 0, 0.03, 0.011, d0 + k * 0.045, bus); }
+        if (Math.random() < 0.05) { tone('sine', 140, 110, 0.18, 0.05, 0, bus); tone('sine', 150, 120, 0.16, 0.04, 0.24, bus); }
+        if (Math.random() < 0.18) tone('sine', 1400 + Math.random() * 500, 600, 0.09, 0.02, Math.random() * 0.5, wet);   // a drip
+        if (Math.random() < 0.08) { var ce = [1046.5, 1318.5, 1568, 1760][Math.floor(Math.random() * 4)]; bell(ce, 1.6, 0.016, 0, wet); }
+        if (Math.random() < 0.012) { tone('sine', 392, 370, 0.45, 0.03, 0, wet); tone('sine', 392, 360, 0.7, 0.03, 0.6, wet); }   // an owl
+        gg.gain.setTargetAtTime(Math.random() < 0.5 ? 0.006 : 0.0005, a.currentTime, 1.5);
       }, 900);
-      var t2 = setInterval(function () { pk = (pk + 1) % PAD.length; oscs.slice(1).forEach(function (o, i) { o.frequency.setTargetAtTime(PAD[pk][i], a.currentTime, 1.6); }); }, 8000);
-      return { oscs: oscs, timers: [t1, t2] };
+      var t2 = setInterval(function () { pk = (pk + 1) % PAD.length; p.set(PAD[pk]); }, 8000);
+      return { oscs: [tr.src, kd.src, gate].concat(p.oscs), timers: [t1, t2] };
     },
-    // the lighthouse: wind (a moving band of noise), rain, a wave every few seconds, a dark pad, sometimes a far bell
+    // the lighthouse: wind, rain, a wave every few seconds, a dark pad, gulls, a far foghorn, sometimes a bell buoy
     lighthouse: function (a, bus) {
-      var wind = loopNoise(a), bp = a.createBiquadFilter(), wg = a.createGain();
-      bp.type = 'bandpass'; bp.frequency.value = 500; bp.Q.value = 1.4; wg.gain.value = 0.12; wind.connect(bp); bp.connect(wg); wg.connect(bus); wind.start();
-      var rain = loopNoise(a), hp = a.createBiquadFilter(), rg = a.createGain();
-      hp.type = 'highpass'; hp.frequency.value = 4500; rg.gain.value = 0.025; rain.connect(hp); hp.connect(rg); rg.connect(bus); rain.start(a.currentTime + 0.7);
-      var lp = a.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 700; lp.connect(bus);
-      var PAD = [[110, 130.8, 164.8], [87.3, 110, 130.8], [98, 130.8, 164.8], [82.4, 98, 123.5]], oscs = [wind, rain];
-      for (var i = 0; i < 3; i++) { var o = a.createOscillator(), g = a.createGain(); o.type = 'sine'; o.frequency.value = PAD[0][i]; g.gain.value = 0.03; o.connect(g); g.connect(lp); o.start(); oscs.push(o); }
-      var pk = 0;
-      var t1 = setInterval(function () {
-        pk = (pk + 1) % PAD.length; oscs.slice(2).forEach(function (o, i) { o.frequency.setTargetAtTime(PAD[pk][i], a.currentTime, 1.6); });
-      }, 8000);
+      var wind = bed(a, bus, 'bandpass', 500, 1.4, 0.12), rain = bed(a, bus, 'highpass', 4500, 0.7, 0.024), wet = send(a, bus, 0.6);
+      var PAD = [[110, 130.8, 164.8], [87.3, 110, 130.8], [98, 130.8, 164.8], [82.4, 98, 123.5]], p = pad(a, bus, PAD[0], 'sine', 0.03, 700), pk = 0;
+      var t1 = setInterval(function () { pk = (pk + 1) % PAD.length; p.set(PAD[pk]); }, 8000);
       var t2 = setInterval(function () {
-        bp.frequency.setTargetAtTime(300 + Math.random() * 700, a.currentTime, 1.2); wg.gain.setTargetAtTime(0.06 + Math.random() * 0.12, a.currentTime, 1.5);
+        wind.f.frequency.setTargetAtTime(300 + Math.random() * 700, a.currentTime, 1.2); wind.g.gain.setTargetAtTime(0.06 + Math.random() * 0.12, a.currentTime, 1.5);
         if (Math.random() < 0.45) { // a wave rolls in and breaks
           var w = loopNoise(a), f = a.createBiquadFilter(), g2 = a.createGain(), t = a.currentTime;
-          f.type = 'lowpass'; f.frequency.value = 600; g2.gain.setValueAtTime(0.0001, t); g2.gain.exponentialRampToValueAtTime(0.16, t + 1.6); g2.gain.exponentialRampToValueAtTime(0.0001, t + 4.5);
-          w.connect(f); f.connect(g2); g2.connect(bus); w.start(t); w.stop(t + 4.6);
+          f.type = 'lowpass'; f.frequency.setValueAtTime(300, t); f.frequency.linearRampToValueAtTime(900, t + 1.8); f.frequency.linearRampToValueAtTime(400, t + 4.5);
+          g2.gain.setValueAtTime(0.0001, t); g2.gain.exponentialRampToValueAtTime(0.15, t + 1.6); g2.gain.exponentialRampToValueAtTime(0.0001, t + 4.5);
+          w.connect(f); f.connect(g2); g2.connect(bus); w.start(t, Math.random() * 2); w.stop(t + 4.6);
         }
-        if (Math.random() < 0.06) { [0, 1.3].forEach(function (d) { tone('sine', 523.3, 0, 2.2, 0.03, d, bus); tone('sine', 1313, 0, 1.4, 0.012, d, bus); }); }
+        if (Math.random() < 0.1) { var n = 2 + Math.floor(Math.random() * 2), base = 1300 + Math.random() * 300; for (var i = 0; i < n; i++) { tone('sine', base, base * 0.62, 0.28, 0.016, i * 0.36, wet); tone('sine', base * 2.02, base * 1.2, 0.2, 0.005, i * 0.36, wet); } }
+        if (Math.random() < 0.05) { // the foghorn, far off
+          var o = a.createOscillator(), lf = a.createBiquadFilter(), og = a.createGain(), t3 = a.currentTime;
+          o.type = 'sawtooth'; o.frequency.value = 98; lf.type = 'lowpass'; lf.frequency.value = 360;
+          og.gain.setValueAtTime(0.0001, t3); og.gain.exponentialRampToValueAtTime(0.05, t3 + 0.6); og.gain.setValueAtTime(0.05, t3 + 2); og.gain.exponentialRampToValueAtTime(0.0001, t3 + 3.2);
+          o.connect(lf); lf.connect(og); og.connect(wet); o.start(t3); o.stop(t3 + 3.3);
+        }
+        if (Math.random() < 0.05) { [0, 1.3].forEach(function (d) { bell(523.3, 2.2, 0.025, d, wet); }); }
       }, 2000);
-      return { oscs: oscs, timers: [t1, t2] };
+      return { oscs: [wind.src, rain.src].concat(p.oscs), timers: [t1, t2] };
     }
   };
   function startAmb() {
-    var a = ctx(); if (!a || amb) return;
-    var bus = a.createGain(); bus.gain.value = 0; bus.connect(master);
-    bus.gain.setTargetAtTime(0.9, a.currentTime, 1.5);
-    if (AMB[wantAmb]) { var m = AMB[wantAmb](a, bus); amb = { bus: bus, oscs: m.oscs, timers: m.timers, name: wantAmb }; return; }
-    var lp = a.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 900; lp.connect(bus);
-    var oscs = [];
-    for (var i = 0; i < 4; i++) {
-      var o = a.createOscillator(), g = a.createGain();
-      o.type = i % 2 ? 'triangle' : 'sine'; o.frequency.value = CHORDS[0][i]; o.detune.value = (i - 1.5) * 4;
-      g.gain.value = 0.035; o.connect(g); g.connect(lp); o.start(); oscs.push(o);
-    }
-    var k = 0;
-    var chordTimer = setInterval(function () {
-      k = (k + 1) % CHORDS.length;
-      oscs.forEach(function (o, i) { o.frequency.setTargetAtTime(CHORDS[k][i], a.currentTime, 1.2); });
-    }, 7000);
-    // the fire: little crackles at random moments
-    var crackle = setInterval(function () {
-      if (Math.random() < 0.55) noise(2500 + Math.random() * 3000, 1.2, 0.03 + Math.random() * 0.04, 0.07 + Math.random() * 0.1, 0, 'bandpass', bus);
-      if (Math.random() < 0.06) noise(400, 0.7, 0.4, 0.05, 0, 'lowpass', bus);
-    }, 140);
-    amb = { bus: bus, oscs: oscs, timers: [chordTimer, crackle], name: wantAmb };
+    var a = ctx(); if (!a || amb || !AMB[wantAmb]) return;
+    var bus = a.createGain(); bus.gain.value = 0; bus.connect(musBus);
+    bus.gain.setTargetAtTime(1, a.currentTime, 1.5);
+    var m = AMB[wantAmb](a, bus); amb = { bus: bus, oscs: m.oscs, timers: m.timers, name: wantAmb };
   }
   function stopAmb() {
     if (!amb) return;
@@ -7586,23 +8089,27 @@ var GOSound = (function () {
     setMusic: function (v) { musicOn = !!v; syncAmb(); },
     // the room wants its ambient loop (null: none, e.g. on the room list)
     ambient: function (room) { wantAmb = room; if (ac) syncAmb(); },
-    unlock: function () { if (fxOn || musicOn) { ctx(); syncAmb(); } },
+    // wake the audio on a touch (iOS only plays sound started from a touch); was called unlock before 0.4.0, a name the
+    // unlock sound below also had (the later one won, so every touch played a lock click)
+    wake: function () { if (fxOn || musicOn) { ctx(); syncAmb(); } },
     pause: function () { if (ac && ac.state === 'running') { try { ac.suspend(); } catch (e) { /* ignore */ } } },
     resume: function () { if (ac && ac.state === 'suspended') { try { ac.resume(); } catch (e) { /* ignore */ } } },
-    click: fx(function () { tone('triangle', 900, 600, 0.05, 0.12); }),
-    tick: fx(function () { tone('square', 1800, 1400, 0.025, 0.05); noise(4000, 3, 0.02, 0.1); }),
-    pick: fx(function () { tone('sine', 660, 990, 0.12, 0.16); tone('sine', 990, 1320, 0.12, 0.1, 0.07); }),
-    drawer: fx(function () { noise(300, 0.8, 0.35, 0.5, 0, 'lowpass'); noise(900, 2, 0.25, 0.15, 0.05); tone('sine', 120, 80, 0.2, 0.15, 0.25); }),
-    lock: fx(function () { for (var i = 0; i < 3; i++) noise(2200 + i * 300, 6, 0.04, 0.35, i * 0.06); tone('square', 220, 180, 0.06, 0.05); }),
-    unlock: fx(function () { noise(1800, 5, 0.05, 0.4); tone('square', 520, 300, 0.07, 0.07, 0.02); noise(900, 3, 0.08, 0.5, 0.12); tone('sine', 300, 150, 0.12, 0.2, 0.12); }),
-    wrong: fx(function () { tone('sawtooth', 200, 140, 0.18, 0.08); }),
-    success: fx(function () { [523.3, 659.3, 784, 1046.5].forEach(function (f, i) { tone('triangle', f, 0, 0.35, 0.14, i * 0.09); }); }),
-    chime: fx(function () { [784, 659.3, 698.5, 523.3].forEach(function (f, i) { tone('sine', f, 0, 1.2, 0.16, i * 0.42); tone('sine', f * 2.01, 0, 0.6, 0.04, i * 0.42); }); }),
-    combine: fx(function () { tone('triangle', 440, 880, 0.15, 0.14); noise(2000, 4, 0.05, 0.25, 0.12); tone('sine', 1320, 0, 0.25, 0.1, 0.15); }),
-    page: fx(function () { noise(3000, 0.6, 0.18, 0.18, 0, 'highpass'); }),
+    playing: function () { return amb ? amb.name : null; },
+    // ---- UI and foley ----
+    click: fx(function () { tone('triangle', 1250, 800, 0.04, 0.09); noise(3500, 2, 0.02, 0.06); }),
+    tick: fx(function () { tone('square', 1900, 1500, 0.02, 0.035); noise(4200, 4, 0.018, 0.09); }),
+    pick: fx(function () { tone('sine', 660, 990, 0.12, 0.14); tone('sine', 990, 1320, 0.12, 0.09, 0.07); bell(2637, 0.4, 0.025, 0.13); noise(5000, 1, 0.06, 0.05, 0, 'highpass'); }),
+    drawer: fx(function () { sweep(260, 900, 0.38, 0.32, 0, 1.4); noise(1800, 4, 0.03, 0.08, 0.05); noise(1600, 4, 0.03, 0.06, 0.18); tone('sine', 110, 70, 0.16, 0.18, 0.36); noise(240, 1, 0.12, 0.2, 0.36, 'lowpass'); }),
+    lock: fx(function () { for (var i = 0; i < 3; i++) noise(2200 + i * 300, 6, 0.04, 0.3, i * 0.06); tone('sine', 140, 90, 0.12, 0.16, 0.16); noise(300, 1, 0.08, 0.2, 0.16, 'lowpass'); }),
+    unlock: fx(function () { noise(2600, 6, 0.03, 0.3); noise(1800, 5, 0.05, 0.3, 0.06); tone('sine', 150, 90, 0.12, 0.18, 0.1); noise(320, 1, 0.08, 0.25, 0.1, 'lowpass'); bell(1568, 0.7, 0.05, 0.22); bell(2093, 0.8, 0.04, 0.32); }),
+    wrong: fx(function () { tone('sine', 170, 95, 0.16, 0.2); noise(260, 1, 0.1, 0.22, 0, 'lowpass'); tone('triangle', 233, 220, 0.12, 0.03, 0.02); }),
+    success: fx(function () { [523.3, 659.3, 784, 1046.5].forEach(function (f, i) { tone('triangle', f, 0, 0.42, 0.11, i * 0.08); tone('sine', f * 2, 0, 0.3, 0.025, i * 0.08); }); bell(2093, 1.1, 0.04, 0.34); }),
+    chime: fx(function () { [784, 659.3, 698.5, 523.3].forEach(function (f, i) { bell(f, 1.3, 0.12, i * 0.42); }); }),
+    combine: fx(function () { sweep(500, 2200, 0.22, 0.18); tone('triangle', 440, 880, 0.15, 0.1, 0.05); noise(2000, 4, 0.04, 0.2, 0.18); bell(1318.5, 0.5, 0.05, 0.22); }),
+    page: fx(function () { for (var i = 0; i < 4; i++) noise(2600 + Math.random() * 2400, 0.8, 0.05 + Math.random() * 0.05, 0.09, i * 0.045 + Math.random() * 0.02, 'highpass'); sweep(1500, 4000, 0.18, 0.06, 0.02, 0.8); }),
     shutter: fx(function () { noise(5000, 1, 0.04, 0.3); noise(2500, 1, 0.06, 0.25, 0.08); }),
-    hint: fx(function () { tone('sine', 880, 0, 0.25, 0.1); tone('sine', 1174.7, 0, 0.3, 0.08, 0.1); }),
-    // ---- the diner ----
+    hint: fx(function () { bell(1318.5, 0.9, 0.07); bell(1975.5, 1.1, 0.05, 0.12); }),
+  // ---- the diner ----
     register: fx(function () { tone('triangle', 1568, 0, 0.5, 0.12, 0.05); tone('triangle', 2093, 0, 0.7, 0.1, 0.12); noise(700, 1, 0.2, 0.4, 0.25, 'lowpass'); tone('sine', 140, 70, 0.2, 0.2, 0.3); }),
     gumball: fx(function () { for (var i = 0; i < 6; i++) noise(2600 - i * 200, 4, 0.03, 0.3, i * 0.07); tone('sine', 300, 120, 0.15, 0.15, 0.5); }),
     coin: fx(function () { tone('sine', 2100, 0, 0.12, 0.08); tone('sine', 2650, 0, 0.1, 0.06, 0.03); noise(3000, 5, 0.05, 0.2, 0.2); noise(1800, 5, 0.05, 0.15, 0.3); }),
@@ -7660,14 +8167,16 @@ var GOSound = (function () {
       [261.6, 329.6, 392, 523.3].forEach(function (fr, k) { tone('sine', fr, 0, 1.6, 0.07, 0.6 + k * 0.08); });
     }),
     door: fx(function () {
-      // a long creak, then a whoosh of fresh air and a happy chord
-      var a = ctx(), t = a.currentTime, o = a.createOscillator(), g = a.createGain(), f = a.createBiquadFilter();
-      o.type = 'sawtooth'; o.frequency.setValueAtTime(70, t); o.frequency.linearRampToValueAtTime(110, t + 0.6); o.frequency.linearRampToValueAtTime(85, t + 1.2);
-      f.type = 'bandpass'; f.frequency.value = 900; f.Q.value = 8;
-      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.09, t + 0.1); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.3);
-      o.connect(f); f.connect(g); g.connect(master); o.start(t); o.stop(t + 1.4);
-      noise(600, 0.5, 1.2, 0.25, 0.8, 'lowpass');
-      [392, 493.9, 587.3, 784].forEach(function (fr, i) { tone('triangle', fr, 0, 1.4, 0.1, 1.2 + i * 0.07); });
+      // a long creak (a rubbed hinge: a buzzy tone through a narrow filter, stuttering), fresh air, then a fanfare
+      var a = ctx(), t = a.currentTime, o = a.createOscillator(), g = a.createGain(), f = a.createBiquadFilter(), am = a.createOscillator(), ag = a.createGain();
+      o.type = 'sawtooth'; o.frequency.setValueAtTime(70, t); o.frequency.linearRampToValueAtTime(118, t + 0.7); o.frequency.linearRampToValueAtTime(84, t + 1.25);
+      f.type = 'bandpass'; f.frequency.value = 950; f.Q.value = 9;
+      am.frequency.value = 23; ag.gain.value = 0.04; am.connect(ag); ag.connect(g.gain);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.08, t + 0.1); g.gain.setValueAtTime(0.08, t + 1.0); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.35);
+      o.connect(f); f.connect(g); g.connect(master); o.start(t); o.stop(t + 1.4); am.start(t); am.stop(t + 1.4);
+      sweep(300, 1400, 1.3, 0.22, 0.8, 0.8);
+      [392, 493.9, 587.3, 784].forEach(function (fr, i) { tone('triangle', fr, 0, 1.5, 0.08, 1.2 + i * 0.09); tone('sawtooth', fr / 2, 0, 0.5, 0.012, 1.2 + i * 0.09); });
+      [[784, 1.75], [987.8, 1.95], [1174.7, 2.15], [1568, 2.35]].forEach(function (p) { tone('triangle', p[0], 0, 0.9, 0.06, p[1]); bell(p[0] * 2, 0.8, 0.012, p[1]); });
     })
   };
 })();
@@ -7682,7 +8191,7 @@ var GOSound = (function () {
 (function () {
   'use strict';
   var E = GOEngine, A = GOArt, S = GOSound;
-  var VERSION = '0.3.0';
+  var VERSION = '0.4.0';
   var ROOMS = { 1: GORoom1, 2: GORoom2, 3: GORoom3, 4: GORoom4, 5: GORoom5 };
   var LANE = [
     { n: 1, name: 'The Puzzle-Maker’s Study', desc: 'Books, a writing desk, a globe, a grandfather clock and a crackling fire.', piece: 'gear' },
@@ -7713,7 +8222,7 @@ var GOSound = (function () {
   function isOpen(id) { return $(id).classList.contains('show'); }
   function open(id) { $(id).classList.add('show'); }
   function close(id) { $(id).classList.remove('show'); }
-  var OVS = ['ovHint', 'ovNote', 'ovPic', 'ovInspect', 'ovLetter', 'ovDone', 'ovConfirm', 'ovSettings', 'ovStats', 'ovHelp', 'ovDebug', 'ovFinale'];
+  var OVS = ['ovHint', 'ovNote', 'ovPic', 'ovInspect', 'ovLetter', 'ovDone', 'ovConfirm', 'ovSettings', 'ovStats', 'ovHelp', 'ovDebug', 'ovFinale', 'ovTrophy'];
   function anyOpen() { return FS.isOpen() || GoobsAds.isOpen() || OVS.some(isOpen); }
   function pausing() { return FS.isOpen() || GoobsAds.isOpen() || ['ovSettings', 'ovStats', 'ovHelp', 'ovConfirm', 'ovLetter', 'ovDone', 'ovDebug', 'ovFinale'].some(isOpen) || document.hidden; }
   function fmtTime(ms) { var s = Math.floor(ms / 1000), m = Math.floor(s / 60); s %= 60; return m + ':' + (s < 10 ? '0' : '') + s; }
@@ -7845,13 +8354,24 @@ var GOSound = (function () {
     cache[view] = { key: key, cv: c, hits: hits };
     return cache[view];
   }
+  // frame time (the test hook reads it): how long drawing a frame takes, and how many were ambient-only redraws
+  var fstat = { n: 0, sum: 0, max: 0, amb: 0 };
   function frame(now) {
     requestAnimationFrame(frame);
     if (!G) return;
-    var v = G.view, dynView = A.animated(v, X(v)) || (G.diff === 'e' && settings.sparkle) || flash || trans || doorAnim || outline;
+    // moving scenery (the room's own moving parts, its ambient layer, Easy's sparkles) stops while a sheet, a card or the
+    // Menu covers the room (and the browser stops all of it while the app is hidden)
+    var v = G.view, still = anyOpen(), roomDyn = A.animated(v, X(v)), ambDyn = A.ambient(v, X(v));
+    var dynView = (!still && (roomDyn || ambDyn || (G.diff === 'e' && settings.sparkle) || outline)) || flash || trans || doorAnim;
     if (!dirty && !dynView) return;
-    if (now - lastFrame < 30 && !trans && !doorAnim) return; // about 30 frames a second is plenty for flames and twinkles
+    // about 30 frames a second for flames and moving parts, 20 for the ambient layer alone: plenty, and cheap
+    var gap = roomDyn || flash ? 30 : 48;
+    if (now - lastFrame < gap && !trans && !doorAnim && !dirty) return;
+    var f0 = performance.now();
     lastFrame = now; dirty = false;
+    try { drawFrame(now, v); } finally { var ft = performance.now() - f0; fstat.n++; fstat.sum += ft; if (ft > fstat.max) fstat.max = ft; if (!roomDyn && ambDyn && !trans) fstat.amb++; }
+  }
+  function drawFrame(now, v) {
     var t = now / 1000;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     if (doorAnim) {
@@ -8014,7 +8534,7 @@ var GOSound = (function () {
   var ptr = null;
   cv.addEventListener('pointerdown', function (e) {
     if (!G) return;
-    S.unlock();
+    S.wake();
     ptr = { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now(), drag: null };
     var p = toLogical(e.clientX, e.clientY), h = hitAt(p.x, p.y);
     var dpz = h && h.pz && h.pz.drag ? G.R.puzzles[h.pz.pz] : null;
@@ -8078,7 +8598,7 @@ var GOSound = (function () {
   var drag = null;
   $('slots').addEventListener('pointerdown', function (e) {
     var b = e.target.closest('.slot'); if (!b || !b.dataset.item || busy()) return;
-    S.unlock();
+    S.wake();
     drag = { id: b.dataset.item, x: e.clientX, y: e.clientY, pid: e.pointerId, on: false, el: b };
     try { b.setPointerCapture(e.pointerId); } catch (er) { /* ignore */ }
   });
@@ -8249,19 +8769,17 @@ var GOSound = (function () {
     trans = null; G.view = G.R.start; syncChrome();
     doorAnim = { t0: performance.now() + 300 };
   }
-  function starsFor(diff, ms, hints, par) {
-    var over = ms > par * 1000;
-    if (diff === 'e') return ms <= par * 1000 ? 3 : ms <= par * 2000 ? 2 : 1;
-    return Math.max(1, 3 - (hints > 0 ? 1 : 0) - (hints > 3 ? 1 : 0) - (over ? 1 : 0));
-  }
   function showDone() {
-    var key = runKey(G.room, G.diff), stars = starsFor(G.diff, G.t, G.hints.used, G.R.par);
+    // stars: the engine's rule (par scales with the room's chain length; tools/check.js checks it)
+    var key = runKey(G.room, G.diff), stars = E.stars(G.diff, G.t, G.hints.used, G.R.par), hn0 = G.diff === 'e' ? (G.hints.free || 0) : G.hints.used;
     var b = meta.best[key] || { stars: 0, ms: 0, clears: 0 };
-    b.clears++; b.stars = Math.max(b.stars, stars); b.ms = b.ms ? Math.min(b.ms, G.t) : G.t; meta.best[key] = b;
+    b.clears++; b.stars = Math.max(b.stars, stars); b.ms = b.ms ? Math.min(b.ms, G.t) : G.t;
+    b.hints = b.hints == null ? hn0 : Math.min(b.hints, hn0); meta.best[key] = b;
     var earned = E.earnPiece(meta, G.room); meta.finished++; saveMeta();
     stats.escapes++; stats.playMs += G.t; saveStats();
     $('doneTitle').textContent = 'You got out!';
-    $('doneStars').innerHTML = '★★★'.slice(0, stars) + '<span class="off">' + '★★★'.slice(0, 3 - stars) + '</span>';
+    $('doneStars').innerHTML = [0, 1, 2].map(function (i) { return '<i class="' + (i < stars ? 'on' : 'off') + '" style="animation-delay:' + (0.25 + i * 0.22) + 's">★</i>'; }).join('');
+    $('donePar').textContent = 'Target ' + fmtTime(G.R.par * 1000) + (G.diff === 'e' ? ' · hints are free on Easy' : ' · no hints for ★★★');
     var hn = G.diff === 'e' ? (G.hints.free || 0) : G.hints.used;
     $('doneTime').textContent = fmtTime(G.t); $('doneHints').textContent = hn; $('doneHints').nextElementSibling.textContent = hn === 1 ? 'hint' : 'hints';
     $('donePiece').innerHTML = pieceSvg(G.room);
@@ -8328,11 +8846,79 @@ var GOSound = (function () {
     for (var i = 1; i <= 5; i++) pc += '<i class="' + (meta.pieces[i] ? 'got' : '') + '" title="Room ' + i + '">' + (meta.pieces[i] ? pieceSvg(i) : '') + '</i>';
     $('pieces').innerHTML = pc + '<span>Brass pieces: ' + got + ' of 5</span>';
     $('lnFinale').style.display = got === 5 ? '' : 'none';
+    $('laneScene').innerHTML = laneScene();
+    $('lnTrophyN').textContent = totalStars() + ' of 45';
     $('lnFinale').querySelector('span').textContent = meta.finaleSeen ? 'The five pieces, again' : 'Put the five pieces together';
   }
+  // ---- Keyhole Lane at dusk: the five places in a row (lit windows once a room is escaped on any difficulty) ----
+  function cleared(n) { return ['e', 'm', 'h'].some(function (d) { return meta.best[n + d]; }); }
+  function laneScene() {
+    var lit = function (n) { return cleared(n) ? '#ffd76a' : '#33415f'; }, glow = function (n) { return cleared(n) ? ' filter="url(#lsGlow)"' : ''; };
+    var st = '', r = 7;
+    for (var i = 0; i < 26; i++) { r = (r * 16807) % 2147483647; var x = r % 360; r = (r * 16807) % 2147483647; var y = r % 58; st += '<circle class="tw" style="animation-delay:' + (i % 7) * 0.4 + 's" cx="' + x + '" cy="' + (4 + y) + '" r="' + (i % 3 ? 0.9 : 1.4) + '" fill="#fff6d8"/>'; }
+    return '<svg viewBox="0 0 360 132" preserveAspectRatio="xMidYMax slice" aria-hidden="true"><defs>' +
+      '<linearGradient id="lsSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b2550"/><stop offset=".65" stop-color="#4a3f78"/><stop offset="1" stop-color="#c8786a"/></linearGradient>' +
+      '<radialGradient id="lsBeam" cx="0" cy=".5" r="1"><stop offset="0" stop-color="#fff3c0" stop-opacity=".75"/><stop offset="1" stop-color="#fff3c0" stop-opacity="0"/></radialGradient>' +
+      '<filter id="lsGlow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="1.6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>' +
+      '<rect width="360" height="132" fill="url(#lsSky)"/>' + st +
+      '<circle cx="318" cy="22" r="11" fill="#fff4cf"/><circle cx="313" cy="19" r="11" fill="#2a2f5e" opacity=".35"/>' +
+      '<path d="M0 104 Q90 92 180 100 T360 98 V132 H0z" fill="#22284a"/>' +
+      // 1 the study: a brick townhouse with a chimney
+      '<g><rect x="10" y="52" width="58" height="56" fill="#7a3b2e"/><path d="M6 54 L39 32 L72 54z" fill="#4a2a24"/><rect x="54" y="34" width="8" height="14" fill="#5a2f26"/>' +
+      '<circle class="smoke" cx="58" cy="28" r="4" fill="#c9c3d8" opacity=".5"/><rect x="18" y="62" width="12" height="14" rx="2" fill="' + lit(1) + '"' + glow(1) + '/><rect x="48" y="62" width="12" height="14" rx="2" fill="' + lit(1) + '"' + glow(1) + '/><rect x="32" y="84" width="14" height="24" rx="6" fill="#3b2216"/></g>' +
+      // 2 the diner: low and chrome with a neon sign
+      '<g><rect x="76" y="76" width="70" height="32" rx="6" fill="#9fd8c8"/><rect x="76" y="70" width="70" height="8" rx="3" fill="#d8333f"/><rect x="88" y="58" width="46" height="12" rx="3" fill="#2a2030"/>' +
+      '<text x="111" y="67.5" text-anchor="middle" font-size="8" font-weight="900" font-family="Arial" fill="' + (cleared(2) ? '#ff5aa8' : '#6a4a6a') + '"' + glow(2) + '>DINER</text>' +
+      '<rect x="82" y="82" width="26" height="14" rx="2" fill="' + lit(2) + '"' + glow(2) + '/><rect x="114" y="82" width="26" height="14" rx="2" fill="' + lit(2) + '"' + glow(2) + '/></g>' +
+      // 3 the lighthouse: a striped tower; its lamp sweeps once escaped
+      '<g><path d="M162 108 L168 34 L184 34 L190 108z" fill="#f2efe6"/><path d="M164 90 L188 90 L189 100 L163 100z M166 62 L186 62 L187 72 L165 72z" fill="#c8453a"/><rect x="164" y="22" width="24" height="13" rx="2" fill="' + lit(3) + '"' + glow(3) + '/><path d="M162 22 L176 12 L190 22z" fill="#2c3a2c"/>' +
+      (cleared(3) ? '<path class="beam" d="M176 28 L250 14 L250 42z" fill="url(#lsBeam)"/>' : '') + '</g>' +
+      // 4 the workshop: a gabled shop with a gear sign
+      '<g><rect x="200" y="58" width="62" height="50" fill="#4a5a7a"/><path d="M196 60 L231 36 L266 60z" fill="#6a4a2a"/><rect x="214" y="42" width="34" height="6" fill="#a8d0ff" opacity=".7"/>' +
+      '<circle class="cog" cx="231" cy="72" r="8" fill="none" stroke="#e8c26a" stroke-width="3" stroke-dasharray="3 2"/><rect x="208" y="86" width="14" height="14" rx="2" fill="' + lit(4) + '"' + glow(4) + '/><rect x="240" y="86" width="14" height="14" rx="2" fill="' + lit(4) + '"' + glow(4) + '/></g>' +
+      // 5 the greenhouse: a glass arch full of leaves
+      '<g><path d="M272 108 V74 Q306 40 340 74 V108z" fill="' + (cleared(5) ? '#bfe8d2' : '#5a7a8a') + '" opacity=".85"' + glow(5) + '/><path d="M272 74 Q306 40 340 74 M289 108 V60 M306 108 V50 M323 108 V60 M272 90 H340" fill="none" stroke="#f6f2e8" stroke-width="1.6"/>' +
+      '<circle cx="284" cy="100" r="7" fill="#3f8a4a"/><circle cx="300" cy="96" r="9" fill="#2f7a42"/><circle cx="326" cy="99" r="8" fill="#3f8a4a"/></g>' +
+      // the lane: cobbles and two street lamps
+      '<path d="M0 112 H360" stroke="#55507a" stroke-width="3" stroke-dasharray="6 4"/>' +
+      '<g fill="#1a1a2a"><rect x="72" y="80" width="2.5" height="30"/><rect x="194" y="80" width="2.5" height="30"/><rect x="266" y="80" width="2.5" height="30"/></g>' +
+      '<g fill="#ffd76a" filter="url(#lsGlow)"><circle cx="73.2" cy="79" r="3"/><circle cx="195.2" cy="79" r="3"/><circle cx="267.2" cy="79" r="3"/></g></svg>';
+  }
+
+  // ================= the Stars screen (Keyhole Lane > Stars): every room x difficulty =================
+  function totalStars() { var n = 0; for (var k in meta.best) if (meta.best[k] && /^[1-5][emh]$/.test(k)) n += meta.best[k].stars || 0; return n; }
+  function starRow(n) { return [0, 1, 2].map(function (i) { return '<i class="' + (i < n ? 'on' : '') + '">★</i>'; }).join(''); }
+  function openTrophy() {
+    var tot = totalStars(), got = E.pieceCount(meta.pieces), h = '';
+    h += '<div class="trtotal"><div class="trbig"><span>★</span><b>' + tot + '</b><small>of 45 stars</small></div>' +
+      '<div class="trbar"><i style="width:' + Math.round(tot / 45 * 100) + '%"></i></div>' +
+      '<p>' + (tot === 45 ? 'Every star on Keyhole Lane. Aunt Wren would be proud.' : 'Three stars: escape within the target time' + ' (no hints on Medium and Hard).') + '</p></div>';
+    h += '<div class="trpieces">';
+    for (var i = 1; i <= 5; i++) h += '<div class="' + (meta.pieces[i] ? 'got' : '') + '"><i>' + (meta.pieces[i] ? pieceSvg(i) : '?') + '</i><span>' + ['Gear', 'Spring', 'Lens', 'Key', 'Wings'][i - 1] + '</span></div>';
+    h += '</div><p class="trsub">Brass pieces: ' + got + ' of 5</p>';
+    h += '<div class="trgrid"><div class="trhead"><span></span><b>Easy</b><b>Medium</b><b>Hard</b></div>';
+    LANE.forEach(function (r) {
+      h += '<div class="trroom"><div class="trname"><span class="rn">' + r.n + '</span>' + esc(r.name) + '</div><div class="trcells">';
+      ['e', 'm', 'h'].forEach(function (d) {
+        var b = meta.best[r.n + d];
+        if (!b) { h += '<div class="trcell none"><div class="trst">' + starRow(0) + '</div><small>not yet</small></div>'; return; }
+        h += '<div class="trcell' + (b.stars === 3 ? ' full' : '') + '"><div class="trst">' + starRow(b.stars) + '</div>' +
+          '<b>' + fmtTime(b.ms) + '</b><small>' + (b.hints == null ? '–' : b.hints) + ' hint' + (b.hints === 1 ? '' : 's') + ' · ' + b.clears + '×</small></div>';
+      });
+      h += '</div></div>';
+    });
+    h += '</div><p class="trlegend">Each box: best stars, best time, fewest hints, times escaped.</p>';
+    if (got === 5) h += '<button class="btn gold trfin" id="trFinale">' + (meta.finaleSeen ? 'Watch the five pieces again' : 'Put the five pieces together') + '</button>';
+    $('trophyBody').innerHTML = h;
+    var fb = $('trFinale'); if (fb) fb.addEventListener('click', function () { close('ovTrophy'); S.wake(); playFinale(); });
+    S.page(); open('ovTrophy'); $('trophyBody').scrollTop = 0;
+  }
+  $('lnTrophy').addEventListener('click', function () { S.wake(); openTrophy(); });
+  $('trophyClose').addEventListener('click', function () { S.click(); close('ovTrophy'); });
+
   $('rooms').addEventListener('click', function (e) {
     var b = e.target.closest('button[data-room]'); if (!b) return;
-    S.unlock(); S.click();
+    S.wake(); S.click();
     var room = +b.dataset.room, d = b.dataset.diff;
     if (!meta.letterSeen) { showLetter(function () { startRoom(room, d, false); }); return; }
     startRoom(room, d, false);
@@ -8349,7 +8935,7 @@ var GOSound = (function () {
   }
   $('letterGo').addEventListener('click', function () { close('ovLetter'); meta.letterSeen = true; saveMeta(); var n = letterNext; letterNext = null; if (n) n(); });
   $('lnLetter').addEventListener('click', function () { showLetter(null); });
-  $('lnFinale').addEventListener('click', function () { S.unlock(); playFinale(); });
+  $('lnFinale').addEventListener('click', function () { S.wake(); playFinale(); });
 
   // ================= the finale (all five brass pieces) =================
   // GOFinale (finale.js) draws and times the scene; this opens it, plays its sounds and then shows Aunt Wren's last letter.
@@ -8415,8 +9001,8 @@ var GOSound = (function () {
   function syncAds() { $('setAds').checked = Goobs.adsOn(); $('adEvery').textContent = settings.adEvery; $('rowAdEvery').classList.toggle('off', !Goobs.adsOn()); }
   function openSettings() { $('setMusic').checked = settings.music; $('setFx').checked = settings.fx; $('setSparkle').checked = settings.sparkle; syncAds(); open('ovSettings'); }
   $('btnSettings').addEventListener('click', openSettings); $('lnSettings').addEventListener('click', openSettings);
-  $('setMusic').addEventListener('change', function () { settings.music = this.checked; saveSettings(); S.setMusic(settings.music); S.unlock(); });
-  $('setFx').addEventListener('change', function () { settings.fx = this.checked; saveSettings(); S.setFx(settings.fx); S.unlock(); S.click(); });
+  $('setMusic').addEventListener('change', function () { settings.music = this.checked; saveSettings(); S.setMusic(settings.music); S.wake(); });
+  $('setFx').addEventListener('change', function () { settings.fx = this.checked; saveSettings(); S.setFx(settings.fx); S.wake(); S.click(); });
   $('setSparkle').addEventListener('change', function () { settings.sparkle = this.checked; saveSettings(); dirty = true; });
   $('setAds').addEventListener('change', function () { Goobs.setAds(this.checked); syncAds(); });
   $('adLess').addEventListener('click', function () { settings.adEvery = Math.max(1, settings.adEvery - 1); saveSettings(); syncAds(); });
@@ -8459,7 +9045,7 @@ var GOSound = (function () {
     if (!G) return { done: true };
     if (G.over || doorAnim) return isOpen('ovDone') ? { done: true } : { wait: true };
     if (trans) return { wait: true };
-    for (var i = 0; i < OVS.length; i++) if (isOpen(OVS[i]) && OVS[i] !== 'ovInspect') return { click: '#' + { ovHint: 'hintClose', ovNote: 'noteClose', ovPic: 'picClose', ovLetter: 'letterGo', ovConfirm: 'cfNo', ovSettings: 'setClose', ovStats: 'statsClose', ovHelp: 'helpClose', ovDebug: 'dbgClose', ovDone: 'doneLane' }[OVS[i]] };
+    for (var i = 0; i < OVS.length; i++) if (isOpen(OVS[i]) && OVS[i] !== 'ovInspect') return { click: '#' + { ovHint: 'hintClose', ovNote: 'noteClose', ovPic: 'picClose', ovLetter: 'letterGo', ovConfirm: 'cfNo', ovSettings: 'setClose', ovStats: 'statsClose', ovHelp: 'helpClose', ovDebug: 'dbgClose', ovDone: 'doneLane', ovTrophy: 'trophyClose' }[OVS[i]] };
     var id = E.hint(G.R, G.st); if (!id) return { done: true };
     var s = G.R.byId[id];
     if (s.kind === 'inspect') {
@@ -8504,13 +9090,16 @@ var GOSound = (function () {
     go: function (v) { goView(v); }, step: function (id) { return doStep(id); }, views: function () { return G ? Object.keys(G.R.views) : []; },
     meta: function () { return meta; }, layout: function () { return { W: W, H: H, SC: SC, OX: OX, OY: OY, safe: safe }; },
     setPieces: function (list, seen) { meta.pieces = {}; (list || []).forEach(function (n) { meta.pieces[n] = true; }); meta.finaleSeen = !!seen; saveMeta(); if (!G) showLane(); },
-    finale: function () { return fin ? { t: (performance.now() - fin.t0) / 1000, done: fin.done } : null; }
+    finale: function () { return fin ? { t: (performance.now() - fin.t0) / 1000, done: fin.done } : null; },
+    trophy: openTrophy, totalStars: totalStars, setBest: function (b) { meta.best = b; saveMeta(); if (!G) showLane(); },
+    frameStats: function () { return { frames: fstat.n, avg: fstat.n ? fstat.sum / fstat.n : 0, max: fstat.max, ambient: fstat.amb }; }, resetFrameStats: function () { fstat = { n: 0, sum: 0, max: 0, amb: 0 }; }
   };
 
   // ================= start =================
   layout();
   S.setFx(settings.fx); S.setMusic(settings.music);
-  document.addEventListener('pointerdown', function () { S.unlock(); }, { capture: true });
+  // (0.4.0: this used to call S.unlock, whose name the unlock sound had taken over: every touch played a lock click)
+  document.addEventListener('pointerdown', function () { S.wake(); }, { capture: true });
   showLane();
   requestAnimationFrame(frame);
   Goobs.markPlayed('getout');
