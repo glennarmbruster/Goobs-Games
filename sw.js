@@ -2,7 +2,7 @@
    Each part has its own version and its own cache. To publish an update, bump ONLY the
    version of the part that changed; unchanged parts are not downloaded again. */
 const VERSIONS = {
-  shell: '2.53.0',     // menu, manifest, icons, /shared (ads, themes, storage)
+  shell: '2.58.0',     // menu, manifest, icons, /shared (ads, themes, storage)
   zoodoku: '1.9.0',
   woodpile: '1.2.0',
   patchwork: '2.2.0',
@@ -29,7 +29,7 @@ const VERSIONS = {
   bricks: '1.2.0',
   topple: '1.7.0',
   barrage: '1.4.0',
-  siege: '1.1.0',
+  siege: '1.1.1',
   hoops: '1.1.0',
   beacon: '0.3.0',
   sort: '1.2.0',

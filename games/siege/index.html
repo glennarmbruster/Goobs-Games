@@ -221,7 +221,8 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
     <button class="mb wide hot" id="bResume">Resume</button>
     <button class="mb wide" id="bRestart">Restart level</button>
     <button class="mb wide" id="bPauseSound">Sound</button>
-    <button class="mb wide" id="bQuit">Quit to menu</button>
+    <button class="mb wide" id="bQuit">Quit to level menu</button>
+    <button class="mb wide hidden" id="bExitP">Exit to main menu</button>
   </div>
 </div>
 
@@ -790,6 +791,7 @@ var SGAudio = (function () {
 
   // ================= menu =================
   var inArcade = /\/games\//.test(location.pathname);
+  if (inArcade) { $('bExitP').classList.remove('hidden'); $('bExitP').addEventListener('click', function () { location.href = '../../'; }); }
   if (inArcade) { $('bArcade').classList.remove('hidden'); $('bArcade').addEventListener('click', function () { location.href = '../../'; }); }
   function seg(id, key, after) {
     var el = $(id);
@@ -1060,16 +1062,18 @@ var SGAudio = (function () {
       $('endTitle').textContent = 'Victory'; $('endStars').innerHTML = '<i>★</i>'.repeat(st) + '★'.repeat(3 - st);
       $('endText').innerHTML = L.name + ' · ' + SG.DIFF[P.diff].name + '<br>Lives ' + g.lives + '/' + g.startLives + ' · Score <b>' + fmt(g.score) + '</b>' + (nb ? '<br><span style="color:#39ff9c">New best!</span>' : '<br>Best ' + fmt(best[key]));
       var nextIdx = -1; for (var i = levelIdx + 1; i < LEVELS.length; i++) if (LEVELS[i].mode === L.mode) { nextIdx = i; break; }
-      endButtons(nextIdx >= 0 ? [['Next level', function () { start(nextIdx); }, true], ['Play again', restart], ['Menu', toMenu]] : [['Play again', restart, true], ['Menu', toMenu]]);
+      endButtons(nextIdx >= 0 ? [['Next level', function () { start(nextIdx); }, true], ['Play again', restart], ['Level menu', toMenu]] : [['Play again', restart, true], ['Level menu', toMenu]]);
     } else {
       $('endTitle').textContent = 'Overrun'; $('endStars').innerHTML = '★★★';
       $('endText').innerHTML = L.name + ' · reached wave ' + g.sent + ' of ' + g.waves.length + '<br>Score ' + fmt(g.score);
-      endButtons([['Try again', restart, true], ['Menu', toMenu]]);
+      endButtons([['Try again', restart, true], ['Level menu', toMenu]]);
     }
     $('end').classList.remove('hidden');
   }
   function endButtons(list) {
     var box = $('endBtns'); box.innerHTML = '';
+    // 1.1.1: straight back to the arcade from the end of a level (Glenn wanted an exit on every finished-game card)
+    if (inArcade) list = list.concat([['Exit to main menu', function () { location.href = '../../'; }]]);
     list.forEach(function (b) { var el = document.createElement('button'); el.className = 'mb wide' + (b[2] ? ' hot' : ''); el.textContent = b[0]; el.addEventListener('click', function () { A.play('click'); b[1](); }); box.appendChild(el); });
   }
 

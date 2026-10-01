@@ -195,6 +195,46 @@ var Goobs = (function () {
     return { open: open, close: close, isOpen: function () { return ov.classList.contains('show'); }, el: ov, button: btn, list: list, refresh: info };
   }
 
+  // ---------- a way out from every end-of-game card (shell 2.54.0) ----------
+  // Glenn: "In some games there's not always a direct path back to the main menu ... when you finish a game ...
+  // there should also be an exit option that takes you to the main menu". A finished-game, results, start or pause
+  // card covers the top row's back button, so each of those cards gets an "Exit to main menu" button under its own
+  // buttons. Cards that already have one (Pinball's "All games", Beacon's "Games") are left alone, and Get Out!
+  // is left out on purpose (Glenn: it does not need to change). The button taps the game's own back button when
+  // there is one, so the game saves exactly as it does when you leave from the top row.
+  var EXIT_CARDS = ['ovEnd', 'ovResults', 'ovPause', 'ovStart'];
+  var HOME_TEXT = /^\s*(all games|games|exit to main menu|main menu|‹ games)\s*$/i;
+  function exitCards() {
+    if (!isGame || /\/games\/getout\//.test(location.pathname)) return;
+    EXIT_CARDS.forEach(function (id) {
+      var ov = document.getElementById(id);
+      if (!ov) return;
+      function ensure() {
+        if (!ov.classList.contains('show')) return;
+        var card = ov.querySelector('.card, .sheet');
+        if (!card) return;
+        var had = card.querySelector('.ggexit'), btns = card.querySelectorAll('button');
+        // a card that has its own way home this time doesn't get a second one (cards are reused for different moments)
+        for (var i = 0; i < btns.length; i++) if (btns[i] !== had && HOME_TEXT.test(btns[i].textContent)) { if (had) had.remove(); return; }
+        if (had) { card.appendChild(had); return; } // keep it last if the game added buttons after it
+        var b = document.createElement('button');
+        b.type = 'button'; b.className = 'ggexit'; b.innerHTML = ALL_ICON + '<span>Exit to main menu</span>';
+        b.addEventListener('click', function () {
+          var hb = document.getElementById('btnHome');
+          if (hb && !ov.contains(hb)) hb.click(); else home();
+        });
+        card.appendChild(b);
+      }
+      // the card's buttons are often rebuilt just before it shows: check after the show, once the game's code has run
+      new MutationObserver(ensure).observe(ov, { attributes: true, attributeFilter: ['class'] });
+      ensure();
+    });
+  }
+  if (isGame) {
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', exitCards);
+    else exitCards();
+  }
+
   return {
     ROOT: ROOT, store: store, settings: settings, THEMES: THEMES,
     theme: function () { return themeNow; }, setTheme: setTheme, onTheme: function (cb) { themeListeners.push(cb); }, themePicker: themePicker,
