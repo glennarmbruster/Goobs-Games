@@ -93,6 +93,12 @@
 .soon b { font-size: 14px; color: var(--muted); }
 .soon small { margin-top: 2px; }
 .foot { text-align: center; color: var(--muted); font-size: 12px; margin: 6px 0 4px; }
+/* Backup & Restore (shell 2.52.0) */
+.bkinfo { font-size: 14px; color: var(--muted); line-height: 1.4; padding: 6px 2px 0; }
+.bkinfo b { display: block; color: var(--ink); font-size: 15px; margin-top: 6px; }
+.bkrow { margin-top: 10px; }
+.bkmsg { font-size: 14px; font-weight: 700; min-height: 18px; margin: 8px 2px 0; color: var(--muted); }
+.bkmsg.ok { color: var(--ok); } .bkmsg.bad { color: var(--bad); }
 </style>
 </head>
 <body>
@@ -125,9 +131,24 @@
       <div class="themes" id="themes"></div>
       <label class="row"><div>Old-time ads<small>Joke vintage ads between rounds in every game. Each game sets how often in its own settings.</small></div>
         <span class="switch"><input type="checkbox" id="setAds"><span></span></span></label>
+      <div class="themelabel">Backup &amp; Restore</div>
+      <div class="bkinfo">Every game's progress, stars, stats and settings (and Picture Perfect's own photos) in one file. Save it to Files, AirDrop it, or email it to yourself; restore it on this or another phone.
+        <b id="bkLast">Last backup: never</b></div>
+      <div class="linkrow bkrow"><button class="btn" id="btnBackup">Back up&hellip;</button><button class="btn" id="btnRestore">Restore&hellip;</button></div>
+      <div class="bkmsg" id="bkMsg"></div>
+      <input type="file" id="fileRestore" accept=".json,application/json,text/plain" hidden>
       <div class="version" id="version">Goobs-Games</div>
     </div>
     <div class="actions"><button class="btn red" id="btnCloseSettings">Done</button></div>
+  </div>
+</div>
+
+<!-- Restore: confirm -->
+<div class="overlay center" id="ovRestore">
+  <div class="card" role="dialog" aria-label="Restore backup">
+    <h2>Restore this backup?</h2>
+    <p id="rsText"></p>
+    <div class="actions"><button class="btn red" id="btnRestoreGo">Restore</button><button class="btn" id="btnRestoreNo">Cancel</button></div>
   </div>
 </div>
 
@@ -810,6 +831,165 @@
   $('btnCloseSettings').addEventListener('click', function () { $('ovSettings').classList.remove('show'); });
   $('ovSettings').addEventListener('click', function (e) { if (e.target === this) this.classList.remove('show'); });
 
+
+  // ---------- Backup & Restore (shell 2.52.0) ----------
+  // Glenn: "export all game saves (every namespace) to one file via the iOS share sheet (save to Files, AirDrop, or
+  // email to yourself), and import it back to restore. Include a version number in the file, and show the date of the
+  // last backup in settings."
+  // What goes in: every localStorage key of the arcade (each game's namespace "<id>.", the arcade's own "goobs.", and the
+  // older names Zoodoku and Neon Siege use) and the arcade's IndexedDB databases ("goobs-*": Picture Perfect's photos),
+  // blobs turned into data URLs. Nothing from other sites on the same address. The file is plain JSON:
+  // { format: 'goobs-games-backup', version: 1, shell, created, local: { key: text }, idb: [ { name, version, stores } ] }.
+  var BK_FORMAT = 'goobs-games-backup', BK_VERSION = 1, BK_LAST = 'goobs.lastBackup';
+  var BK_EXTRA = ['goobs', 'zoodoku', 'neonsiege'];
+  function bkNamespaces() { var ns = {}; GAMES.forEach(function (g) { ns[g.id] = 1; }); BK_EXTRA.forEach(function (n) { ns[n] = 1; }); return ns; }
+  function bkKeys() {
+    var ns = bkNamespaces(), out = [];
+    try { for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i), p = k.split('.')[0]; if (ns[p] && k !== BK_LAST) out.push(k); } } catch (e) { /* blocked */ }
+    return out;
+  }
+  function blobToDataURL(b) { return new Promise(function (res, rej) { var r = new FileReader(); r.onload = function () { res(r.result); }; r.onerror = function () { rej(r.error); }; r.readAsDataURL(b); }); }
+  function dataURLToBlob(u) { var i = u.indexOf(','), head = u.slice(5, i), b64 = /;base64/.test(head), type = head.replace(/;base64/, '') || 'application/octet-stream', raw = b64 ? atob(u.slice(i + 1)) : decodeURIComponent(u.slice(i + 1)), a = new Uint8Array(raw.length); for (var j = 0; j < raw.length; j++) a[j] = raw.charCodeAt(j); return new Blob([a], { type: type }); }
+  // records may hold Blobs (photos) or ArrayBuffers: turn them into JSON-safe values and back
+  function enc(v) {
+    if (v instanceof Blob) return blobToDataURL(v).then(function (u) { return { __goobsBlob: u }; });
+    if (v instanceof ArrayBuffer) return blobToDataURL(new Blob([v])).then(function (u) { return { __goobsBuf: u }; });
+    if (Array.isArray(v)) return Promise.all(v.map(enc));
+    if (v && typeof v === 'object' && !(v instanceof Date)) { var ks = Object.keys(v); return Promise.all(ks.map(function (k) { return enc(v[k]); })).then(function (vals) { var o = {}; ks.forEach(function (k, i) { o[k] = vals[i]; }); return o; }); }
+    return Promise.resolve(v);
+  }
+  function dec(v) {
+    if (Array.isArray(v)) return Promise.all(v.map(dec));
+    if (v && typeof v === 'object') {
+      if (typeof v.__goobsBlob === 'string') return Promise.resolve(dataURLToBlob(v.__goobsBlob));
+      if (typeof v.__goobsBuf === 'string') return dataURLToBlob(v.__goobsBuf).arrayBuffer();
+      var ks = Object.keys(v); return Promise.all(ks.map(function (k) { return dec(v[k]); })).then(function (vals) { var o = {}; ks.forEach(function (k, i) { o[k] = vals[i]; }); return o; });
+    }
+    return Promise.resolve(v);
+  }
+  function idbReq(r) { return new Promise(function (res, rej) { r.onsuccess = function () { res(r.result); }; r.onerror = function () { rej(r.error); }; }); }
+  function idbNames() {
+    if (!window.indexedDB) return Promise.resolve([]);
+    var known = ['goobs-patchwork'];
+    if (!indexedDB.databases) return Promise.resolve(known);
+    return indexedDB.databases().then(function (l) { var n = (l || []).map(function (d) { return d.name; }).filter(function (x) { return /^goobs-/.test(x || ''); }); return n.length ? n : []; }, function () { return known; });
+  }
+  function idbDump(name) {
+    return new Promise(function (res) {
+      var r; try { r = indexedDB.open(name); } catch (e) { res(null); return; }
+      r.onupgradeneeded = function () { try { r.transaction.abort(); } catch (e) { /* ignore */ } }; // it didn't exist: don't create it
+      r.onerror = function () { res(null); };
+      r.onsuccess = function () {
+        var db = r.result, names = Array.prototype.slice.call(db.objectStoreNames), out = { name: name, version: db.version, stores: [] };
+        if (!names.length) { db.close(); res(out); return; }
+        var t = db.transaction(names, 'readonly'), jobs = [];
+        names.forEach(function (sn) {
+          var st = t.objectStore(sn), info = { name: sn, keyPath: st.keyPath, autoIncrement: st.autoIncrement, records: [], keys: [] };
+          out.stores.push(info);
+          jobs.push(idbReq(st.getAll()).then(function (vals) { info.records = vals || []; }));
+          if (st.keyPath == null) jobs.push(idbReq(st.getAllKeys()).then(function (ks) { info.keys = ks || []; }));
+        });
+        Promise.all(jobs).then(function () { db.close(); return Promise.all(out.stores.map(function (s2) { return enc(s2.records).then(function (e) { s2.records = e; }); })); })
+          .then(function () { res(out); }, function () { db.close(); res(null); });
+      };
+    });
+  }
+  function idbRestore(d) {
+    return new Promise(function (res, rej) {
+      var del = indexedDB.deleteDatabase(d.name);
+      del.onblocked = function () { /* another tab: carries on when it closes */ };
+      del.onerror = function () { rej(del.error); };
+      del.onsuccess = function () {
+        var r = indexedDB.open(d.name, d.version || 1);
+        r.onupgradeneeded = function () { var db = r.result; d.stores.forEach(function (s2) { db.createObjectStore(s2.name, s2.keyPath != null ? { keyPath: s2.keyPath, autoIncrement: !!s2.autoIncrement } : { autoIncrement: !!s2.autoIncrement }); }); };
+        r.onerror = function () { rej(r.error); };
+        r.onsuccess = function () {
+          var db = r.result;
+          Promise.all(d.stores.map(function (s2) { return dec(s2.records).then(function (recs) { s2.recs = recs; }); })).then(function () {
+            if (!d.stores.length) { db.close(); res(); return; }
+            var t = db.transaction(d.stores.map(function (s2) { return s2.name; }), 'readwrite');
+            d.stores.forEach(function (s2) { var st = t.objectStore(s2.name); s2.recs.forEach(function (v, i) { if (s2.keyPath != null) st.put(v); else st.put(v, s2.keys[i]); }); });
+            t.oncomplete = function () { db.close(); res(); };
+            t.onerror = t.onabort = function () { db.close(); rej(t.error); };
+          }, function (e) { db.close(); rej(e); });
+        };
+      };
+    });
+  }
+  var shellVersion = '?';
+  function makeBackup() {
+    var local = {};
+    bkKeys().forEach(function (k) { try { local[k] = localStorage.getItem(k); } catch (e) { /* skip */ } });
+    return idbNames().then(function (names) { return Promise.all(names.map(idbDump)); }).then(function (dbs) {
+      return { format: BK_FORMAT, version: BK_VERSION, app: 'Goobs-Games', shell: shellVersion, created: new Date().toISOString(), games: GAMES.filter(function (g) { return Object.keys(local).some(function (k) { return k.indexOf(g.id + '.') === 0; }); }).map(function (g) { return g.id; }), local: local, idb: dbs.filter(Boolean) };
+    });
+  }
+  function fmtDate(iso) { var d = new Date(iso); if (isNaN(d)) return '?'; return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) + ', ' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }); }
+  function showLast() { var l = readLS(BK_LAST); $('bkLast').textContent = l && l.at ? 'Last backup: ' + fmtDate(l.at) : 'Last backup: never'; }
+  function bkMsg(t, cls) { var m = $('bkMsg'); m.textContent = t || ''; m.className = 'bkmsg' + (cls ? ' ' + cls : ''); }
+  var pending = null; // a backup file made but not yet handed over (iOS wants the share sheet straight from a tap)
+  function markDone(file) { try { localStorage.setItem(BK_LAST, JSON.stringify({ at: new Date().toISOString(), name: file.name, size: file.size })); } catch (e) { /* ignore */ } showLast(); }
+  function hand(file) {
+    var canShare = navigator.share && (!navigator.canShare || navigator.canShare({ files: [file] }));
+    if (canShare) {
+      return navigator.share({ files: [file], title: 'Goobs-Games backup' }).then(function () { pending = null; markDone(file); bkMsg('Backup saved. Keep the file somewhere safe.', 'ok'); $('btnBackup').textContent = 'Back up\u2026'; },
+        function (e) {
+          if (e && e.name === 'AbortError') { bkMsg('Not saved (closed the share sheet).'); pending = null; $('btnBackup').textContent = 'Back up\u2026'; return; }
+          // the tap's permission ran out while the file was being made: one more tap shares it
+          pending = file; $('btnBackup').textContent = 'Share backup file'; bkMsg('Ready: tap \u201cShare backup file\u201d.');
+        });
+    }
+    // no share sheet (a computer browser): download the file instead
+    var a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = file.name; document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+    pending = null; markDone(file); bkMsg('Backup downloaded: ' + file.name, 'ok');
+    return Promise.resolve();
+  }
+  $('btnBackup').addEventListener('click', function () {
+    if (pending) { hand(pending); return; }
+    bkMsg('Making the backup\u2026');
+    makeBackup().then(function (data) {
+      var d = new Date(), stamp = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+      var file = new File([JSON.stringify(data)], 'goobs-games-backup-' + stamp + '.json', { type: 'application/json' });
+      window.__lastBackup = data;
+      return hand(file);
+    }).catch(function (e) { bkMsg('Couldn\u2019t make the backup (' + (e && e.message || e) + ').', 'bad'); });
+  });
+  var toRestore = null;
+  $('btnRestore').addEventListener('click', function () { bkMsg(''); $('fileRestore').value = ''; $('fileRestore').click(); });
+  $('fileRestore').addEventListener('change', function () {
+    var f = this.files && this.files[0]; if (!f) return;
+    f.text().then(function (txt) {
+      var data; try { data = JSON.parse(txt); } catch (e) { throw new Error('That isn\u2019t a Goobs-Games backup file.'); }
+      if (!data || data.format !== BK_FORMAT || typeof data.local !== 'object') throw new Error('That isn\u2019t a Goobs-Games backup file.');
+      if (!(data.version >= 1) || data.version > BK_VERSION) throw new Error('This backup is from a newer Goobs-Games (file version ' + data.version + '). Update the arcade first.');
+      toRestore = data;
+      var names = (data.games || []).map(function (id) { var g = GAMES.filter(function (x) { return x.id === id; })[0]; return g ? g.name : null; }).filter(Boolean);
+      var photos = (data.idb || []).reduce(function (n, d) { return n + d.stores.reduce(function (m, s2) { return m + (s2.name === 'photos' ? s2.records.length : 0); }, 0); }, 0);
+      $('rsText').innerHTML = 'Backup from <b>' + fmtDate(data.created) + '</b> (Goobs-Games ' + (data.shell || '?') + ', file version ' + data.version + ') with saves for <b>' + names.length + ' game' + (names.length === 1 ? '' : 's') + '</b>' + (photos ? ' and ' + photos + ' photo' + (photos === 1 ? '' : 's') : '') +
+        '.<br>It <b>replaces</b> the saves on this phone. Tip: back up first if you might want them.';
+      $('ovSettings').classList.remove('show'); $('ovRestore').classList.add('show');
+    }).catch(function (e) { bkMsg(e.message || String(e), 'bad'); });
+  });
+  $('btnRestoreNo').addEventListener('click', function () { toRestore = null; $('ovRestore').classList.remove('show'); $('ovSettings').classList.add('show'); });
+  $('btnRestoreGo').addEventListener('click', function () {
+    var data = toRestore; if (!data) return;
+    var keep = localStorage.getItem(BK_LAST);
+    $('btnRestoreGo').disabled = true; $('btnRestoreGo').textContent = 'Restoring\u2026';
+    // the arcade's keys only: what's in the backup comes back, other arcade saves on this phone go (it's a restore)
+    bkKeys().forEach(function (k) { try { localStorage.removeItem(k); } catch (e) { /* ignore */ } });
+    Object.keys(data.local).forEach(function (k) { var p = k.split('.')[0]; if (bkNamespaces()[p] && k !== BK_LAST) { try { localStorage.setItem(k, data.local[k]); } catch (e) { /* full */ } } });
+    try { if (keep) localStorage.setItem(BK_LAST, keep); } catch (e) { /* ignore */ }
+    Promise.all((data.idb || []).filter(function (d) { return /^goobs-/.test(d.name || ''); }).map(idbRestore)).then(function () { location.reload(); }, function (e) {
+      $('ovRestore').classList.remove('show'); $('ovSettings').classList.add('show');
+      bkMsg('Saves restored, but the photos couldn\u2019t be (' + (e && e.message || e) + ').', 'bad');
+      $('btnRestoreGo').disabled = false; $('btnRestoreGo').textContent = 'Restore';
+    });
+  });
+  $('btnSettings').addEventListener('click', function () { showLast(); bkMsg(''); });
+  showLast();
+  window.__backup = { make: makeBackup, keys: bkKeys };
+
   render();
   // coming back with the Back button (page restored from memory): refresh progress lines
   window.addEventListener('pageshow', render);
@@ -817,6 +997,7 @@
 
   Goobs.initUpdates({
     onVersions: function (v) {
+      shellVersion = v.shell || shellVersion;
       var parts = ['Goobs-Games ' + (v.shell || '?')];
       GAMES.forEach(function (g) { if (v[g.id]) parts.push(g.name + ' ' + v[g.id]); });
       $('version').textContent = parts.join(' · ');
