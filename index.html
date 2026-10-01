@@ -756,6 +756,18 @@
       }
     },
     {
+      id: 'getout', name: 'Get Out!', blurb: 'Five locked rooms. Find the way out.', path: 'games/getout/',
+      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="goT" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2f5a4f"/><stop offset="1" stop-color="#1b3a33"/></linearGradient><linearGradient id="goB" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f7dc8a"/><stop offset=".5" stop-color="#d9a640"/><stop offset="1" stop-color="#8f5f1a"/></linearGradient></defs><rect width="100" height="100" fill="url(#goT)"/>' +
+        '<rect x="28" y="20" width="44" height="72" rx="4" fill="#7b4526"/><rect x="24" y="16" width="52" height="8" rx="2" fill="#5b3519"/><path d="M32 92V28h36v64" fill="#fff4c9" opacity=".95"/><path d="M32 28h20v64H32z" fill="#7b4526"/><path d="M32 28l20-4v72l-20-4z" fill="#8a5530"/><circle cx="47" cy="60" r="3" fill="url(#goB)"/>' +
+        '<g transform="translate(70 26) rotate(30)"><circle r="9" fill="none" stroke="url(#goB)" stroke-width="5"/><rect x="-2.5" y="8" width="5" height="22" fill="url(#goB)"/><rect x="2" y="22" width="6" height="4" fill="url(#goB)"/></g></svg>',
+      status: function () {
+        var m = readLS('getout.meta'); if (!m || !m.best) return 'Five locked rooms. Find the way out.';
+        var rooms = {}, st = 0; for (var k in m.best) { rooms[parseInt(k, 10)] = 1; st += (m.best[k] && m.best[k].stars) || 0; }
+        var n = Object.keys(rooms).length; if (!n) return 'Five locked rooms. Find the way out.';
+        return n + (n === 1 ? ' room' : ' rooms') + ' escaped \u00b7 ' + st + ' stars';
+      }
+    },
+    {
       id: 'beacon', name: 'Beacon Bound', blurb: 'Run, jump, light the way', path: 'games/beacon/',
       art: '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="bbS" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4fa9f5"/><stop offset="1" stop-color="#c9ecff"/></linearGradient><radialGradient id="bbG"><stop offset="0" stop-color="#fff6c0"/><stop offset=".45" stop-color="#ffd24a" stop-opacity=".7"/><stop offset="1" stop-color="#ffd24a" stop-opacity="0"/></radialGradient></defs>' +
         '<rect width="100" height="100" fill="url(#bbS)"/><path d="M0 70q25-14 50-4t50-6v40H0z" fill="#6cc24a"/><path d="M0 78q30-8 60 0t40-2v24H0z" fill="#4fa83a"/>' +
