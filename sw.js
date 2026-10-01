@@ -21,7 +21,7 @@ const VERSIONS = {
   digger: '1.1.0',
   blocks: '1.2.0',
   maze: '1.1.0',
-  mahjong: '1.2.0',
+  mahjong: '1.3.0',
   dice: '1.1.0',
   daily: '1.1.0',
   mines: '1.1.0',

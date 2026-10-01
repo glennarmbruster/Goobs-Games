@@ -38,6 +38,10 @@
 .layouts button { border: 1px solid var(--line); background: var(--surface); border-radius: 16px; padding: 10px 8px 8px; display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--ink); }
 .layouts button.cur { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
 .layouts canvas { width: 100%; height: 76px; }
+.layouts button.tall canvas { height: 112px; }
+/* 1.3.0: Tall / Wide group headings in the layout picker */
+.layouts .lgroup { grid-column: 1 / -1; margin: 6px 2px -2px; font-size: 17px; color: var(--ink); }
+.layouts .lgroup small { font-size: 13px; font-weight: 600; color: var(--muted); }
 .layouts b { font-size: 16px; }
 .layouts small { font-size: 12px; color: var(--muted); font-weight: 600; }
 .cardicon svg { border-radius: 16px; }
@@ -56,7 +60,8 @@
 .tray .slot.locked span { color: rgba(255,255,255,.75); font-weight: 900; font-size: 22px; }
 @keyframes trayin { from { transform: translateY(-30px) scale(.7); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes trayout { 0% { transform: scale(1); } 40% { transform: scale(1.15); background: #ffe79a; } 100% { transform: scale(.3); opacity: 0; } }
-.zoomhint { position: absolute; right: 10px; top: 10px; background: rgba(20,24,36,.6); color: #fff; font-weight: 800; font-size: 12px; padding: 5px 9px; border-radius: 12px; pointer-events: none; display: none; }
+/* 1.3.0: zoomed in, this pill (or a double tap) goes back to the whole board */
+.zoomhint { position: absolute; right: 10px; top: 10px; border: 0; background: rgba(20,24,36,.66); color: #fff; font: inherit; font-weight: 800; font-size: 13px; padding: 7px 12px; border-radius: 14px; display: none; }
 .zoomhint.show { display: block; }
 /* sideways: the board takes the left, the numbers and buttons stack on the right */
 @media (orientation: landscape) and (max-height: 540px) {
@@ -128,7 +133,7 @@ html.gg-fs .top .brand { flex: none; }
     <div class="stage" id="stage">
       <canvas id="cv"></canvas>
       <div class="toast" id="toast"></div>
-      <div class="zoomhint" id="zoomhint">Pinch out to see it all</div>
+      <button class="zoomhint" id="zoomhint" aria-label="See the whole board">See it all</button>
     </div>
   </div>
 
@@ -231,6 +236,8 @@ var MJ = (function () {
   // ---------- layouts ----------
   function rect(out, x0, y0, w, h, z) { for (var y = 0; y < h; y++) for (var x = 0; x < w; x++) out.push([(x0 + x) * 2, (y0 + y) * 2, z]); }
   function row(out, x0, n, y, z) { for (var x = 0; x < n; x++) out.push([(x0 + x) * 2, y * 2, z]); }
+  // a layer drawn as text: '#' is a tile at that column; lines start at row y0 (1.3.0's tall layouts)
+  function art(out, z, y0, lines) { lines.forEach(function (s, r) { for (var c = 0; c < s.length; c++) if (s[c] === '#') out.push([c * 2, (y0 + r) * 2, z]); }); }
   var LAYOUTS = [
     { id: 'turtle', name: 'Turtle', build: function () {
       // the classic shape (traditional): 87 on the bottom, 36, 16, 4, then 1 on top
@@ -266,6 +273,49 @@ var MJ = (function () {
     { id: 'quick', name: 'Quick', build: function () {
       var t = []; rect(t, 0, 0, 8, 6, 0); rect(t, 1, 1, 6, 4, 1);
       return t; // 48 + 24 = 72
+    } },
+    // ---- 1.3.0 (Glenn, 2026-09-30): tall layouts for phones held upright. 144 tiles each, 9-10 tiles across and 12 rows,
+    // stacked up to five high, so the board's shape matches an upright screen and the tiles can be much bigger.
+    // Every upper tile sits fully on tiles below (tools/tall.js checks it), and deals are made the same way as the others.
+    { id: 'pagoda', name: 'Pagoda', tall: true, blurb: 'a tiered tower, five high in the middle', build: function () { var t = [];
+      art(t, 0, 0, ['   ###   ','  #####  ',' ####### ','  #####  ',' ####### ','#########','  #####  ',' ####### ','#########',' ####### ',' ####### ','#########']);
+      art(t, 1, 1, ['   ###   ','  #####  ','         ','  #####  ',' ####### ','         ','  #####  ',' ####### ','  #####  ','  #####  ']);
+      art(t, 2, 2, ['   ###   ','         ','   ###   ','  #####  ','         ','         ','  #####  ','   ###   ']);
+      art(t, 3, 4, ['    #    ','    #    ']);
+      art(t, 4, 5, ['    #    ']);
+      return t;
+    } },
+    { id: 'lantern', name: 'Lantern', tall: true, blurb: 'a round paper lantern with a stacked middle', build: function () { var t = [];
+      art(t, 0, 0, ['   ####   ','  ######  ',' ######## ','##########','##########','##########','##########','##########',' ######## ','  ######  ','   ####   ','    ##    ']);
+      art(t, 1, 3, ['  ######  ',' ######## ',' ######## ',' ######## ','  ######  ']);
+      art(t, 2, 4, ['   ####   ','  ######  ','   ####   ']);
+      art(t, 3, 5, ['   ####   ']);
+      art(t, 4, 5, ['    ##    ']);
+      return t;
+    } },
+    { id: 'vase', name: 'Vase', tall: true, blurb: 'a narrow neck and a wide, stacked belly', build: function () { var t = [];
+      art(t, 0, 0, [' ####### ','  #####  ','   ###   ','   ###   ','  #####  ',' ####### ','#########','#########','#########',' ####### ','  #####  ',' ####### ']);
+      art(t, 1, 0, ['  #####  ','         ','   ###   ','   ###   ','         ','  #####  ',' ####### ',' ####### ',' ####### ','  #####  ','         ','   ###   ']);
+      art(t, 2, 5, ['    #    ','  #####  ','  #####  ','  #####  ','    #    ']);
+      art(t, 3, 6, ['    #    ','   ###   ','    #    ']);
+      art(t, 4, 7, ['    #    ']);
+      return t;
+    } },
+    { id: 'gate', name: 'Gate', tall: true, blurb: 'a temple gate: a five-high beam on two pillars', build: function () { var t = [];
+      art(t, 0, 0, ['##########','##########',' ###  ### ',' ###  ### ','##########',' ###  ### ',' ###  ### ',' ###  ### ',' ###  ### ',' ###  ### ','####  ####','##########']);
+      art(t, 1, 0, ['##########','  ######  ','  #    #  ','  #    #  ','  #    #  ','  #    #  ','  #    #  ','  #    #  ','  #    #  ','  #    #  ']);
+      art(t, 2, 0, [' ######## ','          ','          ','          ','          ','          ','  #    #  ','  #    #  ','  #    #  ','  #    #  ']);
+      art(t, 3, 0, ['   ####   ']);
+      art(t, 4, 0, ['    ##    ']);
+      return t;
+    } },
+    { id: 'hourglass', name: 'Hourglass', tall: true, blurb: 'two five-high plates and sand running through', build: function () { var t = [];
+      art(t, 0, 0, ['##########',' ######## ',' ######## ','  ######  ','   ####   ','    ##    ','    ##    ','   ####   ','  ######  ',' ######## ',' ######## ','##########']);
+      art(t, 1, 0, [' ######## ','  ######  ','   ####   ']); art(t, 1, 9, ['   ####   ','  ######  ',' ######## ']);
+      art(t, 2, 0, ['  ######  ','   ####   ']); art(t, 2, 10, ['   ####   ','  ######  ']);
+      art(t, 3, 0, ['   ####   ']); art(t, 3, 11, ['   ####   ']);
+      art(t, 4, 0, ['    ##    ']); art(t, 4, 11, ['    ##    ']);
+      return t;
     } }
   ];
   var BY_ID = {}; LAYOUTS.forEach(function (l) { BY_ID[l.id] = l; l.slots = l.build(); });
@@ -549,11 +599,20 @@ var TTSound = (function () {
     settings.adEvery = Math.min(10, Math.max(1, settings.adEvery | 0));
   })();
   function saveSettings() { store.set('settings', settings); }
-  var meta = store.get('meta', null) || {};
-  var MD = { layout: 'turtle', seen: false, finished: 0, lastAdAt: 0 };
+  // 1.3.0 (Glenn, 2026-09-30): on a phone held upright the tall layouts are the default (the board's shape matches the
+  // screen, so the tiles are much bigger); an iPad or a sideways screen starts with the classic Turtle.
+  function phoneUpright() { return Math.min(innerWidth, innerHeight) < 600 && innerHeight > innerWidth; }
+  var TALL_DEFAULT = 'pagoda';
+  var meta = store.get('meta', null), firstRun = !meta; meta = meta || {};
+  var MD = { layout: phoneUpright() ? TALL_DEFAULT : 'turtle', seen: false, finished: 0, lastAdAt: 0, v13: false };
   for (var mk in MD) if (meta[mk] === undefined) meta[mk] = MD[mk];
   if (!MJ.BY_ID[meta.layout]) meta.layout = 'turtle';
+  // players from before 1.3.0 on a phone move to a tall layout once (a game in progress carries on as it is);
+  // after that the layout they pick is remembered, wide or tall
+  var tallNews = false;
+  if (!meta.v13) { meta.v13 = true; if (!firstRun && phoneUpright() && !MJ.BY_ID[meta.layout].tall) { meta.layout = TALL_DEFAULT; tallNews = true; } }
   function saveMeta() { store.set('meta', meta); }
+  saveMeta();
   var stats = store.get('stats', null) || {};
   MJ.LAYOUTS.forEach(function (L) { var o = stats[L.id] || (stats[L.id] = {}); ['played', 'won', 'best'].forEach(function (k) { if (typeof o[k] !== 'number') o[k] = 0; }); });
   if (typeof stats.pairs !== 'number') stats.pairs = 0;
@@ -574,7 +633,7 @@ var TTSound = (function () {
     g = MJ.deal(layout || meta.layout, newSeed());
     if (settings.box) MJ.startBox(g);
     meta.layout = g.layout; saveMeta();
-    sel = -1; hintPair = null; fading = []; counted = false; view = { s: 1, x: 0, y: 0 };
+    sel = -1; hintPair = null; fading = []; counted = false; view = { s: 1, x: 0, y: 0 }; lastTap = null; B.w = 0;
     saveGame(); layoutBoard(); renderAll();
   }
   function saveGame() { if (g && !g.done) store.set('game', g); else store.del('game'); }
@@ -592,24 +651,47 @@ var TTSound = (function () {
   setInterval(function () { tick(); renderClock(); }, 250);
 
   // ================= drawing =================
-  var cv, cx, dpr = 1, B = {}, faceCache = {}, view = { s: 1, x: 0, y: 0 };
-  // board metrics: tile width tw, height th, the thickness d (higher layers sit up and left by d)
+  var cv, cx, dpr = 1, B = {}, faceCache = {}, view = { s: 1, x: 0, y: 0 }, lastTap = null;
+  // tile height : width, and the thickness per layer as a part of the width (1.3.0: 0.17, was 0.14, so stacks read better)
+  var RATIO = 1.32, DK = 0.17, ZMAX = 3, sidewaysTold = false;
+  // board metrics: tile width tw, height th, the thickness d (higher layers sit up and left by d).
+  // 1.3.0 auto-fit: the tile size is worked out from the board's real outline (every tile with its layer offset and its
+  // thickness) so the board fills the table between the top row and the box, with small margins, on any screen;
+  // it runs again on every resize, rotation and orientationchange.
   function layoutBoard() {
     if (!g || !cv) return;
-    var r = $('stage').getBoundingClientRect(), sl = L().slots, maxX = 0, maxY = 0, maxZ = 0;
-    sl.forEach(function (s) { maxX = Math.max(maxX, s[0]); maxY = Math.max(maxY, s[1]); maxZ = Math.max(maxZ, s[2]); });
-    // full screen: only 4px at the sides (the table runs to the screen's edges and the width sets the tile size upright)
-    var cols = maxX / 2 + 1, rows = maxY / 2 + 1, pad = 10, padX = 4, ratio = 1.32, dk = 0.14;
-    var tw = Math.min((r.width - padX * 2) / (cols + dk * (maxZ + 1)), (r.height - pad * 2) / (rows * ratio + dk * (maxZ + 1)));
-    tw = Math.floor(tw * 2) / 2;
-    B = { tw: tw, th: Math.round(tw * ratio * 2) / 2, d: Math.max(2, Math.round(tw * dk * 2) / 2), maxZ: maxZ };
-    var bw = cols * tw + B.d * (maxZ + 1), bh = rows * B.th + B.d * (maxZ + 1);
-    B.ox = Math.round((r.width - bw) / 2 + B.d * (maxZ + 1)); B.oy = Math.round((r.height - bh) / 2 + B.d * (maxZ + 1));
+    var r = $('stage').getBoundingClientRect(), sl = L().slots, maxZ = 0;
+    if (r.width < 10 || r.height < 10) return;
+    // the outline for a tile 1 wide
+    var u = { x0: 1e9, x1: -1e9, y0: 1e9, y1: -1e9 };
+    sl.forEach(function (s) {
+      var x = s[0] / 2 - s[2] * DK, y = s[1] / 2 * RATIO - s[2] * DK;
+      u.x0 = Math.min(u.x0, x); u.x1 = Math.max(u.x1, x + 1 + DK); u.y0 = Math.min(u.y0, y); u.y1 = Math.max(u.y1, y + RATIO + DK);
+      maxZ = Math.max(maxZ, s[2]);
+    });
+    var mx = 6, my = 8; // margins (the soft shadows run into them)
+    var tw = Math.min((r.width - mx * 2) / (u.x1 - u.x0), (r.height - my * 2) / (u.y1 - u.y0));
+    tw = Math.max(8, Math.floor(tw * 2) / 2);
+    var resized = Math.abs(r.width - (B.w || 0)) > 0.5 || Math.abs(r.height - (B.h || 0)) > 0.5;
+    B = { tw: tw, th: Math.round(tw * RATIO * 2) / 2, d: Math.max(2, Math.round(tw * DK * 2) / 2), maxZ: maxZ };
+    // the real outline with the rounded sizes, then centre it
+    var b0 = { x0: 1e9, x1: -1e9, y0: 1e9, y1: -1e9 };
+    sl.forEach(function (s) {
+      var x = s[0] / 2 * B.tw - s[2] * B.d, y = s[1] / 2 * B.th - s[2] * B.d;
+      b0.x0 = Math.min(b0.x0, x); b0.x1 = Math.max(b0.x1, x + B.tw + B.d); b0.y0 = Math.min(b0.y0, y); b0.y1 = Math.max(b0.y1, y + B.th + B.d);
+    });
+    B.ox = Math.round((r.width - (b0.x1 - b0.x0)) / 2 - b0.x0); B.oy = Math.round((r.height - (b0.y1 - b0.y0)) / 2 - b0.y0);
+    // the board's box on the canvas (at fit), for keeping it in view when zoomed
+    B.bx0 = B.ox + b0.x0; B.bx1 = B.ox + b0.x1; B.by0 = B.oy + b0.y0; B.by1 = B.oy + b0.y1;
     dpr = Math.min(3, window.devicePixelRatio || 1);
     cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
     cx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    B.w = r.width; B.h = r.height; clampView();
-    faceCache = {};
+    B.w = r.width; B.h = r.height;
+    if (resized) view = { s: 1, x: 0, y: 0 }; // a new screen size (rotation): back to the whole board
+    // a tall layout on a phone turned sideways has small tiles: say so once
+    if (resized && L().tall && !phoneUpright() && Math.min(innerWidth, innerHeight) < 600 && !sidewaysTold) { sidewaysTold = true; setTimeout(function () { toast('Tall layouts are made for an upright phone: turn it back, or pick a Wide one (Menu → New).'); }, 300); }
+    clampView();
+    faceCache = {}; B.fres = faceRes();
     // draw order: lower layers first, then left to right, top to bottom
     B.order = sl.map(function (s, i) { return i; }).sort(function (a, b) { var p = sl[a], q = sl[b]; return p[2] - q[2] || p[0] - q[0] || p[1] - q[1]; });
     draw();
@@ -630,13 +712,19 @@ var TTSound = (function () {
       if (i === shakeI && now - shakeT < 300) x += Math.sin((now - shakeT) / 18) * 3 * (1 - (now - shakeT) / 300);
       cx.save();
       if (fade) { var k = Math.min(1, (now - fade.t) / 260); cx.globalAlpha = 1 - k; cx.translate(x + tw / 2, y + th / 2); cx.scale(1 + k * 0.25, 1 + k * 0.25); cx.translate(-x - tw / 2, -y - th / 2); }
-      // the tile's thickness (below and to the right), then its face
-      rr(cx, x + d * 0.4, y + d * 0.4, tw + d * 0.6, th + d * 0.6, r); cx.fillStyle = '#1b7457'; cx.fill();
-      rr(cx, x + d * 0.15, y + d * 0.15, tw + d * 0.35, th + d * 0.35, r); cx.fillStyle = '#e4dcc8'; cx.fill();
+      // the tile's thickness (below and to the right), then its face. 1.3.0: a soft shadow under it that grows with
+      // its layer, and a slightly deeper, two-tone side, so stacks read clearly
+      var z = L().slots[i][2], sk = dpr * view.s;
+      cx.shadowColor = 'rgba(8,40,28,' + (0.2 + z * 0.05).toFixed(2) + ')';
+      cx.shadowBlur = Math.min(30, (2 + z * 1.6) * sk); // capped: big blurs cost a lot when zoomed in cx.shadowOffsetX = (0.6 + z * 0.7) * sk; cx.shadowOffsetY = (1 + z * 0.9) * sk;
+      rr(cx, x + d * 0.4, y + d * 0.4, tw + d * 0.6, th + d * 0.6, r); cx.fillStyle = '#17684d'; cx.fill();
+      cx.shadowColor = 'rgba(0,0,0,0)'; cx.shadowBlur = 0; cx.shadowOffsetX = 0; cx.shadowOffsetY = 0;
+      rr(cx, x + d * 0.15, y + d * 0.15, tw + d * 0.4, th + d * 0.4, r); cx.fillStyle = '#d9cdb0'; cx.fill();
+      rr(cx, x + d * 0.05, y + d * 0.05, tw + d * 0.2, th + d * 0.2, r); cx.fillStyle = '#ebe3d0'; cx.fill();
       var face = faceImg(g.faces[i]);
       rr(cx, x, y, tw, th, r); cx.fillStyle = '#fbf7ef'; cx.fill();
       cx.drawImage(face, x, y, tw, th);
-      rr(cx, x + 0.5, y + 0.5, tw - 1, th - 1, r); cx.lineWidth = 1; cx.strokeStyle = 'rgba(120,105,80,.35)'; cx.stroke();
+      rr(cx, x + 0.5, y + 0.5, tw - 1, th - 1, r); cx.lineWidth = 1; cx.strokeStyle = 'rgba(110,95,70,.45)'; cx.stroke();
       if (i === sel) { rr(cx, x, y, tw, th, r); cx.fillStyle = 'rgba(255,200,40,.32)'; cx.fill(); cx.lineWidth = 2.5; cx.strokeStyle = '#f0a500'; rr(cx, x + 1, y + 1, tw - 2, th - 2, r); cx.stroke(); }
       if (hintPair && (hintPair[0] === i || hintPair[1] === i) && now < hintT) {
         var pulse = 0.5 + 0.5 * Math.sin(now / 120);
@@ -655,7 +743,8 @@ var TTSound = (function () {
   function faceImg(f) {
     var key = f + (settings.idx ? 'i' : '');
     if (faceCache[key]) return faceCache[key];
-    var W = Math.max(8, Math.round(B.tw * dpr)), H = Math.max(10, Math.round(B.th * dpr)), c = document.createElement('canvas');
+    var fr = B.fres || 1; // drawn sharper when zoomed in (1.3.0)
+    var W = Math.max(8, Math.round(B.tw * dpr * fr)), H = Math.max(10, Math.round(B.th * dpr * fr)), c = document.createElement('canvas');
     c.width = W; c.height = H;
     var x = c.getContext('2d');
     drawFace(x, f, W, H);
@@ -747,20 +836,32 @@ var TTSound = (function () {
     }
     return -1;
   }
-  // ---------- pinch to zoom, drag to look around when zoomed ----------
+  // ---------- pinch to zoom, drag to look around when zoomed (1.3.0: all layouts, up to 3x) ----------
+  // Two fingers zoom around the point between them (between the whole board and 3x); one finger drags the board when
+  // zoomed in (a move of more than 8 px is a drag, never a pick); the board is kept in view; a double tap, or the
+  // "See it all" pill, goes back to the whole board.
+  function faceRes() { return view.s > 1.01 ? Math.min(ZMAX, Math.ceil(view.s * 2) / 2) : 1; }
   function clampView() {
-    view.s = Math.max(1, Math.min(2.6, view.s));
-    var minX = B.w - B.w * view.s, minY = B.h - B.h * view.s;
-    view.x = Math.min(0, Math.max(minX, view.x)); view.y = Math.min(0, Math.max(minY, view.y));
+    view.s = Math.max(1, Math.min(ZMAX, view.s));
+    var m = 6;
+    function axis(v, lo, hi, size) {
+      var a = lo * view.s, b = hi * view.s;
+      if (b - a <= size - 2 * m) return (size - a - b) / 2; // smaller than the view: keep it centred
+      return Math.min(m - a, Math.max(size - m - b, v));    // bigger: no gap at either edge
+    }
+    if (B.bx1 !== undefined) { view.x = axis(view.x, B.bx0, B.bx1, B.w); view.y = axis(view.y, B.by0, B.by1, B.h); }
+    if (view.s <= 1.001) { view.s = 1; view.x = 0; view.y = 0; }
     var zh = $('zoomhint'); if (zh) zh.classList.toggle('show', view.s > 1.01);
   }
+  function sharpen() { var fr = faceRes(); if (fr !== B.fres) { B.fres = fr; faceCache = {}; } draw(); }
+  function resetView() { view = { s: 1, x: 0, y: 0 }; clampView(); sharpen(); }
   var ptrs = {}, gest = null;
   function local(e) { var r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
   function onDown(e) {
     ptrs[e.pointerId] = local(e);
     try { cv.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
     var ids = Object.keys(ptrs);
-    if (ids.length === 1) gest = { kind: 'one', start: ptrs[e.pointerId], moved: false, vx: view.x, vy: view.y, t: performance.now() };
+    if (ids.length === 1) gest = { kind: 'one', start: ptrs[e.pointerId], moved: false, vx: view.x, vy: view.y, t: e.timeStamp };
     else if (ids.length === 2) {
       var a = ptrs[ids[0]], b = ptrs[ids[1]];
       gest = { kind: 'pinch', d0: Math.hypot(a[0] - b[0], a[1] - b[1]) || 1, s0: view.s, m0: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], vx: view.x, vy: view.y };
@@ -776,8 +877,8 @@ var TTSound = (function () {
       if (gest.moved && view.s > 1) { view.x = gest.vx + dx; view.y = gest.vy + dy; clampView(); draw(); }
     } else if (gest.kind === 'pinch' && ids.length >= 2) {
       var a = ptrs[ids[0]], b = ptrs[ids[1]], d = Math.hypot(a[0] - b[0], a[1] - b[1]), m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
-      var ns = Math.max(1, Math.min(2.6, gest.s0 * d / gest.d0));
-      // keep the point under the fingers in place
+      var ns = Math.max(1, Math.min(ZMAX, gest.s0 * d / gest.d0));
+      // keep the point that was under the fingers under them
       var wx = (gest.m0[0] - gest.vx) / gest.s0, wy = (gest.m0[1] - gest.vy) / gest.s0;
       view.s = ns; view.x = m[0] - wx * ns; view.y = m[1] - wy * ns; clampView(); draw();
     }
@@ -785,9 +886,29 @@ var TTSound = (function () {
   function onUp(e) {
     if (!ptrs[e.pointerId]) return;
     var pt = ptrs[e.pointerId]; delete ptrs[e.pointerId];
-    if (gest && gest.kind === 'one' && !gest.moved && performance.now() - gest.t < 600) tap(pt[0], pt[1]);
-    if (!Object.keys(ptrs).length) gest = null;
+    if (gest && gest.kind === 'one' && !gest.moved && e.timeStamp - gest.t < 600) tapOrDouble(pt[0], pt[1], e.timeStamp);
+    if (!Object.keys(ptrs).length) { if (gest && (gest.kind !== 'one' || gest.moved)) sharpen(); gest = null; }
     else if (gest && gest.kind === 'pinch') gest = { kind: 'none' };
+  }
+  // a double tap while zoomed in goes back to the whole board; whatever the first tap did is taken back
+  // (a quick second tap on the same spot is never a real pick: the tile it picked has gone into the box)
+  function tapOrDouble(lx, ly, now) { // now: the event's own time, so a slow frame can't stretch the gap
+    var lt = lastTap;
+    if (lt && view.s > 1.01 && now - lt.t < 330 && Math.hypot(lx - lt.x, ly - lt.y) < 30) {
+      lastTap = null; revertTap(lt); resetView(); return;
+    }
+    var before = { hist: g && g.hist ? g.hist.length : 0, removed: g ? g.removed.length : 0, sel: sel, pairs: stats.pairs };
+    tap(lx, ly);
+    lastTap = { t: now, x: lx, y: ly, before: before };
+  }
+  function revertTap(lt) {
+    if (!g) return;
+    var b = lt.before, changed = false;
+    if (g.boxMode) { while (g.hist.length > b.hist) { MJ.undoBox(g); changed = true; } }
+    else while (g.removed.length > b.removed) { MJ.undo(g); changed = true; }
+    sel = b.sel; stats.pairs = b.pairs; saveStats();
+    if (changed) { fading = []; saveGame(); renderInfo(); renderTray(); }
+    draw();
   }
   function tap(lx, ly) {
     if (!g || g.done || sheetOpen()) return;
@@ -855,7 +976,8 @@ var TTSound = (function () {
     box.classList.toggle('show', !!(g && g.boxMode));
     if (!g || !g.boxMode) return;
     // full screen: upright, the box slots may grow to 56px (was 48) now that the box runs the full width (sideways height is short)
-    var w = Math.min(innerWidth > innerHeight ? 48 : 56, Math.floor((box.getBoundingClientRect().width - 12 - 5 * 6) / 6) || 44), h = Math.round(w * 1.32), html = '';
+    // 1.3.0: on a short upright screen (an SE) the slots are 48px, which gives the board about 16px more height
+    var w = Math.min(innerWidth > innerHeight || innerHeight < 720 ? 48 : 56, Math.floor((box.getBoundingClientRect().width - 12 - 5 * 6) / 6) || 44), h = Math.round(w * 1.32), html = '';
     box.innerHTML = '';
     for (var k = 0; k < 6; k++) {
       var slot = document.createElement('div');
@@ -900,6 +1022,7 @@ var TTSound = (function () {
       { label: 'Shuffle', red: true, go: shuffle }, { label: 'Undo', go: undo }, { label: 'New game', go: function () { openNew(); } }]);
   }
   function won() {
+    if (!g || !g.done) return;
     var st = stats[g.layout], nb = !st.best || g.ms < st.best;
     st.won++; if (nb) st.best = Math.round(g.ms);
     saveStats(); meta.finished++; saveMeta(); store.del('game');
@@ -927,20 +1050,26 @@ var TTSound = (function () {
     next();
   }
   // the new-game sheet: each layout with a little picture
+  // 1.3.0: grouped as Tall (for a phone held upright) and Wide; the group that suits the screen comes first
   function openNew() {
     var box = $('layouts'); box.innerHTML = '';
-    MJ.LAYOUTS.forEach(function (Ly) {
-      var b = document.createElement('button'), st = stats[Ly.id];
-      b.className = Ly.id === (g && g.layout) ? 'cur' : '';
-      var c = document.createElement('canvas'); b.appendChild(c);
-      b.insertAdjacentHTML('beforeend', '<b>' + Ly.name + '</b><small>' + Ly.slots.length + ' tiles' + (st.best ? ' &middot; best ' + clock(st.best) : '') + (st.won ? ' &middot; ' + st.won + ' cleared' : '') + '</small>');
-      b.addEventListener('click', function () {
-        $('ovNew').classList.remove('show');
-        var go = function () { between(function () { newGame(Ly.id); }); };
-        go();
+    var groups = [{ tall: true, h: 'Tall', sub: 'for a phone held upright: bigger tiles' }, { tall: false, h: 'Wide', sub: 'for an iPad or a phone turned sideways' }];
+    if (!phoneUpright()) groups.reverse();
+    groups.forEach(function (gr) {
+      box.insertAdjacentHTML('beforeend', '<div class="lgroup"><b>' + gr.h + '</b> <small>' + gr.sub + '</small></div>');
+      MJ.LAYOUTS.filter(function (Ly) { return !!Ly.tall === gr.tall; }).forEach(function (Ly) {
+        var b = document.createElement('button'), st = stats[Ly.id];
+        b.className = (Ly.id === (g && g.layout) ? 'cur' : '') + (Ly.tall ? ' tall' : '');
+        b.dataset.id = Ly.id;
+        var c = document.createElement('canvas'); b.appendChild(c);
+        b.insertAdjacentHTML('beforeend', '<b>' + Ly.name + '</b><small>' + Ly.slots.length + ' tiles' + (st.best ? ' &middot; best ' + clock(st.best) : '') + (st.won ? ' &middot; ' + st.won + ' cleared' : '') + '</small>');
+        b.addEventListener('click', function () {
+          $('ovNew').classList.remove('show');
+          between(function () { newGame(Ly.id); });
+        });
+        box.appendChild(b);
+        requestAnimationFrame(function () { thumb(c, Ly); });
       });
-      box.appendChild(b);
-      requestAnimationFrame(function () { thumb(c, Ly); });
     });
     $('ovNew').classList.add('show');
   }
@@ -948,12 +1077,13 @@ var TTSound = (function () {
     var r = c.getBoundingClientRect(), d = Math.min(3, window.devicePixelRatio || 1); c.width = r.width * d; c.height = r.height * d;
     var x = c.getContext('2d'); x.setTransform(d, 0, 0, d, 0, 0);
     var sl = Ly.slots, mx = 0, my = 0; sl.forEach(function (s) { mx = Math.max(mx, s[0]); my = Math.max(my, s[1]); });
-    var tw = Math.min((r.width - 8) / (mx / 2 + 1.6), (r.height - 8) / ((my / 2 + 1) * 1.3 + 0.6)), th = tw * 1.3, dd = tw * 0.15;
+    var tw = Math.min((r.width - 8) / (mx / 2 + 1.8), (r.height - 8) / ((my / 2 + 1) * 1.3 + 0.8)), th = tw * 1.3, dd = tw * 0.17;
     var ox = (r.width - (mx / 2 + 1) * tw) / 2 + dd, oy = (r.height - (my / 2 + 1) * th) / 2 + dd;
     sl.map(function (s, i) { return i; }).sort(function (a, b) { var p = sl[a], q = sl[b]; return p[2] - q[2] || p[0] - q[0] || p[1] - q[1]; }).forEach(function (i) {
       var s = sl[i], px = ox + s[0] / 2 * tw - s[2] * dd, py = oy + s[1] / 2 * th - s[2] * dd;
-      x.fillStyle = '#1b7457'; x.fillRect(px + dd * 0.5, py + dd * 0.5, tw, th);
+      x.fillStyle = '#17684d'; x.fillRect(px + dd * 0.5, py + dd * 0.5, tw, th);
       x.fillStyle = '#fbf7ef'; x.fillRect(px, py, tw - 0.6, th - 0.6);
+      x.lineWidth = 0.5; x.strokeStyle = 'rgba(110,95,70,.55)'; x.strokeRect(px + 0.25, py + 0.25, tw - 1.1, th - 1.1); // 1.3.0: edges, so small tiles read
     });
   }
 
@@ -984,7 +1114,7 @@ var TTSound = (function () {
       'A tile can be taken only if it’s <b>free</b>: nothing on top of it, and nothing touching it on its <b>left or right</b> (one open side is enough).',
       'Matches are the same tile: the same number of dots, bamboo or characters (萬), the same wind (東 E, 南 S, 西 W, 北 N) or the same dragon (中 red, 發 green, the blue frame). <b>Any flower</b> matches any flower and <b>any season</b> any season (sprout, sun, leaf, snowflake).',
       'Stuck? <b>Hint</b> lights up a tile that matches the box, or a pair (one that keeps the board clearable when it can tell). <b>Undo</b> takes back a pair. <b>Shuffle</b> mixes the tiles that are left on the board (without the box, placed so they can still be cleared).',
-      'Tiles small? <b>Pinch</b> to zoom in and drag to look around; pinch back out to see it all. Every board is dealt so it <b>can be cleared</b>. Your time counts from your first pair. <b>New</b> (in the Menu, top right) lets you pick one of five layouts: Turtle, Pyramid, Fortress, Bridge and Quick (72 tiles).',
+      'Tiles small? <b>Pinch</b> to zoom in (up to 3×) and drag to look around; <b>double-tap</b> (or tap “See it all”) to see the whole board again. Every board is dealt so it <b>can be cleared</b>. Your time counts from your first pair. <b>New</b> (in the Menu, top right) picks a layout: five <b>tall</b> ones made for a phone held upright (Pagoda, Lantern, Vase, Gate, Hourglass: bigger tiles, stacked up to five high) and five <b>wide</b> ones (Turtle, Pyramid, Fortress, Bridge and Quick with 72 tiles).',
       'Settings: small <b>corner numbers</b> to read tiles quickly (on), and <b>shade blocked tiles</b> if you want to see what can move.'
     ].map(function (x) { return '<li>' + x + '</li>'; }).join('');
     $('ovHelp').classList.add('show');
@@ -1043,11 +1173,15 @@ var TTSound = (function () {
     $('adMore').addEventListener('click', function () { settings.adEvery = Math.min(10, settings.adEvery + 1); saveSettings(); syncAds(); });
     if (window.ResizeObserver) { new ResizeObserver(layoutBoard).observe($('stage')); new ResizeObserver(function () { renderTray(); }).observe($('tray')); }
     window.addEventListener('resize', layoutBoard);
+    // iOS reports the new size a little after it turns: fit again once it has settled
+    window.addEventListener('orientationchange', function () { setTimeout(layoutBoard, 120); setTimeout(layoutBoard, 450); setTimeout(function () { layoutBoard(); renderTray(); }, 900); });
+    $('zoomhint').addEventListener('click', function (e) { e.stopPropagation(); resetView(); });
     document.addEventListener('visibilitychange', function () { tick(); if (document.hidden) saveGame(); });
     window.addEventListener('pagehide', function () { tick(); saveGame(); });
     syncSound(); syncAds();
     if (!loadGame()) newGame(meta.layout); else { layoutBoard(); renderAll(); }
     if (!meta.seen) openHelp();
+    else if (tallNews) toast(g && MJ.BY_ID[g.layout].tall ? 'New: tall layouts made for an upright phone.' : 'New: tall layouts with bigger tiles (Menu → New).');
     lastTick = performance.now();
     requestAnimationFrame(loop);
     Goobs.markPlayed('mahjong');
@@ -1058,7 +1192,7 @@ var TTSound = (function () {
   }
 
   // hook for automated tests
-  window.__tt = { get view() { return view; }, get g() { return g; }, MJ: MJ, take: function (a, b) { take(a, b); }, hint: hint, undo: undo, shuffle: shuffle, newGame: newGame, stats: function () { return stats; }, pos: function (i) { return pos(i); }, B: function () { return B; } };
+  window.__tt = { get view() { return view; }, get g() { return g; }, MJ: MJ, take: function (a, b) { take(a, b); }, resetView: resetView, hitAt: function (x, y) { return hit(x, y); }, layoutBoard: function () { layoutBoard(); }, phoneUpright: phoneUpright, hint: hint, undo: undo, shuffle: shuffle, newGame: newGame, stats: function () { return stats; }, pos: function (i) { return pos(i); }, B: function () { return B; } };
 
   init();
 })();
