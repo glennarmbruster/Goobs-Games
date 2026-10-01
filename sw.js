@@ -43,7 +43,7 @@ const VERSIONS = {
   shelf: '1.2.0',
   castle: '1.6.0',
   outpost: '0.4.0',
-  getout: '0.4.1',
+  getout: '0.5.0',
   sudoku: '0.1.0',
   wordwheel: '0.1.0',
   trivia: '0.2.0',
