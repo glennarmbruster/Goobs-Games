@@ -796,6 +796,17 @@
       }
     },
     {
+      id: 'trivia', name: 'Quiz Cove', blurb: 'Trivia: 11 categories, offline', path: 'games/trivia/',
+      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="qcT" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5cc8f0"/><stop offset="1" stop-color="#bde9f7"/></linearGradient><linearGradient id="qcTw" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2fb7c9"/><stop offset="1" stop-color="#1a6fb5"/></linearGradient></defs><rect width="100" height="100" fill="url(#qcT)"/>' +
+        '<path d="M0 66q18-8 34-3t30-1 36 2V100H0z" fill="#3d9c5a"/><path d="M0 72q30-5 60 1t40-3V100H0z" fill="url(#qcTw)"/><path d="M0 90q25-5 50-1t50-3V100H0z" fill="#ffe3a3"/>' +
+        '<rect x="22" y="12" width="56" height="44" rx="12" fill="#fff"/><path d="M40 56l-6 10 14-10z" fill="#fff"/>' +
+        '<text x="50" y="47" font-family="-apple-system, system-ui, sans-serif" font-weight="900" font-size="34" text-anchor="middle" fill="#1a6fb5">?</text></svg>',
+      status: function () {
+        var m = readLS('trivia.meta'); if (!m || !(m.answered > 0)) return 'Trivia: 11 categories, offline';
+        return Math.round(m.right / m.answered * 100) + '% right' + (m.bestStreak ? ' \u00b7 best streak ' + m.bestStreak : '');
+      }
+    },
+    {
       id: 'beacon', name: 'Beacon Bound', blurb: 'Run, jump, light the way', path: 'games/beacon/',
       art: '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="bbS" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4fa9f5"/><stop offset="1" stop-color="#c9ecff"/></linearGradient><radialGradient id="bbG"><stop offset="0" stop-color="#fff6c0"/><stop offset=".45" stop-color="#ffd24a" stop-opacity=".7"/><stop offset="1" stop-color="#ffd24a" stop-opacity="0"/></radialGradient></defs>' +
         '<rect width="100" height="100" fill="url(#bbS)"/><path d="M0 70q25-14 50-4t50-6v40H0z" fill="#6cc24a"/><path d="M0 78q30-8 60 0t40-2v24H0z" fill="#4fa83a"/>' +
