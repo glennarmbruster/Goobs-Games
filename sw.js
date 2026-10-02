@@ -50,7 +50,7 @@ const VERSIONS = {
   links: '0.2.0',
   bowling: '0.1.0',
   deck: '0.1.0',
-  wordboard: '0.1.0',
+  wordboard: '0.1.1',
   nonogram: '0.1.0',
   three: '0.186.1',  // shared 3D library; bump only when three.js itself changes
   planck: '1.5.0',   // shared 2D physics library (planck.js); bump only when planck itself changes
