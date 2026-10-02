@@ -1127,6 +1127,754 @@ var BN = (function () {
   function bossOf(W) { for (var i = 0; i < W.ents.length; i++) if (W.ents[i].boss) return W.ents[i]; return null; }
   return { T: T, ROWS: ROWS, P: P, SOLID: SOLID, BOSS_NAMES: BOSS_NAMES, VULN: VULN, bossOf: bossOf, sandDepth: sandDepth, newWorld: newWorld, step: step, tileAt: tileAt, solidAt: solidAt, bumpOffset: bumpOffset, setPower: setPower, heroBox: heroBox, lbarHits: lbarHits, secretsFound: secretsFound, useArea: useArea };
 })();
+/* ---------------------------------------------------------------------------------------------------------------
+   Endless worlds (0.4.0). The 16 handmade stages (Worlds 1-4, src/levels.js) stay exactly as they are; World 5, 6,
+   7, ... are made here on the phone from the world/stage number. Each world is four stages like the handmade ones:
+   1 overground (with the world's hazard), 2 underground or underwater, 3 an "athletic" stage over the void, 4 a
+   fortress ending in a boss arena. The world's look cycles meadow / dunes / coast / caves (a new order every four
+   worlds). Stages are put together from the same pieces the handmade stages use (ground runs, pits, stone pillars,
+   stairs, block rows with Sunbits and power-ups, crumble ledges, lifts, Dart Tubes, quicksand, plank bridges,
+   stalactites, Lantern Bars, Burrow rooms, Ghost Blocks, the enemy cast) with a seeded random generator that only
+   uses integer maths, so stage "7-2" is the same stage on every phone, every time.
+   Every made stage is checked before it is played (BN.Gen.check): a jump-reach search with the real movement
+   numbers (jump speeds, gravities, air control, Tall Pim's box) must get from the start to the goal, nowhere
+   reachable may be a dead end, and enough power-up blocks must be reachable. A stage that fails is made again
+   from the next seed (world, stage, attempt). tools/check_gen.js also runs the look-ahead bot over samples.
+   --------------------------------------------------------------------------------------------------------------- */
+// (a named factory so the app can also run the very same code in a Web Worker: it only needs BN.T, BN.P, BN.SOLID)
+BN.GenMake = function (BN) {
+  'use strict';
+  var T = BN.T, ROWS = 15, P = BN.P, SOLID = BN.SOLID, BANK = 4, MAXC = 420;
+
+  // ---------------- seeded randomness (integer maths only: the same on every engine) ----------------
+  function hash3(a, b, c) {
+    var h = 0x9E3779B1 ^ Math.imul(a | 0, 0x85EBCA77) ^ Math.imul((b | 0) + 0x632BE5AB, 0xC2B2AE3D) ^ Math.imul((c | 0) + 0x27D4EB2F, 0x165667B1);
+    h = Math.imul(h ^ (h >>> 15), 0x2C1B3C6D); h = Math.imul(h ^ (h >>> 12), 0x297A2D39); return (h ^ (h >>> 15)) >>> 0;
+  }
+  function Rng(seed) {
+    var a = seed >>> 0;
+    var R = function () { a = (a + 0x6D2B79F5) >>> 0; var t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+    R.int = function (lo, hi) { return lo + Math.floor(R() * (hi - lo + 1)); };
+    R.pick = function (arr) { return arr[Math.floor(R() * arr.length)]; };
+    R.chance = function (p) { return R() < p; };
+    R.weighted = function (list) { var tot = 0, i; for (i = 0; i < list.length; i++) tot += list[i][1]; var v = R() * tot; for (i = 0; i < list.length; i++) { v -= list[i][1]; if (v < 0) return list[i][0]; } return list[list.length - 1][0]; };
+    return R;
+  }
+
+  // ---------------- the four looks a world can have ----------------
+  var BIOMES = {
+    meadow: { over: 'meadow', under: 'burrow', athl: 'treetops', fort: 'keep', boss: 'boar', bossName: 'Grumbleboar', wall: 'S', foes: ['moss', 'moss', 'roly'],
+      names: ['Clover Hills', 'Windy Meadow', 'Golden Downs', 'Thistle Vale', 'Bramble Fields', 'Misty Moor'],
+      titles: { over: ['Breezy Fields', 'Clover Path', 'Buttercup Rise', 'Hayfield Hop', 'Dandelion Downs', 'Sunlit Lane', 'Poppy Hill', 'Windy Pasture'],
+        under: ['Root Tunnels', 'Badger Burrow', 'Mossy Den', 'Tangleroot Run', 'Earthworm Way', 'Hollow Hill'],
+        athl: ['Canopy Climb', 'Acorn Heights', 'Leafy Lookout', 'Branch Bounce', 'Oakcrown Trail', 'Birdsong Boughs'],
+        fort: ['Grain Tower', 'Old Barn Keep', 'Millstone Hall', 'Hayloft Fort', 'Windmill Keep'] },
+      deco: ['bush', 'flowers', 'rock', 'fence', 'flowers', 'bush'], udeco: ['crystal', 'roots'] },
+    dunes: { over: 'dunes', under: 'ruins', athl: 'dunes', fort: 'temple', boss: 'maw', bossName: 'Sandmaw', wall: 'S', foes: ['moss', 'moss', 'roly'],
+      names: ['Ember Dunes', 'Mirage Wastes', 'Copper Canyon', 'Sunstone Desert', 'Saltpan Flats', 'Scarab Sands'],
+      titles: { over: ['Mirage Road', 'Ember Sands', 'Copper Flats', 'Sunstone Trail', 'Dust Devil Way', 'Saltpan Run'],
+        under: ['Sunken Vault', 'Scarab Halls', 'Buried Market', 'Sandglass Tomb', 'Old Well Ruins'],
+        athl: ['Butte Hop', 'Red Rock Ridge', 'Canyon Leap', 'Mesa Steps', 'Vulture Spires'],
+        fort: ['Sun Temple', 'Dune Sanctum', 'Amber Shrine', 'Sandstone Citadel'] },
+      deco: ['cactus', 'rock', 'arch', 'cactus'], udeco: ['arch', 'pillar'] },
+    coast: { over: 'coast', under: 'reef', athl: 'coast', fort: 'seafort', boss: 'crab', bossName: 'Captain Clampjaw', wall: 'S', foes: ['moss', 'moss', 'roly'],
+      names: ['Pearl Shores', 'Gull Coast', 'Driftwood Isles', 'Lagoon Reach', 'Kelp Strand', 'Seafoam Bay'],
+      titles: { over: ['Gull Cove', 'Shell Beach', 'Driftwood Bay', 'Pebble Shore', 'Lagoon Walk', 'Foam Strand'],
+        water: ['Kelp Forest', 'Pearl Shoals', 'Coral Gardens', 'Bubble Deep', 'Seagrass Glade', 'Anemone Alley'],
+        athl: ['Dockside Dash', 'Boardwalk Bounce', 'Jetty Jumps', 'Harbor Hop', 'Pilings Path'],
+        fort: ['Barnacle Bastion', 'Gale Fort', 'Wavebreak Keep', 'Saltspray Tower'] },
+      deco: ['palm', 'shell', 'palm', 'shell'], udeco: ['kelp', 'coral'] },
+    cave: { over: 'cave', under: 'cave', athl: 'cave', fort: 'deepkeep', boss: 'drill', bossName: 'Drillmole Max', wall: 'W', foes: ['moss', 'roly', 'iroly'],
+      names: ['Echo Caverns', 'Amber Grotto', 'Deepglow Mines', 'Shimmer Depths', 'Rootdark Hollows', 'Geode Gulch'],
+      titles: { over: ['Echo Hollow', 'Glimmer Tunnels', 'Crystal Run', 'Shimmer Cavern', 'Lantern Grotto', 'Dripstone Way'],
+        under: ['Deepglow Mine', 'Geode Halls', 'Amethyst Depths', 'Ore Vein', 'Quartz Gallery'],
+        athl: ['Chasm Crossing', 'Lift Shaft', 'Abyss Ledges', 'Cavern Lifts', 'Drop Shaft'],
+        fort: ['Forge Keep', 'Anvil Hall', 'Magma Works', 'Cinder Stronghold'] },
+      deco: ['crystal', 'mushroom', 'crystal', 'roots'], udeco: ['crystal', 'mushroom'] }
+  };
+  var WATER_TITLES = ['Flooded Grotto', 'Sunken Pool', 'Underlake', 'Springwater Dive', 'Drowned Cellar'];
+  var ORDER0 = ['meadow', 'dunes', 'coast', 'cave'];
+
+  // the look of world n (n > BANK): four worlds per cycle, a new order each cycle, never the same look twice in a row
+  function rawOrder(cycle) {
+    var o = ORDER0.slice(); if (cycle <= 0) return o;
+    var R = Rng(hash3(cycle, 9001, 7)); for (var i = 3; i > 0; i--) { var j = R.int(0, i), t = o[i]; o[i] = o[j]; o[j] = t; }
+    return o;
+  }
+  // (no recursion: a swap of the first two never changes a cycle's last look, so the rule needs only the cycle before)
+  function biomeOrder(cycle) { var o = rawOrder(cycle); if (cycle > 0 && o[0] === rawOrder(cycle - 1)[3]) { var t = o[0]; o[0] = o[1]; o[1] = t; } return o; }
+  function biomeOf(n) { var k = n - BANK - 1; return biomeOrder(Math.floor(k / 4))[k % 4]; }
+  // difficulty 0..1: grows over Worlds 5-13, then holds at the top; now and then a gentler "breather" world
+  function baseD(n) { return Math.min(1, 0.3 + (n - BANK - 1) * 0.0875); }
+  function breather(n) { return n > BANK + 4 && hash3(n, 77, 1) % 6 === 0; }
+  function difficulty(n, s) { var d = baseD(n); if (breather(n)) d = Math.max(0.25, d - 0.35); return Math.min(1, d + (s - 1) * 0.03); }
+  function world(n) {
+    var b = BIOMES[biomeOf(n)], cyc = Math.floor((n - BANK - 1) / 4), list = b.names, k = cyc % list.length;
+    return { n: n, name: list[k] + (cyc >= list.length ? ' ' + (Math.floor(cyc / list.length) + 1) : ''), levels: [n + '-1', n + '-2', n + '-3', n + '-4'],
+      boss: b.bossName, theme: b.over, gen: true, breather: breather(n) };
+  }
+
+  // ---------------- a level area being built (mirrors tools/make_levels.py) ----------------
+  function Area(theme, o) {
+    o = o || {}; this.theme = theme; this.room = !!o.room; this.water = !!o.water; this.tide = !!o.tide; this.cols = o.cols || MAXC;
+    this.g = []; for (var r = 0; r < ROWS; r++) { var row = []; for (var c = 0; c < this.cols; c++) row.push(' '); this.g.push(row); }
+    this.ents = [];
+  }
+  Area.prototype.put = function (c, r, ch) { if (c >= 0 && c < this.cols && r >= 0 && r < ROWS) this.g[r][c] = ch; };
+  Area.prototype.at = function (c, r) { return c >= 0 && c < this.cols && r >= 0 && r < ROWS ? this.g[r][c] : ' '; };
+  Area.prototype.text = function (c, r, s) { for (var i = 0; i < s.length; i++) if (s.charAt(i) !== '.') this.put(c + i, r, s.charAt(i)); };
+  Area.prototype.fill = function (c0, c1, r0, r1, ch) { for (var c = c0; c <= c1; c++) for (var r = r0; r <= r1; r++) this.put(c, r, ch); };
+  Area.prototype.ground = function (c0, c1, top, ch) { this.fill(c0, c1, top == null ? 13 : top, ROWS - 1, ch || 'G'); };
+  Area.prototype.pillar = function (c, top, bottom, ch) { this.fill(c, c, top, bottom == null ? 12 : bottom, ch || 'S'); };
+  Area.prototype.stairsUp = function (c0, n, base, ch) { for (var i = 0; i < n; i++) this.pillar(c0 + i, base - i, base, ch); };
+  Area.prototype.stairsDown = function (c0, n, base, ch) { for (var i = 0; i < n; i++) this.pillar(c0 + i, base - (n - 1 - i), base, ch); };
+  Area.prototype.ent = function (t, x, y, kw) { var d = { type: t, x: x, y: y }; if (kw) for (var k in kw) d[k] = kw[k]; this.ents.push(d); return d; };
+  Area.prototype.deco = function (kind, x, y) { this.ents.push({ type: 'deco', kind: kind, x: x, y: y == null ? 12 : y }); };
+  Area.prototype.canopy = function (c0, c1, r) {
+    this.fill(c0, c1, r, r, 'T'); var mid = (c0 + c1) >> 1;
+    for (var rr = r + 1; rr < ROWS; rr++) { this.put(mid, rr, 'Y'); if (c1 - c0 >= 5) this.put(mid + 1, rr, 'Y'); }
+  };
+  Area.prototype.caveCeiling = function (c0, c1, seed) {
+    this.fill(c0, c1, 0, 1, 'W');
+    for (var c = c0; c <= c1; c++) { var v = (c * 37 + seed * 11) % 17; if (v < 4) this.put(c, 2, 'W'); if (v === 0) this.put(c, 3, 'W'); }
+  };
+  Area.prototype.out = function (cols) {
+    var g = this.g, n = Math.min(cols || this.cols, this.cols), rows = [];
+    for (var r = 0; r < ROWS; r++) rows.push(g[r].slice(0, n).join(''));
+    var ents = [];
+    this.ents.forEach(function (e) {
+      if (e.x >= n) return;
+      if (e.type === 'stal') { var r = 0; while (r < ROWS - 1 && g[r][e.x] !== ' ') r++; e.y = r; }
+      ents.push(e);
+    });
+    var o = { theme: this.theme, room: this.room, rows: rows, ents: ents };
+    if (this.water) o.water = true; if (this.tide) o.tide = true;
+    if (this.goal) o.goal = this.goal;
+    return o;
+  };
+  function room(theme, R) {
+    var a = new Area(theme, { room: true, cols: 20 });
+    a.fill(0, 19, 0, 1, 'W'); a.ground(0, 19, 13, 'W'); a.fill(0, 0, 0, 14, 'W'); a.fill(19, 19, 0, 14, 'W');
+    var v = R.int(0, 3);   // the four bonus-room layouts of Worlds 1-4
+    if (v === 0) { a.text(4, 8, 'CCCCCCCCCCCC'); a.text(4, 9, 'CCCCCCCCCCCC'); a.text(4, 11, 'CCCCCCCCCCCC'); a.text(6, 5, 'BBNBBBB'); }
+    else if (v === 1) { a.text(3, 12, 'CCCCCCCCCCCCCC'); a.text(5, 9, 'CCCCCCCCCC'); a.text(7, 6, 'CCCCCC'); a.put(4, 10, 'B'); a.put(15, 10, 'B'); }
+    else if (v === 2) { a.text(3, 12, 'CCCCCCCCCCCCCC'); a.text(4, 8, 'CCCCCCCCCCCC'); a.text(6, 10, 'BBBNBBBB'); a.text(3, 5, 'CCCCCCCCCCCCCC'); }
+    else { a.text(3, 12, 'CCCCCCCCCCCCCC'); a.text(4, 9, 'CCCCCCCCCCCC'); a.text(5, 6, 'BBBBLBBBBB'); a.text(6, 5, 'CCCCCCCC'); }
+    return a;
+  }
+  // the short stretch outside an underground or underwater stage, with the beacon (as in 1-2, 2-2, 3-2, 4-2)
+  function outside(theme, b) {
+    var o = new Area(theme, { cols: 40 }), cave = theme === 'cave', ch = cave ? 'W' : 'S';
+    o.ground(0, 39); if (cave) o.caveCeiling(0, 39, 3);
+    o.fill(0, 3, 9, 14, 'G'); o.stairsDown(4, 3, 12, ch);
+    o.pillar(22, 12, 12, ch); o.ent('beacon', 22, cave ? 4 : 3, { y2: 11 });
+    var d = b.deco; o.deco(d[0], 9); o.deco(d[1], 15); o.deco(d[2 % d.length], 28); if (!cave) o.deco('post', 33);
+    return o;
+  }
+
+  // ---------------- block rows ----------------
+  var POW = ['BMB', 'LML', 'BLBMB', 'BMBLB', 'M', 'LBMBL', 'BBMBB'], PLAIN = ['BLB', 'LLL', 'BBLBB', 'BNB', 'L', 'BLLB', 'BBB', 'LBL', 'LL'], UPPER = ['CCCC', 'BLB', 'CC', 'BBBB', 'L', 'CCC'];
+
+  // ---------------- stage builders ----------------
+  // c: { R, d, b (biome), kind, a (main area), x (cursor), f (floor top row), ... }
+  function foePool(c) {
+    var p = c.b.foes.slice();
+    if (c.d > 0.45) p.push('roly', 'hroly');
+    if (c.d > 0.65) p.push('iroly', 'moss');
+    if (c.d > 0.8) p.push('hroly');
+    return p;
+  }
+  function addFoes(c, c0, c1, row, n) {
+    var pool = foePool(c), used = {};
+    for (var i = 0; i < n; i++) {
+      var x = c.R.int(c0, c1); if (x < 14 || used[x] || used[x - 1] || used[x + 1]) continue;
+      used[x] = 1; var t = c.R.pick(pool);
+      if (c.kind === 'under' && t === 'hroly') t = 'roly';
+      c.a.ent(t, x, row);
+    }
+  }
+  function maybeFoes(c, c0, c1, row) {
+    if (c1 - c0 < 2 || c0 < 14) return;
+    if (!c.R.chance(0.35 + 0.4 * c.d)) return;
+    addFoes(c, c0, c1, row, 1 + (c.R.chance(c.d) ? 1 : 0) + (c.R.chance(c.d * 0.5) ? 1 : 0));
+  }
+  function blockRow(c, c0, len, f) {
+    var R = c.R, need = c.powNeed - c.pow, pat;
+    if (f - 4 < c.ceil + 2) return null;
+    var due = need > 0 && c.x > c.target * (0.06 + 0.32 * c.pow);
+    if (due || R.chance(0.12)) { pat = R.pick(POW); c.pow++; }
+    else pat = R.pick(PLAIN);
+    if (pat.length > len) pat = pat.indexOf('M') >= 0 ? 'M' : pat.charAt(0);
+    var x0 = c0 + R.int(0, Math.max(0, len - pat.length));
+    c.a.text(x0, f - 4, pat);
+    if (f - 8 >= c.ceil + 3 && pat.length >= 3 && R.chance(0.45)) {
+      var up = !c.prism && R.chance(0.3) ? 'BPB' : R.pick(UPPER); if (up === 'BPB') c.prism = true;
+      c.a.text(x0 + R.int(0, Math.max(0, pat.length - up.length)), f - 8, up);
+    }
+    return [x0, x0 + pat.length - 1];
+  }
+  function flat(c, n) { c.a.ground(c.x, c.x + n - 1, c.f, c.gch); var x0 = c.x; c.x += n; return x0; }
+  function secretSpots(c, x0, n) {
+    var R = c.R, a = c.a;
+    // a Burrow Door down into a bonus room (a secret), coming back up through a door further along
+    if (c.f === 13 && c.door === 0 && c.bonus && x0 > 24 && n >= 6 && R.chance(0.5)) { var dc = x0 + R.int(2, n - 3); a.ent('door', dc, 13, { kind: 'down', to: 'bonus', tx: 2, ty: 12, out: 'walk', secret: true }); c.door = 1; c.doorAt = dc; return true; }
+    if (c.f === 13 && c.door === 1 && x0 > c.doorAt + 20 && n >= 5) { var rc = x0 + R.int(1, n - 3); a.ent('door', rc, 13, { kind: 'down' }); c.door = 2; c.doorBack = rc; return true; }
+    // a Ghost Block with a Heart Balloon (a secret)
+    if (!c.ghost && x0 > 30 && n >= 4 && R.chance(0.35)) { a.put(x0 + R.int(1, n - 2), c.f - 4, 'I'); c.ghost = true; return true; }
+    return false;
+  }
+  function run(c, n, quiet, landing) {
+    var x0 = flat(c, n);
+    if (!c.check && c.x > c.target * 0.45 && n >= 4) { c.a.ent('check', x0 + 1, c.f - 1); c.check = true; quiet = true; }
+    var sec = !quiet && secretSpots(c, x0, n);
+    if (!sec && n >= 3 && (c.R.chance(0.6) || c.pow < c.powNeed && c.x > c.target * (0.06 + 0.32 * c.pow))) blockRow(c, x0, n, c.f);
+    if (!quiet) maybeFoes(c, x0 + (landing ? 4 : 2), c.x - 1, c.f - 1);
+    if (c.R.chance(0.5)) c.a.deco(c.R.pick(c.under ? c.b.udeco : c.b.deco), x0 + c.R.int(0, n - 1), c.f - 1);
+    return x0;
+  }
+  function gapMax(c) { return c.d < 0.45 ? 3 : 4; }   // bare gaps: the handmade worlds use up to 3
+  function seg(c, type) {
+    var R = c.R, a = c.a, d = c.d, i, n, x0;
+    if (type === 'run') { run(c, R.int(6, 12)); return; }
+    if (type === 'pit') {
+      var w = R.int(2, gapMax(c)); flat(c, w >= 4 ? 6 : 4);
+      if (R.chance(0.45)) a.text(c.x + ((w - 2) >> 1), c.f - 4, w >= 4 ? 'CCC' : 'CC');
+      c.x += w;
+      if (c.tide && c.f > 11) c.f = 11;   // the tide: after every pit the landing is high ground (as in 3-1)
+      run(c, R.int(5, 8), false, true);
+      return;
+    }
+    if (type === 'pillars') {
+      n = R.int(1, 2 + (d > 0.5 ? 1 : 0));
+      for (i = 0; i < n; i++) {
+        var gapRun = R.int(4, 6); x0 = flat(c, gapRun);
+        if (i > 0) maybeFoes(c, x0, c.x - 1, c.f - 1);
+        var h = R.int(2, d > 0.5 ? 4 : 3), wd = R.int(1, 2);
+        flat(c, wd); for (var k = 0; k < wd; k++) a.pillar(c.x - wd + k, c.f - h, c.f - 1, c.b.wall);
+      }
+      flat(c, 3);
+      return;
+    }
+    if (type === 'stairs') {
+      flat(c, 3); n = R.int(3, Math.min(c.under ? 5 : 6, 4 + Math.round(d * 2)));
+      x0 = flat(c, n); a.stairsUp(x0, n, c.f - 1, c.b.wall);
+      if (R.chance(0.5)) {   // a gap between two stair pyramids (the original's classic)
+        var gw = R.int(1, Math.min(3, gapMax(c) - 1)); x0 = flat(c, 1); a.pillar(x0, c.f - n, c.f - 1, c.b.wall);
+        c.x += gw; x0 = flat(c, n); a.stairsDown(x0, n, c.f - 1, c.b.wall);
+      } else { x0 = flat(c, R.int(1, 2)); a.fill(x0, c.x - 1, c.f - n, c.f - 1, c.b.wall); x0 = flat(c, n); a.stairsDown(x0, n, c.f - 1, c.b.wall); }
+      run(c, R.int(3, 5), true);
+      return;
+    }
+    if (type === 'plateau') {
+      var up = R.int(2, 3), f0 = c.f; if (c.f - up < 9) up = c.f - 9; if (up < 1) { run(c, 6); return; }
+      c.f -= up; run(c, R.int(6, 10));
+      if (R.chance(0.4) && d > 0.3 && !c.racc) { a.ent('racc', c.x - 3, c.f - 1); c.racc = true; }
+      if (!c.tide) c.f = f0;
+      return;
+    }
+    if (type === 'float' || type === 'lift') {
+      flat(c, 5); var row0 = c.f;
+      if (type === 'lift') {
+        var lw = d > 0.8 && R.chance(0.3) ? 2 : 3, sp = Math.round((0.6 + 0.2 * d) * 100) / 100;
+        if (R.chance(0.55)) { var rng = R.int(3, 5); a.ent('lift', c.x + 1, c.f - 2, { w: lw, axis: 'x', range: rng, speed: sp }); if (R.chance(0.5) && c.f - 6 > c.ceil) a.text(c.x + 2, c.f - 6, 'CCC'); c.x += lw + rng + 2; }
+        else { var ry = R.int(3, 4); a.ent('lift', c.x + 1, c.f - 1, { w: lw, axis: 'y', range: ry, speed: sp }); c.x += lw + 2; if (c.f - ry + 1 >= (c.under ? 8 : 6)) c.f = c.f - ry + 1; }
+      } else {
+        var np = R.int(2, 3 + Math.round(d)), last = c.f;
+        // floating ledges: planks on the coast, crumble ledges (more of them in the meadow), crates underground, else stone
+        var ch = c.biome === 'coast' ? 'Z' : !c.under && R.chance(c.biome === 'meadow' ? 0.65 : d > 0.3 ? 0.45 : 0.2) ? 'K' : c.under ? 'B' : 'S';
+        for (i = 0; i < np; i++) {
+          c.x += R.int(2, Math.min(3, gapMax(c)));
+          var pr = Math.max(c.f - 5, Math.min(c.f - 1, last + R.int(-2, 2))); if (pr < c.ceil + 5) pr = c.ceil + 5;
+          var pl = ch === 'K' ? R.int(3, 4) : R.int(3, 5); a.text(c.x, pr, new Array(pl + 1).join(ch));
+          if (R.chance(0.4) && pr - 3 > c.ceil + 1) a.text(c.x, pr - 3, new Array(pl + 1).join('C'));
+          if (ch !== 'K' && pl >= 4 && R.chance(0.3 + 0.3 * d)) a.ent(c.R.pick(['moss', 'roly']), c.x + pl - 2, pr - 1);
+          c.x += pl; last = pr;
+        }
+        c.x += R.int(2, Math.min(3, gapMax(c)));
+      }
+      if (c.tide && c.f > 11) c.f = 11;
+      run(c, R.int(4, 6), true);
+      return;
+    }
+    if (type === 'tube') {
+      x0 = flat(c, R.int(5, 7)); var tc = x0 + R.int(2, 4);
+      if (R.chance(0.5)) { a.put(tc, c.f - 1, 'D'); a.ent('tube', tc, c.f - 1, { every: R.int(140, 170) }); }
+      else { a.put(tc, c.f - 1, c.b.wall); a.put(tc, c.f - 2, 'D'); a.ent('tube', tc, c.f - 2, { every: R.int(140, 170) }); }
+      flat(c, 3);
+      return;
+    }
+    if (type === 'sand') {
+      if (c.f !== 13) { run(c, 6); return; }
+      flat(c, 3);
+      if (d > 0.4 && R.chance(0.5)) { a.fill(c.x, c.x + 2, 13, 14, 'Q'); a.fill(c.x + 3, c.x + 4, 11, 14, c.b.wall); a.fill(c.x + 5, c.x + 7, 13, 14, 'Q'); a.text(c.x + 3, 8, 'CC'); c.x += 8; }
+      else { var sw = R.int(2, 4); a.fill(c.x, c.x + sw - 1, 13, 14, 'Q'); if (R.chance(0.5)) a.text(c.x, 9, new Array(sw + 1).join('C')); c.x += sw; }
+      run(c, R.int(5, 7), false, true);
+      return;
+    }
+    if (type === 'bridge') {   // a plank bridge over the surf with Leapfish (as in 3-1)
+      flat(c, 4); var bl = R.int(10, 14 + Math.round(8 * d)), br = c.f - 3; c.f = br;
+      a.ground(c.x, c.x + 1, br); a.fill(c.x + 2, c.x + bl + 1, br, br, 'Z'); a.ground(c.x + bl + 2, c.x + bl + 3, br);
+      a.ent('fishzone', c.x, 12, { x2: c.x + bl + 5, every: R.int(48, 60) });
+      a.text(c.x + 4, br - 3, 'CCC'); if (R.chance(0.6)) a.text(c.x + (bl >> 1), br - 4, 'BMB');
+      c.x += bl + 4; c.f = c.tide ? 11 : 13;
+      run(c, R.int(5, 7), false, true);
+      return;
+    }
+    if (type === 'stal') {
+      x0 = run(c, R.int(7, 10), true); n = R.int(1, 2 + Math.round(d));
+      for (i = 0; i < n; i++) a.ent('stal', x0 + 2 + i * 3, 2);
+      return;
+    }
+    if (type === 'moles') {
+      if (c.f !== 13) { run(c, 6); return; }
+      x0 = flat(c, R.int(6, 8)); var mc = x0 + R.int(2, 4); a.ent('door', mc, 13, { kind: 'down' }); a.ent('mole', mc, 13);
+      return;
+    }
+    if (type === 'kite') {
+      if (!c.kite) { a.ent('kcrow', c.x + 6, 3, { until: c.x + R.int(50, 70) }); c.kite = true; }
+      run(c, R.int(6, 9));
+      return;
+    }
+    run(c, 6);
+  }
+  function weights(c) {
+    var d = c.d, b = c.biome, L = [['run', 3], ['pit', 2 + d], ['pillars', 1.4], ['stairs', 0.9], ['float', 1 + d], ['lift', 0.5 + 0.6 * d]];
+    if (!c.under) L.push(['plateau', 1]);
+    if (b === 'dunes' || b === 'cave' || c.under || d > 0.5) L.push(['tube', b === 'dunes' && c.under ? 1.5 : 0.7]);
+    if (b === 'dunes') L.push(['sand', 1.6], ['kite', c.under ? 0 : 0.6]);
+    else if (d > 0.7 && !c.under) L.push(['kite', 0.25]);
+    if (b === 'coast' && !c.under) L.push(['bridge', 1]);
+    if (c.ceil > 0) L.push(['stal', b === 'cave' ? 1.4 : 0]);
+    if (c.under || b === 'cave') L.push(['moles', 0.9]);
+    if (b === 'meadow' && !c.under) L.push(['float', 0.8]);   // more crumble ledges in the meadow
+    return L;
+  }
+
+  // stage 1 (overground) and stage 2 (underground): a trail of pieces, then stairs to the beacon or a door out
+  function buildTrail(c) {
+    var R = c.R, b = c.b, under = c.kind === 'under', cave = c.biome === 'cave';
+    var theme = under ? b.under : b.over, a = c.a = new Area(theme, { tide: c.biome === 'coast' && !under });
+    c.under = under; c.ceil = cave ? 4 : under ? 2 : 0; c.f = 13; c.gch = 'G'; c.tide = a.tide;
+    c.target = Math.round(140 + 45 * c.d + R.int(0, 20)); c.powNeed = 2; c.bonus = c.biome !== 'coast' || !under;
+    a.ground(0, 13); if (under) { a.fill(0, 0, 2, 12, 'W'); }
+    c.x = 0; flat(c, 10); c.a.text(R.int(9, 12), 9, R.pick(['L', 'BLB', 'LBL']));
+    c.x = 14;
+    var last = '';
+    while (c.x < c.target) {
+      var t = R.weighted(weights(c)); if (t === last && t !== 'run') t = 'run'; last = t;
+      seg(c, t);
+      // back down to the beach (the tide keeps the ground right after a jump high: only drop after a plain stretch)
+      if (c.f !== 13 && R.chance(0.35) && (!c.tide || t === 'run' || t === 'pillars' || t === 'plateau')) c.f = 13;
+    }
+    if (c.door === 1) { c.f = 13; var rx = flat(c, 6); a.ent('door', rx + 2, 13, { kind: 'down' }); c.door = 2; c.doorBack = rx + 2; }
+    c.f = 13;
+    if (under) {   // stairs up to a ledge with a side door out to the beacon (as in 1-2)
+      flat(c, 5); var sx = c.x;
+      a.ground(sx, sx + 19, 13); a.stairsUp(sx, 4, 12, 'W'); a.fill(sx + 4, sx + 19, 9, 12, 'W'); a.fill(sx + 12, sx + 19, 2, 8, 'W');
+      a.ent('door', sx + 12, 7, { kind: 'side', face: 1, to: 'outside', tx: 2, ty: 8, out: 'walk' });
+      a.goal = { c: sx - 2 }; c.cols = sx + 20;
+      if (cave) a.caveCeiling(0, c.cols - 1, R.int(1, 9)); else a.fill(0, c.cols - 1, 0, 1, 'W');
+      a.fill(sx - 4, sx + 11, 2, 3, ' '); a.fill(sx - 4, sx + 11, 0, 1, 'W');
+    } else {   // stairs up and the Signal Beacon (as in 1-1)
+      flat(c, 4); var sn = cave ? 6 : 8, st = c.x;
+      a.ground(st, st + sn + 23); a.stairsUp(st, sn, 12, b.wall); a.pillar(st + sn, 13 - sn, 12, b.wall);
+      a.pillar(st + sn + 8, 12, 12, b.wall); a.ent('beacon', st + sn + 8, cave ? 4 : 3, { y2: 11 });
+      a.deco('post', st + sn + 16); a.goal = { c: st - 2 }; c.cols = st + sn + 24;
+      if (cave) { a.caveCeiling(0, c.cols - 1, R.int(1, 9)); a.fill(st - 6, c.cols - 1, 2, 3, ' '); a.fill(st - 6, c.cols - 1, 0, 1, 'W'); }
+    }
+    var L = { start: { area: 'main', x: 3, y: 12 }, areas: { main: null } };
+    if (c.door === 2) { var rm = room(b.under, R); rm.ent('door', 19, 11, { kind: 'side', face: 1, to: 'main', tx: c.doorBack, ty: 12, out: 'rise' }); L.areas.bonus = rm.out(); }
+    if (under) L.areas.outside = outside(b.over, b).out();
+    L.areas.main = a.out(c.cols);
+    return L;
+  }
+
+  // stage 2 underwater (as in 3-2): coral heads, shelves, Jellobells and fish, a door out to the shore
+  function buildWater(c) {
+    var R = c.R, a = c.a = new Area('reef', { water: true }), d = c.d;
+    var target = Math.round(150 + 30 * d + R.int(0, 16)), x = 8, pow = 0, ghost = false, check = false;
+    a.ground(0, MAXC - 1); a.fill(0, 0, 2, 12, 'W');
+    a.text(R.int(5, 8), R.int(7, 9), 'CCC');
+    while (x < target) {
+      var t = R.weighted([['heads', 3], ['shelf', 1.6], ['open', 1]]);
+      if (t === 'heads') {
+        // a coral head from the floor, one hanging from the top, or a pair with an opening (never in the top rows,
+        // where Pim can't swim)
+        var open = R.int(d > 0.6 ? 3 : 4, 5), topEnd;
+        if (R.chance(0.25)) { var hb = R.int(3, 6); a.fill(x, x + 1, 13 - hb, 12, 'W'); topEnd = 2; open = 10 - hb; }
+        else if (R.chance(0.2)) { var ht = R.int(3, 6); a.fill(x, x + 1, 2, 1 + ht, 'W'); topEnd = 1 + ht; open = 11 - ht; }
+        else { topEnd = R.int(2, 11 - open); a.fill(x, x + 1, 2, topEnd, 'W'); if (topEnd + open + 1 <= 12) a.fill(x, x + 1, topEnd + open + 1, 12, 'W'); }
+        if (R.chance(0.5)) a.text(x - 3, topEnd + 1 + (open >> 1), 'CC');
+        x += 2 + R.int(4, 7);
+      } else if (t === 'shelf') {
+        var sl = R.int(5, 11), sr = R.int(5, 8); a.fill(x, x + sl - 1, sr, sr, 'W'); a.text(x + 1, sr + 3 <= 11 ? sr + 3 : sr - 2, new Array(sl - 1).join('C'));
+        if (pow < 2 && x > target * (0.1 + 0.35 * pow)) { a.put(x + sl + 3, sr + 1 <= 9 ? sr + 1 : 8, 'M'); pow++; }
+        x += sl + R.int(4, 6);
+      } else {
+        if (!ghost && x > 40 && R.chance(0.5)) { a.put(x + 3, R.int(5, 7), 'I'); ghost = true; }
+        else if (pow < 2 && x > target * (0.1 + 0.35 * pow)) { a.put(x + 3, R.int(7, 9), 'M'); pow++; }
+        if (!check && x > target * 0.45) { a.ent('check', x + 2, 12); check = true; }
+        x += R.int(6, 9);
+      }
+    }
+    // the cast: Jellobells and fish spread along the stage
+    var gap = Math.round(13 - 3 * d);   // about one creature every 10 columns at the top, like 3-2
+    for (var fx = 18; fx < target - 4; fx += R.int(gap - 2, gap + 2)) {
+      var col = fx, rr = R.int(4, 10);
+      if (a.at(col, rr) !== ' ' || a.at(col, rr + 1) !== ' ') continue;
+      a.ent(R.chance(0.3 + 0.15 * d) ? 'jelly' : 'fish', col, rr);
+    }
+    var dk = ['kelp', 'coral']; for (var dx = 5; dx < target; dx += R.int(8, 14)) a.deco(dk[(dx >> 3) % 2], dx);
+    var end = target + 4; a.fill(end, end + 23, 2, 12, 'W'); a.ent('door', end, 11, { kind: 'side', face: 1, to: 'shore', tx: 2, ty: 8, out: 'walk' });
+    a.goal = { c: end - 3 };
+    var shoreTheme = c.biome === 'coast' ? 'coast' : c.b.over;
+    return { start: { area: 'main', x: 3, y: 12 }, areas: { main: a.out(end + 24), shore: outside(shoreTheme, c.b).out() } };
+  }
+
+  // stage 3: platforms over the void (treetops, mesas, piers, cave ledges), lifts and crumble ledges (as in 1-3, 2-3, 3-3, 4-3)
+  function buildAthl(c) {
+    var R = c.R, b = c.b, d = c.d, biome = c.biome, theme = b.athl, a = c.a = new Area(theme, { tide: biome === 'coast' });
+    // caves: the low roof cuts a full running jump short, so platforms sit lower and gaps stay at 3 or less
+    var cave = biome === 'cave', top = cave ? 8 : 4, low = biome === 'coast' ? 10 : 11, lowLift = biome === 'coast' ? 10 : 12, blockTop = cave ? 5 : 2, target = Math.round(135 + 40 * d + R.int(0, 16));
+    var x = 13, last = 13, pow = 0, check = false, ghost = false, kite = false, prevRun = 13;
+    a.ground(0, 12);
+    if (biome === 'dunes') { a.ent('kcrow', 30, 3, { until: target - 10 }); kite = true; }   // a Kitecrow all the way, as in 2-3
+    var nplat = 0, prevPiece = 'plat';
+    while (x < target) {
+      var piece = R.weighted([['plat', 5], ['crumble', 1 + 0.5 * d], ['liftx', 0.8 + 0.3 * d], ['lifty', 0.6 + 0.3 * d]]);
+      // fair openings and rhythm: the first two pieces are plain platforms, and never two lifts or crumble runs in a row
+      if (nplat < 2 || prevPiece !== 'plat') piece = 'plat';
+      var soft = prevPiece !== 'plat'; prevPiece = piece;   // coming off a lift or a crumble ledge: an easy landing
+      var gmax = Math.min(gapMax(c), prevRun >= 5 ? 4 : 3, cave ? 3 : 4), gap = R.int(2, gmax);
+      if (piece === 'liftx') {
+        // lifts over the void stay 3 wide and no faster than World 4's (0.8)
+        x += 1; var lw = 3, rng = R.int(4, 5), lr = Math.max(top + 1, Math.min(low, last + R.int(-1, 1)));
+        a.ent('lift', x, lr, { w: lw, axis: 'x', range: rng, speed: Math.round((0.65 + 0.15 * d) * 100) / 100 });
+        if (R.chance(0.4)) a.text(x + 1, lr - 4, 'CCC');
+        x += lw + rng + 1; last = lr; prevRun = 1; continue;
+      }
+      if (piece === 'lifty') {
+        x += 1; var lw2 = 3, ry = R.int(3, 4), base = Math.min(lowLift, Math.max(last + 1, top + ry + 2));
+        a.ent('lift', x, base, { w: lw2, axis: 'y', range: ry, speed: Math.round((0.65 + 0.15 * d) * 100) / 100 });
+        x += lw2 + 1; last = base - ry; prevRun = 1; continue;
+      }
+      if (soft) gap = 1;
+      x += gap;
+      var up = gap <= 2 ? 3 : 2, r = Math.max(top, Math.min(low, last + (soft ? R.int(0, 2) : R.int(-up, 3))));
+      if (piece === 'crumble') { if (gap > 3) { x -= gap - 3; gap = 3; } r = Math.max(top, Math.min(low, last + R.int(-2, 2))); var kl = R.int(3, 4); a.text(x, r, new Array(kl + 1).join('K')); if (R.chance(0.4) && r - 3 >= top - 1) a.text(x, r - 3, new Array(kl + 1).join('C')); x += kl; last = r; prevRun = 1; continue; }
+      var len = R.int(4, Math.max(4, 8 - Math.round(2 * d)));
+      if (biome === 'meadow') a.canopy(x, x + len - 1, r);
+      else if (biome === 'coast' && R.chance(0.6)) a.fill(x, x + len - 1, r, r, 'Z');
+      else a.ground(x, x + len - 1, r, 'G');
+      if (!check && x > target * 0.45 && len >= 4) { a.ent('check', x + 1, r - 1); check = true; }
+      else {
+        if (r - 4 >= blockTop && (pow < 2 && x > target * (0.08 + 0.35 * pow) || R.chance(0.35))) {
+          // blocks keep clear of the platform's last two columns, so a jump from the edge never bumps one and falls short
+          var room2 = len - 2, pat = pow < 2 && x > target * (0.08 + 0.35 * pow) ? (room2 >= 3 ? R.pick(['BMB', 'M', 'LML']) : 'M') : (room2 >= 3 ? R.pick(['BLB', 'L', 'LBL']) : 'L'); if (pat.indexOf('M') >= 0) pow++;
+          a.text(x + Math.max(0, (room2 - pat.length) >> 1), r - 4, pat);
+        } else if (!ghost && x > 40 && len >= 6 && r - 4 >= blockTop && R.chance(0.3)) { a.put(x + (len >> 1), r - 4, 'I'); ghost = true; }   // mid-platform: not over a landing or a take-off
+        // walkers on wider platforms only; Hopper Rolies need room to be dodged (7 wide)
+        // one enemy per platform: a Wrench Raccoon on a wide one now and then, else a walker
+        if (d > 0.35 && len >= 7 && nplat >= 2 && !c.racc && R.chance(0.35)) { a.ent('racc', x + len - 3, r - 1); c.racc = true; }
+        else if (len >= 5 && nplat >= 1 && R.chance((0.35 + 0.25 * d) * (kite || biome === 'coast' ? 0.6 : 1))) { var ft = R.pick(d > 0.4 ? ['hroly', 'moss', 'roly', 'hroly'] : ['hroly', 'moss']); if (ft === 'hroly' && len < 7) ft = 'moss'; a.ent(ft, x + (len >> 1), r - 1); }   // mid-platform, as in 1-3
+      }
+      x += len; last = r; prevRun = len; nplat++;
+    }
+    x += 2;
+    a.ground(x, x + 21); if (biome === 'coast') a.ground(x, x + 3, 11);   // a dry step after the last jump (the tide)
+    a.pillar(x + 9, 12, 12, b.wall); a.ent('beacon', x + 9, cave ? 4 : 3, { y2: 11 });
+    a.deco(b.deco[0], x + 3); a.deco('post', x + 16);
+    if (biome === 'coast') a.ent('fishzone', 30, 12, { x2: x - 2, every: R.int(55, 70) });   // Leapfish from the third platform on
+    a.goal = { c: x + 1 };
+    if (cave) a.caveCeiling(0, x + 21, R.int(1, 9));
+    return { start: { area: 'main', x: 4, y: 12 }, areas: { main: a.out(x + 22) } };
+  }
+
+  // stage 4: the fortress (Lantern Bars, lifts, Dart Tubes) and the boss arena (as in 1-4, 2-4, 3-4, 4-4)
+  var ARENA = { boar: { w: 18, wall: 3, at: 13 }, maw: { w: 23, wall: 3, at: 12 }, crab: { w: 23, wall: 4, at: 15 }, drill: { w: 23, wall: 4, at: 15 } };
+  function buildFort(c) {
+    var R = c.R, b = c.b, d = c.d, a = c.a = new Area(b.fort), target = Math.round(92 + 26 * d + R.int(0, 10));
+    var x, f = 11, check = false, pow = 0, lastBar = -99;
+    a.ground(0, 14, 11, 'W'); a.fill(0, 10, 3, 5, 'W'); x = 15;
+    function groundRun(n, row) { a.ground(x, x + n - 1, row, 'W'); var x0 = x; x += n; return x0; }
+    function foes(x0, x1, row) { if (R.chance(0.5 + 0.3 * d)) { var n = 1 + (R.chance(d) ? 1 : 0); for (var i = 0; i < n; i++) a.ent(R.pick(c.b.foes.concat(d > 0.5 ? ['roly'] : [])), R.int(x0, x1), row); } }
+    while (x < target) {
+      var piece = R.weighted([['bar', 2.2], ['liftx', 1], ['lifty', 0.8], ['pillar', 1], ['blocks', 1], ['tube', c.biome === 'meadow' ? 0.4 : 1], ['sand', c.biome === 'dunes' ? 1.2 : 0], ['racc', c.biome === 'coast' || c.biome === 'cave' ? 0.9 : d > 0.5 ? 0.3 : 0], ['overhead', 0.6]]);
+      if (piece === 'bar') {
+        x += R.int(2, 3); var row = R.chance(0.6) ? 11 : 12, n = R.int(12, 15), x0 = groundRun(n, row), bc = x0 + R.int(5, n - 5);
+        if (bc - lastBar > 9) { a.put(bc, row - 4, 'U'); a.ent('lbar', bc, row - 4, { n: row === 11 ? 5 : R.int(4, 5), speed: (R.chance(0.5) ? 1 : -1) * Math.round((0.045 + 0.012 * d) * 1000) / 1000, a: R.int(0, 6) }); lastBar = bc; }
+        foes(x0 + 2, x - 2, row - 1);
+        if (!check && x > target * 0.45) { a.ent('check', x - 3, row - 1); check = true; }
+      } else if (piece === 'liftx') {
+        a.ent('lift', x + 1, 10, { w: 2, axis: 'x', range: 3, speed: Math.round((0.65 + 0.2 * d) * 100) / 100 }); x += 6; groundRun(R.int(8, 12), 11);
+      } else if (piece === 'lifty') {
+        a.ent('lift', x + 1, 12, { w: 2, axis: 'y', range: 3, speed: Math.round((0.65 + 0.2 * d) * 100) / 100 }); x += 5; groundRun(R.int(8, 12), 11);
+      } else if (piece === 'pillar') {
+        x += 2; a.fill(x, x, 9, 14, 'W'); if (x - lastBar > 9) { a.put(x, 4, 'U'); a.ent('lbar', x, 4, { n: 3, speed: (R.chance(0.5) ? 1 : -1) * 0.055 }); lastBar = x; }
+        x += 3; groundRun(R.int(9, 13), 11);
+      } else if (piece === 'blocks') {
+        x += R.int(2, 3); var x1 = groundRun(R.int(10, 14), 11), pat = pow < 1 || R.chance(0.3) ? R.pick(['BMB', 'LML', 'BLBMB']) : R.pick(['LBL', 'BLB']); if (pat.indexOf('M') >= 0) pow++;
+        a.text(x1 + R.int(2, 5), 7, pat); foes(x1 + 2, x - 2, 10);
+        if (!check && x > target * 0.45) { a.ent('check', x - 3, 10); check = true; }
+      } else if (piece === 'tube') {
+        x += R.int(2, 3); var x2 = groundRun(R.int(10, 14), 11); a.put(x - 1, 10, 'D'); a.ent('tube', x - 1, 10, { every: R.int(145, 165) }); foes(x2 + 2, x - 4, 10);
+      } else if (piece === 'sand') {
+        a.fill(x, x + 3, 11, 14, 'Q'); x += 4; groundRun(R.int(8, 12), 11);
+      } else if (piece === 'racc') {
+        x += R.int(2, 3); var x3 = groundRun(R.int(13, 15), 11); a.text(x3 + 4, 7, 'WWWWW'); a.ent('racc', x3 + 6, 6);
+      } else {
+        x += R.int(2, 3); var x4 = groundRun(R.int(12, 15), 11); a.fill(x4 + 3, x - 4, 3, 6, 'W'); foes(x4 + 2, x - 2, 10);
+      }
+      if (c.biome === 'cave' && R.chance(0.5)) a.ent('stal', x - R.int(3, 6), 3);
+    }
+    // a power-up before the boss, then the arena
+    x += 2; var x5 = groundRun(12, 11); a.text(x5 + 4, 7, R.pick(['BMB', 'LML', 'BBMBB']));
+    var A = ARENA[b.boss], a0 = x;
+    a.ground(a0, a0 + A.w + A.wall - 1, 13, 'W'); a.fill(a0 + A.w, a0 + A.w + A.wall - 1, 3, 12, 'W');
+    a.ent(b.boss, a0 + A.at, 12, { arena: [a0, a0 + A.w - 1] });
+    var cols = a0 + A.w + A.wall; a.fill(0, cols - 1, 0, 2, 'W');
+    for (var tx = 6; tx < a0 - 4; tx += R.int(14, 22)) a.deco(R.chance(0.7) ? 'torch' : 'window', tx, R.chance(0.7) ? 8 : 4);
+    a.deco('banner', a0 + 3, 5); a.deco('banner', a0 + A.w - 4, 5); a.deco('torch', a0 + (A.w >> 1), 9);
+    a.goal = { c: a0 + 1 };
+    return { start: { area: 'main', x: 3, y: 10 }, areas: { main: a.out(cols) } };
+  }
+
+  // ---------------- making a stage ----------------
+  function parseId(id) { var m = /^(\d+)-([1-4])$/.exec(String(id)); return m ? { w: +m[1], s: +m[2] } : null; }
+  function stageKind(n, s) {
+    if (s === 4) return 'fort'; if (s === 3) return 'athl'; if (s === 1) return 'over';
+    var bi = biomeOf(n); if (bi === 'coast') return 'water';
+    return hash3(n, 2, 5) % 4 === 0 ? 'water' : 'under';   // now and then a swim stage in another world (like the original's 2-2)
+  }
+  function build(n, s, attempt, dOver) {
+    var biome = biomeOf(n), b = BIOMES[biome], kind = stageKind(n, s), d = dOver != null ? dOver : difficulty(n, s);
+    var R = Rng(hash3(n, s, attempt));
+    var c = { R: R, d: d, b: b, biome: biome, kind: kind, pow: 0, powNeed: 2, door: 0, ceil: 0 };
+    var L = kind === 'fort' ? buildFort(c) : kind === 'athl' ? buildAthl(c) : kind === 'water' ? buildWater(c) : buildTrail(c);
+    var tl = kind === 'water' ? (b.titles.water || WATER_TITLES) : b.titles[kind];
+    L.id = n + '-' + s; L.title = tl[hash3(n, s, 3) % tl.length];
+    L.time = s === 3 || s === 4 ? 300 : 400;
+    L.music = { over: b.over, under: 'burrow', water: 'reef', athl: b.athl, fort: 'keep' }[kind];
+    L.gen = { w: n, s: s, attempt: attempt, d: Math.round(d * 100) / 100, kind: kind, biome: biome };
+    return L;
+  }
+  var cache = {}, cacheKeys = [], stats = { made: 0, attempts: 0, ms: 0, lastMs: 0, lastAttempts: 0 };
+  function now() { return typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now(); }
+  function level(id) {
+    if (cache[id]) return cache[id];
+    var p = parseId(id); if (!p || p.w <= BANK) return null;
+    var t0 = now(), L = null, res = null, a;
+    for (a = 0; a < 40; a++) { L = build(p.w, p.s, a); res = check(L); if (res.ok) break; }
+    // never unwinnable: if 40 seeds fail (not seen in testing), fall back to the gentlest version of this stage
+    if (!res.ok) { for (a = 100; a < 200; a++) { L = build(p.w, p.s, a, 0.2); res = check(L); if (res.ok) break; } }
+    L.gen.check = { ok: res.ok, nodes: res.nodes, pows: res.pows, ms: res.ms, why: res.why }; var ms = now() - t0;
+    stats.made++; stats.attempts += a + 1; stats.ms += ms; stats.lastMs = ms; stats.lastAttempts = a + 1;
+    cache[id] = L; cacheKeys.push(id); if (cacheKeys.length > 24) delete cache[cacheKeys.shift()];
+    return L;
+  }
+
+  // ---------------- the on-device check ----------------
+  // A search over where Pim can stand, joined by walking and by real jump arcs (the movement numbers of §4, Tall
+  // Pim's 12 x 27 box, air control, holding or letting go of jump, braking in the air). Lifts count as platforms
+  // anywhere along their track. The goal must be reachable, every reachable spot must still lead to the goal (no
+  // pits you can't climb out of), and enough power-up blocks must be within reach.
+  var HW = 12, HH = 27;
+  function check(L) {
+    var t0 = now(), A = L.areas.main, res;
+    try { res = A.water ? waterCheck(L, A) : landCheck(L, A); } catch (e) { res = { ok: false, why: 'error ' + e.message }; }
+    if (res.ok) res = fairCheck(L, A, res);
+    res.ms = Math.round((now() - t0) * 10) / 10;
+    return res;
+  }
+  function grid(A) {
+    var rows = A.rows, cols = rows[0].length, H = new Uint8Array(cols * ROWS), c, r;
+    for (r = 0; r < ROWS; r++) for (c = 0; c < cols; c++) { var ch = rows[r].charAt(c); H[r * cols + c] = SOLID[ch] || ch === 'I' || ch === 'H' ? 1 : 0; }
+    function cell(c, r) { if (c < 0 || c >= cols) return 'W'; if (r < 0 || r >= ROWS) return ' '; return rows[r].charAt(c); }
+    function hard(c, r) { if (c < 0 || c >= cols) return true; if (r < 0 || r >= ROWS) return false; return H[r * cols + c] === 1; }   // ghost blocks would stop a jump: count them as solid
+    return { cols: cols, cell: cell, hard: hard, H: H };
+  }
+  function landCheck(L, A) {
+    var G = grid(A), cols = G.cols, cell = G.cell, hard = G.hard, HG = G.H, goalC = A.goal ? A.goal.c : cols - 4;
+    function boxHit(x, top, h) {
+      var c0 = Math.floor(x / T), c1 = Math.floor((x + HW - 0.001) / T), r0 = Math.floor(top / T), r1 = Math.floor((top + h - 0.001) / T);
+      if (c0 < 0 || c1 >= cols) return true;
+      if (r0 < 0) r0 = 0; if (r1 >= ROWS) r1 = ROWS - 1;
+      for (var r = r0; r <= r1; r++) { var o = r * cols; for (var c = c0; c <= c1; c++) if (HG[o + c]) return true; }
+      return false;
+    }
+    function boxSand(x, top, h) {
+      var c0 = Math.floor(x / T), c1 = Math.floor((x + HW - 0.001) / T), r0 = Math.floor(top / T), r1 = Math.floor((top + h - 0.001) / T);
+      for (var r = r0; r <= r1; r++) for (var c = c0; c <= c1; c++) if (cell(c, r) === 'Q') return true;
+      return false;
+    }
+    function standable(c, r) { return c >= 0 && c < cols && !!SOLID[cell(c, r)] && !hard(c, r - 1) && !hard(c, r - 2); }
+    // lifts: x-lifts give a strip of positions at one height; y-lifts a column of heights
+    var lifts = [];
+    A.ents.forEach(function (e) { if (e.type === 'lift') lifts.push({ axis: e.axis || 'y', x0: e.x * T, y0: e.y * T, w: (e.w || 3) * T, range: (e.range || 3) * T }); });
+    var nodes = {}, list = [];
+    function node(key, x, fy, c, r, li) { var nd = nodes[key]; if (!nd) { nd = nodes[key] = { key: key, x: x, fy: fy, c: c, r: r, lift: li, out: [], seen: false }; } return nd; }
+    function gnode(c, r) { return node(c * 16 + r, c * T + 2, r * T, c, r, -1); }
+    function liftNodes(li) {
+      var Lf = lifts[li], out = [], k, x;
+      if (Lf.axis === 'x') { var n = Math.max(1, Math.round((Lf.range + Lf.w - HW - 2) / T)); for (k = 0; k <= n; k++) { x = Lf.x0 + 1 + Math.min(k * T, Lf.range + Lf.w - HW - 2); out.push(node(100000 + li * 1000 + k, x, Lf.y0, Math.floor((x + 6) / T), Math.floor(Lf.y0 / T), li)); } }
+      else { var m = Math.floor(Lf.range / T); for (k = 0; k <= m + 1; k++) { var y = k <= m ? Lf.y0 - k * T : Lf.y0 - Lf.range; for (var s = 0; s < 2; s++) { x = s ? Lf.x0 + Lf.w - HW - 1 : Lf.x0 + 1; out.push(node(100000 + li * 1000 + k * 2 + s, x, y, Math.floor((x + 6) / T), Math.floor(y / T), li)); } } }
+      return out.filter(function (nd) { return !boxHit(nd.x, nd.fy - HH, HH); });
+    }
+    function landAt(x, rr) {
+      var c0 = Math.floor(x / T), c1 = Math.floor((x + HW - 0.001) / T), cc = Math.floor((x + HW / 2) / T);
+      if (standable(cc, rr)) return gnode(cc, rr);
+      if (standable(c0, rr)) return gnode(c0, rr);
+      if (standable(c1, rr)) return gnode(c1, rr);
+      return null;
+    }
+    function landLift(x, pf, fy) {
+      for (var i = 0; i < lifts.length; i++) {
+        var Lf = lifts[i], lx1 = Lf.axis === 'x' ? Lf.x0 + Lf.range + Lf.w : Lf.x0 + Lf.w;
+        if (x + HW <= Lf.x0 + 1 || x >= lx1 - 1) continue;
+        var sTop = Lf.axis === 'x' ? Lf.y0 : Lf.y0 - Lf.range, sBot = Lf.y0;
+        if (fy < sTop || pf > sBot + 0.5) continue;
+        var s = Math.max(sTop, Math.min(sBot, pf)), best = null, bd = 1e9;
+        liftNodes(i).forEach(function (nd) { var dd = Math.abs(nd.fy - s) * 4 + Math.abs(nd.x - x); if (dd < bd) { bd = dd; best = nd; } });
+        if (best) return best;
+      }
+      return null;
+    }
+    // one jump (or walk-off) arc; returns the node it lands on, or null (pit, quicksand, nowhere)
+    function arc(x, fy, dir, s, J, holdN, brake) {
+      var vy = J ? -J.vy : 0, holdG = J ? J.hold : 0, fallG = J ? J.fall : (s < 1 ? 0.4375 : s < 2.3125 ? 0.375 : 0.5625);
+      var cut = !J || holdN <= 0, airMax = s >= P.WALK_MAX ? P.RUN_MAX : P.WALK_MAX, fast = s >= 1.8125, braking = brake === 0;
+      for (var f = 0; f < 260; f++) {
+        if (f >= holdN) cut = true;
+        if (brake < 0 && vy >= 0) braking = true;
+        if (f > 0) {
+          if (braking) s = Math.max(0, s - (s >= P.WALK_MAX ? P.RUN_ACC : fast ? P.REL_DEC : P.WALK_ACC));
+          else { s += s < P.WALK_MAX ? P.WALK_ACC : P.RUN_ACC; if (s > airMax) s = airMax; }
+        }
+        var g = (!cut && vy < 0) ? holdG : fallG;
+        if (s > 0) {
+          var nx = x + s * dir;
+          if (boxHit(nx, fy - HH, HH)) { nx = dir > 0 ? Math.floor((nx + HW) / T) * T - HW : (Math.floor(nx / T) + 1) * T; s = 0; }
+          x = nx;
+        }
+        var pf = fy; fy += vy;
+        if (vy > 0) {
+          if (boxHit(x, fy - HH, HH)) { var rr = Math.floor(fy / T); return landAt(x, rr); }
+          if (lifts.length) { var ln = landLift(x, pf, fy); if (ln) return ln; }
+        } else if (vy < 0 && boxHit(x, fy - HH, 1)) { fy = (Math.floor((fy - HH) / T) + 1) * T + HH; vy = P.BUMP_VY; cut = true; continue; }
+        if (boxSand(x, fy - HH, HH)) return null;
+        vy = Math.min(P.MAX_FALL, vy + g);
+        if (fy - HH > ROWS * T + 8) return null;
+      }
+      return null;
+    }
+    function runway(c, r, dir) { var k = 0; while (k < 6 && standable(c - dir * k, r) && cell(c - dir * k, r) !== 'K') k++; return Math.max(1, k); }
+    function plain(nd) {
+      for (var c = nd.c - 4; c <= nd.c + 4; c++) {
+        if (!standable(c, nd.r) || cell(c, nd.r) === 'K') return false;
+        for (var r = nd.r - 8; r < nd.r; r++) if (hard(c, r)) return false;
+      }
+      for (var i = 0; i < lifts.length; i++) if (Math.abs(lifts[i].x0 / T - nd.c) < 14) return false;
+      return true;
+    }
+    function expand(nd) {
+      var outs = [], i;
+      function add(m) { if (m && m !== nd && outs.indexOf(m) < 0) outs.push(m); }
+      if (nd.lift < 0) { if (standable(nd.c + 1, nd.r)) add(gnode(nd.c + 1, nd.r)); if (standable(nd.c - 1, nd.r)) add(gnode(nd.c - 1, nd.r)); }
+      else liftNodes(nd.lift).forEach(add);
+      if (nd.lift < 0 && plain(nd)) return outs;
+      for (var di = 0; di < 2; di++) {
+        // take-off speed: Pim can speed up across the stretch he stands on (plus the overhang at both ends before he
+        // drops: about 22 units more), walking or running; a standing jump starts in the middle of the tile
+        var dir = di ? -1 : 1, dist = nd.lift < 0 ? (runway(nd.c, nd.r, dir) - 1) * T + 22 : lifts[nd.lift].w - HW + 22;
+        var vw = Math.min(P.WALK_MAX, Math.sqrt(P.MIN_WALK * P.MIN_WALK + 2 * P.WALK_ACC * dist)), vr = Math.min(P.RUN_MAX, Math.sqrt(P.MIN_WALK * P.MIN_WALK + 2 * P.RUN_ACC * dist));
+        var speeds = dir > 0 ? [0, vw, vr] : [0, vw];   // going back is only ever a short hop
+        for (i = 0; i < speeds.length; i++) {
+          var s = speeds[i], J = P.JUMPS[s < 1 ? 0 : s < 2.3125 ? 1 : 2];
+          var x0 = nd.lift >= 0 ? nd.x : s === 0 ? nd.c * T + 2 : dir > 0 ? nd.c * T + 12 : nd.c * T - 8;
+          add(arc(x0, nd.fy, dir, s, J, 999, 999)); add(arc(x0, nd.fy, dir, s, J, 999, -1)); add(arc(x0, nd.fy, dir, s, J, 999, 0));
+          add(arc(x0, nd.fy, dir, s, J, 10, 999)); add(arc(x0, nd.fy, dir, s, J, 0, 999));
+        }
+        // walking off the end of a ledge
+        if (nd.lift < 0 && !standable(nd.c + dir, nd.r) && !hard(nd.c + dir, nd.r - 1) && !hard(nd.c + dir, nd.r - 2)) {
+          var wx = dir > 0 ? (nd.c + 1) * T + 0.01 : nd.c * T - HW - 0.01;
+          for (i = 0; i < speeds.length; i++) { add(arc(wx, nd.fy, dir, Math.max(P.MIN_WALK, speeds[i]), null, 0, 999)); if (i) add(arc(wx, nd.fy, dir, speeds[i], null, 0, 0)); }
+        }
+        if (nd.lift >= 0) { add(arc(nd.x, nd.fy, dir, P.MIN_WALK, null, 0, 999)); }
+      }
+      return outs;
+    }
+    var st = L.start, start = gnode(st.x, st.y + 1);
+    if (!standable(st.x, st.y + 1)) return { ok: false, why: 'start' };
+    var q = [start], goals = [], i, reached = 0; start.seen = true;
+    for (var qi = 0; qi < q.length; qi++) {
+      var nd = q[qi]; reached++;
+      if (nd.c >= goalC && nd.lift < 0) { goals.push(nd); continue; }
+      nd.out = expand(nd);
+      for (i = 0; i < nd.out.length; i++) { var m = nd.out[i]; if (!m.seen) { m.seen = true; q.push(m); } }
+      if (reached > 6000) return { ok: false, why: 'too big' };
+    }
+    if (!goals.length) { var far = 0; q.forEach(function (n2) { far = Math.max(far, n2.c); }); return { ok: false, why: 'goal not reachable (got to column ' + far + ' of ' + goalC + ')' }; }
+    // every reachable spot must still lead to the goal
+    var back = {}, rev = {};
+    q.forEach(function (n2) { n2.out.forEach(function (m2) { (rev[m2.key] = rev[m2.key] || []).push(n2); }); });
+    var bq = goals.slice(); bq.forEach(function (g2) { back[g2.key] = 1; });
+    for (i = 0; i < bq.length; i++) (rev[bq[i].key] || []).forEach(function (p2) { if (!back[p2.key]) { back[p2.key] = 1; bq.push(p2); } });
+    for (i = 0; i < q.length; i++) if (!back[q[i].key]) return { ok: false, why: 'dead end at column ' + q[i].c + ' row ' + q[i].r };
+    return { ok: true, nodes: q.length, stand: function (c, r) { return !!(nodes[c * 16 + r] && nodes[c * 16 + r].seen); }, goalC: goalC };
+  }
+  // underwater: Pim swims anywhere with room for him (three free rows, below the surface limit)
+  function waterCheck(L, A) {
+    var G = grid(A), cols = G.cols, hard = G.hard, goalC = A.goal ? A.goal.c : cols - 4;
+    function ok(c, r) { return c > 0 && c < cols && r >= 3 && r + 2 <= 12 && !hard(c, r) && !hard(c, r + 1) && !hard(c, r + 2); }
+    var seen = {}, q = [[L.start.x, 10]], got = false;
+    if (!ok(L.start.x, 10)) return { ok: false, why: 'start' };
+    seen[L.start.x * 16 + 10] = 1;
+    for (var i = 0; i < q.length; i++) {
+      var c = q[i][0], r = q[i][1]; if (c >= goalC && r === 10) got = true;
+      [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (dv) { var c2 = c + dv[0], r2 = r + dv[1], k = c2 * 16 + r2; if (!seen[k] && ok(c2, r2)) { seen[k] = 1; q.push([c2, r2]); } });
+    }
+    if (!got) return { ok: false, why: 'the way out is blocked' };
+    return { ok: true, nodes: q.length, swim: function (c, r) { return !!seen[c * 16 + r]; }, goalC: goalC };
+  }
+  // fairness rules on top of reachability: enough power-ups within reach (one early), no enemy at the start,
+  // no crowds, Lantern Bars apart
+  function fairCheck(L, A, res) {
+    var G = grid(A), cell = G.cell, hard = G.hard, cols = G.cols, pows = [], i;
+    for (var c = 0; c < cols; c++) for (var r = 1; r < ROWS; r++) {
+      if (cell(c, r) !== 'M' || hard(c, r - 1)) continue;
+      var okp = false;
+      if (res.swim) okp = res.swim(c, r + 1);
+      else for (var rr = r + 3; rr <= r + 5 && !okp; rr++) { var clear = true; for (var k = r + 1; k < rr; k++) if (hard(c, k)) clear = false; if (clear && res.stand(c, rr)) okp = true; }
+      if (okp) pows.push(c);
+    }
+    var need = L.gen && L.gen.s === 4 || A.water ? 1 : 2;
+    if (pows.length < need) return { ok: false, why: 'only ' + pows.length + ' power-up blocks in reach' };
+    if (need > 1 && pows[0] > res.goalC * 0.6) return { ok: false, why: 'the first power-up comes too late' };
+    var foes = A.ents.filter(function (e) { return { moss: 1, roly: 1, hroly: 1, iroly: 1, burr: 1, racc: 1 }[e.type]; });
+    for (i = 0; i < foes.length; i++) if (foes[i].x < L.start.x + 11) return { ok: false, why: 'an enemy at the start' };
+    var d = L.gen ? L.gen.d : 0.5, cap = 4 + Math.round(2 * d);
+    for (var w0 = 0; w0 < cols; w0 += 4) { var n = 0; foes.forEach(function (e) { if (e.x >= w0 && e.x < w0 + 12) n++; }); if (n > cap) return { ok: false, why: 'too many enemies near column ' + w0 }; }
+    var bars = A.ents.filter(function (e) { return e.type === 'lbar'; });
+    for (i = 1; i < bars.length; i++) if (bars[i].x - bars[i - 1].x < 8) return { ok: false, why: 'Lantern Bars too close' };
+    res.pows = pows.length;
+    return res;
+  }
+
+  function isGen(id) { var p = parseId(id); return !!p && p.w > BANK; }
+  function nextId(id) { var p = parseId(id); if (!p) return null; return p.s < 4 ? p.w + '-' + (p.s + 1) : (p.w + 1) + '-1'; }
+  function prevId(id) { var p = parseId(id); if (!p) return null; if (p.s > 1) return p.w + '-' + (p.s - 1); return p.w > 1 ? (p.w - 1) + '-4' : null; }
+  // the stage's name without making it (the trail map shows names of stages not played yet)
+  function info(id) {
+    var p = parseId(id); if (!p || p.w <= BANK) return null;
+    var b = BIOMES[biomeOf(p.w)], kind = stageKind(p.w, p.s), tl = kind === 'water' ? (b.titles.water || WATER_TITLES) : b.titles[kind];
+    return { title: tl[hash3(p.w, p.s, 3) % tl.length], kind: kind, biome: biomeOf(p.w) };
+  }
+  function cached(id) { return cache[id] || null; }
+  function put(id, L) { if (!cache[id] && L) { cache[id] = L; cacheKeys.push(id); if (cacheKeys.length > 24) delete cache[cacheKeys.shift()]; } }
+  return { level: level, build: build, check: check, world: world, info: info, cached: cached, put: put, biomeOf: biomeOf, difficulty: difficulty, isGen: isGen, parseId: parseId, nextId: nextId, prevId: prevId, stats: stats,
+    setBank: function (n) { BANK = n; }, bank: function () { return BANK; } };
+};
+BN.Gen = BN.GenMake(BN);
 if (typeof module !== 'undefined') module.exports = BN;
 </script>
 <script>
@@ -2677,12 +3425,19 @@ var BMus = (function () {
   function saveMeta() { store.set('meta', meta); }
   var progress = store.get('progress', null) || {};      // per level: { beaten, best, found: {key: true} }
   function saveProgress() { store.set('progress', progress); }
-  var ORDER = []; BN_WORLDS.forEach(function (w) { w.levels.forEach(function (id) { ORDER.push(id); }); });
+  // the trail never ends: Worlds 1-4 are the handmade stages (BN_LEVELS); World 5 on is made on the phone (BN.Gen in
+  // physics.js) from the world/stage number, so a stage id like "12-3" is always the same stage
+  var GEN = BN.Gen; GEN.setBank(BN_WORLDS.length);
+  function LV(id) { return BN_LEVELS[id] || GEN.level(id); }
+  function nextId(id) { return GEN.nextId(id); }
+  function prevId(id) { return GEN.prevId(id); }
+  function validId(id) { var p = GEN.parseId(id); return !!p && p.w >= 1; }
+  function titleOf(id) { if (BN_LEVELS[id]) return BN_LEVELS[id].title; var L = GEN.cached(id); return L ? L.title : (GEN.info(id) || {}).title || ''; }
   var run = store.get('run', null);                       // the current run: { level, score, coins, lives, power }
-  function newRun() { run = { level: ORDER[0], score: 0, coins: 0, lives: 3, power: 0 }; saveRun(); }
+  function newRun() { run = { level: '1-1', score: 0, coins: 0, lives: 3, power: 0 }; saveRun(); }
   function saveRun() { store.set('run', run); }
-  if (!run || ORDER.indexOf(run.level) < 0) newRun();
-  function unlocked(id) { var i = ORDER.indexOf(id); return meta.unlockAll || i === 0 || (progress[ORDER[i - 1]] && progress[ORDER[i - 1]].beaten) || id === run.level || !!(meta.warps && meta.warps[id]); }
+  if (!run || !validId(run.level)) newRun();
+  function unlocked(id) { var pr = prevId(id); return meta.unlockAll || !pr || (progress[pr] && progress[pr].beaten) || id === run.level || !!(meta.warps && meta.warps[id]); }
 
   // ================= canvas and art =================
   var cv = $('cv'), ctx = cv.getContext('2d'), A = null, S = 1, VW = 480, CW = 0, CH = 0, DPR = 1, VTOP = 28; // the view shows y 28..240 (13¼ rows under the HUD)
@@ -2708,15 +3463,41 @@ var BMus = (function () {
   // ================= level flow =================
   var W = null, phase = 'map', introT = 0, parts = [], pops = [], dbg = { boxes: false, fps: false, step: false }, stepOnce = false, shakeT = 0, curLevel = null;
   function startLevel(id, checkpoint) {
+    // a stage past the handmade worlds that isn't made yet (the prefetch usually has it ready): show a short note
+    // first so the screen isn't frozen without a word, then make it
+    if (!BN_LEVELS[id] && !GEN.cached(id)) {
+      phase = 'wait'; $('scMap').classList.remove('show'); MUS.stop();
+      $('introWorld').textContent = 'WORLD ' + id; $('introTitle').textContent = titleOf(id); $('introLives').textContent = settings.lives === 'modern' ? '∞' : run.lives;
+      $('introSub').textContent = 'Making the next level…'; $('intro').classList.add('show');
+      setTimeout(function () { GEN.level(id); startLevel(id, checkpoint); }, 60);
+      return;
+    }
     curLevel = id; run.level = id; saveRun();
-    W = BN.newWorld(BN_LEVELS[id], { score: run.score, coins: run.coins, lives: run.lives, power: run.power, checkpoint: checkpoint || null, modern: settings.lives === 'modern' });
+    W = BN.newWorld(LV(id), { score: run.score, coins: run.coins, lives: run.lives, power: run.power, checkpoint: checkpoint || null, modern: settings.lives === 'modern' });
     W.viewW = VW; W.debug.inv = !!dbg.inv; W.startCheckpoint = checkpoint || null;
     parts = []; pops = []; shakeT = 0; hudCache = {}; $('hud').classList.remove('hurry');
     $('scMap').classList.remove('show'); MUS.stop(); showIntro();
+    prefetch(nextId(id));
+  }
+  // make the next stage ahead of time in a Web Worker (built from the generator's own source, no extra files), so
+  // it is ready when this one is cleared; without Workers it is made behind the level-clear card instead
+  var worker = null, pending = {};
+  function prefetch(id) {
+    if (!id || BN_LEVELS[id] || GEN.cached(id) || pending[id]) return;
+    if (worker === null) {
+      try {
+        var src = 'var BN=' + JSON.stringify({ T: BN.T, P: BN.P, SOLID: BN.SOLID }) + ';var Gen=(' + BN.GenMake.toString() + ')(BN);' +
+          'onmessage=function(e){Gen.setBank(e.data.bank);var L=null;try{L=Gen.level(e.data.id);}catch(err){}postMessage({id:e.data.id,L:L});};';
+        worker = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
+        worker.onmessage = function (e) { delete pending[e.data.id]; if (e.data.L) GEN.put(e.data.id, e.data.L); };
+        worker.onerror = function () { worker = false; pending = {}; };
+      } catch (e) { worker = false; }
+    }
+    if (worker) { pending[id] = true; worker.postMessage({ id: id, bank: BN_WORLDS.length }); }
   }
   function showIntro() {
     phase = 'intro'; introT = performance.now();
-    var L = BN_LEVELS[curLevel];
+    var L = LV(curLevel);
     $('introWorld').textContent = 'WORLD ' + L.id; $('introTitle').textContent = L.title;
     $('introLives').textContent = settings.lives === 'modern' ? '∞' : W.lives;
     $('introSub').textContent = W.checkpoint ? 'From the Waystone' : (L.id.slice(-1) === '4' ? 'Boss stage' : '');
@@ -2730,7 +3511,9 @@ var BMus = (function () {
     if (!modern && run.lives <= 0) { gameOver(); return; }
     startLevel(curLevel, W.checkpoint);
   }
-  function worldOf(id) { var n = +String(id).split('-')[0]; return BN_WORLDS.filter(function (w) { return w.n === n; })[0] || BN_WORLDS[0]; }
+  var genWorlds = {};
+  function worldN(n) { if (n <= BN_WORLDS.length) return BN_WORLDS[n - 1] || BN_WORLDS[0]; return genWorlds[n] || (genWorlds[n] = GEN.world(n)); }
+  function worldOf(id) { var p = GEN.parseId(id); return worldN(p ? p.w : 1); }
   function gameOver() {
     phase = 'over'; saveBest(W.score);
     var w = worldOf(curLevel);
@@ -2741,19 +3524,21 @@ var BMus = (function () {
   function levelClear() {
     phase = 'clear';
     var id = curLevel, p = progress[id] || (progress[id] = { beaten: false, best: 0, found: {} });
-    p.beaten = true; p.best = Math.max(p.best || 0, W.score); for (var k in W.found) p.found[k] = true; saveProgress();
-    meta.clears++; meta.finished++; saveMeta(); saveBest(W.score);
-    var i = ORDER.indexOf(id), next = ORDER[i + 1];
-    run.score = W.score; run.coins = W.coins; run.lives = W.lives; run.power = W.hero.power; run.level = next || ORDER[0]; saveRun(); // after the last world so far, the trail loops to 1-1
+    p.beaten = true; p.best = Math.max(p.best || 0, W.score); p.max = W.secretsMax; for (var k in W.found) p.found[k] = true; saveProgress();
+    meta.clears++; meta.finished++; if (worldOf(id).n > (meta.far || 0)) meta.far = worldOf(id).n; saveMeta(); saveBest(W.score);
+    var next = nextId(id);   // the trail goes on forever: after 4-4 comes World 5, made on the phone
+    run.score = W.score; run.coins = W.coins; run.lives = W.lives; run.power = W.hero.power; run.level = next; saveRun();
+    // no Worker: make the next stage now, while the card is up (a short pause nobody sees)
+    if (!worker && !BN_LEVELS[next]) setTimeout(function () { GEN.level(next); }, 900);
     if (W.hero.goal && W.hero.goal.world) {
       SND.worldClear();
-      var wd = worldOf(id), nextW = BN_WORLDS[BN_WORLDS.indexOf(wd) + 1];
-      mapWorld = nextW ? nextW.n : wd.n;
-      showCard('World ' + wd.n + ' cleared!', stats(), 'Pim took the Lens back from ' + wd.boss + '. ' + (nextW ? 'Next on the trail: World ' + nextW.n + ', ' + nextW.name + '.' : 'That\'s every world so far. Worlds 5 to 8 are on the way.'), [
+      var wd = worldOf(id), nextW = worldOf(next);
+      mapWorld = nextW.n;
+      showCard('World ' + wd.n + ' cleared!', stats(), 'Pim took the Lens back from ' + wd.boss + '. Next on the trail: World ' + nextW.n + ', ' + nextW.name + (nextW.breather ? ' (a gentler world for a breather).' : '.'), [
         { label: 'Trail map', red: true, icon: 'i-map', go: function () { between(showMap); } }]);
       return;
     }
-    showCard('Beacon lit!', stats(), BN_LEVELS[id].title + ' done. Next: ' + (next ? next + ' ' + BN_LEVELS[next].title : 'more worlds soon') + '.', [
+    showCard('Beacon lit!', stats(), titleOf(id) + ' done. Next: ' + next + ' ' + titleOf(next) + '.', [
       { label: 'Next level', red: true, icon: 'i-play', go: function () { between(function () { startLevel(next); }); } },
       { label: 'Trail map', icon: 'i-map', go: function () { between(showMap); } }]);
   }
@@ -2794,7 +3579,9 @@ var BMus = (function () {
 
   // ================= the trail map (one world at a time; arrows switch worlds) =================
   var STOPS = [[0.14, 0.62], [0.38, 0.38], [0.62, 0.6], [0.86, 0.36]], mapWorld = worldOf(run.level).n;
-  function showMap(keepWorld) { if (keepWorld !== true) mapWorld = worldOf(run.level).n; phase = 'map'; MUS.stop(); $('ovPause').classList.remove('show'); $('scMap').classList.add('show'); drawMap(); }
+  function showMap(keepWorld) { if (keepWorld !== true) mapWorld = worldOf(run.level).n; phase = 'map'; MUS.stop(); $('ovPause').classList.remove('show'); $('scMap').classList.add('show'); drawMap(); prefetch(run.level); }
+  // how far the map's arrows go: every world reached so far, plus a peek at the next one (shown locked)
+  function mapMax() { var far = Math.max(BN_WORLDS.length, meta.far || 0, worldOf(run.level).n); for (var id in progress) if (progress[id].beaten) far = Math.max(far, worldOf(id).n); return far + 1 + (meta.unlockAll ? 3 : 0); }
   function drawMapBg(wd) {
     var c = $('mapBg'), w = window.innerWidth, h = window.innerHeight; c.width = Math.round(w * DPR); c.height = Math.round(h * DPR);
     var x = c.getContext('2d'), th = A.theme(wd.theme || 'meadow'), sc = c.height / 212, vw = c.width / sc;
@@ -2807,17 +3594,17 @@ var BMus = (function () {
     if (th.dark) { x.fillStyle = 'rgba(8,4,16,' + th.dark * 0.35 + ')'; x.fillRect(0, 0, vw * S + 10, 260 * S); }
     ctx = saveCtx; VW = saveVW; x.restore();
   }
-  function worldOpen(wd) { return unlocked(wd.levels[0]) || wd.levels.some(function (id) { return progress[id] && progress[id].beaten; }); }
   function drawMap() {
-    var tr = $('trail'), w = BN_WORLDS.filter(function (q) { return q.n === mapWorld; })[0] || BN_WORLDS[0];
+    if (mapWorld > mapMax()) mapWorld = mapMax();
+    var tr = $('trail'), w = worldN(mapWorld);
     try { drawMapBg(w); } catch (e) { /* the plain sky gradient stays */ }
     var html = '<svg class="path" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="M' + STOPS.map(function (p) { return (p[0] * 100) + ' ' + (p[1] * 100); }).join(' L') +
       '" fill="none" stroke="rgba(255,240,200,.95)" stroke-width="3.2" stroke-linecap="round" stroke-dasharray="1 4.5" vector-effect="non-scaling-stroke" style="stroke-width:6px"/></svg>';
     w.levels.forEach(function (id, i) {
-      var L = BN_LEVELS[id], p = progress[id] || {}, found = p.found ? Object.keys(p.found).length : 0, max = secretsIn(L);
+      var L = BN_LEVELS[id] || GEN.cached(id), p = progress[id] || {}, found = p.found ? Object.keys(p.found).length : 0, max = L ? secretsIn(L) : p.max || 0;
       var cls = 'stop' + (id === run.level ? ' cur' : '') + (p.beaten ? ' done' : '') + (unlocked(id) ? '' : ' lock') + (i === 3 ? ' boss' : '');
       var lan = ''; for (var k = 0; k < max; k++) lan += '<i class="' + (k < found ? 'on' : '') + '"></i>';
-      html += '<button class="' + cls + '" data-id="' + id + '" style="left:' + STOPS[i][0] * 100 + '%;top:' + STOPS[i][1] * 100 + '%"><span class="n">' + id + '</span><span class="t">' + L.title + '</span><span class="s">' + (p.best ? 'Best ' + p.best.toLocaleString() : unlocked(id) ? 'Not yet played' : 'Locked') + '</span>' + (max ? '<span class="lan">' + lan + '</span>' : '') + '</button>';
+      html += '<button class="' + cls + '" data-id="' + id + '" style="left:' + STOPS[i][0] * 100 + '%;top:' + STOPS[i][1] * 100 + '%"><span class="n">' + id + '</span><span class="t">' + titleOf(id) + '</span><span class="s">' + (p.best ? 'Best ' + p.best.toLocaleString() : unlocked(id) ? 'Not yet played' : 'Locked') + '</span>' + (max ? '<span class="lan">' + lan + '</span>' : '') + '</button>';
     });
     var ci = w.levels.indexOf(run.level);
     if (ci >= 0) html += '<canvas class="trailpim" id="trailPim" width="88" height="88" style="left:' + STOPS[ci][0] * 100 + '%;top:calc(' + STOPS[ci][1] * 100 + '% - 34px)"></canvas>';
@@ -2825,13 +3612,12 @@ var BMus = (function () {
     if (ci >= 0) { var pc = $('trailPim'), px = pc.getContext('2d'), sp = A.pim[run.power === 2 ? 'spark' : run.power ? 'big' : 'small'].idle[0];
       var sc = Math.min(80 / sp.c.width, 84 / sp.c.height); px.drawImage(sp.c, 44 - sp.c.width * sc / 2, 86 - sp.c.height * sc, sp.c.width * sc, sp.c.height * sc); }
     $('mapWorld').textContent = 'World ' + w.n + ' · ' + w.name;
-    var wi = BN_WORLDS.indexOf(w);
-    $('btnWPrev').disabled = wi <= 0; $('btnWNext').disabled = wi >= BN_WORLDS.length - 1 || !worldOpen(BN_WORLDS[wi + 1]);
+    $('btnWPrev').disabled = w.n <= 1; $('btnWNext').disabled = w.n >= mapMax();
     $('mapRun').textContent = 'Score ' + run.score.toLocaleString() + ' · ' + (settings.lives === 'modern' ? 'Modern (endless tries)' : 'Lives ' + run.lives) + ' · Sunbits ' + run.coins;
     $('btnPlayTxt').textContent = 'Play ' + run.level;
   }
-  $('btnWPrev').addEventListener('click', function () { var i = BN_WORLDS.map(function (q) { return q.n; }).indexOf(mapWorld); if (i > 0) { mapWorld = BN_WORLDS[i - 1].n; SND.sign(); drawMap(); } });
-  $('btnWNext').addEventListener('click', function () { var i = BN_WORLDS.map(function (q) { return q.n; }).indexOf(mapWorld); if (i < BN_WORLDS.length - 1 && worldOpen(BN_WORLDS[i + 1])) { mapWorld = BN_WORLDS[i + 1].n; SND.sign(); drawMap(); } });
+  $('btnWPrev').addEventListener('click', function () { if (mapWorld > 1) { mapWorld--; SND.sign(); drawMap(); } });
+  $('btnWNext').addEventListener('click', function () { if (mapWorld < mapMax()) { mapWorld++; SND.sign(); drawMap(); } });
   function secretsIn(L) { var n = 0; for (var a in L.areas) { var A2 = L.areas[a]; A2.rows.forEach(function (r) { n += (r.match(/I/g) || []).length; }); A2.ents.forEach(function (e) { if (e.type === 'door' && e.secret) n++; }); } return n; }
   $('trail').addEventListener('click', function (e) {
     var b = e.target.closest('.stop'); if (!b) return; var id = b.dataset.id; SND.unlock();
@@ -2945,7 +3731,7 @@ var BMus = (function () {
   function openPause(fromMap) {
     ptrs = {}; keys = {}; syncSettings();
     $('btnResume').style.display = fromMap ? 'none' : ''; $('btnRestart').style.display = fromMap ? 'none' : ''; $('btnToMap').style.display = fromMap ? 'none' : '';
-    $('pauseTitle').textContent = fromMap ? 'Settings' : 'Paused'; $('pauseSub').textContent = fromMap ? 'Beacon Bound' : 'World ' + curLevel + ' · ' + BN_LEVELS[curLevel].title;
+    $('pauseTitle').textContent = fromMap ? 'Settings' : 'Paused'; $('pauseSub').textContent = fromMap ? 'Beacon Bound' : 'World ' + curLevel + ' · ' + titleOf(curLevel);
     $('ovPause').classList.add('show'); SND.pause(); MUS.pause(true);
   }
   function resume() { $('ovPause').classList.remove('show'); lastT = 0; if (!isOpen('scMap')) MUS.pause(false); }
@@ -3491,7 +4277,7 @@ var BMus = (function () {
   }
   // test hook
   window.__bb = { get W() { return W; }, BN: BN, get phase() { return phase; }, set phase(v) { phase = v; }, press: function (k, on) { keys[k] = on; }, get A() { return A; }, dbg: dbg,
-    startLevel: startLevel, showMap: showMap, openPause: openPause, resume: resume, settings: settings, get run() { return run; }, get progress() { return progress; }, music: function () { return MUS.current(); } };
+    startLevel: startLevel, showMap: showMap, gen: GEN, level: LV, nextId: nextId, get mapWorld() { return mapWorld; }, set mapWorld(v) { mapWorld = v; }, drawMap: function () { drawMap(); }, get meta() { return meta; }, openPause: openPause, resume: resume, settings: settings, get run() { return run; }, get progress() { return progress; }, music: function () { return MUS.current(); } };
   init();
 })();
 </script>

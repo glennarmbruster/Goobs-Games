@@ -391,7 +391,7 @@
         var m = readLS('meanbirds.meta'), sc = readLS('meanbirds.scores');
         if (!m) return 'Fling birds, topple forts';
         var stars = 0; if (sc) Object.keys(sc).forEach(function (k) { stars += sc[k].stars || 0; });
-        return 'Level ' + Math.min(20, (m.cur || 0) + 1) + (stars ? ' \u00b7 ' + stars + ' \u2605' : '');
+        return 'Level ' + ((m.cur || 0) + 1) + (stars ? ' \u00b7 ' + stars + ' \u2605' : '');
       }
     },
     {
@@ -744,13 +744,13 @@
       }
     },
     {
-      id: 'outpost', name: 'Outpost Rush', blurb: '160 levels, 50 missions: draw lines, take the map', path: 'games/outpost/',
+      id: 'outpost', name: 'Outpost Rush', blurb: 'Endless levels, 50 missions: draw lines, take the map', path: 'games/outpost/',
       art: '<svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" fill="#7cc95a"/><path d="M26 72L72 34" stroke="#8fc3ff" stroke-width="9" stroke-linecap="round" opacity=".85"/>' +
         '<g><rect x="14" y="58" width="24" height="26" rx="5" fill="#2f6fe0"/><rect x="14" y="64" width="24" height="4" fill="#1b3f8c"/><rect x="14" y="74" width="24" height="4" fill="#1b3f8c"/><rect x="12" y="50" width="28" height="12" rx="4" fill="#4a8cff"/></g>' +
         '<g><rect x="62" y="22" width="24" height="30" rx="5" fill="#e0443a"/><rect x="62" y="30" width="24" height="4" fill="#8f231c"/><rect x="62" y="40" width="24" height="4" fill="#8f231c"/><rect x="60" y="14" width="28" height="12" rx="4" fill="#ff6a5c"/></g>' +
         '<circle cx="40" cy="58" r="4" fill="#2f6fe0"/><circle cx="50" cy="50" r="4" fill="#2f6fe0"/><circle cx="60" cy="42" r="4" fill="#2f6fe0"/></svg>',
       status: function () {
-        var m = readLS('outpost.meta'); if (!m || !(m.open > 1)) return '160 levels, 50 missions: draw lines, take the map';
+        var m = readLS('outpost.meta'); if (!m || !(m.open > 1)) return 'Endless levels, 50 missions: draw lines, take the map';
         var st = 0; for (var k in (m.stars || {})) st += m.stars[k];
         return 'Level ' + m.open + ' \u00b7 ' + st + ' stars';
       }
@@ -840,7 +840,7 @@
       status: function () {
         var pr = readLS('beacon.progress') || {}, n = 0; for (var k in pr) if (pr[k] && pr[k].beaten) n++;
         var m = readLS('beacon.meta'); if (!n && !(m && m.best)) return 'Run, jump, light the way';
-        return n + ' of 16 levels lit' + (m && m.best ? ' · best ' + m.best.toLocaleString() : '');
+        return n + ' levels lit' + (m && m.best ? ' · best ' + m.best.toLocaleString() : '');
       }
     }
   ];

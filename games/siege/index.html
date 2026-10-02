@@ -143,6 +143,8 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
 }
 @media (max-width: 380px) { .stat { font-size: 13.5px; } .stats { gap: 7px; } .hb { min-width: 36px; padding: 0 7px; } .logo { font-size: 38px; letter-spacing: 5px; } }
 .mb.warn { border-color: var(--red); color: #fff; background: rgba(255,61,90,.45); box-shadow: 0 0 14px rgba(255,61,90,.6); }
+/* 1.2.0: the "Show earlier" card in the level grid (made levels far back) */
+.lv.more { text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; border-style: dashed; }
 </style>
 </head>
 <body>
@@ -188,7 +190,7 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
     <div class="modeinfo" id="modeInfo"></div>
     <div class="row"><div class="lab">Difficulty</div><div class="seg" id="segDiff"><button data-v="easy">Easy</button><button data-v="medium">Medium</button><button data-v="hard">Hard</button></div></div>
     <div class="row"><div class="lab">Cash</div><div class="seg" id="segCash"><button data-v="x1">Normal</button><button data-v="x5">5×</button><button data-v="x10">10×</button><button data-v="x100">100×</button></div></div>
-    <div class="lab levlab">Levels</div>
+    <div class="lab levlab" id="levLab">Levels</div>
     <div class="levels" id="levels"></div>
     <div class="menubtns"><button class="mb" id="bHow">How to play</button><button class="mb" id="bSettings">Sound</button></div>
   </div>
@@ -236,6 +238,15 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
   </div>
 </div>
 
+<!-- 1.2.0: shown only while a new level is being made (and checked by the bot) and the player is waiting for it -->
+<div class="screen dim hidden" id="making">
+  <div class="card">
+    <h2 id="makingText">Making level…</h2>
+    <div class="endtext">Every new level is played once by the computer first, so it can always be won.</div>
+    <button class="mb wide" id="bMakingCancel">Cancel</button>
+  </div>
+</div>
+
 <script>
 /* Neon Siege levels. Data only, so more can be added: copy one, change it, and it shows up in the level grid.
    Tower levels: a grid w x h of square tiles; paths are waypoint lists in tile coordinates (straight runs only),
@@ -275,14 +286,342 @@ var SG_LEVELS = [
     spawns: [[0, 5], [0, 6], [0, 7], [9, 0], [9, 12]], exits: [[18, 6]],
     rocks: [[6, 3], [6, 4], [6, 8], [6, 9], [12, 2], [12, 6], [12, 10], [15, 4], [15, 8]] }
 ];
-if (typeof module !== 'undefined') module.exports = SG_LEVELS;
+
+/* ===== 1.2.0: endless levels =====
+   After the handmade levels (8 Tower, 6 Swarm) each mode goes on for ever: level n is made from its number (seeded, so
+   level n is the same on every phone and every time) and then played once by the bot below on Hard with Normal cash.
+   If the bot can't win with a margin, the next attempt (n, a+1) is made, a little easier each time, until one passes,
+   so no level is ever unwinnable. Difficulty grows over the first 40 made levels and then holds at the top tier, with
+   rotating layouts, sizes, enemy mixes and wave counts, and an easier "breather" every 9th level.
+   SG_ENDLESS uses nothing but its arguments, so app.js can copy its source into a Web Worker. tools/bot.js and
+   tools/endless.js use the same bot. */
+function SG_ENDLESS(SG, BANKN) {
+  'use strict';
+  var GENV = 1; // bump if the maker changes (old saved attempts are then forgotten; level ids stay 't9', 's7', ...)
+  var MAXTRY = 30;
+  var NA = ['Neon', 'Cobalt', 'Ion', 'Vector', 'Quartz', 'Pulse', 'Static', 'Prism', 'Flux', 'Glass', 'Ember', 'Arc', 'Nova', 'Echo', 'Hollow', 'Signal', 'Chrome', 'Violet', 'Laser', 'Zero', 'Cipher', 'Plasma', 'Halo', 'Binary'];
+  var NB = ['Run', 'Fork', 'Coil', 'Gate', 'Drift', 'Weave', 'Steps', 'Ring', 'Grid', 'Delta', 'Spur', 'Reach', 'Bend', 'Maze', 'Field', 'Rift', 'Span', 'Hook', 'Knot', 'Basin', 'Ridge', 'Strand', 'Vault', 'Wake'];
+  // enemy mixes for the waves (the handmade levels all use the default one)
+  var MIX = {
+    mixed: null,
+    armor: ['basic', 'tank', 'fast', 'tank', 'healer', 'swarm', 'tank', 'basic', 'tank'],
+    swarm: ['swarm', 'fast', 'swarm', 'basic', 'swarm', 'healer', 'swarm', 'tank', 'fast'],
+    rush: ['fast', 'basic', 'fast', 'swarm', 'fast', 'tank', 'fast', 'healer', 'fast'],
+    mend: ['healer', 'basic', 'healer', 'fast', 'tank', 'healer', 'swarm', 'healer', 'tank']
+  };
+  function hash(str) { var h = 2166136261; for (var i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+  function ri(R, a, b) { return a + Math.floor(R() * (b - a + 1)); }
+  function pick(R, arr) { return arr[Math.floor(R() * arr.length)]; }
+
+  // how hard made level n is: k = 1 is the first one after the handmade levels
+  function plan(mode, n) {
+    var k = n - BANKN[mode], base = Math.min(1, (k - 1) / 40), breather = k >= 9 && k % 9 === 0;
+    return { k: k, base: base, tier: breather ? base * 0.3 : base, breather: breather };
+  }
+
+  // ---------- Tower mode: roads on a square grid ----------
+  // each maker returns a list of roads (waypoints in tiles, straight runs, starting/ending just outside the grid or inside)
+  var TFAM = {
+    snakeH: function (R, w, h, tier) { // rows joined at alternate ends (Switchback)
+      var s = pick(R, [2, 3, 3]), rows = [], y;
+      for (y = ri(R, 1, 2); y <= h - 2; y += s) rows.push(y);
+      if (rows.length < 2) return null;
+      var m = Math.max(2, rows.length - Math.floor(R() * (1 + tier * (rows.length - 2)))), off = ri(R, 0, rows.length - m);
+      rows = rows.slice(off, off + m);
+      var xl = ri(R, 1, 3), xr = w - 1 - ri(R, 1, 3), pts = [[-1, rows[0]]], right = true;
+      for (var i = 0; i < m; i++) {
+        var x = right ? xr : xl; if (i === m - 1) x = right ? w : -1;
+        pts.push([x, rows[i]]); if (i < m - 1) pts.push([x, rows[i + 1]]); right = !right;
+      }
+      return [pts];
+    },
+    snakeV: function (R, w, h, tier) { // columns joined at alternate ends (First Light, Gauntlet)
+      var s = pick(R, [3, 4, 4, 5]), cols = [], x;
+      for (x = ri(R, 1, 3); x <= w - 2; x += s) cols.push(x);
+      var m = Math.max(2, cols.length - Math.floor(R() * (1 + tier * (cols.length - 2)))), off = ri(R, 0, cols.length - m);
+      cols = cols.slice(off, off + m);
+      var yt = ri(R, 1, 2), yb = h - 1 - ri(R, 1, 2), down = true, pts;
+      pts = R() < 0.5 ? [[cols[0], -1]] : [[-1, yt], [cols[0], yt]];
+      var sideExit = R() < 0.5;
+      for (var i = 0; i < m; i++) {
+        var y = down ? yb : yt;
+        if (i === m - 1 && !sideExit) y = down ? h : -1;
+        pts.push([cols[i], y]);
+        if (i < m - 1) pts.push([cols[i + 1], y]); else if (sideExit) pts.push([w, y]);
+        down = !down;
+      }
+      return [pts];
+    },
+    spiral: function (R, w, h, tier) { // inward to an exit in the middle (Spiral)
+      var L = 1, T = 1, Rr = w - 2, B = h - 2, pts = [[-1, T]], want = ri(R, 6 - Math.round(tier * 2), 9), side = 0;
+      for (var n = 0; n < want; n++) {
+        var p;
+        if (side === 0) p = [Rr, T]; else if (side === 1) p = [Rr, B]; else if (side === 2) p = [L, B]; else p = [L, T + 2];
+        var last = pts[pts.length - 1];
+        if (Math.abs(p[0] - last[0]) + Math.abs(p[1] - last[1]) < 3) break;
+        pts.push(p);
+        if (side === 0) { /* went right */ } else if (side === 1) Rr -= 2; else if (side === 2) B -= 2; else { T += 2; L += 2; }
+        if (L >= Rr || T >= B) break;
+        side = (side + 1) % 4;
+      }
+      return pts.length >= 5 ? [pts] : null;
+    },
+    merge: function (R, w, h, tier) { // two or three entries joining one road (Twin Rivers, Maelstrom)
+      var jx = ri(R, Math.floor(w * 0.3), Math.floor(w * 0.55)), jy = ri(R, 3, h - 4);
+      var y1 = ri(R, 1, jy - 2), y2 = ri(R, jy + 2, h - 2), tail, v = R();
+      if (v < 0.4) tail = [[w, jy]];
+      else {
+        var xa = ri(R, jx + 3, w - 3), ya = jy + (R() < 0.5 ? -1 : 1) * ri(R, 2, 4); ya = Math.max(1, Math.min(h - 2, ya));
+        if (Math.abs(ya - jy) < 2) return null;
+        tail = v < 0.75 ? [[xa, jy], [xa, ya], [w, ya]] : [[xa, jy], [xa, ya]];
+      }
+      var paths = [[[-1, y1], [jx, y1], [jx, jy]].concat(tail), [[-1, y2], [jx, y2], [jx, jy]].concat(tail)];
+      if (R() < 0.25 + tier * 0.4 && jx >= 5) { var x3 = ri(R, 2, jx - 3); paths.push([[x3, -1], [x3, jy], [jx, jy]].concat(tail)); }
+      return paths;
+    },
+    cross: function (R, w, h, tier) { // two roads that cross, each to its own exit (Crossroads)
+      var xc = ri(R, 2, Math.floor(w / 2) - 1), yc = h - 1 - ri(R, 1, 2), xd = ri(R, xc + 4, w - 3), ye = ri(R, 1, 2);
+      var ya = ri(R, ye + 2, yc - 2), p1;
+      if (R() < 0.5) p1 = [[-1, ya], [w, ya]];
+      else { var xb = ri(R, Math.floor(w * 0.4), Math.floor(w * 0.75)), yb = ri(R, 1, h - 2); if (Math.abs(xb - xc) < 2 || Math.abs(xb - xd) < 2 || Math.abs(yb - ya) < 2 || Math.abs(yb - ye) < 2 || Math.abs(yb - yc) < 2) return null; p1 = [[-1, ya], [xb, ya], [xb, yb], [w, yb]]; }
+      return [p1, [[xc, -1], [xc, yc], [xd, yc], [xd, ye], [w, ye]]];
+    },
+    loop: function (R, w, h, tier) { // a road that crosses itself (The Loop)
+      var ya = ri(R, Math.floor(h / 2), h - 4), yt = ri(R, 1, ya - 3), yz = ri(R, ya + 2, h - 1);
+      var xb = ri(R, Math.floor(w * 0.55), w - 3), xc = ri(R, 2, xb - 4);
+      return [[[-1, ya], [xb, ya], [xb, yt], [xc, yt], [xc, yz], [w, yz]]];
+    }
+  };
+  var TFAMS = ['snakeH', 'snakeV', 'spiral', 'merge', 'cross', 'loop'];
+  // tiles of a straight run (both ends included)
+  function runTiles(a, b) { var out = [], dx = Math.sign(b[0] - a[0]), dy = Math.sign(b[1] - a[1]), x = a[0], y = a[1]; for (;;) { out.push([x, y]); if (x === b[0] && y === b[1]) break; x += dx; y += dy; } return out; }
+  // a layout is good if its runs are straight, inside the grid, never run along each other (no doubled or side-by-side
+  // roads, only crossings) and leave room to build
+  function okRoads(paths, w, h) {
+    var segs = {}, list = [], road = {};
+    for (var p = 0; p < paths.length; p++) {
+      var P = paths[p];
+      for (var i = 1; i < P.length; i++) {
+        var a = P[i - 1], b = P[i];
+        if (a[0] !== b[0] && a[1] !== b[1]) return false;
+        if (a[0] === b[0] && a[1] === b[1]) return false;
+        var key = a + '|' + b; if (segs[key]) continue; segs[key] = 1;
+        list.push({ a: a, b: b, hz: a[1] === b[1], p: p, i: i });
+      }
+      for (var j = 1; j < P.length - 1; j++) if (P[j][0] < 0 || P[j][1] < 0 || P[j][0] >= w || P[j][1] >= h) return false;
+      var e = P[P.length - 1], s = P[0];
+      if (s[0] < -1 || s[1] < -1 || s[0] > w || s[1] > h || e[0] < -1 || e[1] < -1 || e[0] > w || e[1] > h) return false;
+    }
+    for (var u = 0; u < list.length; u++) for (var v = u + 1; v < list.length; v++) {
+      var A = list[u], B = list[v]; if (A.hz !== B.hz) continue;
+      var la = A.hz ? A.a[1] : A.a[0], lb = B.hz ? B.a[1] : B.a[0];
+      if (Math.abs(la - lb) > 1) continue;
+      var a0 = A.hz ? Math.min(A.a[0], A.b[0]) : Math.min(A.a[1], A.b[1]), a1 = A.hz ? Math.max(A.a[0], A.b[0]) : Math.max(A.a[1], A.b[1]);
+      var b0 = B.hz ? Math.min(B.a[0], B.b[0]) : Math.min(B.a[1], B.b[1]), b1 = B.hz ? Math.max(B.a[0], B.b[0]) : Math.max(B.a[1], B.b[1]);
+      var ov = Math.min(a1, b1) - Math.max(a0, b0);
+      if (la === lb ? ov > 0 : ov >= 1) return false; // the same line twice, or two roads side by side
+    }
+    list.forEach(function (S) { runTiles(S.a, S.b).forEach(function (t) { if (t[0] >= 0 && t[1] >= 0 && t[0] < w && t[1] < h) road[t] = 1; }); });
+    var n = Object.keys(road).length;
+    return n >= w * h * 0.12 && n <= w * h * 0.45;
+  }
+  function mirror(paths, w, h, mx, my) { return paths.map(function (P) { return P.map(function (q) { return [mx ? w - 1 - q[0] : q[0], my ? h - 1 - q[1] : q[1]]; }); }); }
+  function roadLen(paths) { var L = 0; paths.forEach(function (P) { for (var i = 1; i < P.length; i++) L += Math.abs(P[i][0] - P[i - 1][0]) + Math.abs(P[i][1] - P[i - 1][1]); }); return L / paths.length; }
+
+  // ---------- Swarm mode: an open field of hexes ----------
+  var SDIMS = [[15, 11], [17, 11], [17, 13], [19, 11], [19, 13], [21, 9], [23, 7], [21, 11], [15, 9], [13, 13], [19, 9]];
+  var SFAMS = ['lr', 'lr', 'two', 'center', 'three']; // (a corner-to-corner field was tried: too many equal routes, so walls barely lengthen it)
+  function swarmLayout(R, tier) {
+    var d = pick(R, SDIMS), C = d[0], Rw = d[1], fam = pick(R, SFAMS), spawns = [], exits = [], i;
+    function group(edge, size, at) { // a run of spawn hexes along one edge
+      var out = [];
+      for (var q = 0; q < size; q++) {
+        var t = at + q - Math.floor(size / 2);
+        if (edge === 'L') out.push([0, t]); else if (edge === 'R') out.push([C - 1, t]); else if (edge === 'T') out.push([t, 0]); else out.push([t, Rw - 1]);
+      }
+      return out.filter(function (q) { return q[0] >= 0 && q[1] >= 0 && q[0] < C && q[1] < Rw; });
+    }
+    var big = 1 + Math.round(tier * 2);
+    if (fam === 'lr') { spawns = group('L', ri(R, 1, 3 + big), ri(R, 2, Rw - 3)); exits = [[C - 1, ri(R, 1, Rw - 2)]]; }
+    else if (fam === 'two') { spawns = group('L', ri(R, 2, 3), ri(R, 2, Rw - 3)).concat(group('T', ri(R, 2, 3), ri(R, 3, Math.floor(C / 2)))); exits = [[C - 1, ri(R, Math.floor(Rw / 2), Rw - 2)]]; }
+    else if (fam === 'center') {
+      var mid = [Math.floor(C / 2), Math.floor(Rw / 2)], ed = ['L', 'R', 'T', 'B'], ne = ri(R, 2, 4);
+      if (mid[1] % 2) mid[1]--; // keep the middle on an even row so it reads as centred
+      for (i = 0; i < ne; i++) { var k = ed.splice(Math.floor(R() * ed.length), 1)[0]; spawns = spawns.concat(group(k, ri(R, 1, 2), k === 'L' || k === 'R' ? mid[1] : mid[0])); }
+      exits = [mid];
+    } else { spawns = group('L', 2, Math.floor(Rw / 2)).concat(group('T', 2, ri(R, 2, Math.floor(C / 2)))).concat(group('B', 2, ri(R, 2, Math.floor(C / 2)))); exits = [[C - 1, ri(R, 2, Rw - 3)]]; }
+    // de-duplicate spawns
+    var seen = {}; spawns = spawns.filter(function (q) { if (seen[q]) return false; seen[q] = 1; return true; });
+    var near = {}; spawns.concat(exits).forEach(function (q) { for (var dx = -2; dx <= 2; dx++) for (var dy = -2; dy <= 2; dy++) near[[q[0] + dx, q[1] + dy]] = 1; });
+    var rocks = [], nr = ri(R, 0, 3) + Math.floor(R() * 4) * (R() < 0.6 ? 1 : 0), rk = {};
+    for (i = 0; i < nr * 3 && rocks.length < 18; i++) {
+      var c = [ri(R, 1, C - 2), ri(R, 0, Rw - 1)];
+      if (near[c] || rk[c]) continue;
+      var cl = [c]; if (R() < 0.6) cl.push([c[0], c[1] + 1]); if (R() < 0.35) cl.push([c[0], c[1] - 1]);
+      cl.forEach(function (q) { if (q[1] >= 0 && q[1] < Rw && !near[q] && !rk[q]) { rk[q] = 1; rocks.push(q); } });
+      if (rocks.length >= nr * 2) break;
+    }
+    return { cols: C, rows: Rw, spawns: spawns, exits: exits, rocks: rocks, fam: fam };
+  }
+  function okSwarm(L) {
+    if (!L.spawns.length) return false;
+    var g = SG.create(L, {});
+    for (var s = 0; s < g.spawns.length; s++) if (g.dist[g.spawns[s]] < 0) return false;
+    return true;
+  }
+
+  // the health multiplier the bot can just beat on Hard (keeping 4 lives) for a kind of level: medians measured over 60
+  // made Tower and 50 made Swarm levels (scratch bisection, see the doc)
+  var TCAP = { cross: 0.86, loop: 1.51, merge: 0.95, snakeH: 1.38, snakeV: 1.22, spiral: 1.58 };
+  var MIXCAP = { mixed: 1.05, armor: 0.8, mend: 0.88, rush: 1.15, swarm: 1.12 };
+  var SCAP = { lr: 0.84, center: 0.86, two: 0.9, three: 0.98 }; // (in Swarm the enemy mix made no steady difference)
+  function capEst(L) {
+    // (the number of waves made no clear difference once the extra health comes in gradually, logic.js levelHp)
+    if (L.mode === 'tower') return (TCAP[L.fam] || 1) * (MIXCAP[L.mix] || 1);
+    return SCAP[L.fam] || 0.85;
+  }
+
+  // a level's name comes from its number only, so the menu can show it before the level is made
+  function nameOf(mode, n) { var RN = SG.rng(hash('name|' + mode + '|' + n)); return pick(RN, NA) + ' ' + pick(RN, NB); }
+
+  // ---------- one attempt at level n ----------
+  function make(mode, n, attempt) {
+    var pl = plan(mode, n), R = SG.rng(hash('neonsiege|' + GENV + '|' + mode + '|' + n + '|' + attempt)), tier = pl.tier;
+    var ease = Math.pow(0.92, attempt); // each failed attempt makes the next one a little easier
+    var L = { id: (mode === 'tower' ? 't' : 's') + n, n: n, gen: GENV, attempt: attempt, mode: mode, name: nameOf(mode, n), wseed: 'g' + n + '.' + attempt };
+    var mixKeys = ['mixed', 'mixed', 'armor', 'swarm', 'rush', 'mend'];
+    var mix = pl.k <= 3 ? 'mixed' : pick(R, mixKeys); L.mix = mix; if (MIX[mix]) L.cycle = MIX[mix];
+    var wv = pl.breather ? 20 : Math.max(20, Math.min(45, 20 + Math.round(tier * 15) + pick(R, [-5, 0, 0, 5, 5, 10])));
+    L.waves = attempt >= 6 ? Math.min(wv, 25) : wv;
+    if (mode === 'tower') {
+      var lay = null;
+      for (var t = 0; t < 200 && !lay; t++) {
+        L.w = ri(R, 16, 20); L.h = ri(R, 10, 12);
+        var fam = TFAMS[(n * 7 + attempt * 3 + Math.floor(R() * 2)) % TFAMS.length];
+        var ps = TFAM[fam](R, L.w, L.h, tier);
+        if (!ps) continue;
+        ps = mirror(ps, L.w, L.h, R() < 0.5, R() < 0.5);
+        if (okRoads(ps, L.w, L.h)) { lay = ps; L.fam = fam; }
+      }
+      if (!lay) { L.w = 18; L.h = 11; lay = [[[-1, 1], [15, 1], [15, 4], [2, 4], [2, 7], [15, 7], [15, 9], [18, 9]]]; L.fam = 'snakeH'; }
+      L.paths = lay;
+      L.cash = Math.round((240 + 90 * (lay.length - 1) + Math.max(0, 40 - roadLen(lay)) * 3) * (2 - ease));
+    } else {
+      var sl = null;
+      for (var u = 0; u < 200 && !sl; u++) { var c = swarmLayout(R, tier); var probe = { mode: 'swarm', id: 'probe', waves: 1, cash: 0, cols: c.cols, rows: c.rows, spawns: c.spawns, exits: c.exits, rocks: c.rocks }; if (okSwarm(probe)) sl = c; }
+      if (!sl) sl = { cols: 15, rows: 11, spawns: [[0, 4], [0, 5], [0, 6]], exits: [[14, 5]], rocks: [], fam: 'lr' };
+      L.cols = sl.cols; L.rows = sl.rows; L.spawns = sl.spawns; L.exits = sl.exits; L.rocks = sl.rocks; L.fam = sl.fam;
+      L.cash = Math.round((300 + 20 * Math.min(4, sl.spawns.length)) * (2 - ease));
+    }
+    // enemy health: how tough the bot finds this kind of level (measured offline, tools/endless.js and the doc), divided
+    // by the headroom we want to leave: 1.45 times what the bot can take at the start, 1.15 at the top tier
+    var want = 1.45 - 0.3 * tier;
+    L.hp = Math.round(capEst(L) / want * ease * 1000) / 1000;
+    return L;
+  }
+
+  // ---------- the bot (the same one tools/bot.js uses to prove the handmade levels) ----------
+  function covPaths(g, x, y, r) { // road within reach, per path
+    return g.paths.map(function (P) { var n = 0; for (var d = 0; d < P.len; d += 0.25) { var i = 1; while (i < P.cum.length - 1 && P.cum[i] < d) i++; var a = P.pts[i - 1], b = P.pts[i], s = P.cum[i] - P.cum[i - 1], f = s ? (d - P.cum[i - 1]) / s : 0, px = a[0] + (b[0] - a[0]) * f, py = a[1] + (b[1] - a[1]) * f; if ((px - x) * (px - x) + (py - y) * (py - y) <= r * r) n++; } return n; });
+  }
+  // coverage, counting more for paths that have less defense so far (every road needs guarding)
+  function coverageTower(g, x, y, r) {
+    var c = covPaths(g, x, y, r), have = g.paths.map(function () { return 0; });
+    g.towers.forEach(function (t) { (t.pc || []).forEach(function (v, i) { have[i] += v * t.lv; }); });
+    var sum = 0; c.forEach(function (v, i) { sum += v / (1 + have[i] / 60); }); return sum;
+  }
+  function coverageSwarm(g, x, y, r) { var n = 0; SG.routes(g).forEach(function (pts) { pts.forEach(function (p) { if ((p[0] - x) * (p[0] - x) + (p[1] - y) * (p[1] - y) <= r * r) n++; }); }); return n; }
+  var PLAN = ['blaster', 'blaster', 'missile', 'laser', 'shock', 'laser', 'burst', 'missile', 'laser', 'blaster', 'missile', 'laser', 'shock', 'laser', 'burst'];
+  var UPW = { blaster: 0.5, laser: 3, missile: 1.2, shock: 0.4, burst: 0.8 };
+  function decideTower(g, st) {
+    var type = PLAN[st.k % PLAN.length];
+    // upgrade when that is the better use of money
+    var best = null, bv = 0;
+    g.towers.forEach(function (t) { if (t.lv >= SG.TOWERS[t.type].maxLv) return; var c = SG.upgradeCost(t.type, t.lv, g); var v = (t.cov || 1) / c * UPW[t.type]; if (v > bv && c <= g.credits) { bv = v; best = t; } });
+    if (g.towers.length >= 8 && best && Math.random() < 0.45) { SG.upgrade(g, best); return true; }
+    if (g.credits < SG.cost(g, type)) { if (best && g.towers.length >= 8) { SG.upgrade(g, best); return true; } return false; }
+    var S = SG.stats(type, 1), bi = -1, bs = 0;
+    for (var i = 0; i < g.cells.length; i++) {
+      if (!SG.canBuild(g, i, type).ok) continue;
+      var c = SG.cellCenter(g, i), cov = g.mode === 'tower' ? coverageTower(g, c[0], c[1], S.range) : coverageSwarm(g, c[0], c[1], S.range);
+      if (cov > bs) { bs = cov; bi = i; }
+    }
+    if (bi < 0) return false;
+    var r = SG.build(g, bi, type); if (r.ok) { var cc0 = SG.cellCenter(g, bi); r.tower.pc = covPaths(g, cc0[0], cc0[1], S.range); r.tower.cov = r.tower.pc.reduce(function (a, b) { return a + b; }, 0); st.lastCov = bs; st.k++; return true; }
+    return false;
+  }
+  var PLAN2 = ['burst', 'missile', 'laser', 'shock', 'missile', 'burst', 'laser', 'laser', 'missile'];
+  function decideSwarm(g, st) {
+    // walls (blasters) make the route long; every few walls a heavy tower goes right beside the route
+    var wallPhase = st.walls < 6 + st.k * 2 && st.walls < st.maxWalls;
+    var type = wallPhase ? 'blaster' : PLAN2[st.k % PLAN2.length];
+    var best = null, bv = 0;
+    g.towers.forEach(function (t) { if (t.lv >= SG.TOWERS[t.type].maxLv) return; var c = SG.upgradeCost(t.type, t.lv, g); var v = (t.cov || 1) / c * UPW[t.type]; if (v > bv && c <= g.credits) { bv = v; best = t; } });
+    if (st.walls >= st.maxWalls && best && Math.random() < 0.5) { SG.upgrade(g, best); return true; }
+    if (g.credits < SG.cost(g, type)) { if (st.walls >= st.maxWalls && best) { SG.upgrade(g, best); return true; } return false; }
+    var cur = SG.pathLength(g), bi = -1, bs = -1e9, S = SG.stats(type, 1);
+    var routeHex = {}; SG.routes(g).forEach(function (pts) { pts.forEach(function (p) { routeHex[SG.cellAt(g, p[0], p[1])] = 1; }); });
+    for (var i = 0; i < g.cells.length; i++) {
+      if (g.cells[i] !== 0) continue;
+      if (!routeHex[i] && !g.nb[i].some(function (j) { return routeHex[j]; })) continue;
+      var cb = SG.canBuild(g, i, type); if (!cb.ok) continue;
+      var sc, c = SG.cellCenter(g, i);
+      if (wallPhase) { var d = SG.flow(g, i), len = 0; g.spawns.forEach(function (s) { len = Math.max(len, d[s]); }); sc = (len - cur) * 10 + coverageSwarm(g, c[0], c[1], 2.6) * 0.1 + Math.random(); }
+      else sc = routeHex[i] ? -1e6 : coverageSwarm(g, c[0], c[1], S.range) + Math.random() * 0.1; // heavy towers beside the route, not on it
+      if (sc > bs) { bs = sc; bi = i; }
+    }
+    if (bi < 0) { if (wallPhase) st.maxWalls = st.walls; return false; }
+    var r = SG.build(g, bi, type); if (r.ok) { var cc = SG.cellCenter(g, bi); r.tower.cov = coverageSwarm(g, cc[0], cc[1], S.range); if (wallPhase) st.walls++; else st.k++; return true; }
+    return false;
+  }
+  // plays a level to the end; Math.random is swapped for a seeded one so a run repeats exactly (and put back after)
+  function play(level, diff, cash, seed, onWave) {
+    var keep = Math.random; Math.random = SG.rng(seed || 1);
+    try {
+      var g = SG.create(level, { diff: diff, cash: cash || 'x1' }), st = { k: 0, walls: 0, maxWalls: level.mode === 'swarm' ? 40 : 0 }, next = 0;
+      while (!g.over && g.t < 3600) {
+        if (g.t >= next) {
+          for (var n = 0; n < 10; n++) if (!(g.mode === 'tower' ? decideTower(g, st) : decideSwarm(g, st))) break;
+          next = g.t + 0.5;
+          if (g.sent === 0 && g.t > 1) SG.sendWave(g, false);
+        }
+        var ws = g.sent; SG.step(g); SG.takeEvents(g);
+        if (onWave && g.sent !== ws) onWave(g);
+      }
+      return { won: g.won, lives: g.lives, of: g.startLives, wave: g.sent, waves: g.waves.length, towers: g.towers.length, stars: SG.starsFor(g), t: Math.round(g.t), path: SG.pathLength(g) };
+    } finally { Math.random = keep; }
+  }
+  // the check for a made level: the bot on Hard (Normal cash) must win keeping at least 4 of its 10 lives, on its first
+  // or second try. Easy and Medium (less health, more lives) are then easier still.
+  var MARGIN = 4;
+  function check(L) {
+    var r = null;
+    for (var s = 1; s <= 2; s++) { r = play(L, 'hard', 'x1', s * 7919); r.tries = s; if (r.won && r.lives >= MARGIN) { r.ok = true; return r; } }
+    r.ok = false; return r;
+  }
+  // level n of a mode, checked: tries attempts 0, 1, 2, ... until one passes
+  function find(mode, n, from) {
+    var t0 = Date.now(), log = [];
+    for (var a = from || 0; a < MAXTRY; a++) {
+      var L = make(mode, n, a), r = check(L);
+      log.push({ a: a, ok: r.ok, lives: r.lives, wave: r.wave, waves: r.waves });
+      if (r.ok) return { level: L, attempt: a, log: log, ms: Date.now() - t0 };
+    }
+    // can't happen in practice (each attempt is easier); the last one is very easy, so use it
+    var LL = make(mode, n, MAXTRY); return { level: LL, attempt: MAXTRY, log: log, ms: Date.now() - t0 };
+  }
+  return { GENV: GENV, plan: plan, make: make, nameOf: nameOf, check: check, find: find, play: play, MARGIN: MARGIN };
+}
+if (typeof module !== 'undefined') { module.exports = SG_LEVELS; module.exports.ENDLESS = SG_ENDLESS; }
 </script>
 <script>
 /* Neon Siege logic: the whole simulation, with no drawing, so it also runs in Node (tools/bot.js balances the levels).
    Tower mode: enemies walk fixed roads; towers go on the open tiles beside them.
    Swarm mode: an open field of hexes; towers are the walls; enemies follow a flow field to the exit and re-route the
-   moment a tower goes up; a build that would shut the way is refused. Fixed 60 Hz steps. */
-var SG = (function () {
+   moment a tower goes up; a build that would shut the way is refused. Fixed 60 Hz steps.
+   1.2.0: the whole module is a named function (SG_MAKE) so app.js can copy its source into a Web Worker (built from a
+   Blob, no extra file) that plays new levels with the bot before you get to them. */
+function SG_MAKE() {
   'use strict';
   var DT = 1 / 60, HS = 0.55, SQ3 = Math.sqrt(3);
 
@@ -327,8 +666,9 @@ var SG = (function () {
   // ---------------- waves (made from rules, the same every time for a level) ----------------
   function hpScale(w) { var k = w - 1; return 1 + 0.14 * k + 0.0105 * k * k; }
   function makeWaves(level) {
-    var R = rng(hash(level.id)), N = level.waves, out = [];
-    var cycle = ['basic', 'fast', 'swarm', 'basic', 'tank', 'healer', 'fast', 'swarm', 'tank'];
+    // made levels (1.2.0) bring their own seed and enemy mix; the 14 handmade ones keep exactly the waves they had
+    var R = rng(hash(level.wseed || level.id)), N = level.waves, out = [];
+    var cycle = level.cycle || ['basic', 'fast', 'swarm', 'basic', 'tank', 'healer', 'fast', 'swarm', 'tank'];
     function group(type, w, mul) {
       var n = type === 'basic' ? 8 + Math.floor(w * 0.45) : type === 'fast' ? 8 + Math.floor(w * 0.35) : type === 'tank' ? 3 + Math.floor(w / 6) :
         type === 'swarm' ? 10 + Math.floor(w * 0.5) : type === 'healer' ? 5 + Math.floor(w / 5) : 1;
@@ -460,14 +800,14 @@ var SG = (function () {
     if (early && g.nextIn !== null && g.nextIn > 1) { bonus = Math.round(Math.floor(g.nextIn) * (3 + g.sent * 0.5) * g.cm); g.credits += bonus; g.score += Math.floor(g.nextIn) * 5; }
     if (g.sent > 0) { var wb = Math.round((25 + 5 * g.sent) * g.cm); g.credits += wb; bonus += wb; g.score += 20 * g.sent; }
     g.sent++;
-    var np = g.mode === 'tower' ? g.paths.length : g.spawns.length, rot = 0;
+    var np = g.mode === 'tower' ? g.paths.length : g.spawns.length, rot = 0, lhp = levelHp(g.level, w.n);
     w.groups.forEach(function (gr, gi) {
       for (var k = 0; k < gr.count; k++) {
         var at = g.t + k * gr.gap + gi * 0.4;
-        if (gr.type === 'swarm') { for (var s = 0; s < 2; s++) g.queue.push({ at: at + s * 0.07, type: 'swarm', hp: w.hp * (g.level.hp || 1) * g.hardAdj, wave: w.n, lane: (rot) % np }); rot++; continue; }
+        if (gr.type === 'swarm') { for (var s = 0; s < 2; s++) g.queue.push({ at: at + s * 0.07, type: 'swarm', hp: w.hp * lhp * g.hardAdj, wave: w.n, lane: (rot) % np }); rot++; continue; }
         var lane = (rot++) % np;
         if (gr.type === 'boss' && g.mode === 'tower') { lane = 0; g.paths.forEach(function (P, pi) { if (P.len > g.paths[lane].len) lane = pi; }); } // bosses take the long road
-        g.queue.push({ at: at, type: gr.type, hp: w.hp * (g.level.hp || 1) * g.hardAdj, wave: w.n, lane: lane });
+        g.queue.push({ at: at, type: gr.type, hp: w.hp * lhp * g.hardAdj, wave: w.n, lane: lane });
       }
     });
     g.queue.sort(function (a, b) { return a.at - b.at; });
@@ -475,6 +815,9 @@ var SG = (function () {
     g.ev.push({ t: 'wave', n: w.n, boss: w.boss, bonus: bonus });
     return bonus;
   }
+  // a level's extra toughness (made levels only; the handmade ones have none). Above 1 it comes in over the first 11
+  // waves, so a tough level still starts gently, before you have the credits for a real defense
+  function levelHp(L, n) { var h = L.hp || 1; return h > 1 ? 1 + (h - 1) * Math.min(1, (n - 1) / 10) : h; }
   function spawn(g, q) {
     var E = ENEMIES[q.type], hp = E.hp * (q.type === 'boss' ? Math.pow(q.hp, 0.85) : q.hp) * g.hpMul;
     var e = { id: g.uid++, type: q.type, E: E, hp: hp, max: hp, speed: E.speed, size: E.size, slow: 0, slowT: 0, wave: q.wave, x: 0, y: 0, d: 0, lane: q.lane, alive: true, spin: Math.random() * 6, jx: 0, jy: 0, hit: 0 };
@@ -638,8 +981,9 @@ var SG = (function () {
   return { DT: DT, HS: HS, SQ3: SQ3, TOWERS: TOWERS, ORDER: ORDER, ENEMIES: ENEMIES, DIFF: DIFF, CASH: CASH, stats: stats, upgradeCost: upgradeCost, cost: cost,
     makeWaves: makeWaves, create: create, cellCenter: cellCenter, cellAt: cellAt, towerAt: towerAt, canBuild: canBuild, build: build, upgrade: upgrade,
     sell: sell, sellValue: sellValue, sendWave: sendWave, nextWave: nextWave, step: step, reroute: reroute, takeEvents: takeEvents, routes: routes,
-    pathLength: pathLength, starsFor: starsFor, hexCenter: hexCenter, flow: flow, togo: togo, rng: rng };
-})();
+    pathLength: pathLength, starsFor: starsFor, hexCenter: hexCenter, flow: flow, togo: togo, rng: rng, hash: hash };
+}
+var SG = SG_MAKE();
 if (typeof module !== 'undefined') module.exports = SG;
 </script>
 <script>
@@ -789,6 +1133,74 @@ var SGAudio = (function () {
   };
   function towerSvg(type) { var c = T[type].color; return '<svg viewBox="-13 -13 26 26"><g stroke="' + c + '" style="filter:drop-shadow(0 0 3px ' + c + ')" stroke-linecap="round" stroke-linejoin="round">' + TOWER_ICON[type] + '</g></svg>'; }
 
+  // ================= levels: the handmade ones, then made ones for ever (1.2.0) =================
+  // A level is (mode, n). 1..8 Tower and 1..6 Swarm are the handmade levels in levels.js; after them every level is made
+  // from its number by SG_ENDLESS (levels.js) and checked by its bot, in a Web Worker so the game never stalls. Only the
+  // attempt that passed is saved ('neonsiege.gen' { v, a: { id: attempt } }); the level itself is re-made from it.
+  var BANK = { tower: LEVELS.filter(function (L) { return L.mode === 'tower'; }), swarm: LEVELS.filter(function (L) { return L.mode === 'swarm'; }) };
+  var BANKN = { tower: BANK.tower.length, swarm: BANK.swarm.length };
+  var GEN = SG_ENDLESS(SG, BANKN);
+  var genSave = lsGet('neonsiege.gen', null);
+  if (!genSave || genSave.v !== GEN.GENV || !genSave.a || typeof genSave.a !== 'object') genSave = { v: GEN.GENV, a: {} };
+  var made = {};
+  function lid(mode, n) { return (mode === 'tower' ? 't' : 's') + n; }
+  function levelOf(mode, n) { // the level, or null if it hasn't been made (checked) on this phone yet
+    if (n <= BANKN[mode]) return BANK[mode][n - 1];
+    var id = lid(mode, n); if (made[id]) return made[id];
+    var a = genSave.a[id];
+    return typeof a === 'number' && a >= 0 && a <= 60 ? (made[id] = GEN.make(mode, n, a)) : null;
+  }
+  var worker = null, workerBad = false, jobs = [], busy = null, waiters = {};
+  function getWorker() {
+    if (worker || workerBad) return worker;
+    try {
+      // the worker is built from the source of the two functions it needs, so no extra file has to be shipped or cached
+      var src = 'var SG=(' + SG_MAKE.toString() + ')();var GEN=(' + SG_ENDLESS.toString() + ')(SG,' + JSON.stringify(BANKN) + ');' +
+        'onmessage=function(e){var d=e.data,r=GEN.find(d.mode,d.n);postMessage({mode:d.mode,n:d.n,attempt:r.attempt,ms:r.ms});};';
+      worker = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
+      worker.onmessage = function (e) { done(e.data.mode, e.data.n, e.data.attempt); };
+      worker.onerror = function (e) { if (e && e.preventDefault) e.preventDefault(); try { worker.terminate(); } catch (er) { /* gone */ } worker = null; workerBad = true; var j = busy; busy = null; if (j) jobs.unshift(j); pump(); };
+    } catch (e) { worker = null; workerBad = true; }
+    return worker;
+  }
+  // make level (mode, n) if needed; cb(level) when it's ready. urgent: the player is waiting, so it goes first
+  function need(mode, n, cb, urgent) {
+    var L = levelOf(mode, n); if (L) { if (cb) cb(L); return; }
+    var id = lid(mode, n), k = -1;
+    if (cb) (waiters[id] = waiters[id] || []).push(cb);
+    if (busy && busy.id === id) return;
+    for (var i = 0; i < jobs.length; i++) if (jobs[i].id === id) k = i;
+    if (k >= 0) { if (urgent) { jobs[k].urgent = true; jobs.unshift(jobs.splice(k, 1)[0]); } }
+    else { var j = { id: id, mode: mode, n: n, urgent: !!urgent }; if (urgent) jobs.unshift(j); else jobs.push(j); }
+    pump();
+  }
+  function pump() {
+    if (busy || !jobs.length) return;
+    var w = getWorker();
+    // no Worker (very old browser): levels are made here only when the player is waiting for one (making one stalls
+    // the page for a moment), never in the background
+    if (!w) jobs = jobs.filter(function (q) { return q.urgent; });
+    if (!jobs.length) return;
+    busy = jobs.shift();
+    if (w) { w.postMessage({ mode: busy.mode, n: busy.n }); return; }
+    // a frame later, so the "Making level" card shows first
+    var j = busy; setTimeout(function () { var r = GEN.find(j.mode, j.n); done(j.mode, j.n, r.attempt); }, 80);
+  }
+  function done(mode, n, attempt) {
+    var id = lid(mode, n); busy = null;
+    genSave.a[id] = attempt; lsSet('neonsiege.gen', genSave);
+    var L = levelOf(mode, n), ws = waiters[id] || []; delete waiters[id];
+    ws.forEach(function (cb) { cb(L); });
+    if (!g && P.mode === mode) refreshCard(mode, n);
+    pump();
+  }
+  // the furthest level won in a mode (any difficulty): the level menu shows made levels up to 30 past it
+  function topWon(mode) {
+    var pre = mode === 'tower' ? 't' : 's', top = 0;
+    for (var k in prog) { if (k.charAt(0) !== pre || !/^[ts]\d+$/.test(k)) continue; var p = prog[k], any = false; for (var d in p) if (p[d] > 0) any = true; if (any) top = Math.max(top, +k.slice(1)); }
+    return top;
+  }
+
   // ================= menu =================
   var inArcade = /\/games\//.test(location.pathname);
   if (inArcade) { $('bExitP').classList.remove('hidden'); $('bExitP').addEventListener('click', function () { location.href = '../../'; }); }
@@ -800,22 +1212,46 @@ var SGAudio = (function () {
     sync();
   }
   seg('segMode', 'mode', renderLevels); seg('segDiff', 'diff', renderLevels); seg('segCash', 'cash', renderLevels);
-  function renderLevels() {
-    $('modeInfo').textContent = P.mode === 'tower' ? 'Enemies follow the glowing roads. Build beside them.' : 'Open field, no roads. Your towers are the walls: build a maze, but you can never shut the way.';
-    var h = '';
-    LEVELS.forEach(function (L, idx) {
-      if (L.mode !== P.mode) return;
-      var st = (prog[L.id] && prog[L.id][P.diff]) || 0;
-      h += '<button class="lv" data-i="' + idx + '"><canvas data-i="' + idx + '"></canvas><div class="ln">' + L.name + '</div><div class="lw">' + L.waves + ' waves</div><div class="ls">' + '<i>★</i>'.repeat(st) + '★'.repeat(3 - st) + '</div></button>';
-    });
-    $('levels').innerHTML = h;
-    Array.prototype.forEach.call($('levels').querySelectorAll('canvas'), function (c) { thumb(c, LEVELS[+c.dataset.i]); });
+  // the handmade levels, then made ones from the furthest won - 29 to the furthest won + 30 (earlier ones behind a button,
+  // so the list stays short at level 5,000)
+  var showFrom = {};
+  function cardHtml(mode, n) {
+    var L = levelOf(mode, n), id = lid(mode, n), st = (prog[id] && prog[id][P.diff]) || 0;
+    return '<canvas></canvas><div class="ln">' + (L ? L.name : GEN.nameOf(mode, n)) + '</div><div class="lw">Level ' + fmt(n) + (L ? ' · ' + L.waves + ' waves' : ' · new') + '</div><div class="ls">' + '<i>★</i>'.repeat(st) + '★'.repeat(3 - st) + '</div>';
   }
-  $('levels').addEventListener('click', function (e) { var b = e.target.closest('.lv'); if (!b) return; A.play('click'); start(+b.dataset.i); });
+  function renderLevels() {
+    var m = P.mode, bn = BANKN[m], top = topWon(m), last = Math.max(bn, top) + 30, first = Math.max(bn + 1, Math.min(showFrom[m] || 1e9, top - 29));
+    $('modeInfo').textContent = m === 'tower' ? 'Enemies follow the glowing roads. Build beside them.' : 'Open field, no roads. Your towers are the walls: build a maze, but you can never shut the way.';
+    $('levLab').textContent = top ? 'Levels · furthest won ' + fmt(top) : 'Levels · they never end';
+    var h = '', n;
+    for (n = 1; n <= bn; n++) h += '<button class="lv" data-m="' + m + '" data-n="' + n + '">' + cardHtml(m, n) + '</button>';
+    if (first > bn + 1) h += '<button class="lv more" id="bEarlier"><div class="ln">Show earlier</div><div class="lw">Levels ' + fmt(Math.max(bn + 1, first - 60)) + '–' + fmt(first - 1) + '</div></button>';
+    for (n = first; n <= last; n++) h += '<button class="lv" data-m="' + m + '" data-n="' + n + '">' + cardHtml(m, n) + '</button>';
+    $('levels').innerHTML = h;
+    Array.prototype.forEach.call($('levels').querySelectorAll('.lv[data-n]'), function (b) { thumb(b.querySelector('canvas'), levelOf(m, +b.dataset.n)); });
+    // make the shown new levels in the background (in order, the next one to play first), so they're usually ready
+    // before they're tapped; each is made once per phone and remembered
+    need(m, Math.max(bn, top) + 1);
+    for (n = first; n <= last; n++) if (!levelOf(m, n)) need(m, n);
+  }
+  function refreshCard(mode, n) {
+    var b = $('levels').querySelector('.lv[data-m="' + mode + '"][data-n="' + n + '"]'); if (!b) return;
+    b.innerHTML = cardHtml(mode, n); thumb(b.querySelector('canvas'), levelOf(mode, n));
+  }
+  $('levels').addEventListener('click', function (e) {
+    var b = e.target.closest('.lv'); if (!b) return; A.play('click');
+    if (b.id === 'bEarlier') { var m = P.mode, top = topWon(m), cur = Math.max(BANKN[m] + 1, Math.min(showFrom[m] || 1e9, top - 29)); showFrom[m] = Math.max(BANKN[m] + 1, cur - 60); renderLevels(); return; }
+    play(b.dataset.m, +b.dataset.n);
+  });
   // little picture of a level on its button
   function thumb(c, L) {
     var r = c.getBoundingClientRect(), d = Math.min(2, window.devicePixelRatio || 1); c.width = Math.max(1, r.width * d); c.height = Math.max(1, r.height * d);
-    var x = c.getContext('2d'), g = SG.create(L, {}), s = Math.min(c.width / g.W, c.height / g.H) * 0.9, ox = (c.width - g.W * s) / 2, oy = (c.height - g.H * s) / 2;
+    var x = c.getContext('2d');
+    if (!L) { // not made on this phone yet: a faint question mark (it's made when tapped, or in the background)
+      x.fillStyle = 'rgba(61,216,255,.35)'; x.font = '900 ' + Math.round(c.height * 0.5) + 'px -apple-system, system-ui, sans-serif'; x.textAlign = 'right'; x.textBaseline = 'middle';
+      x.fillText('?', c.width * 0.92, c.height * 0.55); return;
+    }
+    var g = SG.create(L, {}), s = Math.min(c.width / g.W, c.height / g.H) * 0.9, ox = (c.width - g.W * s) / 2, oy = (c.height - g.H * s) / 2;
     x.setTransform(s, 0, 0, s, ox, oy); x.lineCap = 'round'; x.lineJoin = 'round';
     if (g.mode === 'tower') { x.strokeStyle = '#3d7dff'; x.lineWidth = 0.55; g.paths.forEach(function (Pt) { x.beginPath(); Pt.pts.forEach(function (p, i) { if (i) x.lineTo(p[0], p[1]); else x.moveTo(p[0], p[1]); }); x.stroke(); }); }
     else {
@@ -842,19 +1278,34 @@ var SGAudio = (function () {
   }
 
   // ================= a game =================
-  var g = null, levelIdx = -1, speed = 1, paused = false, sel = null, preview = null, fx = [], rings = [], texts = [], shake = 0;
+  var g = null, cur = null, speed = 1, paused = false, sel = null, preview = null, fx = [], rings = [], texts = [], shake = 0;
   var cv = $('cv'), cx = cv.getContext('2d'), dpr = 1, VW = 0, VH = 0, view = { s: 30, ox: 0, oy: 0, rot: false }, fitS = 30;
   var tType = 'blaster';
-  function start(idx) {
-    levelIdx = idx; var L = LEVELS[idx];
+  // start(mode, n) plays a level that is ready (start(i) with a handmade level's index still works, for old tests)
+  function start(mode, n) {
+    if (typeof mode === 'number') { var L0 = LEVELS[mode]; n = BANK[L0.mode].indexOf(L0) + 1; mode = L0.mode; }
+    var L = levelOf(mode, n); if (!L) { play(mode, n); return; }
+    cur = { mode: mode, n: n, L: L };
     g = SG.create(L, { diff: P.diff, cash: P.cash });
+    need(mode, n + 1); // make the next level while this one is played
     speed = 1; paused = false; sel = null; preview = null; fx = []; rings = []; texts = [];
-    $('menu').classList.add('hidden'); $('end').classList.add('hidden'); $('pause').classList.add('hidden'); $('hud').classList.remove('hidden');
+    $('menu').classList.add('hidden'); $('end').classList.add('hidden'); $('pause').classList.add('hidden'); $('making').classList.add('hidden'); $('hud').classList.remove('hidden');
     // fill the HUD before fitting: the bars' heights (and so the free space for the field) depend on their text
-    buildTowerBar(); renderHud(); resize(); fit(); hint(L.name + ' · ' + SG.DIFF[P.diff].name + (P.cash !== 'x1' ? ' · cash ' + SG.CASH[P.cash].name : ''), false, 2600);
+    buildTowerBar(); renderHud(); resize(); fit(); hint('Level ' + fmt(n) + ' · ' + L.name + ' · ' + SG.DIFF[P.diff].name + (P.cash !== 'x1' ? ' · cash ' + SG.CASH[P.cash].name : ''), false, 2600);
   }
-  function toMenu() { g = null; $('hud').classList.add('hidden'); $('end').classList.add('hidden'); $('pause').classList.add('hidden'); $('menu').classList.remove('hidden'); renderLevels(); }
-  function restart() { if (levelIdx >= 0) start(levelIdx); }
+  function toMenu() { g = null; $('making').classList.add('hidden'); waitingFor = null; $('hud').classList.add('hidden'); $('end').classList.add('hidden'); $('pause').classList.add('hidden'); $('menu').classList.remove('hidden'); renderLevels(); }
+  function restart() { if (cur) start(cur.mode, cur.n); }
+  // play a level, making it first if this phone hasn't yet (a small "Making level" card shows only while that runs)
+  var waitingFor = null;
+  function play(mode, n) {
+    if (levelOf(mode, n)) { start(mode, n); return; }
+    var id = lid(mode, n); waitingFor = id;
+    // the card only shows if making takes a moment (most levels are made in well under a second)
+    $('makingText').textContent = 'Making level ' + fmt(n) + '…';
+    var t = setTimeout(function () { if (waitingFor === id) $('making').classList.remove('hidden'); }, 250);
+    need(mode, n, function () { clearTimeout(t); if (waitingFor !== id) return; waitingFor = null; $('making').classList.add('hidden'); start(mode, n); }, true);
+  }
+  $('bMakingCancel').addEventListener('click', function () { waitingFor = null; $('making').classList.add('hidden'); });
 
   // ---------- view ----------
   function resize() {
@@ -1055,17 +1506,17 @@ var SGAudio = (function () {
   // ================= end of a level =================
   function endGame() {
     if (!g) return;
-    var L = LEVELS[levelIdx], st = SG.starsFor(g);
+    var L = cur.L, st = SG.starsFor(g), lname = 'Level ' + fmt(cur.n) + ' · ' + L.name, mode = cur.mode, n = cur.n;
     if (g.won) {
       var p = prog[L.id] || (prog[L.id] = {}); p[P.diff] = Math.max(p[P.diff] || 0, st); lsSet('neonsiege.stars', prog);
       var key = L.id + '|' + P.diff + '|' + P.cash, nb = g.score > (best[key] || 0); if (nb) { best[key] = g.score; lsSet('neonsiege.best', best); }
       $('endTitle').textContent = 'Victory'; $('endStars').innerHTML = '<i>★</i>'.repeat(st) + '★'.repeat(3 - st);
-      $('endText').innerHTML = L.name + ' · ' + SG.DIFF[P.diff].name + '<br>Lives ' + g.lives + '/' + g.startLives + ' · Score <b>' + fmt(g.score) + '</b>' + (nb ? '<br><span style="color:#39ff9c">New best!</span>' : '<br>Best ' + fmt(best[key]));
-      var nextIdx = -1; for (var i = levelIdx + 1; i < LEVELS.length; i++) if (LEVELS[i].mode === L.mode) { nextIdx = i; break; }
-      endButtons(nextIdx >= 0 ? [['Next level', function () { start(nextIdx); }, true], ['Play again', restart], ['Level menu', toMenu]] : [['Play again', restart, true], ['Level menu', toMenu]]);
+      $('endText').innerHTML = lname + ' · ' + SG.DIFF[P.diff].name + '<br>Lives ' + g.lives + '/' + g.startLives + ' · Score <b>' + fmt(g.score) + '</b>' + (nb ? '<br><span style="color:#39ff9c">New best!</span>' : '<br>Best ' + fmt(best[key]));
+      // 1.2.0: there is always a next level (after the handmade ones they are made on the phone)
+      endButtons([['Next level', function () { play(mode, n + 1); }, true], ['Play again', restart], ['Level menu', toMenu]]);
     } else {
       $('endTitle').textContent = 'Overrun'; $('endStars').innerHTML = '★★★';
-      $('endText').innerHTML = L.name + ' · reached wave ' + g.sent + ' of ' + g.waves.length + '<br>Score ' + fmt(g.score);
+      $('endText').innerHTML = lname + ' · reached wave ' + g.sent + ' of ' + g.waves.length + '<br>Score ' + fmt(g.score);
       endButtons([['Try again', restart, true], ['Level menu', toMenu]]);
     }
     $('end').classList.remove('hidden');
@@ -1275,7 +1726,7 @@ var SGAudio = (function () {
   document.addEventListener('visibilitychange', function () { if (document.hidden && g && !g.over) { paused = true; $('pause').classList.remove('hidden'); } });
 
   // hook for automated tests
-  window.__ns = { get g() { return g; }, start: start, SG: SG, tap: tap, toScreen: function (x, y) { return toScreen(x, y); }, get view() { return view; }, fit: fit, setSpeed: function (s) { speed = s; }, get preview() { return preview; }, get sel() { return sel; }, P: P, prog: function () { return prog; } };
+  window.__ns = { get g() { return g; }, start: start, play: play, levelOf: levelOf, need: need, GEN: GEN, get cur() { return cur; }, get jobs() { return { busy: busy, jobs: jobs.length, worker: !!worker, workerBad: workerBad }; }, renderLevels: renderLevels, showFrom: showFrom, SG: SG, tap: tap, toScreen: function (x, y) { return toScreen(x, y); }, get view() { return view; }, fit: fit, setSpeed: function (s) { speed = s; }, get preview() { return preview; }, get sel() { return sel; }, P: P, prog: function () { return prog; } };
 })();
 </script>
 </body>

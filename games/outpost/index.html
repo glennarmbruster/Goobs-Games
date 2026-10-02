@@ -169,6 +169,20 @@ html.gg-fs-over .stagewrap { position: fixed; inset: 0; }
 .newmis { display: block; color: #e0730a; font-weight: 900; margin-top: 4px; }
 .misname { font-weight: 800; color: var(--muted); margin-top: 2px; }
 #endText > small { display: block; }
+/* 0.5.0: endless levels: the small "Making level N..." note (only when you reach a level before it is made), the
+   Endless tab and its pager on the level map, 4-5 digit level numbers */
+.making { position: absolute; z-index: 4; left: 50%; top: 46%; transform: translateX(-50%); pointer-events: none; display: none; white-space: nowrap;
+  background: rgba(10,14,36,.82); color: #fff; font: 800 15px/1 system-ui, -apple-system, sans-serif; padding: 10px 16px; border-radius: 14px; box-shadow: 0 4px 14px rgba(0,0,0,.25); }
+.making.show { display: block; animation: opMake 1.2s ease-in-out infinite; }
+@keyframes opMake { 50% { opacity: .65; } }
+.lvpages button.etab { background: linear-gradient(#e7ecff, #c6d0ff); color: #1d2a6a; }
+.lvpages button.etab.on { background: linear-gradient(#5a6cf0, #3446c8); color: #fff; }
+.lvpager { display: flex; align-items: center; gap: 8px; margin: -4px 0 10px; }
+.lvpager button { font: inherit; font-weight: 900; font-size: 20px; line-height: 1; width: 44px; height: 36px; border: 0; border-radius: 10px; background: var(--surface-2); color: var(--ink); flex: none; }
+.lvpager button[disabled] { opacity: .3; }
+.lvpager span { flex: 1; text-align: center; font-weight: 800; font-size: 15px; color: var(--ink); }
+.lvpager span small { font-size: 12px; color: var(--muted); font-weight: 700; }
+.lv.big { font-size: 13px; letter-spacing: -0.3px; }
 </style>
 </head>
 <body>
@@ -221,6 +235,7 @@ html.gg-fs-over .stagewrap { position: fixed; inset: 0; }
       <div class="wavepill" id="wavePill"></div>
       <div class="hint" id="hint"></div>
       <div class="loading" id="loading">Marching in&hellip;</div>
+      <div class="making" id="making"></div>
       <div class="toast" id="toast"></div>
     </div>
   </div>
@@ -323,7 +338,9 @@ html.gg-fs-over .stagewrap { position: fixed; inset: 0; }
    off it; they work on your troops only, and the computers don't aim for them. Events: a horde
    (owner 5, "rust bots") marching in waves from the edges at your buildings, and a giant boss citadel (type 'X') with
    a huge number that fires volleys of shells. Campaign levels have none of these and play exactly as 0.3.0. */
-var OP = (function () {
+// 0.5.0: the whole rule book is one named function so the page can also run it in a Web Worker (built from this
+// function's source; the endless levels are made and checked there without freezing the battle)
+function OP_FACTORY() {
   'use strict';
   var DT = 1 / 30;          // 30 steps a second
   var W = 9, H = 17;        // the battlefield (world units)
@@ -1093,6 +1110,291 @@ var OP = (function () {
       else { if (used['a' + Ac.a] || cant(Ac.a, Ac.b)) continue; addLink(s, Ac.a, Ac.b, false, RT ? RT.best(Ac.a, Ac.b).pl : undefined); used['a' + Ac.a] = 1; done++; }
     }
   }
+  // ================= endless levels (0.5.0) =================
+  // Glenn: "i would like 'unlimited' levels in the way most of the ios games offer unlimited". Levels 1-160 stay the
+  // banked ones in levels.json (saves and stars by number stay valid); from 161 on a level is made here from its
+  // number by the rules tools/gen.js used for 61-160 (plan, layout, map elements, props), so level n is the same level
+  // on every phone and every time it is opened. Each attempt (n, a) is played by the checks' bot (BLUE_BOT, the
+  // moderate computer playing blue, no upgrades) for up to 3 minutes of game time; it is kept only if blue wins inside
+  // the pacing band, otherwise attempt a + 1 is tried. There is no clock-based budget on purpose: a slow and a fast
+  // phone must pick the same attempt, so the band only widens after a fixed number of attempts.
+  // Difficulty: 161-260 keep growing a little past level 160 (the computers a bit quicker and bolder, a few more
+  // troops on the field), then it holds at that top tier. Variety: the eight regions take turns in blocks of 20 (a
+  // new seeded order every 8 blocks), each region's own mix of buildings and elements, and about every other level a
+  // "twist" (forts, artillery, a mine belt, a gold rush, a river, walls, tanks, a crowd of three computers, a duel, big
+  // towers to 120). Every tenth level (165, 175, ...) is a breather: fewer, slower computers.
+  var BANK = 160, GEN_V = 1, GEN_BLOCK = 20, GEN_REGIONS = 8;
+  // how often each region's elements show up (river = its river / ravine / lava / canal / dry riverbed with bridges);
+  // 3-7 are tools/gen.js's FLAVOR; meadow, desert and tundra come back with everything mixed in
+  var GEN_FLAVOR = [
+    { river: 0.35, rocks: 0.75, inlet: 0.35, fences: 0.4, mines: 0.3, bars: 0.45, snipers: 0.45, rockets: 0.35, forts: 0.3, factories: 0.5 },
+    { river: 0.35, rocks: 0.65, inlet: 0, fences: 0.55, mines: 0.6, bars: 0.35, snipers: 0.5, rockets: 0.4, forts: 0.3, factories: 0.6 },
+    { river: 0.6, rocks: 0.75, inlet: 0.2, fences: 0.5, mines: 0.4, bars: 0.3, snipers: 0.5, rockets: 0.35, forts: 0.4, factories: 0.5 },
+    { river: 0.6, rocks: 0.75, inlet: 0.45, fences: 0.3, mines: 0.4, bars: 0.3, snipers: 0.5, rockets: 0.35, forts: 0.3, factories: 0.5 },
+    { river: 0.3, rocks: 0.6, inlet: 0.75, fences: 0.35, mines: 0.3, bars: 0.85, snipers: 0.5, rockets: 0.35, forts: 0.3, factories: 0.5 },
+    { river: 0.4, rocks: 0.7, inlet: 0.15, fences: 0.65, mines: 0.35, bars: 0.35, snipers: 0.45, rockets: 0.4, forts: 0.35, factories: 0.6 },
+    { river: 0.65, rocks: 0.7, inlet: 0.1, fences: 0.35, mines: 0.5, bars: 0.35, snipers: 0.5, rockets: 0.45, forts: 0.35, factories: 0.5 },
+    { river: 0.55, rocks: 0.6, inlet: 0.4, fences: 0.4, mines: 0.4, bars: 0.4, snipers: 0.55, rockets: 0.45, forts: 0.4, factories: 0.55 }
+  ];
+  var TWISTS = ['forts', 'artillery', 'mines', 'gold', 'river', 'walls', 'tanks', 'crowd', 'duel', 'big'];
+  function seedOf(a, b) { return (Math.imul(a + 1, 0x9E3779B1) ^ Math.imul(b + 7, 0x85EBCA77) ^ 0x2545F491) >>> 0; }
+  // the region order for one round of 8 blocks (a seeded shuffle)
+  function regionPerm(c) { var R = rng(seedOf(c, 99991)), a = [0, 1, 2, 3, 4, 5, 6, 7]; for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(R() * (i + 1)), t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+  // a level's region: 1-160 the bank's blocks of 20; then every block of 20 one region, all 8 in a seeded order per
+  // round, never the same region twice in a row (round c's last region only depends on its own shuffle)
+  function regionOf(n) {
+    if (n <= BANK) return Math.floor((n - 1) / GEN_BLOCK);
+    var b = Math.floor((n - BANK - 1) / GEN_BLOCK), c = Math.floor(b / GEN_REGIONS), p = regionPerm(c), last = c ? regionPerm(c - 1)[GEN_REGIONS - 1] : 7;
+    if (p[0] === last) { var t = p[0]; p[0] = p[1]; p[1] = t; }
+    return p[b % GEN_REGIONS];
+  }
+  function breather(n) { return n > BANK && n % 10 === 5; }
+  // what a level has (tools/gen.js planLate at the top of its ramp, plus the twist)
+  function genPlan(n, R) {
+    var reg = regionOf(n), k = ((n - 1) % GEN_BLOCK) / (GEN_BLOCK - 1), F = GEN_FLAVOR[reg], easy = breather(n);
+    var P = { no: n, reg: reg, k: k, p: Math.min(1, (n - BANK) / 100), easy: easy, tips: [] };
+    var ch = function (x) { return R() < Math.min(0.95, x * 1.2); };
+    P.enemies = easy ? (R() < 0.5 ? 1 : 2) : [1, 2, 2, 3, 3, 3][Math.floor(R() * 6)];
+    if (n % GEN_BLOCK === 1 && P.enemies === 3) P.enemies = 2; // a new region starts a bit gentler
+    P.total = Math.round(8.5 + k * 3 + 1.2 + (P.enemies - 1) * 0.5 + R() * 1.2);
+    P.factories = ch(F.factories) ? 1 + (R() < 0.35 ? 1 : 0) : 0;
+    P.fences = ch(F.fences) ? 2 + Math.floor(R() * 3) : 0;
+    P.rocks = ch(F.rocks) ? 2 + Math.floor(R() * 4) : 0;
+    P.bars = ch(F.bars) ? (reg === 4 ? 2 : 1) + Math.floor(R() * 3) : 0;
+    P.snipers = ch(F.snipers) ? 1 + (R() < 0.35 ? 1 : 0) : 0;
+    P.rockets = ch(F.rockets) ? 1 : 0;
+    P.mines = ch(F.mines) ? 1 + Math.floor(R() * 3) : 0;
+    P.forts = ch(F.forts) ? 1 : 0;
+    P.bridge = R() < F.river;
+    P.inlets = R() < F.inlet ? 1 + (R() < 0.4 ? 1 : 0) : 0;
+    P.cap = 0; P.fortCap = 0;
+    if (!easy && R() < 0.5) {
+      var tw = P.twist = TWISTS[Math.floor(R() * TWISTS.length)];
+      if (tw === 'forts') { P.forts = 1; if (R() < 0.5) P.fortCap = 120; }
+      else if (tw === 'artillery') { P.rockets = 1; P.snipers = Math.max(P.snipers, 1); }
+      else if (tw === 'mines') P.mines = 3;
+      else if (tw === 'gold') P.bars = 3 + Math.floor(R() * 2);
+      else if (tw === 'river') P.bridge = true;
+      else if (tw === 'walls') { P.fences = 3 + Math.floor(R() * 2); P.rocks = Math.max(P.rocks, 3); }
+      else if (tw === 'tanks') P.factories = 2;
+      else if (tw === 'crowd') P.enemies = 3;
+      else if (tw === 'duel') { P.enemies = 1; P.total += 1; }
+      else if (tw === 'big') P.cap = 120; // "some (few) levels have over 100"
+    }
+    if (easy) { P.total -= 2; P.rockets = 0; P.snipers = Math.min(1, P.snipers); P.mines = Math.min(1, P.mines); }
+    P.total = Math.min(13, P.total); // 10-13 like the late bank (gen.js allowed 14 but its layouts rarely fit one)
+    return P;
+  }
+  // where the buildings stand (tools/gen.js layout: you at the bottom, computers at the top corners / a side, gray
+  // buildings between, none right on a line between two near ones)
+  function genLayout(P, R) {
+    var k = P.k, pts = [], river = null;
+    var minD = P.total > 13 ? 2.05 : P.total > 11 ? 2.1 : P.total > 8 ? 2.3 : 2.5;
+    var rad = function (t) { return t[4] === 'F' ? 0.9 : 0.42; };
+    if (P.bridge) river = { y: H / 2 + (R() - 0.5) * 3, h: 0.8 };
+    function ok(x, y, type) {
+      if (river && Math.abs(y - river.y) < 1.1 + (type === 'F' ? 0.5 : 0)) return false;
+      var i, j;
+      for (i = 0; i < pts.length; i++) if (Math.hypot(pts[i][0] - x, pts[i][1] - y) < minD + (type === 'F' || pts[i][4] === 'F' ? 0.9 : 0)) return false;
+      // unlike tools/gen.js (which threw the whole layout away afterwards), a spot right on the line between two near
+      // buildings, or one whose own lines would run through a building, is refused here: same rule, ~20x fewer
+      // wasted layouts (it matters on a phone)
+      var r0 = type === 'F' ? 0.9 : 0.42;
+      for (i = 0; i < pts.length; i++) {
+        var di = Math.hypot(pts[i][0] - x, pts[i][1] - y);
+        for (j = i + 1; j < pts.length; j++) if (Math.hypot(pts[i][0] - pts[j][0], pts[i][1] - pts[j][1]) <= 6.2 && segDist(x, y, pts[i][0], pts[i][1], pts[j][0], pts[j][1]) < r0 + 0.1) return false;
+        if (di <= 6.2) for (j = 0; j < pts.length; j++) if (j !== i && segDist(pts[j][0], pts[j][1], x, y, pts[i][0], pts[i][1]) < rad(pts[j]) + 0.1) return false;
+      }
+      return true;
+    }
+    function place(x0, x1, y0, y1, o, n, type) {
+      for (var t = 0; t < 400; t++) {
+        var m = type === 'F' ? 1.4 : 1.0;
+        // rounded before the checks, so the saved spot keeps its distance
+        var x = +Math.max(m, Math.min(W - m, x0 + R() * (x1 - x0))).toFixed(2), y = +Math.max(1.3 + (m - 1), Math.min(H - 1.3 - (m - 1), y0 + R() * (y1 - y0))).toFixed(2);
+        if (!ok(x, y, type)) continue;
+        var p = [x, y, o, n]; if (type && type !== 'b') p.push(type); pts.push(p); return true;
+      }
+      return false;
+    }
+    // level 160 had computers starting at 27 and gray buildings up to 34: one / two more by 260, breathers less
+    var blueStart = Math.round(14 - k * 3) + (P.easy ? 4 : 0), redStart = P.easy ? 20 : Math.round(27 + P.p), gmax = P.easy ? 24 : Math.round(34 + 2 * P.p);
+    for (var i = 0; i < 2; i++) if (!place(1, W - 1, H - 3.4, H - 1.4, 1, i ? Math.round(blueStart * 0.5) : blueStart, i === 1 && P.factories > 1 ? 'f' : 'b')) return null;
+    var cpu = [2, 3, 4].slice(0, P.enemies), eStart = Math.round(redStart * (P.enemies === 1 ? 1 : P.enemies === 2 ? 0.85 : 0.75));
+    var spots = P.enemies === 1 ? [[1, W - 1, 1.4, 3.8]] : P.enemies === 2 ? [[1, 3.8, 1.4, 4.2], [5.2, W - 1, 1.4, 4.2]] : [[1, 3.6, 1.4, 3.8], [5.4, W - 1, 1.4, 3.8], [R() < 0.5 ? 1 : W - 2.4, R() < 0.5 ? 1 + 1.4 : W - 1, 6.4, 8.6]];
+    if (P.enemies === 3 && spots[2][0] > 4) spots[2] = [W - 2.4, W - 1, 6.4, 8.6]; else if (P.enemies === 3) spots[2] = [1, 2.4, 6.4, 8.6];
+    for (var e = 0; e < cpu.length; e++) {
+      var sp = spots[e];
+      if (!place(sp[0], sp[1], sp[2], sp[3], cpu[e], eStart, e === 0 && P.factories > 0 && R() < 0.4 ? 'f' : 'b')) return null;
+      if (P.enemies === 1 && !place(1, W - 1, 1.4, 5.8, cpu[e], Math.round(eStart * 0.6), 'b')) return null;
+    }
+    var grays = P.total - pts.length, special = [], q;
+    for (q = 0; q < P.forts; q++) special.push('F');
+    for (q = 0; q < P.snipers; q++) special.push('s');
+    for (q = 0; q < P.rockets; q++) special.push('r');
+    var hasF = function (blue) { return pts.some(function (p) { return (blue ? p[2] === 1 : p[2] > 1) && p[4] === 'f'; }); };
+    var facLeft = Math.max(0, P.factories - (hasF(true) ? 1 : 0) - (hasF(false) ? 1 : 0));
+    for (q = 0; q < facLeft; q++) special.push('f');
+    for (q = 0; q < special.length && grays > 0; q++) {
+      var type = special[q];
+      var n = type === 'F' ? 18 + Math.floor(R() * 20) : type === 's' ? 8 + Math.floor(R() * 12) : type === 'r' ? 5 + Math.floor(R() * 10) : 4 + Math.floor(R() * gmax * 0.7);
+      var mid = type === 's' || type === 'F';
+      if (!place(mid ? 2 : 1, mid ? W - 2 : W - 1, mid ? H / 2 - 3 : 4.2, mid ? H / 2 + 3 : H - 4, 0, n, type)) return null;
+      grays--;
+    }
+    while (grays > 0) { if (!place(1, W - 1, 3.6, H - 3.6, 0, 2 + Math.floor(R() * gmax), 'b')) return null; grays--; }
+    for (i = 0; i < pts.length; i++) if (pts[i][2] === 0 && pts[i][3] < 1) pts[i][3] = 1;
+    for (i = 0; i < pts.length; i++) for (var j = i + 1; j < pts.length; j++) {
+      if (Math.hypot(pts[i][0] - pts[j][0], pts[i][1] - pts[j][1]) > 6.2) continue;
+      for (q = 0; q < pts.length; q++) if (q !== i && q !== j && segDist(pts[q][0], pts[q][1], pts[i][0], pts[i][1], pts[j][0], pts[j][1]) < rad(pts[q]) + 0.1) return null;
+    }
+    return { pts: pts, river: river };
+  }
+  function genShuffle(arr, R) { var a = arr.slice(); for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(R() * (i + 1)), t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+  // map elements (tools/gen.js elements): a river with broken bridges, inlets from the edges, obstacles, fences, mine
+  // fields and gold bars on the lines between near buildings; every building must stay reachable
+  function genElements(P, lay, R) {
+    var pts = lay.pts, L = { obs: [], fences: [], gaps: [], mines: [], bars: [] }, near = [], used = [], i, j, placed, p, q, qq;
+    for (i = 0; i < pts.length; i++) for (j = i + 1; j < pts.length; j++) { var d = Math.hypot(pts[i][0] - pts[j][0], pts[i][1] - pts[j][1]); if (d < 6.8) near.push([i, j, d]); }
+    near.sort(function (a, b) { return a[2] - b[2]; });
+    var farFromTowers = function (x, y, r) { return pts.every(function (t) { return Math.hypot(t[0] - x, t[1] - y) >= r + (t[4] === 'F' ? 0.9 : 0.42) + 0.25; }); };
+    var free = function (x, y, r) { return used.every(function (u) { return Math.hypot(u[0] - x, u[1] - y) >= r + u[2]; }); };
+    var onPair = function (pr, t, off) { var A = pts[pr[0]], B = pts[pr[1]], dx = B[0] - A[0], dy = B[1] - A[1], dd = Math.hypot(dx, dy); return [A[0] + dx * t - dy / dd * off, A[1] + dy * t + dx / dd * off, Math.atan2(dy, dx)]; };
+    if (lay.river) {
+      var ry = lay.river.y, rh = lay.river.h, cross = [], opens = [];
+      near.forEach(function (pr) { var A = pts[pr[0]], B = pts[pr[1]]; if ((A[1] - ry) * (B[1] - ry) < 0) { var t = (ry - A[1]) / (B[1] - A[1]); cross.push(A[0] + (B[0] - A[0]) * t); } });
+      genShuffle(cross, R).forEach(function (x) { if (x > 0.9 && x < W - 0.9 && opens.length < 2 && opens.every(function (o) { return Math.abs(o - x) > 2.6; })) opens.push(x); });
+      if (!opens.length) return null;
+      opens.sort(function (a, b) { return a - b; });
+      var ow = 1.3, kind = P.reg === 1 ? 'chasm' : P.reg === 3 ? 'lava' : P.reg === 6 ? 'dry' : 'water', x0 = -0.6;
+      opens.forEach(function (x) { var a = x - ow / 2; if (a - x0 > 0.05) L.obs.push([kind, +((x0 + a) / 2).toFixed(2), +ry.toFixed(2), +(a - x0).toFixed(2), rh]); x0 = x + ow / 2; L.gaps.push([+x.toFixed(2), +ry.toFixed(2), ow, rh, 8 + Math.floor(R() * 5)]); });
+      L.obs.push([kind, +((x0 + W + 0.6) / 2).toFixed(2), +ry.toFixed(2), +(W + 0.6 - x0).toFixed(2), rh]);
+    }
+    var nearBox = function (cx, cy, w, h, pad) { return pts.some(function (t) { return Math.abs(t[0] - cx) < w / 2 + pad + (t[4] === 'F' ? 0.9 : 0.42) && Math.abs(t[1] - cy) < h / 2 + pad + (t[4] === 'F' ? 0.9 : 0.42); }); };
+    for (var nI = 0, tries = 0; nI < (P.inlets || 0) && tries < 60; tries++) {
+      var left = R() < 0.5, len = 1.6 + R() * 1.8, ih = 0.8 + R() * 0.3, cy = 3.2 + R() * (H - 6.4), cx = left ? -0.6 + len / 2 : W + 0.6 - len / 2;
+      if (nearBox(cx, cy, len, ih, 0.35)) continue;
+      if (lay.river && Math.abs(cy - lay.river.y) < 2) continue;
+      if (L.obs.some(function (o) { return o.length >= 5 && Math.abs(o[2] - cy) < 1.6; })) continue;
+      L.obs.push([P.reg === 3 ? 'lava' : 'water', +cx.toFixed(2), +cy.toFixed(2), +len.toFixed(2), +ih.toFixed(2)]); used.push([cx, cy, len / 2]); nI++;
+    }
+    var rk = [['rock', 'tree', 'pond', 'rock'], ['rock', 'cactus', 'rock'], ['ice', 'pine', 'ice'], ['cube', 'cube', 'skull', 'cube'], ['palm', 'palm', 'rock', 'palm'],
+      ['oak', 'oak', 'rock', 'stump'], ['mesa', 'mesa', 'rock', 'cactus'], ['house', 'stack', 'house']][P.reg];
+    var sh = genShuffle(near, R);
+    for (placed = 0, i = 0; i < sh.length && placed < P.rocks; i++) {
+      q = onPair(sh[i], 0.4 + R() * 0.2, (R() - 0.5) * 0.2); var r = 0.38 + R() * 0.22;
+      if (!farFromTowers(q[0], q[1], r + 0.3) || !free(q[0], q[1], r + 0.3)) continue;
+      L.obs.push([rk[Math.floor(R() * rk.length)], +q[0].toFixed(2), +q[1].toFixed(2), +r.toFixed(2)]); used.push([q[0], q[1], r]); placed++;
+    }
+    sh = genShuffle(near, R);
+    for (placed = 0, i = 0; i < sh.length && placed < P.fences; i++) {
+      q = onPair(sh[i], 0.35 + R() * 0.3, 0);
+      if (!farFromTowers(q[0], q[1], 0.75) || !free(q[0], q[1], 0.7)) continue;
+      L.fences.push([+q[0].toFixed(2), +q[1].toFixed(2), 1.2, +(q[2] + Math.PI / 2).toFixed(3), 5 + Math.floor(R() * 10)]); used.push([q[0], q[1], 0.6]); placed++;
+    }
+    sh = genShuffle(near, R);
+    for (placed = 0, i = 0; i < sh.length && placed < P.mines; i++) {
+      q = onPair(sh[i], 0.5, 0); var cols = 3 + Math.floor(R() * 3), rows = 2 + Math.floor(R() * 2), spc = 0.46;
+      if (!free(q[0], q[1], 1.0)) continue;
+      var c = Math.cos(q[2]), sn = Math.sin(q[2]), cnt = 0;
+      for (var a = 0; a < cols; a++) for (var b = 0; b < rows; b++) {
+        var u = (a - (cols - 1) / 2) * spc, v = (b - (rows - 1) / 2) * spc + (a % 2 ? spc / 2 : 0) - spc / 4;
+        var x = q[0] + u * c - v * sn, y = q[1] + u * sn + v * c;
+        if (x < 0.3 || x > W - 0.3 || y < 0.5 || y > H - 0.5 || !farFromTowers(x, y, 0.35) || !free(x, y, 0.2)) continue;
+        if (L.obs.some(function (o) { return o.length >= 5 ? Math.abs(x - o[1]) < o[3] / 2 + 0.3 && Math.abs(y - o[2]) < o[4] / 2 + 0.3 : Math.hypot(x - o[1], y - o[2]) < o[3] + 0.3; })) continue;
+        if (L.gaps.some(function (o) { return Math.abs(x - o[0]) < o[2] / 2 + 0.3 && Math.abs(y - o[1]) < o[3] / 2 + 0.3; })) continue;
+        L.mines.push([+x.toFixed(2), +y.toFixed(2)]); cnt++;
+      }
+      if (cnt) { used.push([q[0], q[1], 1.0]); placed++; }
+    }
+    sh = genShuffle(near, R);
+    for (placed = 0, i = 0; i < sh.length && placed < P.bars; i++) {
+      q = onPair(sh[i], 0.3 + R() * 0.4, (R() - 0.5) * 0.4);
+      if (!farFromTowers(q[0], q[1], 0.5) || !free(q[0], q[1], 0.5)) continue;
+      L.bars.push([+q[0].toFixed(2), +q[1].toFixed(2)]); used.push([q[0], q[1], 0.4]); placed++;
+    }
+    // every building reachable: senders joined by open lines, every other building open to a sender, each building
+    // with at least 2 open neighbours (no dead ends)
+    var tmp = create({ towers: pts, obs: L.obs }), snd = [];
+    for (i = 0; i < pts.length; i++) if (sender(pts[i][4] || 'b')) snd.push(i);
+    var openTo = function (a2, b2) { return pts[a2][4] === 'F' || !blocked(tmp, a2, b2); };
+    var seen = [snd[0]];
+    for (qq = 0; qq < seen.length; qq++) for (i = 0; i < snd.length; i++) if (seen.indexOf(snd[i]) < 0 && (openTo(seen[qq], snd[i]) || openTo(snd[i], seen[qq]))) seen.push(snd[i]);
+    if (seen.length !== snd.length) return null;
+    for (i = 0; i < pts.length; i++) if (!sender(pts[i][4] || 'b') && !snd.some(function (s2) { return openTo(s2, i); })) return null;
+    for (i = 0; i < pts.length; i++) { var cn = 0; for (j = 0; j < pts.length; j++) if (j !== i && openTo(i, j)) cn++; if (cn < 2) return null; }
+    return L;
+  }
+  // decoration (no rules): the region's props away from buildings, lines and elements (tools/gen.js props)
+  function genProps(towers, L, reg, R, count) {
+    var out = [], kinds = [['crates', 'barrel', 'logs', 'bush', 'bush', 'crates'], ['crates', 'barrel', 'cactus', 'tires', 'bones', 'crates'], ['snowman', 'crates', 'snowbank', 'pine', 'barrel', 'snowbank'],
+      ['skullp', 'bones', 'cuberock', 'vent', 'cuberock', 'crates'], ['palmp', 'goldstack', 'fern', 'palmp', 'fern', 'crates'], ['leaves', 'logs', 'pumpkin', 'oakp', 'leaves', 'mushroom'],
+      ['boulder', 'cactus', 'bones', 'boulder', 'wheel', 'barrel'], ['lantern', 'crates', 'barrel', 'anchor', 'lantern', 'rope']][reg];
+    var pairs = [], i, j;
+    for (i = 0; i < towers.length; i++) for (j = i + 1; j < towers.length; j++) if (Math.hypot(towers[i][0] - towers[j][0], towers[i][1] - towers[j][1]) < 9) pairs.push([towers[i], towers[j]]);
+    var busy = [].concat((L.obs || []).map(function (o) { return [o[1], o[2], (o.length >= 5 ? Math.max(o[3], o[4]) / 2 : o[3]) + 0.5]; }), (L.fences || []).map(function (f) { return [f[0], f[1], 1.0]; }),
+      (L.mines || []).map(function (m) { return [m[0], m[1], 0.6]; }), (L.bars || []).map(function (b) { return [b[0], b[1], 0.7]; }), (L.gaps || []).map(function (g) { return [g[0], g[1], 1.2]; }));
+    for (var tries = 0; tries < 900 && out.length < count; tries++) {
+      var x = 0.4 + R() * (W - 0.8), y = 0.9 + R() * (H - 1.8);
+      if (towers.some(function (t) { return Math.hypot(t[0] - x, t[1] - y) < (t[4] === 'F' ? 1.9 : 1.25); })) continue;
+      if (busy.some(function (b) { return Math.hypot(b[0] - x, b[1] - y) < b[2]; })) continue;
+      var lane = pairs.some(function (p) { return segDist(x, y, p[0][0], p[0][1], p[1][0], p[1][1]) < 0.75; });
+      if (lane && x > 1 && x < W - 1) continue;
+      if (out.some(function (p) { return Math.hypot(p[1] - x, p[2] - y) < 1.5; })) continue;
+      out.push([kinds[Math.floor(R() * kinds.length)], +x.toFixed(2), +y.toFixed(2), +(Math.floor(R() * 4) * Math.PI / 2 + R() * 0.5).toFixed(2)]);
+    }
+    return out;
+  }
+  // the computers' settings (tools/gen.js redAI): harder = quicker, bolder, earlier, never more knowledge. Level 160
+  // was t = 1.3 (141-160: 0.98 - 1.3); past the bank t = 0.92 + 0.1 (growing over 161-260) + 0.25 inside each
+  // region block, so 1.02 - 1.27 at the top tier; breathers 0.5 - 0.65 (like the late desert / tundra levels)
+  function genAI(P) {
+    var t = P.easy ? 0.5 + 0.15 * P.k : 0.92 + 0.1 * P.p + 0.25 * P.k;
+    return { think: +(2.6 - 1.25 * t).toFixed(2), margin: +(3 - 1.8 * t).toFixed(1), commit: +(1.18 - 0.2 * t).toFixed(2), expand: 6, attackBias: Math.round(2 + 4 * t),
+      wait: Math.round(16 - 10 * t + (P.enemies > 1 ? 6 : 0)), acts: t > 0.6 && P.enemies === 1 ? 2 : 1 };
+  }
+  // one attempt at level n (null when the layout doesn't work out; that costs next to nothing)
+  function genTry(n, a) {
+    var R = rng(seedOf(n, a)), P = genPlan(n, R), lay = genLayout(P, R); if (!lay) return null;
+    var E = genElements(P, lay, R); if (!E) return null;
+    var L = { region: P.reg, towers: lay.pts, links: [], ai: genAI(P) };
+    ['obs', 'fences', 'gaps', 'mines', 'bars'].forEach(function (key) { if (E[key].length) L[key] = E[key]; });
+    if (P.fortCap) L.fortCap = P.fortCap;
+    if (P.cap) L.cap = P.cap;
+    L.props = genProps(L.towers, L, P.reg, R, 8 + Math.floor(R() * 4));
+    if (P.easy) L.breather = true;
+    if (P.twist) L.twist = P.twist;
+    return L;
+  }
+  // the checks' bot plays blue (seed 7, as tools/check.js); the result decides whether the attempt is kept
+  // a breather must also be won by tools/gen.js's weaker, slower blue (a stand-in for a casual player), one game
+  var WEAK_BOT = { think: 2.2, margin: 4, commit: 1.3, expand: 4, attackBias: 0, acts: 1 };
+  function botPlay(L, maxT, bot, seed) {
+    var s = create(L, { seed: seed || 7, ai: cpuAI(L, { 1: bot || BLUE_BOT }) }), n = Math.round(maxT / DT);
+    for (var i = 0; i < n && !s.over; i++) { step(s); s.ev.length = 0; }
+    return s;
+  }
+  // the pacing band for the bot's win (s): Glenn's "1-2 minutes ... typically" (tools/gen.js used 65-118 for 61-160);
+  // it widens after 30 and 80 played attempts so a level always comes out
+  function genBand(easy, tries) { return tries > 80 ? [0, 180] : tries > 30 ? [35, 150] : easy ? [35, 95] : [55, 118]; }
+  // level n past the bank: attempts (n, 0), (n, 1) ... until the bot wins one in the band
+  function makeLevel(n) {
+    n = Math.max(BANK + 1, Math.floor(n));
+    var played = 0, skipped = 0;
+    for (var a = 0; a < 100000; a++) {
+      var L = genTry(n, a); if (!L) { skipped++; continue; }
+      played++;
+      var band = genBand(!!L.breather, played), s = botPlay(L, 180);
+      if (s.over !== 1 || s.t < band[0] || s.t > band[1]) continue;
+      if (L.breather && played <= 30 && botPlay(L, 240, WEAK_BOT, 1).over !== 1) continue;
+      L.target = Math.max(25, Math.ceil(s.t * 1.1 / 5) * 5); // 3 stars at or under this time (as the bank)
+      L.gold = 20 + 5 * Math.min(n, 200);                    // as the bank (20 + 5 x level), held from level 200
+      L.no = n; L.gen = { v: GEN_V, a: a, played: played, skipped: skipped, bot: Math.round(s.t * 10) / 10 };
+      return L;
+    }
+    return null;
+  }
+
   // ---------------- player moves ----------------
   function playerLink(s, a, b) { var w = whyNot(s, a, b, 1); if (w) return w; addLink(s, a, b); return ''; }
 
@@ -1119,8 +1421,11 @@ var OP = (function () {
     create: create, step: step, takeEvents: takeEvents, whyNot: whyNot, strength: strength,
     HORDE: HORDE, NOWN: NOWN, BOSS_CAP: BOSS_CAP, MEET: MEET, walker: walker, polyLen: polyLen, polyPath: polyPath, linkPath: linkPath, plBlocked: plBlocked, drawPath: drawPath,
     detour: detour, astar: astar, foeSnipers: foeSnipers, routeKit: routeKit, hordeDone: hordeDone, DRAW_BOT: DRAW_BOT, rdp: rdp,
-    addLink: addLink, cut: cut, cutById: cutById, linkFrom: linkFrom, playerLink: playerLink, think: think, redParams: redParams, cpuColors: cpuColors, cpuAI: cpuAI, BLUE_BOT: BLUE_BOT, dist: dist };
-})();
+    addLink: addLink, cut: cut, cutById: cutById, linkFrom: linkFrom, playerLink: playerLink, think: think, redParams: redParams, cpuColors: cpuColors, cpuAI: cpuAI, BLUE_BOT: BLUE_BOT, dist: dist,
+    // 0.5.0 endless levels (and this rule book's own source, for the page's Web Worker)
+    BANK: BANK, GEN_V: GEN_V, regionOf: regionOf, breather: breather, makeLevel: makeLevel, genTry: genTry, botPlay: botPlay, WEAK_BOT: WEAK_BOT, source: function () { return OP_FACTORY.toString(); } };
+}
+var OP = OP_FACTORY();
 if (typeof module !== 'undefined') module.exports = OP;
 </script>
 <script>
@@ -2305,12 +2610,16 @@ var OPScene = (function () {
    level; from the Menu, the level map and the win card), eight regions of 20 levels.
    0.4.0: special missions on their own "Missions" page of the level map (Draw Mode: draw the path with your finger;
    Gates: + / x / - gates), and events (a rust-bot horde in waves, a boss citadel that fires volleys); they unlock every
-   10 campaign levels and keep their own stars and best times (meta.ms / meta.mbest). */
+   10 campaign levels and keep their own stars and best times (meta.ms / meta.mbest).
+   0.5.0: endless levels. After the 160 banked levels the campaign goes on: level n is made from its number by
+   OP.makeLevel (logic.js) in a Web Worker built from the rule book's own source, checked there by the checks' bot,
+   and the next level is made while you play this one; "Making level N..." shows only if you get there first. */
 (function () {
   'use strict';
   var S = OPSound, ALL = window.OP_LEVELS || [], T = null;
   // the campaign levels and, after them in levels.json, the special missions and events (0.4.0)
   var LEVELS = ALL.filter(function (L) { return !L.mission; }), MISSIONS = ALL.filter(function (L) { return L.mission; });
+  var BANK = LEVELS.length; // 160 banked levels; from 161 on they are made on the phone (0.5.0)
   var KIND = { draw: 'Draw Mode', gate: 'Gates', horde: 'Horde', boss: 'Boss' }, KSHORT = { draw: 'Draw', gate: 'Gates', horde: 'Horde', boss: 'Boss' };
   function isDraw(L) { return !!L && (L.kind === 'draw' || !!L.draw); }
   function misNo(L) { return +String(L.mission).slice(1); }
@@ -2337,7 +2646,8 @@ var OPScene = (function () {
   // upgrade levels (0.3.0; older saves start at 0)
   if (typeof meta.up !== 'object' || !meta.up) meta.up = {};
   OP.UP_KEYS.forEach(function (k) { meta.up[k] = Math.max(0, Math.min(OP.UP_MAX, meta.up[k] | 0)); });
-  meta.open = Math.max(1, Math.min(LEVELS.length, meta.open | 0)); meta.level = Math.max(1, Math.min(meta.open, meta.level | 0)); meta.gold = Math.max(0, meta.gold | 0);
+  // 0.5.0: no top level any more (stars / best times are keyed by number, so any level number works)
+  meta.open = Math.max(1, Math.floor(+meta.open) || 1); meta.level = Math.max(1, Math.min(meta.open, meta.level | 0)); meta.gold = Math.max(0, meta.gold | 0);
   function saveMeta() { store.set('meta', meta); }
   var stats = store.get('stats', null) || {};
   var SD = { tries: 0, wins: 0, losses: 0, captured: 0, lost: 0, sent: 0, links: 0, cuts: 0, goldEarned: 0, playSec: 0, bars: 0, fences: 0, bridges: 0, rockets: 0, upgrades: 0, goldSpent: 0,
@@ -2364,8 +2674,8 @@ var OPScene = (function () {
     menu: ['btnLevels', 'btnUpgrades', 'btnHelp', 'btnStats', 'btnSettings', 'btnNew'],
     info: function () {
       if (mis >= 0 && level) return 'Mission · <b>' + misShort(level) + '</b> ' + level.name + ' · 3 stars under <b>' + clock(level.target || 60) + '</b> · ' + starStr(meta.ms[level.mission] || 0) + ' · <span class="gold">' + fmt(meta.gold) + '</span>';
-      var L = LEVELS[levelNo - 1] || {};
-      return (REGIONS[(L.region || 0)] || '') + ' · Level <b>' + levelNo + '</b> · 3 stars under <b>' + clock(L.target || 60) + '</b> · ' + starStr(meta.stars[levelNo] || 0) + ' · <span class="gold">' + fmt(meta.gold) + '</span>' +
+      var L = levelAt(levelNo) || { region: OP.regionOf(levelNo) };
+      return (REGIONS[(L.region || 0)] || '') + ' · Level <b>' + fmt(levelNo) + '</b>' + (L.target ? ' · 3 stars under <b>' + clock(L.target) + '</b>' : ' · being made') + ' · ' + starStr(meta.stars[levelNo] || 0) + ' · <span class="gold">' + fmt(meta.gold) + '</span>' +
         (L.cap ? ' · towers grow to <b>' + L.cap + '</b>' : L.fortCap ? ' · forts grow to <b>' + L.fortCap + '</b>' : '');
     }
   });
@@ -2392,11 +2702,83 @@ var OPScene = (function () {
   // ================= game =================
   var sim = null, level = null, levelNo = 1, mis = -1, state = 'idle', acc = 0, lastT = 0, speed = 1, lesson = null, endT = 0;
   function startLevel(n) {
-    levelNo = Math.max(1, Math.min(LEVELS.length, n)); meta.level = levelNo; saveMeta();
-    mis = -1; level = LEVELS[levelNo - 1];
+    levelNo = Math.max(1, Math.floor(+n) || 1); meta.level = levelNo; saveMeta();
+    mis = -1;
+    var L = levelAt(levelNo);
+    if (!L) { // a level past the bank that isn't made yet: wait for it with a small note (the old field stays frozen)
+      state = 'idle'; drag = null; if (SC) SC.dragHide(); making(levelNo);
+      var want = levelNo;
+      genGet(want, function () { if (mis < 0 && levelNo === want && state === 'idle') startLevel(want); });
+      renderInfo(); return;
+    }
+    making(0); level = L;
     if (!ready) { renderInfo(); return; }
     begin(1000 + levelNo * 7 + stats.tries);
+    // make the next level while this one is played
+    if (levelNo >= BANK) genPrefetch(levelNo + 1);
   }
+
+  // ================= endless levels (0.5.0) =================
+  // Level n past the bank comes from OP.makeLevel(n): seeded by n, so it is the same level every time; each attempt
+  // is played by the checks' bot and kept only when blue wins in time. That takes a moment (tenths of a second on a
+  // computer, a few seconds on a phone at worst), so it runs in a Web Worker built from logic.js's own source (no
+  // extra file); without Workers it runs here, but only for the level you are waiting for (never mid-battle).
+  // The last few made levels are kept in the save so reopening the game doesn't make them again.
+  var GEN = { cache: {}, cbs: {}, q: [], busy: 0, w: null, failed: false, ms: {}, order: [] };
+  (function () {
+    var g = store.get('gen', null);
+    if (g && g.v === OP.GEN_V && g.L && typeof g.L === 'object') for (var k in g.L) if (g.L[k] && g.L[k].towers && +k > BANK) { GEN.cache[k] = g.L[k]; GEN.order.push(+k); }
+  })();
+  function levelAt(n) { return n <= BANK ? LEVELS[n - 1] : GEN.cache[n] || null; }
+  function genSave() {
+    // keep the level being played, the next one and the two newest others (each is a few KB)
+    var ks = GEN.order.filter(function (k) { return GEN.cache[k]; }), now = function (k) { return k === levelNo || k === levelNo + 1; };
+    ks = ks.filter(now).concat(ks.filter(function (k) { return !now(k); }).slice(-2));
+    GEN.order = ks;
+    var keep = {}; for (var k in GEN.cache) { if (ks.indexOf(+k) < 0) delete GEN.cache[k]; else keep[k] = GEN.cache[k]; }
+    store.set('gen', { v: OP.GEN_V, L: keep });
+  }
+  function genWorker() {
+    if (GEN.w || GEN.failed) return GEN.w;
+    try {
+      var src = 'var OP = (' + OP.source() + ')();\nself.onmessage = function (e) { var n = e.data, t0 = Date.now(), L = OP.makeLevel(n); self.postMessage({ n: n, L: L, ms: Date.now() - t0 }); };';
+      GEN.w = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
+      GEN.w.onmessage = function (e) { genDone(e.data.n, e.data.L, e.data.ms); };
+      GEN.w.onerror = function (e) {
+        if (e && e.preventDefault) e.preventDefault();
+        GEN.failed = true; try { GEN.w.terminate(); } catch (x) { /* gone */ } GEN.w = null;
+        var n = GEN.busy; GEN.busy = 0; if (n) GEN.q.unshift(n); genPump();
+      };
+    } catch (err) { GEN.failed = true; GEN.w = null; }
+    return GEN.w;
+  }
+  function genPump() {
+    if (GEN.busy || !GEN.q.length) return;
+    var n = GEN.q.shift();
+    if (GEN.cache[n]) { genDone(n, GEN.cache[n], 0); return; }
+    GEN.busy = n;
+    if (genWorker()) { GEN.w.postMessage(n); return; }
+    // no Worker: only a level someone is waiting for is made here (it would stall a battle)
+    if (!GEN.cbs[n]) { GEN.busy = 0; genPump(); return; }
+    setTimeout(function () { var t0 = Date.now(), L = OP.makeLevel(n); genDone(n, L, Date.now() - t0); }, 40);
+  }
+  function genDone(n, L, ms) {
+    if (GEN.busy === n) GEN.busy = 0;
+    if (L) { if (!GEN.cache[n]) { GEN.cache[n] = L; GEN.order.push(n); } GEN.ms[n] = ms; genSave(); }
+    var cbs = GEN.cbs[n] || []; delete GEN.cbs[n];
+    cbs.forEach(function (f) { f(L); });
+    genPump();
+  }
+  // a level you are waiting for jumps the queue
+  function genGet(n, cb) {
+    if (GEN.cache[n]) { cb(GEN.cache[n]); return; }
+    (GEN.cbs[n] = GEN.cbs[n] || []).push(cb);
+    var i = GEN.q.indexOf(n); if (i >= 0) GEN.q.splice(i, 1);
+    if (GEN.busy !== n) GEN.q.unshift(n);
+    genPump();
+  }
+  function genPrefetch(n) { if (n <= BANK || GEN.cache[n] || GEN.busy === n || GEN.q.indexOf(n) >= 0) return; GEN.q.push(n); genPump(); }
+  function making(n) { var el = $('making'); if (!el) return; if (n) el.textContent = 'Making level ' + fmt(n) + '\u2026'; el.classList.toggle('show', !!n); }
   // a special mission or event (index into MISSIONS)
   function startMission(i) {
     mis = Math.max(0, Math.min(MISSIONS.length - 1, i)); level = MISSIONS[mis];
@@ -2530,17 +2912,15 @@ var OPScene = (function () {
     meta.gold += g; stats.goldEarned += g;
     meta.stars[levelNo] = Math.max(meta.stars[levelNo] || 0, st);
     var prevBest = meta.best[levelNo]; if (!prevBest || t < prevBest) meta.best[levelNo] = Math.round(t * 10) / 10;
-    if (meta.open <= levelNo) meta.open = Math.min(LEVELS.length, levelNo + 1);
+    if (meta.open <= levelNo) meta.open = levelNo + 1; // 0.5.0: no last level, the next one is always there
     saveMeta(); saveStats(); renderInfo();
-    var last = levelNo >= LEVELS.length;
     showCard('Victory!', '<div class="stars">' + [0, 1, 2].map(function (i) { return i < st ? '★' : '<span class="off">★</span>'; }).join('') + '</div>' +
       '<div class="endinfo"><span>Time <b>' + clock(t) + '</b></span><span class="gold">+' + (g + barGold) + '</span></div>' +
       (barGold ? '<small>Gold bars: +' + barGold + '</small>' : '') +
       (st < 3 ? '<small>3 stars under ' + clock(level.target) + '</small>' : (prevBest && t < prevBest ? '<small>New best time!</small>' : '')) +
       '<div class="endinfo"><small>Gold: <span class="gold">' + fmt(meta.gold) + '</span></small></div>' +
       (canBuy() ? '<small class="upready">You can buy an upgrade!</small>' : '') + newMissions(before),
-      (last ? [{ label: 'Play it again', red: true, go: function () { between(function () { startLevel(levelNo); }); } }, { label: 'Level map', go: openLevels }] :
-        [{ label: 'Next: level ' + (levelNo + 1), red: true, go: function () { between(function () { startLevel(levelNo + 1); }); } }, { label: 'Play it again', go: function () { between(function () { startLevel(levelNo); }); } }])
+      [{ label: 'Next: level ' + fmt(levelNo + 1), red: true, go: function () { between(function () { startLevel(levelNo + 1); }); } }, { label: 'Play it again', go: function () { between(function () { startLevel(levelNo); }); } }]
         .concat(misOpenCount() > before ? [{ label: 'Missions', gold: true, go: function () { openLevels('m'); } }] : [])
         .concat([{ label: 'Upgrades', gold: true, keep: true, go: function () { openUpgrades(); } }]));
   }
@@ -2785,24 +3165,41 @@ var OPScene = (function () {
     $('lvPill').classList.toggle('mispill', mis >= 0);
     if (!sim || state === 'idle') $('timePill').textContent = '0:00';
   }
-  var lvPage = 0, PAGE = 20;
-  // the level map: one page per region (Meadow 1-20, Desert 21-40, Tundra 41-60); a region opens with its first level
+  var lvPage = 0, PAGE = 20, BANKP = Math.ceil(BANK / PAGE);
+  // the level map: one page per block of 20 levels in its region's colours (Meadow 1-20 ... Harbor 141-160); a region
+  // opens with its first level. 0.5.0: past the bank one "Endless 161+" tab with a ‹ › pager; the pages go to a bit
+  // past the furthest level reached (+30) and grow as you go
+  function lvPages() { return Math.max(BANKP, Math.ceil((meta.open + 30) / PAGE)); }
+  function pageRegion(q) { return OP.regionOf(q * PAGE + 1); }
+  function endlessPage() { return Math.max(BANKP, Math.floor((meta.open - 1) / PAGE)); }
   function openLevels(pg) { lvPage = pg === 'm' || (pg === undefined && mis >= 0) ? 'm' : Math.floor((levelNo - 1) / PAGE); renderLevels(); $('ovLevels').classList.add('show'); }
+  // the tab row (bank regions, Endless, Missions) and, on an endless page, the pager
+  function lvTabs(fresh) {
+    var pages = lvPages(), on = lvPage !== 'm', tabs = '<div class="lvpages">';
+    for (var q = 0; q < BANKP; q++) tabs += '<button data-p="' + q + '" class="r' + q + (on && q === lvPage ? ' on' : '') + '"' + (q * PAGE + 1 > meta.open ? ' disabled' : '') + '>' + (q * PAGE + 1 > meta.open ? '🔒 ' : '') + REGIONS[q] + ' <small>' + (q * PAGE + 1) + '–' + (q + 1) * PAGE + '</small></button>';
+    var endOpen = meta.open > BANK;
+    tabs += '<button data-p="' + (on && lvPage >= BANKP ? lvPage : endlessPage()) + '" class="etab' + (on && lvPage >= BANKP ? ' on' : '') + '"' + (endOpen ? '' : ' disabled') + '>' + (endOpen ? '∞ ' : '🔒 ') + 'Endless <small>' + (BANK + 1) + '+</small></button>';
+    tabs += misTab(fresh) + '</div>';
+    if (on && lvPage >= BANKP) {
+      var r = pageRegion(lvPage);
+      tabs += '<div class="lvpager"><button data-p="' + (lvPage - 1) + '" aria-label="Previous page">‹</button><span class="r' + r + '">' + REGIONS[r] + ' <small>' + fmt(lvPage * PAGE + 1) + '–' + fmt((lvPage + 1) * PAGE) + '</small></span>' +
+        '<button data-p="' + (lvPage + 1) + '" aria-label="Next page"' + (lvPage + 1 >= pages ? ' disabled' : '') + '>›</button></div>';
+    }
+    return tabs;
+  }
   function renderLevels() {
-    var pages = Math.ceil(LEVELS.length / PAGE), regions = REGIONS;
+    var pages = lvPages();
     var mo = misOpenCount(), fresh = mo > meta.mseen;
     if (lvPage === 'm' && !mo) lvPage = 0;
-    if (lvPage === 'm') { if (fresh) { meta.mseen = mo; saveMeta(); } return renderMissions(pages); }
+    if (lvPage === 'm') { if (fresh) { meta.mseen = mo; saveMeta(); } return renderMissions(); }
     lvPage = Math.max(0, Math.min(pages - 1, lvPage));
-    var tabs = '<div class="lvpages">';
-    for (var q = 0; q < pages; q++) tabs += '<button data-p="' + q + '" class="r' + q + (q === lvPage ? ' on' : '') + '"' + (q * PAGE + 1 > meta.open ? ' disabled' : '') + '>' + (q * PAGE + 1 > meta.open ? '🔒 ' : '') + (regions[q] || 'Region ' + (q + 1)) + ' <small>' + (q * PAGE + 1) + '–' + Math.min(LEVELS.length, (q + 1) * PAGE) + '</small></button>';
-    tabs += misTab(fresh) + '</div>';
+    var reg = pageRegion(lvPage);
     var stars = 0, rs = 0; for (var k in meta.stars) { stars += meta.stars[k]; if (Math.floor((k - 1) / PAGE) === lvPage) rs += meta.stars[k]; }
     var h = '';
-    for (var n = lvPage * PAGE + 1; n <= Math.min(LEVELS.length, (lvPage + 1) * PAGE); n++) { var st = meta.stars[n] || 0; h += '<button class="lv r' + lvPage + (n === levelNo ? ' cur' : '') + '" data-n="' + n + '"' + (n > meta.open ? ' disabled' : '') + '>' + n + '<small>' + '★★★'.slice(0, st) + '</small></button>'; }
-    $('lvpagesBox').innerHTML = tabs;
-    $('lvHead').className = 'lvhead r' + lvPage;
-    $('lvHead').innerHTML = '<span>' + (regions[lvPage] || '') + ' ★ <b>' + rs + '</b> / ' + PAGE * 3 + ' · all <b>' + stars + '</b></span><span class="gold">' + fmt(meta.gold) + '</span>';
+    for (var n = lvPage * PAGE + 1; n <= (lvPage + 1) * PAGE; n++) { var st = meta.stars[n] || 0; h += '<button class="lv r' + reg + (n === levelNo ? ' cur' : '') + (n > 999 ? ' big' : '') + '" data-n="' + n + '"' + (n > meta.open ? ' disabled' : '') + '>' + n + '<small>' + '★★★'.slice(0, st) + '</small></button>'; }
+    $('lvpagesBox').innerHTML = lvTabs(fresh);
+    $('lvHead').className = 'lvhead r' + reg;
+    $('lvHead').innerHTML = '<span>' + REGIONS[reg] + ' ★ <b>' + rs + '</b> / ' + PAGE * 3 + ' · all <b>' + fmt(stars) + '</b></span><span class="gold">' + fmt(meta.gold) + '</span>';
     $('lvgrid').innerHTML = h; $('lvgrid').classList.remove('mpage');
   }
   // the Missions tab (gold): greyed with a lock until the first missions open after campaign level 10; NEW when more opened
@@ -2811,11 +3208,8 @@ var OPScene = (function () {
     return '<button data-p="m" class="mtab' + (lvPage === 'm' ? ' on' : '') + '"' + (mo ? '' : ' disabled') + '>' + (mo ? '★ ' : '🔒 ') + 'Missions <small>' + (mo ? mo + '/' + MISSIONS.length : 'after level ' + MISSIONS.reduce(function (m, L) { return Math.min(m, L.unlock); }, 999)) + '</small>' + (fresh ? '<i class="newdot">NEW</i>' : '') + '</button>';
   }
   // the Missions page: Draw Mode, Gates and Events, each mission with its stars; locked ones say when they open
-  function renderMissions(pages) {
-    var tabs = '<div class="lvpages">';
-    for (var q = 0; q < pages; q++) tabs += '<button data-p="' + q + '" class="r' + q + '"' + (q * PAGE + 1 > meta.open ? ' disabled' : '') + '>' + (q * PAGE + 1 > meta.open ? '🔒 ' : '') + REGIONS[q] + ' <small>' + (q * PAGE + 1) + '–' + Math.min(LEVELS.length, (q + 1) * PAGE) + '</small></button>';
-    tabs += misTab(false) + '</div>';
-    $('lvpagesBox').innerHTML = tabs;
+  function renderMissions() {
+    $('lvpagesBox').innerHTML = lvTabs(false);
     var ms = 0; MISSIONS.forEach(function (L) { ms += meta.ms[L.mission] || 0; });
     $('lvHead').className = 'lvhead mis';
     $('lvHead').innerHTML = '<span>Missions ★ <b>' + ms + '</b> / ' + MISSIONS.length * 3 + '</span><span class="gold">' + fmt(meta.gold) + '</span>';
@@ -2898,6 +3292,7 @@ var OPScene = (function () {
       'Win faster for more stars and gold (20 + 5 per level number on a first win, half on a replay, +50% for 3 stars, +20% for 2). Losing costs nothing: try again right away.',
       '<b>Upgrades</b> (Menu, level map or win card): spend gold on soldier strength, tank strength, production speed and your starting level. They are yours for good.',
       'Eight regions of 20 levels: meadow, desert, tundra, lava wasteland, jungle, autumn forest, canyon and night harbor. Some late levels let towers grow past 63 (gold numbers).',
+      '<b>Endless</b>: after level 160 the campaign keeps going. New levels are made on your phone (the regions take turns, every tenth level is a breather), each one checked to be winnable.',
       '<b>Missions</b> (level map, Missions tab) open every 10 campaign levels, with their own stars and gold. <b>Draw Mode</b>: drag from your tower and draw the way with your finger, round rocks, mines and sniper circles; your troops follow it (swipe across it to cut it). The enemies only use straight lines.',
       '<b>Gates</b>: each troop that walks through a blue <b>+3</b> gate becomes 4, through <b>×2</b> two; a red <b>−2</b> gate takes 2 off (a soldier is gone). The enemies don’t aim for gates.',
       '<b>Events</b> (double gold): a <b>horde</b> of rust bots marches in from the edges in waves (orange markers show where); your troops fight the bots they meet. Hold out, then take every building. A <b>boss citadel</b> has a huge number and fires volleys of shells (red rings show where they land); bring it to 0 to take it, and then it fires for you.'
@@ -2986,7 +3381,7 @@ var OPScene = (function () {
   // test hook
   window.__op = { get sim() { return sim; }, get state() { return state; }, get level() { return level; }, get levelNo() { return levelNo; }, startLevel: startLevel, OP: OP,
     startMission: startMission, get mis() { return mis; }, missions: MISSIONS, openLevels: openLevels, misOpenCount: misOpenCount, ground: function (x, y) { var r = canvas.getBoundingClientRect(); return SC.ground(x - r.left, y - r.top); },
-    get SC() { return SC; }, meta: function () { return meta; }, stats: function () { return stats; }, perf: perf, get ready() { return ready; },
+    get SC() { return SC; }, meta: function () { return meta; }, gen: GEN, genPump: genPump, levelAt: function (n) { return levelAt(n); }, stats: function () { return stats; }, perf: perf, get ready() { return ready; },
     set speed(v) { speed = v; }, get speed() { return speed; },
     towerScreen: function (i) { return SC.towerScreen(i); }, project: function (x, y, h) { var r = canvas.getBoundingClientRect(), p = SC.project(x, y, h); return [r.left + p[0], r.top + p[1]]; },
     tips: function () { return tipOn; }, strength: function () { return sim ? OP.strength(sim) : null; },

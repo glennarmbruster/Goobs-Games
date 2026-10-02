@@ -50,6 +50,15 @@ html, body { background: #8fd6ff; }
 .lsWorld { text-align: center; color: #1b2130; }
 .lsWorld b { display: block; font-size: 19px; font-weight: 800; }
 .lsWorld span { font-size: 14px; font-weight: 700; color: #3b4660; }
+.lsWorlds { display: flex; align-items: center; gap: 6px; min-width: 0; flex: 1; justify-content: center; }
+.lsWorlds .lsWorld { min-width: 0; }
+.lsWorld b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wbtn { flex: none; width: 40px; height: 40px; border-radius: 12px; border: 0; background: rgba(255,255,255,.9); color: #1b2130; font-size: 28px; font-weight: 800; line-height: 1; padding: 0 0 3px; box-shadow: 0 3px 0 rgba(40,60,90,.15); }
+.wbtn:disabled { opacity: .3; }
+.screen.night .lsWorld, .screen.night .lsWorld span, .screen.night .lsTop .brand h1 { color: #fff; }
+.mlv.long { font-size: 17px; }
+.spin { width: 44px; height: 44px; margin: 4px auto 8px; border-radius: 50%; border: 5px solid rgba(90,84,240,.2); border-top-color: #5a54f0; animation: mbspin .9s linear infinite; }
+@keyframes mbspin { to { transform: rotate(360deg); } }
 .lsTop .iconbtn { background: rgba(255,255,255,.9); color: #1b2130; border-color: transparent; }
 .lsGrid { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(10, 1fr); grid-auto-rows: 1fr; gap: 8px; padding: 10px 0 4px; overflow-y: auto; }
 @media (max-aspect-ratio: 3/2) { .lsGrid { grid-template-columns: repeat(5, 1fr); } }
@@ -134,7 +143,11 @@ html, body { background: #8fd6ff; }
 <div class="screen show" id="scLevels">
   <div class="lsTop">
     <button class="brand homebtn" id="btnHome" aria-label="Back to all games"><span class="chev" aria-hidden="true">&#8249;</span><svg viewBox="0 0 100 100" aria-hidden="true"><use href="#mb-logo"/></svg><h1>Mean Birds</h1></button>
-    <div class="lsWorld"><b id="worldName">Sunny Farm</b><span id="worldStars"></span></div>
+    <div class="lsWorlds">
+      <button class="wbtn" id="wPrev" aria-label="Previous world">&#8249;</button>
+      <div class="lsWorld"><b id="worldName">Sunny Farm</b><span id="worldStars"></span></div>
+      <button class="wbtn" id="wNext" aria-label="Next world">&#8250;</button>
+    </div>
     <button class="iconbtn" id="btnSettings" aria-label="Settings"><svg viewBox="0 0 24 24"><use href="#i-gear"/></svg></button>
   </div>
   <div class="lsGrid" id="lsGrid"></div>
@@ -169,6 +182,16 @@ html, body { background: #8fd6ff; }
   </div>
 </div>
 
+<!-- an endless level that is still being made (only if the player gets there before the background maker) -->
+<div class="overlay center" id="ovMake">
+  <div class="card mbcard" role="dialog">
+    <div class="spin" aria-hidden="true"></div>
+    <h2 id="makeText">Making the next level&#8230;</h2>
+    <p>Building a new fort and test-flying it to be sure it can be won.</p>
+    <div class="actions"><button class="btn" id="btnMakeLevels"><svg viewBox="0 0 24 24"><use href="#i-grid"/></svg> Levels</button></div>
+  </div>
+</div>
+
 <!-- a new bird -->
 <div class="overlay center" id="ovBird">
   <div class="card mbcard" role="dialog">
@@ -184,8 +207,9 @@ html, body { background: #8fd6ff; }
 <script src="../../shared/planck.min.js"></script>
 <script>
 /* Mean Birds physics and rules (planck.js, a JavaScript Box2D). No drawing here; runs in Node for the level checker.
-   World units are meters, y points up, the ground is y = 0 and the slingshot stands at x = level.sling. */
-var MB = (function () {
+   World units are meters, y points up, the ground is y = 0 and the slingshot stands at x = level.sling.
+   It's a named factory (MBMake) so app.js can hand its source to a Web Worker that makes and proves endless levels off the main thread. */
+function MBMake() {
   'use strict';
   var pl = typeof planck !== 'undefined' ? planck : null;
   var DT = 1 / 60, GRAVITY = -10;
@@ -449,13 +473,337 @@ var MB = (function () {
     return { x0: sx - 3.8 - 0.85 * Math.max(0, (level.birds || []).length - 2), x1: x1 + 2, y0: -0.8, y1: Math.max(y1 + 2, 9) };
   }
 
+  // ---------------------------------------------------------------- the proof (tools/check.js uses this same code) ----------------------------------------------------------------
+  // 1. settle: a new level runs 2.5 s with no damage and keeps where things came to rest (skipped once level.settled is set);
+  // 2. stand still: 3 s with no shot; nothing may move over 3 cm, take damage or break;
+  // 3. win: a greedy shot search, per bird trying 17 angles x 4 powers x the tap times, keeping the shot that pops the most
+  //    Grublins, then scores the most. It must win with the birds given.
+  // It's a step machine (run(ms) does a slice and returns), so the phone can run it in a worker, or in small slices if it must.
+  var P_ANGLES = []; for (var pa = -5; pa <= 75; pa += 5) P_ANGLES.push(pa);
+  var P_POWERS = [0.6, 0.75, 0.9, 1];
+  var P_TAPS = { rocco: [null], pips: [null, 0.45, 0.7, 1.0], zip: [null, 0.35, 0.6, 0.9] };
+  function now() { return typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now(); }
+  function Prover(level, opt) {
+    this.lv = level; this.opt = opt || {}; this.stage = level.settled ? 'stand' : 'settle'; this.done = false;
+    this.k = 0; this.c = 0; this.snap = null; this.shots = []; this.best = null; this.sim = null; this.steps = 0;
+    this.res = { stand: null, won: false, shots: this.shots, score: 0 };
+  }
+  // a candidate shot: c counts through angles x powers x taps in the same order as the old nested loops (ties keep the first)
+  Prover.prototype.cand = function (type, c) {
+    var taps = P_TAPS[type], nt = taps.length, np = P_POWERS.length;
+    return { a: P_ANGLES[Math.floor(c / (np * nt))], p: P_POWERS[Math.floor(c / nt) % np], tap: taps[c % nt] };
+  };
+  Prover.prototype.total = function (type) { return P_ANGLES.length * P_POWERS.length * P_TAPS[type].length; };
+  Prover.prototype.tick = function () {
+    var lv = this.lv, i, S;
+    if (this.stage === 'settle') {
+      S = create(lv); S.noDamage = true;
+      var ns = this.opt.settleSteps || 150;   // made levels settle longer (tall stacks creep for a while); the banked ones keep 150
+      for (i = 0; i < ns; i++) step(S);
+      this.steps += ns;
+      var byId = {}; S.bodies.forEach(function (b) { byId[b.getUserData().id] = b; });
+      var id = 1;
+      ['blocks', 'tnt', 'boulders', 'grubs'].forEach(function (k) {
+        (lv[k] || []).forEach(function (o) {
+          var b = byId[id++]; if (!b) return;
+          var p = b.getPosition(); o.x = +p.x.toFixed(4); o.y = +p.y.toFixed(4); var a = +b.getAngle().toFixed(4); if (a) o.a = a; else delete o.a;
+        });
+      });
+      lv.settled = 1; this.stage = 'stand'; return;
+    }
+    if (this.stage === 'stand') {
+      S = create(lv);
+      var p0 = S.bodies.map(function (b) { return [b.getPosition().x, b.getPosition().y]; }), n0 = S.bodies.length;
+      for (i = 0; i < 180; i++) step(S);
+      this.steps += 180;
+      var md = 0, dmg = 0;
+      S.bodies.forEach(function (b, j) { var p = b.getPosition(); md = Math.max(md, Math.hypot(p.x - p0[j][0], p.y - p0[j][1])); var u = b.getUserData(); dmg = Math.max(dmg, u.maxHp - u.hp); });
+      this.res.stand = { ok: md < 0.03 && dmg < 0.5 && S.bodies.length === n0, md: +md.toFixed(3), dmg: +dmg.toFixed(2), lost: n0 - S.bodies.length };
+      if (!this.res.stand.ok && this.opt.quitEarly) { this.done = true; return; }
+      this.stage = 'search'; return;
+    }
+    // search: one candidate shot is played in slices of up to 60 physics steps
+    var type = lv.birds[this.k];
+    if (!this.sim) {
+      var cd = this.cand(type, this.c), th = cd.a * Math.PI / 180;
+      S = create(lv, this.snap);
+      launch(S, { x: -Math.cos(th) * cd.p * MAX_PULL, y: -Math.sin(th) * cd.p * MAX_PULL });
+      this.sim = { S: S, t0: S.time, n: 0, cd: cd };
+    }
+    var m = this.sim; S = m.S;
+    for (i = 0; i < 60 && !shotDone(S) && m.n < 1400; i++) { if (m.cd.tap != null && S.ability && S.time - m.t0 >= m.cd.tap) useAbility(S); step(S); m.n++; }
+    this.steps += i;
+    if (!shotDone(S) && m.n < 1400) return;
+    endShot(S); this.sim = null;
+    var r = { a: m.cd.a, p: m.cd.p, tap: m.cd.tap, grubs: S.grubsLeft, score: S.score, S: S };
+    if (!this.best || r.grubs < this.best.grubs || (r.grubs === this.best.grubs && r.score > this.best.score)) this.best = r;
+    if (++this.c < this.total(type)) return;
+    var b = this.best;
+    this.shots.push({ a: b.a, p: b.p, tap: b.tap, grubs: b.grubs, score: b.score });
+    if (b.grubs === 0) { this.res.won = true; this.res.score = b.score + bonus(b.S); this.done = true; return; }
+    this.snap = snapshot(b.S); this.best = null; this.c = 0; this.k++;
+    if (this.k >= lv.birds.length) { this.res.won = false; this.res.score = 0; this.done = true; }
+  };
+  // do up to ms of work (Infinity: to the end); true when finished. maxSteps (opt) gives up on a level that's too slow to prove.
+  Prover.prototype.run = function (ms) {
+    var end = now() + ms;
+    while (!this.done) {
+      this.tick();
+      if (this.opt.maxSteps && this.steps > this.opt.maxSteps) { this.res.won = false; this.res.slow = true; this.done = true; }
+      if (now() >= end) break;
+    }
+    return this.done;
+  };
+  function prove(level, opt) { var pr = new Prover(level, opt); pr.run(Infinity); pr.res.steps = pr.steps; return pr.res; }
+  // star lines from the search's best score: 2 stars at 65%, 3 at 85% (rounded down to 500); the winning shots are kept as 'solve'
+  function setStars(lv, res) {
+    var b = res.score;
+    lv.stars = [Math.floor(b * 0.65 / 500) * 500, Math.floor(b * 0.85 / 500) * 500]; lv.best = b;
+    lv.solve = res.shots.map(function (x) { return [x.a, x.p, x.tap]; });
+  }
+
+  // ---------------------------------------------------------------- endless levels (Glenn: "unlimited levels", 2026-10-01) ----------------------------------------------------------------
+  // Levels 1-20 are the banked World 1 in levels.json. Level n past that is built here from its number alone (seeded), so it's the same
+  // level on every phone, then proven by the Prover above; a level that fails is rebuilt from the next seed (n, attempt) until one passes.
+  // Worlds of 20 keep coming, each with its own theme (backdrop tint, favorite materials); difficulty grows gently up to level 100
+  // and then holds, with a breather every 10 levels and a bigger fort to end each world.
+  var BANK = 20, WORLD_SIZE = 20, PT = 0.3;
+  var THEMES = [
+    { id: 'farm', name: 'Sunny Farm', mat: { wood: 5, glass: 3, stone: 2 }, tnt: 0.25, boulder: 0.15, hill: 0.25 },
+    { id: 'woods', name: 'Pine Woods', mat: { wood: 7, glass: 1.5, stone: 1.5 }, tnt: 0.2, boulder: 0.3, hill: 0.3 },
+    { id: 'sea', name: 'Seaside Cliffs', mat: { wood: 4, glass: 4, stone: 2 }, tnt: 0.2, boulder: 0.35, hill: 0.45 },
+    { id: 'snow', name: 'Snowy Peaks', mat: { wood: 2.5, glass: 6, stone: 1.5 }, tnt: 0.15, boulder: 0.3, hill: 0.4 },
+    { id: 'mine', name: 'Canyon Mine', mat: { wood: 4, glass: 1.5, stone: 4.5 }, tnt: 0.5, boulder: 0.3, hill: 0.35 },
+    { id: 'fair', name: 'Night Carnival', mat: { wood: 3.5, glass: 3.5, stone: 3 }, tnt: 0.4, boulder: 0.2, hill: 0.2 }
+  ];
+  // world w (0 = Sunny Farm, the banked one): the themes come round again every 6 worlds (the world number tells them apart)
+  function worldOf(n) {
+    var w = Math.floor((Math.max(1, n) - 1) / WORLD_SIZE), t = THEMES[w % THEMES.length], lap = Math.floor(w / THEMES.length);
+    return { index: w, theme: t, name: t.name, lap: lap };
+  }
+  function tierOf(n) {
+    var d = Math.min(1, Math.max(0, (n - BANK) / 80)), kind = 'normal';
+    if (n % WORLD_SIZE === 0) kind = 'big'; else if (n % 10 === 4) kind = 'breather';
+    return { d: kind === 'breather' ? d * 0.35 : d, kind: kind };
+  }
+  // small seeded random numbers (mulberry32); the seed mixes the level number and the attempt
+  function hash32(a) { a = (a ^ 61) ^ (a >>> 16); a = (a + (a << 3)) | 0; a ^= a >>> 4; a = Math.imul(a, 0x27d4eb2d); a ^= a >>> 15; return a >>> 0; }
+  function rng(seed) {
+    var s = seed >>> 0;
+    return function () { s = (s + 0x6D2B79F5) | 0; var t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  }
+  function pickW(R, weights) { var tot = 0, k; for (k in weights) tot += weights[k]; var x = R() * tot; for (k in weights) { x -= weights[k]; if (x <= 0) return k; } return k; }
+  function pick(R, list) { return list[Math.floor(R() * list.length) % list.length]; }
+  function rnd(R, a, b) { return +(a + R() * (b - a)).toFixed(2); }
+
+  // fort pieces (the same shapes as tools/gen.js: huts are two posts and a plank)
+  function gHut(lv, x, y, w, h, m, roof) {
+    lv.blocks.push({ m: m, x: x - w / 2 + PT / 2, y: y + h / 2, w: PT, h: h });
+    lv.blocks.push({ m: m, x: x + w / 2 - PT / 2, y: y + h / 2, w: PT, h: h });
+    lv.blocks.push({ m: roof || m, x: x, y: y + h + PT / 2, w: w + 0.2, h: PT });
+    return y + h + PT;
+  }
+  function gBox(lv, x, y, s, m) { lv.blocks.push({ m: m, x: x, y: y + s / 2, w: s, h: s }); return y + s; }
+  function gPlank(lv, x, y, w, m) { lv.blocks.push({ m: m, x: x, y: y + PT / 2, w: w, h: PT }); return y + PT; }
+  function gPost(lv, x, y, h, m) { lv.blocks.push({ m: m, x: x, y: y + h / 2, w: PT, h: h }); return y + h; }
+  function gGrub(lv, x, y, s, helmet) { lv.grubs.push({ x: x, y: y + GRUBS[s].r, s: s, helmet: helmet ? 1 : 0 }); }
+  function gTnt(lv, x, y) { lv.tnt.push({ x: x, y: y + 0.35 }); return y + 0.7; }
+  function gBoulder(lv, x, y, r) { lv.boulders.push({ x: x, y: y + r, r: r }); }
+  function gHill(lv, x, w, h) { lv.terrain.push({ x: x, y: h / 2, w: w, h: h }); return h; }
+
+  // a level's building kit: materials by theme (stone grows with difficulty), grub sizes that fit, helmets
+  function kit(R, theme, d) {
+    var mw = { wood: theme.mat.wood, glass: theme.mat.glass, stone: theme.mat.stone * (0.6 + 1.2 * d) };
+    var K = {
+      R: R, d: d, theme: theme,
+      mat: function () { return pickW(R, mw); },
+      light: function () { return R() < 0.5 ? 'wood' : 'glass'; },
+      helm: function () { return R() < 0.05 + 0.35 * d; },
+      // the biggest grub that fits a room w wide and h tall, sometimes a size smaller
+      grub: function (w, h) {
+        var room = Math.min(h, w - 2 * PT) - 0.12, fit = ['s', 'm', 'l'].filter(function (s) { return GRUBS[s].r * 2 <= room; });
+        if (!fit.length) return null;
+        var i = fit.length - 1; if (i > 0 && R() < 0.55 - 0.3 * d) i--; if (i > 0 && R() < 0.25) i--;
+        return fit[i];
+      },
+      floors: function (max) { return Math.min(max, 1 + Math.floor(R() * (1.6 + 2.2 * d))); }
+    };
+    return K;
+  }
+  // a tower of huts; a grub in most floors (always the first one asked for), maybe one on the roof and a boulder on top
+  function gTower(lv, K, x, y, floors, w, opt) {
+    opt = opt || {};
+    var R = K.R, any = false;
+    for (var i = 0; i < floors; i++) {
+      var m = K.mat(), h = opt.h || rnd(R, 1.4, 1.9), roof = R() < 0.25 ? K.mat() : m;
+      if (R() < 0.82 || (!any && i === floors - 1 && !opt.roofGrub)) { var s = K.grub(w, h); if (s) { gGrub(lv, x, y, s, K.helm()); any = true; } }
+      else if (i === 0 && R() < K.theme.tnt) gTnt(lv, x, y);
+      y = gHut(lv, x, y, w, h, m, roof);
+    }
+    if (opt.roofGrub || (!opt.flat && R() < 0.35)) { gGrub(lv, x, y, R() < 0.6 ? 's' : 'm', K.helm()); }
+    else if (!opt.flat && R() < K.theme.boulder * (0.3 + 0.5 * K.d)) gBoulder(lv, x, y, rnd(R, 0.45, 0.6));   // (boulders up top often roll off: kept rare)
+    return y;
+  }
+  function gPyramid(lv, x, y, rows, s, m) { for (var r = 0; r < rows; r++) { var n = rows - r; for (var i = 0; i < n; i++) gBox(lv, x - (n - 1) * s / 2 + i * s, y + r * s, s, m); } return y + rows * s; }
+
+  // pieces: each takes the ground space it needs [width] and builds itself centered at x
+  var PIECES = {
+    tower: function (K, big) { var w = rnd(K.R, 2.0, 2.8), f = K.floors(big ? 4 : 3); return { w: w + 0.2, build: function (lv, x) { gTower(lv, K, x, 0, f, w); } }; },
+    tall: function (K) { var w = rnd(K.R, 2.0, 2.4), f = Math.min(4, 2 + Math.floor(K.R() * (1 + 2 * K.d))); return { w: w + 0.2, build: function (lv, x) { gTower(lv, K, x, 0, f, w); } }; },
+    hut: function (K) { var w = rnd(K.R, 2.0, 2.6); return { w: w + 0.2, build: function (lv, x) { gTower(lv, K, x, 0, 1, w); } }; },
+    hall: function (K, big) {
+      var w = rnd(K.R, 3.8, 4.4);
+      return { w: w + 0.2, build: function (lv, x) {
+        var R = K.R, m = K.mat(), h = rnd(R, 1.6, 1.9), s1 = K.grub(w / 2, h) || 's';
+        gGrub(lv, x - w / 4, 0, s1, K.helm()); gGrub(lv, x + w / 4, 0, K.grub(w / 2, h) || 's', K.helm());
+        var y = gHut(lv, x, 0, w, h, m, R() < 0.4 ? 'stone' : m);
+        gTower(lv, K, x, y, big ? 2 : 1 + (R() < 0.4 + 0.4 * K.d ? 1 : 0), rnd(R, 2.2, Math.min(3.0, w - 1.0)));
+      } };
+    },
+    bridge: function (K) {
+      var w = rnd(K.R, 1.9, 2.3), gap = rnd(K.R, 1.6, 2.4), f = Math.min(3, K.floors(3)), span = 2 * w + gap;
+      return { w: span + 0.2, build: function (lv, x) {
+        var R = K.R, xa = x - (w + gap) / 2, xb = x + (w + gap) / 2, fh = rnd(R, 1.4, 1.8); // same floor height both sides, so the plank lies flat
+        var ya = gTower(lv, K, xa, 0, f, w, { flat: true, h: fh }), yb = gTower(lv, K, xb, 0, f, w, { flat: true, h: fh });
+        var top = gPlank(lv, x, Math.max(ya, yb), span - 0.4, R() < 0.5 ? 'glass' : 'wood');
+        gGrub(lv, x, top, R() < 0.5 ? 'm' : 'l', K.helm());
+        if (R() < 0.5) { gGrub(lv, x - span / 2 + 0.6, top, 's', false); }
+        if (R() < 0.4) gTnt(lv, x, 0);
+      } };
+    },
+    shield: function (K) {
+      var R = K.R, kind = R() < 0.55 ? 'wall' : 'fence', m = R() < 0.5 ? 'stone' : K.mat();
+      if (kind === 'fence') { var np = 3 + Math.floor(R() * 3), ph = rnd(R, 1.8, 2.6); return { w: (np - 1) * 0.9 + 0.3, build: function (lv, x) { for (var i = 0; i < np; i++) gPost(lv, x - (np - 1) * 0.45 + i * 0.9, 0, ph, m === 'stone' ? 'wood' : m); } }; }
+      var s = rnd(R, 0.55, 0.7), cols = 2 + Math.floor(R() * 2), rows = 1 + Math.floor(R() * 2);
+      return { w: cols * s, build: function (lv, x) { for (var r = 0; r < rows; r++) for (var i = 0; i < cols - r; i++) gBox(lv, x - (cols - 1) * s / 2 + i * s + r * s / 2, r * s, s, m); } };
+    },
+    pyramid: function (K) {
+      var R = K.R, rows = 2 + Math.floor(R() * (1.5 + 1.5 * K.d)), s = rnd(R, 0.9, 1.15), m = R() < 0.6 ? 'stone' : K.mat();
+      return { w: rows * s, build: function (lv, x) { var y = gPyramid(lv, x, 0, rows, s, m); gGrub(lv, x, y, R() < 0.5 ? 'm' : 's', K.helm()); } };
+    },
+    tntCellar: function (K) {
+      var w = rnd(K.R, 2.4, 2.8);
+      return { w: w + 0.2, build: function (lv, x) { gTnt(lv, x - 0.75, 0); gTnt(lv, x + 0.75, 0); var y = gPlank(lv, x, 0.7, w + 0.2, 'wood'); gTower(lv, K, x, y, 1 + (K.R() < 0.5 + 0.3 * K.d ? 1 : 0), w); } };
+    },
+    hillKeep: function (K) {
+      var R = K.R, two = R() < 0.5, hw = two ? rnd(R, 5.6, 6.4) : rnd(R, 3.0, 3.6), hh = rnd(R, 1.4, 2.8);
+      return { w: hw, build: function (lv, x) {
+        var h = gHill(lv, x, hw, hh);
+        if (two) { gTower(lv, K, x - hw / 4, h, 1 + (R() < 0.4 * K.d ? 1 : 0), 2.2); gTower(lv, K, x + hw / 4, h, 1, 2.2); }
+        else gTower(lv, K, x, h, 1 + (R() < 0.5 * K.d ? 1 : 0), Math.min(2.6, hw - 0.6));
+      } };
+    },
+    grub: function (K) { return { w: 1.2, build: function (lv, x) { gGrub(lv, x, 0, K.R() < 0.5 ? 'm' : 's', K.helm()); } }; },
+    tnt: function () { return { w: 0.8, build: function (lv, x) { gTnt(lv, x, 0); } }; }
+  };
+  // fort plans, left to right; names to go with them
+  var LAYOUTS = [
+    { p: ['tower', 'tower'], names: ['Two towers', 'Side by side', 'Twin lookouts', 'Neighbors again'] },
+    { p: ['shield', 'tall'], names: ['Behind the wall', 'Safe and sound', 'Keep out', 'Hide and seek'] },
+    { p: ['bridge'], names: ['The bridge', 'Rope walk', 'Over the top', 'High crossing'] },
+    { p: ['hut', 'hut', 'hut'], names: ['Little village', 'Row of huts', 'Three sheds', 'Cottages'] },
+    { p: ['pyramid', 'tower'], names: ['Rock and roll', 'Stone steps', 'Pile up', 'Steps and tower'] },
+    { p: ['tntCellar', 'tower'], names: ['Powder room', 'Boom cellar', 'Handle with care', 'Kaboom'] },
+    { p: ['hall'], names: ['The great hall', 'Big barn', 'Grand lodge', 'Town hall'] },
+    { p: ['grub', 'hillKeep'], names: ['King of the hill', 'Up high', 'Hilltop fort', 'The lookout'] },
+    { p: ['tall'], names: ['Sky high', 'Tall order', 'Beanstalk', 'Wobbly tower'] },
+    { p: ['shield', 'hut', 'tower'], names: ['Outpost', 'Front line', 'Gatehouse', 'Fenced in'] },
+    { p: ['tower', 'tnt', 'tower'], names: ['Spark gap', 'Between the lines', 'Hot spot', 'Fuse box'] },
+    { p: ['hillKeep', 'tower'], names: ['Hill and tower', 'Up and over', 'Ridge camp', 'Cliff side'] }
+  ];
+  var BIG = [['shield', 'hall'], ['tntCellar', 'bridge'], ['pyramid', 'tall', 'tower'], ['hillKeep', 'hall'], ['tower', 'tower', 'tower']];
+  var BREATHER = [['hut', 'hut'], ['tower'], ['hut', 'grub'], ['hall']];
+  // which plan level n uses: each run of 12 levels deals out all 12 plans (stepping by 5, which never repeats inside the run),
+  // from a start picked by the run's number; attempts past the 3rd try other plans
+  function planBase(n) { var L = LAYOUTS.length; return (hash32(Math.floor(n / L) * 31 + 7) + n * 5) % L; }
+  function planOf(n, attempt) {
+    var L = LAYOUTS.length, i = planBase(n);
+    if (n % L === 0 && i === planBase(n - 1)) i = (i + 1) % L;   // where two runs meet
+    return attempt >= 3 ? (i + attempt) % L : i;
+  }
+
+  // build level n (attempt 0, 1, ...): pieces placed left to right inside x 9.6 to 21.5 (the part of the field a phone shows best)
+  function build(n, attempt) {
+    attempt = attempt || 0;
+    var R = rng(hash32(n * 2654435761 + attempt * 40503 + 99991)), W = worldOf(n), T = tierOf(n), K = kit(R, W.theme, T.d);
+    var lv = { blocks: [], grubs: [], tnt: [], boulders: [], terrain: [], sling: 0, n: n, gen: 1, attempt: attempt }, plan, name, li = planOf(n, attempt);
+    if (T.kind === 'big') { plan = BIG[hash32(n * 13 + attempt) % BIG.length]; name = pick(R, ['Grublin stronghold', 'The big one', 'Boss fort', 'Grand finale']); }
+    else if (T.kind === 'breather') { plan = BREATHER[hash32(n * 17 + attempt) % BREATHER.length]; name = pick(R, ['Easy does it', 'Breather', 'Quick one', 'Warm-up']); }
+    else { plan = LAYOUTS[li].p; name = pick(R, LAYOUTS[li].names); }
+    var parts = plan.map(function (k) { return PIECES[k](K, T.kind === 'big'); });
+    var gaps = parts.map(function () { return rnd(R, 0.9, 1.9 - 0.6 * T.d); });
+    var need = 0; parts.forEach(function (p, i) { need += p.w + (i ? gaps[i] : 0); });
+    while (need > 11.9 && parts.length > 1) { need -= parts.pop().w + gaps.pop(); }
+    var x = 9.6 + Math.max(0, (11.9 - need)) * (0.25 + 0.5 * R());
+    // pieces go in left to right; one that would make the fort bigger than the banked ones (20 blocks, 7 Grublins) is taken back
+    // and building stops: bigger forts make the proof (and the phone) slow without making the level better
+    parts.forEach(function (p, i) {
+      if (lv.full) return;
+      var keep = {}; ['blocks', 'grubs', 'tnt', 'boulders', 'terrain'].forEach(function (k) { keep[k] = lv[k].length; });
+      if (i) x += gaps[i];
+      p.build(lv, x + p.w / 2);
+      if (lv.blocks.length > 20 || lv.grubs.length > 7 || (i && lv.blocks.length + lv.grubs.length + lv.tnt.length > 26)) {
+        for (var k in keep) lv[k].length = keep[k];
+        lv.full = true; return;
+      }
+      x += p.w;
+    });
+    delete lv.full;
+    if (!lv.grubs.length) gGrub(lv, x + 0.9, 0, 'm', false);
+    lv.name = name;
+    // birds: about one per two Grublins plus spares (fewer spares as it gets harder; breathers and big forts get one more),
+    // picked to suit the fort: the Pips for glass, Zip for wood, Rocco for stone
+    var c = { wood: 0, glass: 0, stone: 0 }; lv.blocks.forEach(function (b) { c[b.m] += b.w * b.h; });
+    var tot = c.wood + c.glass + c.stone || 1;
+    var nb = Math.round(2.3 + lv.grubs.length * 0.45 - 0.8 * T.d + (T.kind === 'normal' ? 0 : 1));
+    nb = Math.max(2, Math.min(5, nb));
+    var bw = { rocco: 1 + 2 * c.stone / tot, pips: 0.5 + 2.5 * c.glass / tot, zip: 0.5 + 2.5 * c.wood / tot };
+    var solo = R() < 0.12 ? pickW(R, bw) : null;
+    lv.birds = []; for (var b = 0; b < nb; b++) lv.birds.push(solo || pickW(R, bw));
+    return lv;
+  }
+  // make level n: build, prove; on failure the next attempt. maxSteps caps the work on one attempt (a fixed count of physics steps,
+  // not a clock, so every phone lands on the same attempt). After 10 failed attempts a breather plan is used (small, passes easily).
+  // A step machine like the Prover: run(ms) works for up to ms and returns true when done; .result is then { level, attempts, ms, steps }.
+  function Maker(n, opt) { this.n = n; this.opt = opt || {}; this.a = -1; this.pr = null; this.lv = null; this.done = false; this.result = null; this.steps = 0; this.ms = 0; }
+  Maker.prototype.next = function () {
+    var n = this.n; this.a++;
+    if (this.a >= 40) { this.done = true; return; }
+    var lv = build(n, this.a);
+    if (this.a >= 10) { var bl = build(Math.floor(n / 10) * 10 + 4, this.a); bl.n = n; bl.name = lv.name; lv = bl; }
+    this.lv = lv; this.pr = new Prover(lv, { quitEarly: true, settleSteps: 360, maxSteps: this.opt.maxSteps || 600000 });
+  };
+  Maker.prototype.run = function (ms) {
+    var t0 = now(), end = t0 + ms;
+    while (!this.done) {
+      if (!this.pr) { this.next(); if (this.done) break; }
+      var left = end - now();
+      var fin = this.pr.run(left > 0 ? left : 0);
+      if (fin) {
+        var res = this.pr.res; this.steps += this.pr.steps; this.pr = null;
+        if (res.stand && res.stand.ok && res.won) {
+          // if the search needed every bird, add one more at the end so a person has a spare. The greedy search would pick the same
+          // shots (it plays the birds in order), so the proof still holds; the spare only adds its 10,000 bonus to the best score.
+          if (res.shots.length >= this.lv.birds.length) { this.lv.birds.push(this.lv.birds[this.lv.birds.length - 1]); res.score += POINTS_BIRD; }
+          setStars(this.lv, res); this.result = { level: this.lv, attempts: this.a + 1, steps: this.steps }; this.done = true; }
+      }
+      if (now() >= end) break;
+    }
+    this.ms += now() - t0;
+    if (this.result) this.result.ms = Math.round(this.ms);
+    return this.done;
+  };
+  function make(n, opt) { var m = new Maker(n, opt); m.run(Infinity); return m.result; }
+
   return {
     use: use, DT: DT, MAT: MAT, BIRDS: BIRDS, GRUBS: GRUBS, SLING_H: SLING_H, MAX_PULL: MAX_PULL, VMAX: VMAX, GRAVITY: GRAVITY,
     POINTS_GRUB: POINTS_GRUB, POINTS_BIRD: POINTS_BIRD,
     create: create, step: step, launch: launch, launchVel: launchVel, clampPull: clampPull, useAbility: useAbility, markTouches: markTouches,
-    settled: settled, shotDone: shotDone, endShot: endShot, won: won, bonus: bonus, snapshot: snapshot, bounds: bounds, blockHP: blockHP
+    settled: settled, shotDone: shotDone, endShot: endShot, won: won, bonus: bonus, snapshot: snapshot, bounds: bounds, blockHP: blockHP,
+    Prover: Prover, prove: prove, setStars: setStars, BANK: BANK, WORLD_SIZE: WORLD_SIZE, THEMES: THEMES, worldOf: worldOf, tierOf: tierOf, build: build, make: make, Maker: Maker
   };
-})();
+}
+var MB = MBMake();
 if (typeof module !== 'undefined') module.exports = MB;
 </script>
 <script>
@@ -601,50 +949,101 @@ var MBDraw = (function () {
     c.save(); c.beginPath(); c.arc(0, 0, r, 0, Math.PI * 2); c.clip(); cracks(c, r * 2, r * 2, hp, id); c.restore();
     c.restore();
   }
-  function terrain(c, x, y, w, h) { // screen rect: grassy earth
-    rr(c, x, y, w, h + 30, 8); c.fillStyle = '#b07c45'; c.fill();
+  function terrain(c, x, y, w, h, theme) { // screen rect: grassy earth (snowy, sandy... in the other worlds)
+    var T = THEMES[theme];
+    rr(c, x, y, w, h + 30, 8); c.fillStyle = T && theme !== 'farm' ? T.ground : '#b07c45'; c.fill();
     c.fillStyle = 'rgba(0,0,0,.08)'; for (var i = 0; i < 6; i++) { c.beginPath(); c.arc(x + w * (0.12 + 0.15 * i), y + h * (0.4 + 0.3 * hash(i + w | 0)), Math.max(2, h * 0.05), 0, Math.PI * 2); c.fill(); }
-    c.fillStyle = '#6cc24a'; rr(c, x - 2, y - 2, w + 4, Math.max(8, h * 0.18), 6); c.fill();
+    c.fillStyle = T ? T.grass[0] : '#6cc24a'; rr(c, x - 2, y - 2, w + 4, Math.max(8, h * 0.18), 6); c.fill();
   }
 
-  // ---------------- backdrop: Sunny Farm, in layers that move at different speeds ----------------
-  function backdrop(c, W, H, cam, gy, t) {
+  // ---------------- backdrops: one per world theme (Sunny Farm is the original), in layers that move at different speeds ----------------
+  // sky top / middle / bottom, far and near hills (amp, base), ground and grass, the level-select background, and night for dark skies
+  var THEMES = {
+    farm: { sky: ['#79c9ff', '#d4f0ff', '#eaf8ff'], far: '#a7dca0', farAmp: 5, near: '#8fd07c', ground: '#9b6b3a', grass: ['#6cc24a', '#58a83a'], fence: 1, sel: 'linear-gradient(#8fd6ff, #d9f3ff 70%, #bfe7a8)' },
+    woods: { sky: ['#86c3e6', '#d8efe6', '#eef8f2'], far: '#8cc49a', farAmp: 6, near: '#5fa86a', ground: '#7a5530', grass: ['#4f9a3a', '#3f852e'], fence: 1, sel: 'linear-gradient(#86c3e6, #d8efe6 70%, #9fd39a)' },
+    sea: { sky: ['#5fbcff', '#cfeeff', '#f1fbff'], far: '#4aa3d8', farAmp: 0.6, near: '#e6cf8e', ground: '#b98e57', grass: ['#e8d49a', '#d4bd7f'], sel: 'linear-gradient(#5fbcff, #cfeeff 70%, #ecd9a0)' },
+    snow: { sky: ['#9fc2e6', '#e3eef8', '#f6f9fc'], far: '#e4edf6', farAmp: 9, near: '#cfdfee', ground: '#7d7368', grass: ['#f7fafd', '#dce7f1'], sel: 'linear-gradient(#9fc2e6, #e3eef8 70%, #ffffff)' },
+    mine: { sky: ['#f0a95f', '#fbd9a6', '#fff0d6'], far: '#cf7e52', farAmp: 7, near: '#b9643c', ground: '#7a4426', grass: ['#c98a4a', '#b07438'], sel: 'linear-gradient(#f0a95f, #fbd9a6 70%, #e0a46a)' },
+    fair: { sky: ['#141b45', '#3b2f6e', '#5a3f7a'], far: '#2a2d5c', farAmp: 4, near: '#363c6e', ground: '#4a3a2a', grass: ['#3c7a3a', '#2f652e'], night: 1, sel: 'linear-gradient(#141b45, #3b2f6e 70%, #2a2d5c)' }
+  };
+  function backdrop(c, W, H, cam, gy, t, theme) {
+    var T = THEMES[theme] || THEMES.farm, id = THEMES[theme] ? theme : 'farm';
     var g = c.createLinearGradient(0, 0, 0, H);
-    g.addColorStop(0, '#79c9ff'); g.addColorStop(0.7, '#d4f0ff'); g.addColorStop(1, '#eaf8ff');
+    g.addColorStop(0, T.sky[0]); g.addColorStop(0.7, T.sky[1]); g.addColorStop(1, T.sky[2]);
     c.fillStyle = g; c.fillRect(0, 0, W, H);
-    var z = cam.z;
-    // sun
-    c.fillStyle = 'rgba(255,236,150,.9)'; c.beginPath(); c.arc(W * 0.82, H * 0.18, Math.min(W, H) * 0.07, 0, Math.PI * 2); c.fill();
-    // clouds drift slowly
-    c.fillStyle = 'rgba(255,255,255,.9)';
-    for (var i = 0; i < 6; i++) {
-      var cx = ((i * 260 - cam.x * z * 0.08 + t * 6) % (W + 400) + (W + 400)) % (W + 400) - 200, cy = H * (0.12 + 0.07 * (i % 3));
-      var s = 22 + (i % 3) * 8;
-      c.beginPath(); c.arc(cx, cy, s, 0, Math.PI * 2); c.arc(cx + s, cy - s * 0.4, s * 0.9, 0, Math.PI * 2); c.arc(cx + s * 2, cy, s * 0.8, 0, Math.PI * 2); c.fill();
+    var z = cam.z, i;
+    if (T.night) { // stars and a moon
+      c.fillStyle = 'rgba(255,255,255,.8)';
+      for (i = 0; i < 40; i++) { var stx = (hash(i + 1) * W * 1.3 - cam.x * z * 0.03) % W, sty = hash(i + 101) * H * 0.55, tw = 0.6 + 0.4 * Math.sin(t * 2 + i); c.globalAlpha = tw; c.fillRect((stx + W) % W, sty, 2, 2); }
+      c.globalAlpha = 1;
+      c.fillStyle = '#fff6d8'; c.beginPath(); c.arc(W * 0.82, H * 0.18, Math.min(W, H) * 0.06, 0, Math.PI * 2); c.fill();
+      c.fillStyle = T.sky[0]; c.beginPath(); c.arc(W * 0.82 + Math.min(W, H) * 0.025, H * 0.18 - Math.min(W, H) * 0.015, Math.min(W, H) * 0.05, 0, Math.PI * 2); c.fill();
+    } else { // sun
+      c.fillStyle = id === 'mine' ? 'rgba(255,245,200,.95)' : 'rgba(255,236,150,.9)'; c.beginPath(); c.arc(W * 0.82, H * 0.18, Math.min(W, H) * 0.07, 0, Math.PI * 2); c.fill();
     }
-    // far hills
-    function hills(par, col, amp, base, freq) {
+    // clouds drift slowly
+    c.fillStyle = T.night ? 'rgba(160,170,220,.25)' : 'rgba(255,255,255,.9)';
+    for (i = 0; i < (id === 'mine' ? 3 : 6); i++) {
+      var cx = ((i * 260 - cam.x * z * 0.08 + t * 6) % (W + 400) + (W + 400)) % (W + 400) - 200, cy = H * (0.12 + 0.07 * (i % 3));
+      var cs = 22 + (i % 3) * 8;
+      c.beginPath(); c.arc(cx, cy, cs, 0, Math.PI * 2); c.arc(cx + cs, cy - cs * 0.4, cs * 0.9, 0, Math.PI * 2); c.arc(cx + cs * 2, cy, cs * 0.8, 0, Math.PI * 2); c.fill();
+    }
+    function hills(par, col, amp, base, freq, sharp) {
       c.fillStyle = col; c.beginPath(); c.moveTo(0, H);
-      for (var x = 0; x <= W + 10; x += 10) { var wx = (x - W / 2) / z + cam.x * par; c.lineTo(x, gy - (base + amp * (0.5 + 0.5 * Math.sin(wx * freq) * Math.sin(wx * freq * 0.37 + 1))) * z * 0.9); }
+      for (var x = 0; x <= W + 10; x += 10) {
+        var wx = (x - W / 2) / z + cam.x * par, k = 0.5 + 0.5 * Math.sin(wx * freq) * Math.sin(wx * freq * 0.37 + 1);
+        if (sharp) k = 1 - Math.abs(Math.sin(wx * freq * 1.3)) * 0.8 - 0.2 * Math.abs(Math.sin(wx * freq * 0.41 + 2)); // peaks
+        c.lineTo(x, gy - (base + amp * k) * z * 0.9);
+      }
       c.lineTo(W, H); c.closePath(); c.fill();
     }
-    hills(0.25, '#a7dca0', 5, 2.5, 0.09);
-    // barn and silo, far back
-    var baseX = W / 2 + (38 - cam.x) * z * 0.55, s = z * 0.55;
-    c.fillStyle = '#c95a4a'; c.fillRect(baseX, gy - 5.5 * s, 6 * s, 5.5 * s);
-    c.beginPath(); c.moveTo(baseX - 0.5 * s, gy - 5.5 * s); c.lineTo(baseX + 3 * s, gy - 8 * s); c.lineTo(baseX + 6.5 * s, gy - 5.5 * s); c.closePath(); c.fillStyle = '#9b3b30'; c.fill();
-    c.fillStyle = '#f3e6d0'; c.fillRect(baseX + 2.2 * s, gy - 3.2 * s, 1.6 * s, 3.2 * s);
-    c.fillStyle = '#b9c3cc'; c.fillRect(baseX + 6.8 * s, gy - 8 * s, 2.2 * s, 8 * s); c.beginPath(); c.arc(baseX + 7.9 * s, gy - 8 * s, 1.1 * s, Math.PI, 0); c.fill();
-    hills(0.55, '#8fd07c', 2.5, 0.6, 0.16);
-    // fence posts near the ground
-    c.fillStyle = 'rgba(160,110,60,.55)';
-    var fs = z * 0.8, off = ((-cam.x * z * 0.8) % (fs * 3) + fs * 3) % (fs * 3);
-    for (var fx = off - fs * 3; fx < W + fs * 3; fx += fs * 3) { c.fillRect(fx, gy - fs * 1.2, fs * 0.18, fs * 1.2); }
-    c.fillRect(0, gy - fs * 0.95, W, fs * 0.12); c.fillRect(0, gy - fs * 0.5, W, fs * 0.12);
+    if (id === 'sea') { c.fillStyle = T.far; c.fillRect(0, gy - 2.6 * z * 0.9, W, H); c.fillStyle = 'rgba(255,255,255,.35)'; for (i = 0; i < 8; i++) { var wvx = ((i * 140 - cam.x * z * 0.2 + t * 10) % (W + 140) + W + 140) % (W + 140) - 70; c.fillRect(wvx, gy - (2.2 - (i % 3) * 0.5) * z * 0.9, 40, 2); } }
+    else hills(0.25, T.far, T.farAmp, 2.5, 0.09, id === 'snow' || id === 'mine');
+    if (id === 'snow') hills(0.25, 'rgba(255,255,255,.55)', T.farAmp * 0.35, 2.5 + T.farAmp * 0.62, 0.09, true);
+    // a landmark far back: the barn and silo on the farm, pines, a lighthouse, a mine head frame, a big wheel
+    var baseX = W / 2 + (38 - cam.x) * z * 0.55, s = z * 0.55, k;
+    if (id === 'farm') {
+      c.fillStyle = '#c95a4a'; c.fillRect(baseX, gy - 5.5 * s, 6 * s, 5.5 * s);
+      c.beginPath(); c.moveTo(baseX - 0.5 * s, gy - 5.5 * s); c.lineTo(baseX + 3 * s, gy - 8 * s); c.lineTo(baseX + 6.5 * s, gy - 5.5 * s); c.closePath(); c.fillStyle = '#9b3b30'; c.fill();
+      c.fillStyle = '#f3e6d0'; c.fillRect(baseX + 2.2 * s, gy - 3.2 * s, 1.6 * s, 3.2 * s);
+      c.fillStyle = '#b9c3cc'; c.fillRect(baseX + 6.8 * s, gy - 8 * s, 2.2 * s, 8 * s); c.beginPath(); c.arc(baseX + 7.9 * s, gy - 8 * s, 1.1 * s, Math.PI, 0); c.fill();
+    } else if (id === 'woods') {
+      for (k = -6; k < 10; k++) {
+        var px = W / 2 + (k * 4.2 + 30 - cam.x * 0.45) * z * 0.6, ph = (5 + 3 * hash(k + 50)) * s;
+        if (px < -60 || px > W + 60) continue;
+        c.fillStyle = k % 2 ? '#3f7d4c' : '#4a8a55';
+        c.beginPath(); c.moveTo(px, gy - ph - 1.5 * s); c.lineTo(px - 1.6 * s, gy - 1.2 * s); c.lineTo(px + 1.6 * s, gy - 1.2 * s); c.closePath(); c.fill();
+        c.fillStyle = '#6b4a2b'; c.fillRect(px - 0.25 * s, gy - 1.3 * s, 0.5 * s, 1.3 * s);
+      }
+    } else if (id === 'sea') {
+      c.fillStyle = '#f4f1ea'; c.beginPath(); c.moveTo(baseX, gy - 1.5 * s); c.lineTo(baseX + 0.6 * s, gy - 10 * s); c.lineTo(baseX + 2.4 * s, gy - 10 * s); c.lineTo(baseX + 3 * s, gy - 1.5 * s); c.closePath(); c.fill();
+      c.fillStyle = '#d9453c'; for (k = 0; k < 3; k++) c.fillRect(baseX + (0.3 + k * 0.15) * s, gy - (3.5 + k * 2.4) * s, (2.4 - k * 0.3) * s, 1.1 * s);
+      c.fillStyle = '#ffe58a'; c.fillRect(baseX + 0.7 * s, gy - 11.3 * s, 1.6 * s, 1.3 * s); c.fillStyle = '#3b3f4a'; c.beginPath(); c.moveTo(baseX + 0.4 * s, gy - 11.3 * s); c.lineTo(baseX + 1.5 * s, gy - 12.4 * s); c.lineTo(baseX + 2.6 * s, gy - 11.3 * s); c.closePath(); c.fill();
+    } else if (id === 'mine') {
+      c.strokeStyle = '#6b3d22'; c.lineWidth = Math.max(2, 0.35 * s); c.lineCap = 'round';
+      c.beginPath(); c.moveTo(baseX, gy); c.lineTo(baseX + 2.5 * s, gy - 9 * s); c.lineTo(baseX + 5 * s, gy); c.moveTo(baseX + 0.9 * s, gy - 3.2 * s); c.lineTo(baseX + 4.1 * s, gy - 3.2 * s); c.moveTo(baseX + 1.7 * s, gy - 6.2 * s); c.lineTo(baseX + 3.3 * s, gy - 6.2 * s); c.stroke();
+      c.fillStyle = '#4a2a18'; c.beginPath(); c.arc(baseX + 2.5 * s, gy - 9 * s, 1 * s, 0, Math.PI * 2); c.fill();
+    } else if (id === 'fair') {
+      var wx0 = baseX + 4 * s, wy0 = gy - 7 * s, wr = 5.5 * s;
+      c.strokeStyle = '#8a7fc8'; c.lineWidth = Math.max(1.5, 0.18 * s);
+      c.beginPath(); c.arc(wx0, wy0, wr, 0, Math.PI * 2); c.moveTo(wx0, wy0); c.lineTo(wx0 - 3 * s, gy); c.moveTo(wx0, wy0); c.lineTo(wx0 + 3 * s, gy); c.stroke();
+      for (k = 0; k < 12; k++) {
+        var ang = k / 12 * Math.PI * 2 + t * 0.15, lx = wx0 + Math.cos(ang) * wr, ly = wy0 + Math.sin(ang) * wr;
+        c.beginPath(); c.moveTo(wx0, wy0); c.lineTo(lx, ly); c.stroke();
+        c.fillStyle = ['#ffd23c', '#ff6a8a', '#6ae0ff'][k % 3]; c.beginPath(); c.arc(lx, ly, Math.max(2, 0.45 * s), 0, Math.PI * 2); c.fill();
+      }
+    }
+    hills(0.55, T.near, id === 'sea' ? 1.2 : 2.5, id === 'sea' ? 0.3 : 0.6, 0.16);
+    if (T.fence) { // fence posts near the ground
+      c.fillStyle = 'rgba(160,110,60,.55)';
+      var fs = z * 0.8, off = ((-cam.x * z * 0.8) % (fs * 3) + fs * 3) % (fs * 3);
+      for (var fx = off - fs * 3; fx < W + fs * 3; fx += fs * 3) { c.fillRect(fx, gy - fs * 1.2, fs * 0.18, fs * 1.2); }
+      c.fillRect(0, gy - fs * 0.95, W, fs * 0.12); c.fillRect(0, gy - fs * 0.5, W, fs * 0.12);
+    }
     // the ground
-    c.fillStyle = '#9b6b3a'; c.fillRect(0, gy, W, H - gy);
-    c.fillStyle = '#6cc24a'; c.fillRect(0, gy - 1, W, Math.max(6, z * 0.35));
-    c.fillStyle = '#58a83a'; c.fillRect(0, gy + Math.max(6, z * 0.35) - 2, W, 3);
+    c.fillStyle = T.ground; c.fillRect(0, gy, W, H - gy);
+    c.fillStyle = T.grass[0]; c.fillRect(0, gy - 1, W, Math.max(6, z * 0.35));
+    c.fillStyle = T.grass[1]; c.fillRect(0, gy + Math.max(6, z * 0.35) - 2, W, 3);
   }
 
   // the slingshot: a forked branch and two bands
@@ -660,7 +1059,7 @@ var MBDraw = (function () {
     c.strokeStyle = '#8a5a2b'; c.lineCap = 'round'; c.lineWidth = z * 0.26;
     c.beginPath(); c.moveTo(x, gy - 2.0 * z); c.lineTo(x - 0.34 * z, gy - 3.05 * z); c.stroke();
   }
-  return { bird: bird, grub: grub, block: block, tnt: tnt, boulder: boulder, terrain: terrain, backdrop: backdrop, slingBack: slingBack, slingFront: slingFront, rr: rr, MATS: MATS };
+  return { bird: bird, grub: grub, block: block, tnt: tnt, boulder: boulder, terrain: terrain, backdrop: backdrop, THEMES: THEMES, slingBack: slingBack, slingFront: slingFront, rr: rr, MATS: MATS };
 })();
 </script>
 <script>
@@ -795,14 +1194,14 @@ var MBSound = (function () {
   function saveMeta() { store.set('meta', meta); }
   var scores = store.get('scores', null) || {};
   function saveScores() { store.set('scores', scores); }
-  function key(i) { return WORLD.id + '-' + (i + 1); }
+  function key(i) { return WORLD.id + '-' + (i + 1); }   // 'farm-N' for every level N, banked or made (old saves stay valid)
 
   // ================= helpers =================
   function $(id) { return document.getElementById(id); }
   function fmt(n) { return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
   function isOpen(id) { return $(id).classList.contains('show'); }
   var portrait = window.matchMedia ? window.matchMedia('(orientation: portrait)') : { matches: false };
-  function paused() { return !S || isOpen('ovPause') || isOpen('ovEnd') || isOpen('ovBird') || GoobsAds.isOpen() || document.hidden || portrait.matches || isOpen('scLevels'); }
+  function paused() { return !S || isOpen('ovMake') || isOpen('ovPause') || isOpen('ovEnd') || isOpen('ovBird') || GoobsAds.isOpen() || document.hidden || portrait.matches || isOpen('scLevels'); }
   var toastT = 0;
   function toast(t) { var el = $('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(function () { el.classList.remove('show'); }, 1800); }
   function starsFor(lv, score, won) { if (!won) return 0; var s = lv.stars || [0, 0]; return 1 + (score >= s[0] ? 1 : 0) + (score >= s[1] ? 1 : 0); }
@@ -810,14 +1209,19 @@ var MBSound = (function () {
   // ================= a level in play =================
   var S = null, lv = null, li = 0, phase = 'aim', phaseT = 0, acc = 0, pull = null, dragging = false;
   var trail = [], lastTrail = [], parts = [], floats = [], shake = 0, shownScore = 0, bonusShown = 0;
+  var theme = 'farm', selW = null;
   function startLevel(i) {
-    li = i; lv = WORLD.levels[i];
+    var L = levelAt(i);
+    if (!L) { waitFor(i); return; }   // a made level that isn't ready yet: "Making level N..." until it is
+    $('ovMake').classList.remove('show'); gen.waitI = -1;
+    li = i; lv = L; theme = MB.worldOf(i + 1).theme.id; selW = Math.floor(i / MB.WORLD_SIZE);
     S = MB.create(lv);
     phase = 'aim'; phaseT = 0; acc = 0; pull = null; dragging = false;
     trail = []; lastTrail = []; parts = []; floats = []; shake = 0; shownScore = 0;
     camMode = 'auto'; snapCam();
     $('scLevels').classList.remove('show'); $('hud').classList.remove('hide');
-    $('lvName').textContent = '1-' + (i + 1) + '  ' + lv.name;
+    $('lvName').textContent = 'Level ' + (i + 1) + ' \u00b7 ' + lv.name;
+    gen.queue = []; genAhead(i + 2); genAhead(i + 3);   // make the next levels in the background while this one is played (older asks dropped)
     var best = scores[key(i)];
     $('best').textContent = best ? 'Best ' + fmt(best.best) : '';
     SND.resumeMusic();
@@ -1013,7 +1417,7 @@ var MBSound = (function () {
     c.save();
     if (shake > 0) c.translate((Math.random() - 0.5) * shake * 12, (Math.random() - 0.5) * shake * 12);
     var gy = sy(0);
-    D.backdrop(c, W, H, cam, gy, t);
+    D.backdrop(c, W, H, cam, gy, t, S ? theme : null);
     if (!S) { c.restore(); return; }
     // last shot's path: white dots
     c.fillStyle = 'rgba(255,255,255,.85)';
@@ -1021,7 +1425,7 @@ var MBSound = (function () {
     c.fillStyle = 'rgba(255,255,255,.95)';
     trail.forEach(function (p, i) { c.beginPath(); c.arc(sx(p[0]), sy(p[1]), Math.max(1.5, z * (i % 3 === 0 ? 0.1 : 0.06)), 0, Math.PI * 2); c.fill(); });
     // hills and platforms
-    (lv.terrain || []).forEach(function (o) { D.terrain(c, sx(o.x - o.w / 2), sy(o.y + o.h / 2), o.w * z, o.h * z); });
+    (lv.terrain || []).forEach(function (o) { D.terrain(c, sx(o.x - o.w / 2), sy(o.y + o.h / 2), o.w * z, o.h * z, theme); });
     // the fort
     S.bodies.forEach(function (b) {
       var u = b.getUserData(), p = b.getPosition(), a = b.getAngle(), hp = u.maxHp ? u.hp / u.maxHp : 1;
@@ -1143,7 +1547,7 @@ var MBSound = (function () {
     $('endText').innerHTML = won ? 'Score <b>' + fmt(S.score) + '</b>' + (newBest ? '<br><span class="newbest">New best!</span>' : '') + (st < 3 && lv.stars ? '<br><small>3 stars at ' + fmt(lv.stars[1]) + '</small>' : '')
       : S.grubsLeft + (S.grubsLeft === 1 ? ' Grublin is' : ' Grublins are') + ' still there. Try a different angle.';
     var b = [{ l: 'Levels', ic: 'i-grid', go: function () { between(showLevels); } }, { l: won ? 'Replay' : 'Try again', ic: 'i-restart', go: function () { between(function () { startLevel(li); }); }, red: !won }];
-    if (won && li + 1 < WORLD.levels.length) b.push({ l: 'Next', ic: 'i-next', red: true, go: function () { between(function () { startLevel(li + 1); }); } });
+    if (won) b.push({ l: 'Next', ic: 'i-next', red: true, go: function () { between(function () { startLevel(li + 1); }); } });
     var box = $('endActions'); box.innerHTML = '';
     b.forEach(function (x) {
       var el = document.createElement('button'); el.className = 'btn' + (x.red ? ' red' : '');
@@ -1162,22 +1566,118 @@ var MBSound = (function () {
     next();
   }
 
-  // ================= level select =================
-  function showLevels() {
+  // ================= level select: worlds of 20 that keep coming =================
+  // shows one world at a time; the arrows page through every world up to the one after the furthest level reached
+  function showLevels(w) {
     S = null;
     $('hud').classList.add('hide'); $('skipHint').classList.remove('show');
-    var h = '', total = 0;
-    WORLD.levels.forEach(function (l, i) {
-      var sc = scores[key(i)], st = sc ? sc.stars : 0, lock = i > meta.cur; total += st;
-      h += '<button class="mlv' + (lock ? ' lock' : '') + (i === meta.cur && !sc ? ' cur' : '') + '" data-i="' + i + '">' + (i + 1) + '<span class="st">';
-      for (var k = 0; k < 3; k++) h += '<svg viewBox="0 0 24 24" class="' + (k < st ? 'on' : '') + '"><use href="#i-star"/></svg>';
+    var WS = MB.WORLD_SIZE, maxW = Math.floor(meta.cur / WS) + 1;
+    if (typeof w !== 'number') w = selW == null ? Math.floor(meta.cur / WS) : selW;
+    w = Math.max(0, Math.min(maxW, w)); selW = w;
+    var h = '', total = 0, wi = MB.worldOf(w * WS + 1), th = D.THEMES[wi.theme.id] || D.THEMES.farm;
+    for (var k = 0; k < WS; k++) {
+      var i = w * WS + k, sc = scores[key(i)], st = sc ? sc.stars : 0, lock = i > meta.cur; total += st;
+      h += '<button class="mlv' + (lock ? ' lock' : '') + (i === meta.cur && !sc ? ' cur' : '') + (i + 1 >= 1000 ? ' long' : '') + '" data-i="' + i + '">' + (i + 1) + '<span class="st">';
+      for (var q = 0; q < 3; q++) h += '<svg viewBox="0 0 24 24" class="' + (q < st ? 'on' : '') + '"><use href="#i-star"/></svg>';
       h += '</span></button>';
-    });
+    }
     $('lsGrid').innerHTML = h;
-    $('worldName').textContent = '1 · ' + WORLD.name;
-    $('worldStars').textContent = total + ' / ' + WORLD.levels.length * 3 + ' ★';
-    $('scLevels').classList.add('show');
+    $('worldName').textContent = 'World ' + (w + 1) + ' \u00b7 ' + wi.name;
+    $('worldStars').textContent = total + ' / ' + WS * 3 + ' \u2605';
+    $('wPrev').disabled = w <= 0; $('wNext').disabled = w >= maxW;
+    var sc0 = $('scLevels'); sc0.style.background = th.sel; sc0.classList.toggle('night', !!th.night);
+    sc0.classList.add('show');
+    gen.queue = []; genAhead(meta.cur + 1);   // the next level to play, so it's ready when it's tapped
     SND.pauseMusic();
+  }
+
+  // ================= endless levels: made on the phone from the level number, proven by the same search as tools/check.js =================
+  // Levels past the bank come from MB.make(n) (src/logic.js). That proof plays a few hundred simulated shots, a few seconds' work,
+  // so it runs in a Web Worker built from a Blob (planck's own text, read through the offline cache, plus logic.js's MBMake source),
+  // and the next levels are made while the current one is played. If no worker can be made, the same work runs here in small slices.
+  // Made levels are kept in memory and the last few in storage, so reopening the app doesn't make them again.
+  var BANKN = WORLD.levels.length, GEN_V = 1;
+  var gen = { cache: {}, order: [], queue: [], job: null, mode: '', worker: null, waitI: -1, log: [] };
+  (function () { var c = store.get('gen', null); if (c && c.v === GEN_V && c.lv) for (var n in c.lv) { gen.cache[n] = c.lv[n]; gen.order.push(+n); } })();
+  function levelAt(i) { return i < BANKN ? WORLD.levels[i] : gen.cache[i + 1] || null; }
+  function genKeep(n, level) {
+    gen.cache[n] = level;
+    gen.order = gen.order.filter(function (x) { return x !== n; }); gen.order.push(n);
+    var keep = {}, o = gen.order.slice(-12); o.forEach(function (x) { if (gen.cache[x]) keep[x] = gen.cache[x]; });
+    store.set('gen', { v: GEN_V, lv: keep });
+  }
+  // ask for level n (1-based) to be made; urgent puts it first in line
+  function genWant(n, urgent) {
+    if (n <= BANKN || gen.cache[n] || (gen.job && gen.job.n === n)) return;
+    var at = gen.queue.indexOf(n);
+    if (at >= 0) { if (!urgent) return; gen.queue.splice(at, 1); }
+    if (urgent) gen.queue.unshift(n); else gen.queue.push(n);
+    // the player is waiting for this one: a background make in progress gives way (it goes back in line)
+    if (urgent && gen.job && !gen.job.urgent) {
+      var old = gen.job.n;
+      if (gen.mode === 'worker' && gen.url) { try { gen.worker.terminate(); } catch (e) { /* gone */ } genWorker(); }
+      gen.job = null; gen.queue.splice(1, 0, old);
+    }
+    genPump();
+    if (urgent && gen.job && gen.job.n === n) gen.job.urgent = true;
+  }
+  function genAhead(n) { genWant(n, false); }
+  function workerMain() { // runs inside the worker (MB is there already)
+    self.onmessage = function (e) {
+      var n = e.data.n, r = MB.make(n);
+      self.postMessage({ n: n, level: r ? r.level : null, attempts: r ? r.attempts : 0, ms: r ? r.ms : 0 });
+    };
+  }
+  function genSetup() {
+    gen.mode = 'setup';
+    function fallback() { gen.mode = 'main'; if (gen.worker) { try { gen.worker.terminate(); } catch (e) { /* gone */ } gen.worker = null; } if (gen.job && !gen.job.maker) { gen.queue.unshift(gen.job.n); gen.job = null; } genPump(); }
+    try {
+      var el = document.querySelector('script[src*="planck"]');
+      fetch(el.src).then(function (r) { if (!r.ok) throw new Error('planck ' + r.status); return r.text(); }).then(function (txt) {
+        var code = txt + '\n;var MB = (' + MBMake.toString() + ')();\n(' + workerMain.toString() + ')();\n';
+        gen.url = URL.createObjectURL(new Blob([code], { type: 'text/javascript' }));
+        gen.fallback = fallback;
+        genWorker(); gen.mode = 'worker'; genPump();
+      }).catch(fallback);
+    } catch (e) { fallback(); }
+  }
+  function genWorker() {
+    var w = new Worker(gen.url);
+    w.onmessage = function (e) { var d = e.data; if (gen.worker === w) genDone(d.n, d.level, d.attempts, d.ms, 'worker'); };
+    w.onerror = function (e) { if (e && e.preventDefault) e.preventDefault(); if (gen.worker === w) gen.fallback(); };
+    gen.worker = w;
+  }
+  function genPump() {
+    if (!gen.mode) { genSetup(); return; }
+    if (gen.mode === 'setup' || gen.job) return;
+    while (gen.queue.length && gen.cache[gen.queue[0]]) gen.queue.shift();
+    if (!gen.queue.length) return;
+    var n = gen.queue.shift();
+    gen.job = { n: n, t0: performance.now() };
+    if (gen.mode === 'worker') gen.worker.postMessage({ n: n });
+    else gen.job.maker = new MB.Maker(n);
+  }
+  // main-thread fallback: a slice of the work each frame (more while the player is waiting for it)
+  function genSlice() {
+    if (gen.mode !== 'main' || !gen.job || !gen.job.maker) return;
+    var m = gen.job.maker, ms = isOpen('ovMake') || !S ? 40 : 4;
+    if (m.run(ms)) { var r = m.result; genDone(gen.job.n, r ? r.level : null, r ? r.attempts : 0, Math.round(performance.now() - gen.job.t0), 'main'); }
+  }
+  function genDone(n, level, attempts, ms, how) {
+    if (!level) { // never seen in testing (40 attempts all failed): play a proven banked fort under this number instead
+      level = JSON.parse(JSON.stringify(WORLD.levels[(n - 1) % BANKN])); level.n = n; attempts = -1;
+    }
+    genKeep(n, level);
+    gen.log.push({ n: n, ms: ms, attempts: attempts, how: how, wall: Math.round(performance.now() - (gen.job ? gen.job.t0 : 0)) });
+    if (gen.job && gen.job.n === n) gen.job = null;
+    if (gen.waitI === n - 1 && isOpen('ovMake')) startLevel(n - 1);
+    genPump();
+  }
+  function waitFor(i) {
+    gen.waitI = i;
+    $('makeText').textContent = 'Making level ' + (i + 1) + '\u2026';
+    $('ovMake').classList.add('show');
+    genWant(i + 1, true);
   }
 
   // ================= settings (pause card) =================
@@ -1213,6 +1713,7 @@ var MBSound = (function () {
       stepParts(dt);
       updateCam(dt);
     }
+    genSlice();
     render(t);
     renderHUD();
     if (S) renderSkip();
@@ -1241,10 +1742,13 @@ var MBSound = (function () {
     $('togAds').addEventListener('click', function () { Goobs.setAds(!Goobs.adsOn()); syncToggles(); });
     $('adLess').addEventListener('click', function () { settings.adEvery = Math.max(1, settings.adEvery - 1); saveSettings(); syncToggles(); });
     $('adMore').addEventListener('click', function () { settings.adEvery = Math.min(10, settings.adEvery + 1); saveSettings(); syncToggles(); });
+    $('wPrev').addEventListener('click', function () { showLevels(selW - 1); });
+    $('wNext').addEventListener('click', function () { showLevels(selW + 1); });
+    $('btnMakeLevels').addEventListener('click', function () { $('ovMake').classList.remove('show'); gen.waitI = -1; showLevels(); });
     $('lsGrid').addEventListener('click', function (e) {
       var b = e.target.closest('.mlv'); if (!b) return;
       var i = +b.dataset.i;
-      if (i > meta.cur) { toast('Clear level ' + (i) + ' first'); return; }
+      if (i > meta.cur) { toast(i - 1 > meta.cur ? 'Clear level ' + (meta.cur + 1) + ' first' : 'Clear level ' + i + ' first'); return; }
       SND.unlock(); startLevel(i); syncToggles();
     });
     document.addEventListener('visibilitychange', function () { if (document.hidden) SND.pauseMusic(); else if (S && settings.music) SND.resumeMusic(); });
@@ -1257,7 +1761,8 @@ var MBSound = (function () {
   }
 
   // hook for automated tests
-  window.__mb = { get S() { return S; }, get phase() { return phase; }, get cam() { return cam; }, start: startLevel, launch: doLaunch, levels: function () { return WORLD.levels; }, meta: function () { return meta; }, scores: function () { return scores; }, useAbility: function () { return MB.useAbility(S); }, sx: sx, sy: sy };
+  window.__mb = { get S() { return S; }, get phase() { return phase; }, get cam() { return cam; }, start: startLevel, launch: doLaunch, levels: function () { return WORLD.levels; }, levelAt: levelAt, gen: gen, genWant: genWant, showLevels: showLevels,
+    setCur: function (i) { meta.cur = i; saveMeta(); }, get li() { return li; }, meta: function () { return meta; }, scores: function () { return scores; }, useAbility: function () { return MB.useAbility(S); }, sx: sx, sy: sy };
 
   init();
 })();

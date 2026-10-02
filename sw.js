@@ -2,7 +2,7 @@
    Each part has its own version and its own cache. To publish an update, bump ONLY the
    version of the part that changed; unchanged parts are not downloaded again. */
 const VERSIONS = {
-  shell: '2.67.0',     // menu, manifest, icons, /shared (ads, themes, storage)
+  shell: '2.68.0',     // menu, manifest, icons, /shared (ads, themes, storage)
   zoodoku: '1.9.0',
   woodpile: '1.2.0',
   patchwork: '2.2.0',
@@ -15,7 +15,7 @@ const VERSIONS = {
   match3: '1.1.0',
   snake: '1.1.0',
   solitaire: '1.1.0',
-  meanbirds: '1.0.2',
+  meanbirds: '1.1.0',
   aliens: '1.1.0',
   worddice: '1.1.0',
   digger: '1.1.0',
@@ -29,9 +29,9 @@ const VERSIONS = {
   bricks: '1.3.0',
   topple: '1.8.0',
   barrage: '1.5.0',
-  siege: '1.1.1',
+  siege: '1.2.0',
   hoops: '1.1.0',
-  beacon: '0.3.0',
+  beacon: '0.4.0',
   sort: '1.2.0',
   triple: '1.1.0',
   pinball: '1.2.0',
@@ -42,7 +42,7 @@ const VERSIONS = {
   golf: '0.4.0',
   shelf: '1.2.0',
   castle: '1.7.0',
-  outpost: '0.4.0',
+  outpost: '0.5.0',
   getout: '0.5.0',
   sudoku: '0.1.0',
   wordwheel: '0.2.0',
