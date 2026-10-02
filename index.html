@@ -756,6 +756,22 @@
       }
     },
     {
+      id: 'getout2', name: 'Get Out 2!', blurb: 'Deathtraps on set. Get out in one piece.', path: 'games/getout2/',
+      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="g2T" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b2f5a"/><stop offset="1" stop-color="#141530"/></linearGradient><linearGradient id="g2S" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#6b7280"/><stop offset=".5" stop-color="#b8bfca"/><stop offset="1" stop-color="#5a616d"/></linearGradient></defs><rect width="100" height="100" fill="url(#g2T)"/>' +
+        '<circle cx="80" cy="14" r="6" fill="#fff4d0"/><rect x="4" y="28" width="15" height="58" rx="2" fill="url(#g2S)"/><rect x="81" y="28" width="15" height="58" rx="2" fill="url(#g2S)"/>' +
+        '<g fill="#f2c230"><path d="M4 34l15-6v7l-15 6z"/><path d="M4 50l15-6v7l-15 6z"/><path d="M4 66l15-6v7l-15 6z"/><path d="M81 34l15-6v7l-15 6z"/><path d="M81 50l15-6v7l-15 6z"/><path d="M81 66l15-6v7l-15 6z"/></g>' +
+        '<path d="M23 68c0-8 4-12 10-13l6-9c2-3 5-4 9-4h10c4 0 7 2 9 5l5 8c6 1 9 5 9 13z" fill="#e2453a"/><path d="M40 48h19l5 8H35z" fill="#bfe3f5"/>' +
+        '<circle cx="35" cy="70" r="8" fill="#222"/><circle cx="35" cy="70" r="3.5" fill="#ccc"/><circle cx="66" cy="70" r="8" fill="#222"/><circle cx="66" cy="70" r="3.5" fill="#ccc"/>' +
+        '<path d="M20 90h60" stroke="#ffd23f" stroke-width="3" stroke-dasharray="5 4"/><text x="50" y="24" text-anchor="middle" font-family="Arial Black,Arial" font-weight="900" font-size="17" fill="#ffd23f">2!</text></svg>',
+      status: function () {
+        var m = readLS('getout2.meta'); if (!m || !m.best) return 'Deathtraps on set. Get out in one piece.';
+        var scenes = {}, st = 0, ways = 0; for (var k in m.best) { scenes[parseInt(k, 10)] = 1; st += (m.best[k] && m.best[k].stars) || 0; }
+        for (var s in (m.ways || {})) ways += Object.keys(m.ways[s] || {}).length;
+        var n = Object.keys(scenes).length; if (!n) return 'Deathtraps on set. Get out in one piece.';
+        return n + (n === 1 ? ' scene' : ' scenes') + ' wrapped · ' + st + ' stars' + (ways ? ' · ' + ways + (ways === 1 ? ' way' : ' ways') + ' to die found' : '');
+      }
+    },
+    {
       id: 'getout', name: 'Get Out!', blurb: 'Five locked rooms. Find the way out.', path: 'games/getout/',
       art: '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="goT" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2f5a4f"/><stop offset="1" stop-color="#1b3a33"/></linearGradient><linearGradient id="goB" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f7dc8a"/><stop offset=".5" stop-color="#d9a640"/><stop offset="1" stop-color="#8f5f1a"/></linearGradient></defs><rect width="100" height="100" fill="url(#goT)"/>' +
         '<rect x="28" y="20" width="44" height="72" rx="4" fill="#7b4526"/><rect x="24" y="16" width="52" height="8" rx="2" fill="#5b3519"/><path d="M32 92V28h36v64" fill="#fff4c9" opacity=".95"/><path d="M32 28h20v64H32z" fill="#7b4526"/><path d="M32 28l20-4v72l-20-4z" fill="#8a5530"/><circle cx="47" cy="60" r="3" fill="url(#goB)"/>' +
