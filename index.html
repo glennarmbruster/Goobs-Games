@@ -807,6 +807,26 @@
       }
     },
     {
+      id: 'nonogram', name: 'Pixel Pier', blurb: 'Picture logic: fill the grid from the clues', path: 'games/nonogram/',
+      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="ngTile" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e4f3fb"/><stop offset="1" stop-color="#8fcde9"/></linearGradient></defs>' +
+        '<rect width="100" height="100" fill="url(#ngTile)"/><rect x="5" y="5" width="91" height="88" rx="8" fill="#fff"/><rect x="34" y="8" width="60" height="21" fill="#eef4fa"/><rect x="8" y="30" width="25" height="60" fill="#eef4fa"/>' +
+        '<rect x="58" y="30" width="12" height="12" fill="#1f2b45"/><rect x="58" y="42" width="12" height="12" fill="#1f2b45"/><rect x="70" y="42" width="12" height="12" fill="#1f2b45"/>' +
+        '<rect x="58" y="54" width="12" height="12" fill="#1f2b45"/><rect x="70" y="54" width="12" height="12" fill="#1f2b45"/><rect x="82" y="54" width="12" height="12" fill="#1f2b45"/>' +
+        '<rect x="34" y="66" width="12" height="12" fill="#ff7b54"/><rect x="46" y="66" width="12" height="12" fill="#ff7b54"/><rect x="58" y="66" width="12" height="12" fill="#ff7b54"/>' +
+        '<rect x="70" y="66" width="12" height="12" fill="#ff7b54"/><rect x="82" y="66" width="12" height="12" fill="#ff7b54"/><rect x="34" y="78" width="12" height="12" fill="#bfe6f6"/>' +
+        '<rect x="46" y="78" width="12" height="12" fill="#1f4e79"/><rect x="58" y="78" width="12" height="12" fill="#1f4e79"/><rect x="70" y="78" width="12" height="12" fill="#1f4e79"/>' +
+        '<rect x="82" y="78" width="12" height="12" fill="#bfe6f6"/><g stroke="#aeb8c8" stroke-width="1.8" stroke-linecap="round"><path d="M37 33l6 6M43 33l-6 6"/><path d="M49 33l6 6M55 33l-6 6"/><path d="M37 45l6 6M43 45l-6 6"/>' +
+        '<path d="M85 33l6 6M91 33l-6 6"/><path d="M37 57l6 6M43 57l-6 6"/></g><path d="M46 30v60M34 42h60M58 30v60M34 54h60M70 30v60M34 66h60M82 30v60M34 78h60" stroke="#d2d9e4" stroke-width="1" fill="none"/>' +
+        '<rect x="34" y="30" width="60" height="60" fill="none" stroke="#44516a" stroke-width="1.6"/><g font-family="-apple-system, system-ui, sans-serif" font-weight="800" font-size="10" fill="#1f2b45" text-anchor="middle">' +
+        '<text x="40" y="25">1</text><text x="52" y="25">2</text><text x="64" y="25">5</text><text x="76" y="25">4</text><text x="88" y="25">2</text><text x="23" y="39">1</text><text x="23" y="51">2</text><text x="23" y="63">3</text>' +
+        '<text x="23" y="75">5</text><text x="23" y="87">3</text></g></svg>',
+      status: function () {
+        // meta.count: pictures and mosaics solved (each once, replays not counted)
+        var m = readLS('nonogram.meta'), c = m && typeof m.count === 'number' ? m.count : 0;
+        return c ? c + (c === 1 ? ' picture' : ' pictures') + ' solved' : 'Picture logic: fill the grid from the clues';
+      }
+    },
+    {
       id: 'deck', name: 'Lido Deck', blurb: 'Shuffleboard and cornhole on deck', path: 'games/deck/',
       art: '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="dkTs" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2f84dc"/><stop offset="1" stop-color="#a9d8f6"/></linearGradient><linearGradient id="dkTc" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e9cf98"/><stop offset="1" stop-color="#f6e3b8"/></linearGradient></defs>' +
         '<rect width="100" height="100" fill="url(#dkTs)"/><rect y="40" width="100" height="5" fill="#1f6fa8"/><rect y="45" width="100" height="55" fill="#b98352"/>' +
