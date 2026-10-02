@@ -48,7 +48,7 @@ const VERSIONS = {
   wordwheel: '0.2.0',
   trivia: '0.2.0',
   links: '0.2.0',
-  bowling: '0.1.0',
+  bowling: '0.2.0',
   deck: '0.1.0',
   wordboard: '0.1.1',
   nonogram: '0.1.0',

@@ -94,6 +94,19 @@ html.gg-fs-over .app { position: relative; z-index: 3; height: 100%; pointer-eve
 .hist i { flex: 1; background: var(--accent); border-radius: 4px 4px 0 0; min-height: 3px; position: relative; }
 .hist i b { position: absolute; top: -15px; left: 0; right: 0; text-align: center; font-size: 10px; color: var(--muted); font-style: normal; }
 .stnote { color: var(--muted); font-size: 13px; margin: 2px 0 6px; }
+
+/* the alley picker (Settings) */
+.alleys { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+.alleybtn { text-align: left; border: 2px solid transparent; border-radius: 12px; padding: 10px 11px; min-height: 56px; color: #fff; font: inherit; cursor: pointer; }
+.alleybtn b { display: block; font-size: 15px; font-weight: 800; }
+.alleybtn small { display: block; font-size: 12px; color: rgba(255,255,255,.92); margin-top: 2px; line-height: 1.25; }
+.alleybtn b, .alleybtn small { text-shadow: 0 1px 2px rgba(0,0,0,.55); }
+.alleybtn.on { border-color: #ffd25c; box-shadow: 0 0 0 2px rgba(255,210,92,.35); }
+.alleybtn.starlight { background: linear-gradient(135deg, #2a1240, #c98a4e); }
+.alleybtn.comet { background: linear-gradient(135deg, #061033, #2668d6); }
+.alleybtn.tiki { background: linear-gradient(135deg, #5a2e1a, #ff8648 60%, #1b7b86); }
+.alleybtn.neon { background: linear-gradient(135deg, #07020e, #ff2fa8 70%, #4dff9a); }
+.alleybtn.mix { background: linear-gradient(135deg, #2a1240, #2668d6 35%, #ff8648 65%, #ff2fa8); }
 </style>
 </head>
 <body>
@@ -158,6 +171,7 @@ html.gg-fs-over .app { position: relative; z-index: 3; height: 100%; pointer-eve
     <div class="sheetbody">
       <label class="row"><div>Sound<small>Rolling rumble, pin crash and a cheer for strikes.</small></div>
         <span class="switch"><input type="checkbox" id="setSound"><span></span></span></label>
+      <div class="row col"><div>Alley<small>Where you bowl. Each has its own lanes, lights and show on the screens.</small></div><div class="alleys" id="alleys"></div></div>
       <div class="row col"><div>Your ball<small>Pick a color.</small></div><div class="swatches" id="swatches"></div></div>
       <label class="row"><div>Show my line<small>A faint stripe where your last ball went.</small></div>
         <span class="switch"><input type="checkbox" id="setTrail"><span></span></span></label>
@@ -554,127 +568,80 @@ var BWSound = (function () {
 })();
 </script>
 <script>
-/* Strike Alley scene (three.js): a warm, glossy alley at night. The lane in real sizes (maple boards, the arrows and
-   dots, the foul line), gutters, neighbouring lanes with their own pins, the pin deck and kickbacks, a lit masking
-   panel over the pins, the pit; pins turned on a lathe from the real outline (white with two red neck stripes), the
-   ball (glossy swirl in the chosen color), soft blob shadows, and a faint trail of the last ball's line.
-   BWScene.build(THREE, canvas, BW) returns what the app needs; the app moves the camera. */
+/* Strike Alley scene (three.js). The lane in real sizes (boards, the arrows and dots, the foul line), gutters, three
+   neighbouring lanes on each side with their own racks, the pin deck and kickbacks, the pit; pins turned on a lathe
+   from the real outline (white with two red neck stripes), the ball (glossy swirl in the chosen color), soft blob
+   shadows, and a faint trail of the last ball's line.
+   0.2.0 (Glenn: "on ipad it's very 'boring' ... make it look more like a bowling alley ... videos playing behind the
+   pins would be cool ... a couple more alleys ... one view with blue lanes"): the room around the lanes (a back wall
+   with a big mural, a ceiling with light strips and beams, side walls, carpet, ball returns, neon), animated screens
+   in the masking units over the pins ("videos", drawn live on a canvas: no video files, so it stays small and works
+   offline), a big "STRIKE!" show on our lane's screen, and four alleys with their own look:
+     starlight  Starlight Lanes: classic maple, purple night, a space show on the screens
+     comet      Blue Comet: glowing blue lanes under blacklight, comets and a star warp
+     tiki       Tiki Cove: honey wood, a tropical sunset, waves and palms
+     neon       Midnight Neon: black glossy lanes, pink and green neon, a synthwave sun
+   All artwork is original (drawn with code). BWScene.build(THREE, canvas, BW, alleyId) returns what the app needs;
+   the app moves the camera. setAlley(id) rebuilds the room in place; event('strike' ...) plays a show on the screen. */
 var BWScene = (function () {
   'use strict';
-  function build(T, canvas, BW) {
-    var R = (function (s) { return function () { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; }; })(20261001);
+  var ALLEYS = {
+    starlight: {
+      name: 'Starlight Lanes', title: 'STARLIGHT LANES', bg: '#120e1c', fog: [26, 52],
+      hemi: [0xffe6c8, 0x2a1f30, 0.9], key: [0xfff0dc, 1.4], wash: [0xffd9a8, 1.5], deck: [0xfff4e0, 3.2],
+      lane: { base: [222, 176, 120], tone: [10, 9, 8], grain: '150,95,45', seam: 'rgba(110,70,35,.35)', approach: 'rgba(255,240,220,.18)', arrow: ['#7a1f1f', '#c23a2e'], dot: '#3a2418', glow: 0, rough: 0.3 },
+      gutter: 0x3a3d48, cap: 0x2b2233, kick: 0x241a2c, floor: ['#1b1424', ['#ff4fd8', '#5ce1ff', '#ffd25c', '#8a6cff']],
+      wall: ['#2a1a44', '#120c22'], ceil: 0x0e0a16, beam: 0x1a1226, strip: 0xfff0d8, neon: [0xff4fd8, 0x5ce1ff], env: [0xfff2dc, 0xffc98a, 0xff7ad9],
+      hood: 0x5a2d82, show: 'space'
+    },
+    comet: {
+      name: 'Blue Comet', title: 'BLUE COMET', bg: '#060b1e', fog: [24, 50],
+      hemi: [0xa8c8ff, 0x0a1430, 0.75], key: [0xdce8ff, 1.15], wash: [0x7fb2ff, 1.4], deck: [0xeef6ff, 3.0],
+      lane: { base: [38, 104, 214], tone: [8, 12, 16], grain: '160,210,255', seam: 'rgba(8,30,80,.45)', approach: 'rgba(200,230,255,.12)', arrow: ['#ffffff', '#6fe3ff'], dot: '#bfefff', glow: 0.32, rough: 0.22 },
+      gutter: 0x1c2a4a, cap: 0x0e1a38, kick: 0x0a1430, floor: ['#070c22', ['#3ff1ff', '#ff4fd8', '#b7ff4a', '#ffffff']],
+      wall: ['#0c1a44', '#040817'], ceil: 0x050a1a, beam: 0x0b1530, strip: 0x9fdcff, neon: [0x3ff1ff, 0xff4fd8], env: [0xcfe8ff, 0x6fb6ff, 0x3ff1ff],
+      hood: 0x1e5bd6, show: 'comet'
+    },
+    tiki: {
+      name: 'Tiki Cove', title: 'TIKI COVE', bg: '#1d1210', fog: [28, 54],
+      hemi: [0xffe2b8, 0x2a1a10, 0.95], key: [0xffe0b0, 1.4], wash: [0xffb870, 1.6], deck: [0xfff0d8, 3.2],
+      lane: { base: [214, 152, 86], tone: [12, 10, 8], grain: '120,64,25', seam: 'rgba(90,50,20,.4)', approach: 'rgba(255,235,200,.16)', arrow: ['#0b5f5c', '#1fb6a6'], dot: '#3a2418', glow: 0, rough: 0.32 },
+      gutter: 0x4a3a2c, cap: 0x3a2618, kick: 0x2c1c12, floor: ['#1f3a36', ['#ffb347', '#ff6f61', '#3fd0c0', '#ffe28a']],
+      wall: ['#5a2e1a', '#22120a'], ceil: 0x1a100a, beam: 0x3a2414, strip: 0xffd8a0, neon: [0xff8a3d, 0x2fe0c8], env: [0xffe2b0, 0xffb060, 0x2fe0c8],
+      hood: 0x0f8a7e, show: 'tiki'
+    },
+    neon: {
+      name: 'Midnight Neon', title: 'MIDNIGHT NEON', bg: '#07050c', fog: [24, 48],
+      hemi: [0xd8c8ff, 0x0c0816, 0.6], key: [0xece0ff, 0.95], wash: [0xff6ad8, 1.1], deck: [0xfff4ff, 3.0],
+      lane: { base: [34, 30, 46], tone: [6, 5, 8], grain: '150,120,220', seam: 'rgba(0,0,0,.5)', approach: 'rgba(255,255,255,.05)', arrow: ['#ff2fa8', '#ff8ad6'], dot: '#4dff9a', glow: 0.45, rough: 0.16 },
+      gutter: 0x15121e, cap: 0x0c0a12, kick: 0x0a0810, floor: ['#08060e', ['#ff2fa8', '#4dff9a', '#3fb8ff', '#ffe14d']],
+      wall: ['#1a0a2a', '#05030a'], ceil: 0x05030a, beam: 0x0e0818, strip: 0xff8ad6, neon: [0xff2fa8, 0x4dff9a], env: [0xffd0f0, 0x9a3a8a, 0xff4fb8],
+      hood: 0x2a2440, show: 'neon'
+    }
+  };
+  var ORDER = ['starlight', 'comet', 'tiki', 'neon'];
+
+  function build(T, canvas, BW, alleyId) {
+    var R = null;
+    function seed(s) { R = (function (v) { return function () { v = (v * 16807) % 2147483647; return (v - 1) / 2147483646; }; })(s); }
     function rnd(a, b) { return a + (b - a) * R(); }
-    function tex(w, h, draw, srgb) { var c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h); var t = new T.CanvasTexture(c); if (srgb !== false) t.colorSpace = T.SRGBColorSpace; t.anisotropy = 8; return t; }
+    function canvasOf(w, h) { var c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+    function tex(w, h, draw, srgb) { var c = canvasOf(w, h); draw(c.getContext('2d'), w, h); var t = new T.CanvasTexture(c); if (srgb !== false) t.colorSpace = T.SRGBColorSpace; t.anisotropy = 8; return t; }
     var HALF = BW.HALF, GUT = BW.GUT, HEAD = BW.HEAD, DECK = BW.DECK_END, PIT = BW.PIT_END, LW = BW.LANEW;
     var Z0 = -4.5;                        // the approach starts 4.5 m behind the foul line
     var PITCH = LW + 2 * GUT + 0.16;      // lane to lane
+    var SIDE = 3;                         // neighbouring lanes on each side
+    var ROOMW = (2 * SIDE + 1) * PITCH + 1.4, WALLX = ROOMW / 2, CEIL = 3.4, BACKZ = PIT + 0.3, FRONTZ = -7;
+    var SCR_Y0 = 1.24, SCR_H = 0.76;      // the masking unit's screen over each lane's pins (bottom edge, height)
 
-    // ---------------- renderer, camera, lights ----------------
+    // ---------------- renderer, camera ----------------
     var renderer = new T.WebGLRenderer({ canvas: canvas, antialias: true, powerPreference: 'high-performance' });
     renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
     renderer.toneMapping = T.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.08;
-    var scene = new T.Scene(), BG = new T.Color('#120e1c');
-    scene.background = BG; scene.fog = new T.Fog(BG, 26, 48);
-    var camera = new T.PerspectiveCamera(32, 1, 0.05, 80);
-    scene.add(new T.HemisphereLight(0xffe6c8, 0x2a1f30, 0.9));
-    var key = new T.DirectionalLight(0xfff0dc, 1.4); key.position.set(-2, 8, 4); key.target.position.set(0, 0, 12); scene.add(key); scene.add(key.target);
-    // the pin deck's own bright light, and a warm wash down the lane
-    var deckLight = new T.PointLight(0xfff4e0, 3.2, 6, 1.6); deckLight.position.set(0, 1.5, HEAD + 0.3); scene.add(deckLight);
-    [3, 9, 15].forEach(function (z) { var p = new T.PointLight(0xffd9a8, 1.5, 9, 1.8); p.position.set(0, 2.6, z); scene.add(p); });
-    // reflections: a little dark room with bright light strips over the lanes, so the lane, pins and ball shine
-    try {
-      var env = new T.Scene(); env.background = new T.Color('#1a1424');
-      for (var s = -2; s <= 2; s++) { var strip = new T.Mesh(new T.BoxGeometry(0.25, 0.05, 30), new T.MeshBasicMaterial({ color: s === 0 ? 0xfff2dc : 0xffc98a })); strip.position.set(s * 1.6, 3, 0); env.add(strip); }
-      var glow = new T.Mesh(new T.BoxGeometry(4, 1.2, 0.1), new T.MeshBasicMaterial({ color: 0xff7ad9 })); glow.position.set(0, 1.4, 12); env.add(glow);
-      var pm = new T.PMREMGenerator(renderer); scene.environment = pm.fromScene(env, 0.03).texture; pm.dispose();
-      if ('environmentIntensity' in scene) scene.environmentIntensity = 0.6;
-    } catch (e) { /* reflections are only a nicety */ }
+    var scene = new T.Scene();
+    var camera = new T.PerspectiveCamera(32, 1, 0.05, 90);
 
-    // ---------------- the lane ----------------
-    // one texture for the whole length: 39 maple boards (a darker pine section on the pin deck and the first meters),
-    // the foul line, approach dots, the dots at 7 ft and the arrows at 15 ft, and the ten pin spots
-    var LEN = DECK - Z0, PXM = 120, TW = 160, TH = Math.round(LEN * PXM);
-    function zpx(z) { return TH - (z - Z0) * PXM; }      // texture y for a lane z (texture top = far end)
-    // (the world is drawn mirrored in x: the camera looks down +z, where the screen's right is -x; so a lane x of +1,
-    // the bowler's right, is drawn at -1. The texture's u runs along the world's +x.)
-    function xpx(x) { return (-x / LW + 0.5) * TW; }
-    var laneTex = tex(TW, TH, function (x) {
-      for (var b = 0; b < 39; b++) {
-        var x0 = b * TW / 39, x1 = (b + 1) * TW / 39, tone = rnd(-1, 1);
-        x.fillStyle = 'rgb(' + Math.round(222 + tone * 10) + ',' + Math.round(176 + tone * 9) + ',' + Math.round(120 + tone * 8) + ')'; x.fillRect(x0, 0, x1 - x0, TH);
-        // grain: long faint streaks
-        for (var g = 0; g < 40; g++) { x.fillStyle = 'rgba(150,95,45,' + rnd(0.04, 0.12).toFixed(2) + ')'; x.fillRect(x0 + rnd(0, x1 - x0 - 1), rnd(0, TH), 1, rnd(20, 160)); }
-        x.fillStyle = 'rgba(110,70,35,.35)'; x.fillRect(x1 - 0.6, 0, 0.6, TH);
-      }
-      // the pine sections are a shade darker: the pin deck and the head (first 4.6 m past the foul line)
-      x.fillStyle = 'rgba(160,90,40,.10)'; x.fillRect(0, zpx(DECK), TW, zpx(HEAD - 0.4) - zpx(DECK)); x.fillRect(0, zpx(4.6), TW, zpx(0) - zpx(4.6));
-      // the approach (behind the foul line) is paler
-      x.fillStyle = 'rgba(255,240,220,.18)'; x.fillRect(0, zpx(0), TW, TH - zpx(0));
-      // foul line
-      x.fillStyle = '#1c1420'; x.fillRect(0, zpx(0) - 3, TW, 6);
-      var bx = function (board) { return (board - 0.5) * TW / 39; };   // board 1 is on the bowler's right (world -x)
-      // approach dots and the dots 7 ft out
-      [3, 5, 8, 11, 14, 20, 26, 29, 32, 35, 37].forEach(function (bd) { [[-0.15], [-1.8], [-3.7]].forEach(function (z) { x.fillStyle = '#3a2418'; x.beginPath(); x.arc(bx(bd), zpx(z[0]), 2.4, 0, 7); x.fill(); }); });
-      [3, 5, 8, 11, 14, 26, 29, 32, 35, 37].forEach(function (bd) { x.fillStyle = '#3a2418'; x.beginPath(); x.arc(bx(bd), zpx(2.13), 2.2, 0, 7); x.fill(); });
-      // the seven arrows (their tips on boards 5 10 15 20 25 30 35, the middle one furthest out)
-      [5, 10, 15, 20, 25, 30, 35].forEach(function (bd) {
-        var tip = 4.57 + (20 - Math.abs(bd - 20)) * 0.0254 * 1.2, cx = bx(bd), ty = zpx(tip);
-        x.fillStyle = '#7a1f1f'; x.beginPath(); x.moveTo(cx, ty); x.lineTo(cx + 3.2, ty + 26); x.lineTo(cx - 3.2, ty + 26); x.closePath(); x.fill();
-        x.fillStyle = '#c23a2e'; x.beginPath(); x.moveTo(cx, ty + 3); x.lineTo(cx + 1.8, ty + 22); x.lineTo(cx - 1.8, ty + 22); x.closePath(); x.fill();
-      });
-      // pin spots
-      for (var n = 1; n <= 10; n++) { var sp = BW.SPOTS[n]; x.fillStyle = 'rgba(60,30,20,.55)'; x.beginPath(); x.arc(xpx(sp.x), zpx(sp.z), 3, 0, 7); x.fill(); }
-    });
-    var laneMat = new T.MeshStandardMaterial({ map: laneTex, roughness: 0.3, metalness: 0.0 });
-    function addLane(xc, main) {
-      var g = new T.PlaneGeometry(LW, LEN); g.rotateX(-Math.PI / 2);
-      var m = new T.Mesh(g, laneMat); m.position.set(xc, 0, Z0 + LEN / 2); scene.add(m);
-      // gutters: half pipes along both sides, past the pin deck into the pit
-      [-1, 1].forEach(function (sd) {
-        var gg = new T.CylinderGeometry(GUT / 2, GUT / 2, PIT - Z0 + 0.5, 20, 1, true, -Math.PI / 2, Math.PI); gg.rotateX(Math.PI / 2);   // the lower half: a trough
-        var gm = new T.Mesh(gg, gutterMat); gm.position.set(xc + sd * (HALF + GUT / 2), 0.02, Z0 + (PIT - Z0 + 0.5) / 2); gm.rotation.z = 0; scene.add(gm);
-      });
-      // capping between lanes, and the kickbacks beside the pin deck
-      [-1, 1].forEach(function (sd) {
-        var cap = new T.Mesh(new T.BoxGeometry(0.16, 0.06, HEAD - 1 - Z0), capMat); cap.position.set(xc + sd * (HALF + GUT + 0.08), 0.03, Z0 + (HEAD - 1 - Z0) / 2); scene.add(cap);
-        var kb = new T.Mesh(new T.BoxGeometry(0.08, 0.9, PIT - HEAD + 1.6), kickMat); kb.position.set(xc + sd * (HALF + GUT + 0.04), 0.45, HEAD - 1 + (PIT - HEAD + 1.6) / 2); scene.add(kb);
-      });
-      // the pit and its dark curtain
-      var pit = new T.Mesh(new T.BoxGeometry(LW + 2 * GUT, 0.05, PIT - DECK), pitMat); pit.position.set(xc, -0.42, (DECK + PIT) / 2); scene.add(pit);
-      var cur = new T.Mesh(new T.PlaneGeometry(LW + 2 * GUT, 1.6), curtainMat); cur.position.set(xc, 0.4, PIT + 0.05); cur.rotation.y = Math.PI; scene.add(cur);
-      // the lane's masking panel over the pins
-      var mk = new T.Mesh(new T.PlaneGeometry(PITCH, PITCH * 280 / 1024), main ? maskMat : maskMat2); mk.position.set(xc, 1.52, HEAD + 0.15); mk.rotation.y = Math.PI; scene.add(mk);
-    }
-    var gutterMat = new T.MeshStandardMaterial({ color: 0x3a3d48, roughness: 0.35, metalness: 0.6, side: T.DoubleSide });
-    var capMat = new T.MeshStandardMaterial({ color: 0x2b2233, roughness: 0.5 });
-    var kickMat = new T.MeshStandardMaterial({ color: 0x241a2c, roughness: 0.6 });
-    var pitMat = new T.MeshStandardMaterial({ color: 0x0a0810, roughness: 1 });
-    var curtainMat = new T.MeshStandardMaterial({ color: 0x0c0a14, roughness: 1 });
-    function maskTex(num, title) {
-      return tex(1024, 280, function (x, w, h) {
-        var g = x.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#2a1240'); g.addColorStop(1, '#120a24'); x.fillStyle = g; x.fillRect(0, 0, w, h);
-        for (var i = 0; i < 70; i++) { x.fillStyle = 'rgba(255,255,255,' + rnd(0.2, 0.8).toFixed(2) + ')'; x.beginPath(); x.arc(rnd(0, w), rnd(0, h), rnd(0.8, 2.4), 0, 7); x.fill(); }
-        // a ringed planet and a shooting star (original artwork)
-        x.strokeStyle = '#ffb347'; x.lineWidth = 6; x.beginPath(); x.ellipse(110, 140, 70, 18, -0.3, 0, 7); x.stroke();
-        x.fillStyle = '#ff7a59'; x.beginPath(); x.arc(110, 140, 42, 0, 7); x.fill();
-        x.strokeStyle = 'rgba(120,230,255,.9)'; x.lineWidth = 5; x.beginPath(); x.moveTo(820, 70); x.lineTo(960, 30); x.stroke();
-        x.fillStyle = '#bff3ff'; x.beginPath(); x.arc(820, 70, 9, 0, 7); x.fill();
-        x.textAlign = 'center'; x.textBaseline = 'middle';
-        x.font = '900 104px Georgia, serif'; x.shadowColor = '#ff4fd8'; x.shadowBlur = 24; x.fillStyle = '#ffe9fb'; x.fillText(title, 540, 128);
-        x.shadowBlur = 0; x.font = '800 40px sans-serif'; x.fillStyle = '#8fe9ff'; x.fillText('LANE ' + num, 540, 224);
-      });
-    }
-    var maskMat = new T.MeshBasicMaterial({ map: maskTex(7, 'STRIKE ALLEY'), toneMapped: false });
-    var maskMat2 = new T.MeshBasicMaterial({ map: maskTex(8, 'STRIKE ALLEY'), toneMapped: false, color: 0x9a90a8 });
-    addLane(0, true);
-    [-1, 1].forEach(function (sd) { addLane(sd * PITCH, false); });
-    // the floor beyond the lanes, side walls far off, a row of ceiling lights
-    var floor = new T.Mesh(new T.PlaneGeometry(14, 60), new T.MeshStandardMaterial({ color: 0x1b1522, roughness: 0.9 })); floor.rotation.x = -Math.PI / 2; floor.position.set(0, -0.02, 18); scene.add(floor);
-    // the ball return hood beside the approach (between this lane and the left one)
-    var hood = new T.Mesh(new T.CapsuleGeometry ? new T.CapsuleGeometry(0.22, 0.6, 6, 12) : new T.SphereGeometry(0.3, 16, 12), new T.MeshStandardMaterial({ color: 0x5a2d82, roughness: 0.3, metalness: 0.2 }));
-    hood.rotation.x = Math.PI / 2; hood.position.set(-PITCH / 2, 0.25, -2.4); scene.add(hood);
-
-    // ---------------- pins ----------------
+    // ---------------- pins (the same in every alley) ----------------
     // the outline (inches up, inches across) from the regulation pin, turned on a lathe; stripe edges added as extra
     // rings so the two red bands are crisp
     var PROF = [[0, 0], [0, 2.03], [0.3, 2.4], [0.75, 2.83], [1.5, 3.4], [2.25, 3.91], [3.375, 4.51], [4.5, 4.77], [5.6, 4.6], [6.6, 4.2], [7.5, 3.6], [8.4, 2.85], [9.1, 2.2],
@@ -698,10 +665,15 @@ var BWScene = (function () {
       pinGeo.computeVertexNormals();
     })();
     var pinMat = new T.MeshStandardMaterial({ vertexColors: true, roughness: 0.18, metalness: 0.0 });
-    // the neighbouring lanes' racks (still life)
-    [-1, 1].forEach(function (sd) { for (var n = 1; n <= 10; n++) { var m = new T.Mesh(pinGeo, pinMat); m.position.set(sd * PITCH + BW.SPOTS[n].x, BW.PIN_COM, BW.SPOTS[n].z); scene.add(m); } });
+    // the neighbouring lanes' racks (still life, one instanced mesh)
+    (function () {
+      var n = 0, im = new T.InstancedMesh(pinGeo, pinMat, SIDE * 2 * 10), m4 = new T.Matrix4();
+      for (var s = -SIDE; s <= SIDE; s++) { if (!s) continue; for (var k = 1; k <= 10; k++) { m4.makeTranslation(s * PITCH + BW.SPOTS[k].x, BW.PIN_COM, BW.SPOTS[k].z); im.setMatrixAt(n++, m4); } }
+      im.instanceMatrix.needsUpdate = true; scene.add(im);
+    })();
+    seed(20261001);
     // soft round shadows (cheap, and they look right on a glossy lane)
-    var blobTex = tex(64, 64, function (x, w, h) { var g = x.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, 'rgba(0,0,0,.55)'); g.addColorStop(0.6, 'rgba(0,0,0,.25)'); g.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = g; x.fillRect(0, 0, w, h); }, false);
+    var blobTex = tex(64, 64, function (x) { var g = x.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, 'rgba(0,0,0,.55)'); g.addColorStop(0.6, 'rgba(0,0,0,.25)'); g.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = g; x.fillRect(0, 0, 64, 64); }, false);
     var blobMat = new T.MeshBasicMaterial({ map: blobTex, transparent: true, depthWrite: false });
     function blob(size) { var g = new T.PlaneGeometry(size, size); g.rotateX(-Math.PI / 2); var m = new T.Mesh(g, blobMat.clone()); m.renderOrder = 1; scene.add(m); return m; }
     var pins = {};
@@ -711,6 +683,7 @@ var BWScene = (function () {
     }
     // ---------------- the ball ----------------
     function ballTex(color) {
+      seed(7);
       return tex(512, 256, function (x, w, h) {
         var base = new T.Color(color), hsl = {}; base.getHSL(hsl);
         x.fillStyle = color; x.fillRect(0, 0, w, h);
@@ -741,7 +714,306 @@ var BWScene = (function () {
       trailGeo.attributes.position.needsUpdate = true; trailGeo.setDrawRange(0, n);
     }
 
-    // ---------------- updates from the app ----------------
+    // ================= the alley (everything that changes with the theme) =================
+    var room = null, A = null, screens = [], mainScreen = null, showEvt = null;
+    function hexCss(n) { return '#' + ('000000' + n.toString(16)).slice(-6); }
+    function add(m) { room.add(m); return m; }
+    function box(w, h, d, mat, x, y, z) { var m = new T.Mesh(new T.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); return add(m); }
+    function std(color, rough, extra) { var o = { color: color, roughness: rough == null ? 0.6 : rough }; for (var k in extra || {}) o[k] = extra[k]; return new T.MeshStandardMaterial(o); }
+    function glowMat(color) { return new T.MeshBasicMaterial({ color: color, toneMapped: false }); }
+    // (the world is drawn mirrored in x: the camera looks down +z, where the screen's right is -x; so a lane x of +1,
+    // the bowler's right, is drawn at -1. Flat pictures face the camera by turning half a turn about y.)
+    function facing(m) { m.rotation.y = Math.PI; return m; }
+
+    // ---------------- the lane texture ----------------
+    // one texture for the whole length: 39 boards (a shade darker on the pin deck and the first meters), the foul line,
+    // approach dots, the dots at 7 ft and the arrows at 15 ft, and the ten pin spots
+    var LEN = DECK - Z0, PXM = 120, TW = 160, TH = Math.round(LEN * PXM);
+    function zpx(z) { return TH - (z - Z0) * PXM; }      // texture y for a lane z (texture top = far end)
+    function xpx(x) { return (-x / LW + 0.5) * TW; }
+    function laneTex(L) {
+      seed(20261001);
+      return tex(TW, TH, function (x) {
+        for (var b = 0; b < 39; b++) {
+          var x0 = b * TW / 39, x1 = (b + 1) * TW / 39, tone = rnd(-1, 1);
+          x.fillStyle = 'rgb(' + Math.round(L.base[0] + tone * L.tone[0]) + ',' + Math.round(L.base[1] + tone * L.tone[1]) + ',' + Math.round(L.base[2] + tone * L.tone[2]) + ')'; x.fillRect(x0, 0, x1 - x0, TH);
+          // grain: long faint streaks
+          for (var g = 0; g < 40; g++) { x.fillStyle = 'rgba(' + L.grain + ',' + rnd(0.04, 0.12).toFixed(2) + ')'; x.fillRect(x0 + rnd(0, x1 - x0 - 1), rnd(0, TH), 1, rnd(20, 160)); }
+          x.fillStyle = L.seam; x.fillRect(x1 - 0.6, 0, 0.6, TH);
+        }
+        x.fillStyle = 'rgba(0,0,0,.08)'; x.fillRect(0, zpx(DECK), TW, zpx(HEAD - 0.4) - zpx(DECK)); x.fillRect(0, zpx(4.6), TW, zpx(0) - zpx(4.6));
+        x.fillStyle = L.approach; x.fillRect(0, zpx(0), TW, TH - zpx(0));
+        x.fillStyle = L.glow ? L.arrow[1] : '#1c1420'; x.fillRect(0, zpx(0) - 3, TW, 6);       // foul line
+        var bx = function (board) { return (board - 0.5) * TW / 39; };
+        [3, 5, 8, 11, 14, 20, 26, 29, 32, 35, 37].forEach(function (bd) { [-0.15, -1.8, -3.7].forEach(function (z) { x.fillStyle = L.dot; x.beginPath(); x.arc(bx(bd), zpx(z), 2.4, 0, 7); x.fill(); }); });
+        [3, 5, 8, 11, 14, 26, 29, 32, 35, 37].forEach(function (bd) { x.fillStyle = L.dot; x.beginPath(); x.arc(bx(bd), zpx(2.13), 2.2, 0, 7); x.fill(); });
+        [5, 10, 15, 20, 25, 30, 35].forEach(function (bd) {
+          var tip = 4.57 + (20 - Math.abs(bd - 20)) * 0.0254 * 1.2, cx = bx(bd), ty = zpx(tip);
+          x.fillStyle = L.arrow[0]; x.beginPath(); x.moveTo(cx, ty); x.lineTo(cx + 3.2, ty + 26); x.lineTo(cx - 3.2, ty + 26); x.closePath(); x.fill();
+          x.fillStyle = L.arrow[1]; x.beginPath(); x.moveTo(cx, ty + 3); x.lineTo(cx + 1.8, ty + 22); x.lineTo(cx - 1.8, ty + 22); x.closePath(); x.fill();
+        });
+        for (var n = 1; n <= 10; n++) { var sp = BW.SPOTS[n]; x.fillStyle = L.glow ? L.dot : 'rgba(60,30,20,.55)'; x.beginPath(); x.arc(xpx(sp.x), zpx(sp.z), 3, 0, 7); x.fill(); }
+      });
+    }
+
+    // ---------------- big pictures: the back wall's mural, the side walls, the carpet ----------------
+    function muralTex(id) {
+      seed(31 + ORDER.indexOf(id));
+      return tex(2048, 300, function (x, w, h) {
+        var g;
+        if (id === 'tiki') {
+          g = x.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#3b1d4a'); g.addColorStop(0.45, '#ff7a45'); g.addColorStop(0.75, '#ffc35c'); g.addColorStop(0.76, '#1f6f7a'); g.addColorStop(1, '#0d3a44'); x.fillStyle = g; x.fillRect(0, 0, w, h);
+          x.fillStyle = 'rgba(255,230,140,.95)'; x.beginPath(); x.arc(w * 0.5, h * 0.74, 70, Math.PI, 0); x.fill();
+          for (var i = 0; i < 14; i++) { x.fillStyle = 'rgba(255,220,150,' + rnd(0.2, 0.5).toFixed(2) + ')'; x.fillRect(w * 0.5 - rnd(20, 120), h * 0.78 + i * 5, rnd(40, 240), 2); }
+          [[120, 1], [330, -1], [1710, 1], [1930, -1]].forEach(function (p) { palm(x, p[0], h, p[1], '#1a0f12'); });
+          bigText(x, 'TIKI COVE', w * 0.5, h * 0.36, 118, '#ffe9b0', '#ff5a1f');
+        } else if (id === 'neon') {
+          g = x.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#05010c'); g.addColorStop(0.6, '#2a0838'); g.addColorStop(0.61, '#09030f'); g.addColorStop(1, '#05020a'); x.fillStyle = g; x.fillRect(0, 0, w, h);
+          var sg = x.createLinearGradient(0, h * 0.2, 0, h * 0.6); sg.addColorStop(0, '#ffe14d'); sg.addColorStop(1, '#ff2fa8'); x.fillStyle = sg; x.beginPath(); x.arc(w * 0.5, h * 0.6, 120, Math.PI, 0); x.fill();
+          x.fillStyle = '#2a0838'; for (var s = 0; s < 6; s++) x.fillRect(w * 0.5 - 130, h * 0.6 - 14 - s * 18, 260, 4 + s * 0.8);
+          x.strokeStyle = 'rgba(255,47,168,.75)'; x.lineWidth = 2;
+          for (var gx = -30; gx <= 30; gx++) { x.beginPath(); x.moveTo(w * 0.5 + gx * 10, h * 0.61); x.lineTo(w * 0.5 + gx * 120, h); x.stroke(); }
+          for (var gy = 0; gy < 6; gy++) { var yy = h * 0.61 + Math.pow(gy / 5, 1.8) * h * 0.39; x.beginPath(); x.moveTo(0, yy); x.lineTo(w, yy); x.stroke(); }
+          x.fillStyle = '#12061e'; x.beginPath(); x.moveTo(0, h * 0.61); [[200, 70], [380, 120], [560, 60], [760, 140], [1290, 140], [1480, 60], [1660, 120], [1850, 80], [2048, 130]].forEach(function (p) { x.lineTo(p[0], h * 0.61 - p[1] * 0.5); }); x.lineTo(w, h * 0.61); x.fill();
+          bigText(x, 'MIDNIGHT NEON', w * 0.5, h * 0.3, 104, '#ffe6fb', '#ff2fa8');
+        } else if (id === 'comet') {
+          g = x.createLinearGradient(0, 0, w, 0); g.addColorStop(0, '#040a24'); g.addColorStop(0.5, '#0c1f5a'); g.addColorStop(1, '#040a24'); x.fillStyle = g; x.fillRect(0, 0, w, h);
+          for (var st = 0; st < 260; st++) { x.fillStyle = 'rgba(220,240,255,' + rnd(0.2, 0.95).toFixed(2) + ')'; x.beginPath(); x.arc(rnd(0, w), rnd(0, h), rnd(0.6, 2.2), 0, 7); x.fill(); }
+          // a spiral galaxy and two comets
+          for (var a = 0; a < 900; a++) { var t2 = a / 900 * 9, r2 = t2 * 14, arm = a % 2 ? Math.PI : 0; x.fillStyle = 'rgba(160,210,255,' + (0.5 - t2 / 20).toFixed(2) + ')'; x.beginPath(); x.arc(300 + Math.cos(t2 + arm) * r2 * 1.6 + rnd(-6, 6), 150 + Math.sin(t2 + arm) * r2 * 0.6 + rnd(-4, 4), rnd(0.8, 2.4), 0, 7); x.fill(); }
+          [[1700, 70, 1400, 190], [1540, 230, 1280, 270]].forEach(function (c) { var cg = x.createLinearGradient(c[0], c[1], c[2], c[3]); cg.addColorStop(0, 'rgba(255,255,255,1)'); cg.addColorStop(0.2, 'rgba(110,230,255,.7)'); cg.addColorStop(1, 'rgba(110,230,255,0)'); x.strokeStyle = cg; x.lineWidth = 8; x.lineCap = 'round'; x.beginPath(); x.moveTo(c[0], c[1]); x.lineTo(c[2], c[3]); x.stroke(); x.fillStyle = '#fff'; x.beginPath(); x.arc(c[0], c[1], 9, 0, 7); x.fill(); });
+          bigText(x, 'BLUE COMET', w * 0.5, h * 0.5, 130, '#e8fbff', '#3ff1ff');
+        } else {
+          g = x.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#0c0818'); g.addColorStop(1, '#2a1240'); x.fillStyle = g; x.fillRect(0, 0, w, h);
+          for (var st2 = 0; st2 < 200; st2++) { x.fillStyle = 'rgba(255,255,255,' + rnd(0.2, 0.9).toFixed(2) + ')'; x.beginPath(); x.arc(rnd(0, w), rnd(0, h * 0.7), rnd(0.6, 2), 0, 7); x.fill(); }
+          // a city skyline under the stars, a moon, a ringed planet
+          x.fillStyle = '#fff3cf'; x.beginPath(); x.arc(1760, 90, 46, 0, 7); x.fill(); x.fillStyle = '#0c0818'; x.beginPath(); x.arc(1782, 78, 42, 0, 7); x.fill();
+          x.strokeStyle = '#ffb347'; x.lineWidth = 5; x.beginPath(); x.ellipse(260, 110, 70, 18, -0.3, 0, 7); x.stroke(); x.fillStyle = '#ff7a59'; x.beginPath(); x.arc(260, 110, 40, 0, 7); x.fill();
+          var bx2 = 0; while (bx2 < w) { var bw = rnd(40, 110), bh = rnd(40, 140); x.fillStyle = '#140c24'; x.fillRect(bx2, h - bh, bw, bh); for (var wy = h - bh + 8; wy < h - 6; wy += 14) for (var wx = bx2 + 6; wx < bx2 + bw - 8; wx += 12) if (R() < 0.35) { x.fillStyle = R() < 0.5 ? '#ffd27a' : '#ff9ae6'; x.fillRect(wx, wy, 5, 7); } bx2 += bw + rnd(2, 10); }
+          bigText(x, 'STARLIGHT LANES', w * 0.5, h * 0.38, 104, '#ffe9fb', '#ff4fd8');
+        }
+        // a big pin and ball on both ends, the alley's mascots
+        [[w * 0.2, 1], [w * 0.8, -1]].forEach(function (p) { pinPic(x, p[0], h * 0.55, 0.9); });
+      });
+    }
+    function palm(x, px, h, dir, col) {
+      x.strokeStyle = col; x.lineWidth = 12; x.lineCap = 'round'; x.beginPath(); x.moveTo(px, h); x.quadraticCurveTo(px + dir * 30, h * 0.6, px + dir * 10, h * 0.22); x.stroke();
+      x.fillStyle = col; for (var k = 0; k < 6; k++) { var a = -Math.PI / 2 + (k - 2.5) * 0.55; x.beginPath(); x.ellipse(px + dir * 10 + Math.cos(a) * 52, h * 0.22 + Math.sin(a) * 22 + 14, 60, 11, a, 0, 7); x.fill(); }
+    }
+    function bigText(x, txt, cx, cy, size, fill, glow) {
+      x.textAlign = 'center'; x.textBaseline = 'middle'; x.font = '900 ' + size + 'px Georgia, "Times New Roman", serif';
+      x.shadowColor = glow; x.shadowBlur = 30; x.fillStyle = fill; x.fillText(txt, cx, cy); x.shadowBlur = 12; x.fillText(txt, cx, cy); x.shadowBlur = 0;
+    }
+    function pinPic(x, cx, cy, s) {
+      x.save(); x.translate(cx, cy); x.scale(s, s);
+      x.fillStyle = '#fbf8f2'; x.beginPath(); x.moveTo(0, -95); x.bezierCurveTo(22, -95, 22, -55, 12, -40); x.bezierCurveTo(40, -10, 42, 60, 22, 95); x.lineTo(-22, 95); x.bezierCurveTo(-42, 60, -40, -10, -12, -40); x.bezierCurveTo(-22, -55, -22, -95, 0, -95); x.fill();
+      x.fillStyle = '#d4172b'; x.fillRect(-14, -50, 28, 6); x.fillRect(-15, -40, 30, 6);
+      x.restore();
+    }
+    function wallTex(id, a) {
+      seed(51 + ORDER.indexOf(id));
+      var t = tex(512, 256, function (x, w, h) {
+        var g = x.createLinearGradient(0, 0, 0, h); g.addColorStop(0, a.wall[0]); g.addColorStop(1, a.wall[1]); x.fillStyle = g; x.fillRect(0, 0, w, h);
+        if (id === 'tiki') { for (var i = 0; i < w; i += 28) { x.fillStyle = i % 56 ? '#6a3b20' : '#7c4a28'; x.fillRect(i, h * 0.45, 24, h * 0.55); x.fillStyle = 'rgba(0,0,0,.25)'; for (var k = 0; k < 4; k++) x.fillRect(i, h * 0.45 + 30 + k * 34, 24, 3); } }
+        else if (id === 'neon') { x.strokeStyle = 'rgba(255,47,168,.6)'; x.lineWidth = 3; for (var j = -h; j < w; j += 64) { x.beginPath(); x.moveTo(j, h); x.lineTo(j + h * 0.7, h * 0.3); x.stroke(); } }
+        else { for (var s = 0; s < 40; s++) { x.fillStyle = 'rgba(255,255,255,' + rnd(0.2, 0.8).toFixed(2) + ')'; x.beginPath(); x.arc(rnd(0, w), rnd(0, h * 0.4), rnd(0.8, 2), 0, 7); x.fill(); } }
+        var c0 = hexCss(a.neon[0]); x.fillStyle = c0; x.shadowColor = c0; x.shadowBlur = 14; x.fillRect(0, h * 0.4, w, 5); x.shadowBlur = 0;
+      });
+      t.wrapS = T.RepeatWrapping; t.repeat.set(7, 1); return t;
+    }
+    function carpetTex(a) {
+      seed(77);
+      var t = tex(256, 256, function (x, w, h) {
+        x.fillStyle = a.floor[0]; x.fillRect(0, 0, w, h);
+        for (var i = 0; i < 70; i++) {
+          x.fillStyle = a.floor[1][i % 4]; x.globalAlpha = 0.75; var px = rnd(0, w), py = rnd(0, h), s = rnd(4, 10);
+          if (i % 3 === 0) { x.beginPath(); x.arc(px, py, s * 0.6, 0, 7); x.fill(); }
+          else if (i % 3 === 1) { x.save(); x.translate(px, py); x.rotate(rnd(0, 6)); x.fillRect(-s, -1.5, s * 2, 3); x.restore(); }
+          else { x.beginPath(); x.moveTo(px, py - s); x.lineTo(px + s, py + s); x.lineTo(px - s, py + s); x.closePath(); x.fill(); }
+        }
+        x.globalAlpha = 1;
+      });
+      t.wrapS = t.wrapT = T.RepeatWrapping; t.repeat.set(ROOMW / 2, 14); return t;
+    }
+
+    // ---------------- the screens over the pins (live drawings, "videos") ----------------
+    // each one a small canvas redrawn about 24 times a second; side lanes share one, our lane has its own (it also
+    // plays the strike show). Kept small so the phone isn't kept busy.
+    function makeScreen(w, h, main) {
+      var c = canvasOf(w, h), x = c.getContext('2d'), t = new T.CanvasTexture(c); t.colorSpace = T.SRGBColorSpace;
+      var o = { c: c, x: x, tex: t, w: w, h: h, main: main, stars: [] };
+      for (var i = 0; i < 70; i++) o.stars.push([Math.random() * w, Math.random() * h, Math.random() * 1.8 + 0.5, Math.random()]);
+      return o;
+    }
+    function drawShow(o, s) {
+      var x = o.x, w = o.w, h = o.h, kind = A.show, i, g;
+      x.globalAlpha = 1; x.shadowBlur = 0;
+      if (kind === 'tiki') {
+        g = x.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#47205a'); g.addColorStop(0.55, '#ff8648'); g.addColorStop(0.62, '#ffd06a'); g.addColorStop(0.63, '#1b7b86'); g.addColorStop(1, '#0b3640'); x.fillStyle = g; x.fillRect(0, 0, w, h);
+        var sy = h * 0.6 + Math.sin(s * 0.4) * 4; x.fillStyle = '#ffe7a0'; x.beginPath(); x.arc(w * 0.5, sy, h * 0.2, Math.PI, 0); x.fill();
+        for (i = 0; i < 7; i++) { var yy = h * 0.66 + i * h * 0.05; x.strokeStyle = 'rgba(255,230,170,' + (0.5 - i * 0.06).toFixed(2) + ')'; x.lineWidth = 2; x.beginPath(); for (var px = 0; px <= w; px += 8) x.lineTo(px, yy + Math.sin(px * 0.04 + s * 2 + i) * 2.5); x.stroke(); }
+        [[w * 0.12, 1], [w * 0.88, -1]].forEach(function (p) { x.save(); x.translate(p[0], h); x.rotate(Math.sin(s * 1.3 + p[0]) * 0.04); x.translate(0, -h); palm(x, 0, h * 1.15, p[1], '#1a0f12'); x.restore(); });
+      } else if (kind === 'neon') {
+        x.fillStyle = '#07020e'; x.fillRect(0, 0, w, h);
+        var sg = x.createLinearGradient(0, h * 0.15, 0, h * 0.55); sg.addColorStop(0, '#ffe14d'); sg.addColorStop(1, '#ff2fa8'); x.fillStyle = sg; x.beginPath(); x.arc(w * 0.5, h * 0.55, h * 0.36, Math.PI, 0); x.fill();
+        x.fillStyle = '#07020e'; for (i = 0; i < 5; i++) { var by = h * 0.55 - 6 - i * h * 0.06 + ((s * 12) % (h * 0.06)); x.fillRect(w * 0.3, by, w * 0.4, 2 + i * 0.6); }
+        x.strokeStyle = '#ff2fa8'; x.lineWidth = 1.5; x.shadowColor = '#ff2fa8'; x.shadowBlur = 6;
+        for (i = -14; i <= 14; i++) { x.beginPath(); x.moveTo(w * 0.5 + i * 8, h * 0.56); x.lineTo(w * 0.5 + i * 70, h); x.stroke(); }
+        for (i = 0; i < 6; i++) { var k = ((i + (s * 0.9) % 1) / 6), yy2 = h * 0.56 + Math.pow(k, 2) * h * 0.44; x.beginPath(); x.moveTo(0, yy2); x.lineTo(w, yy2); x.stroke(); }
+        x.shadowBlur = 0;
+        for (i = 0; i < 18; i++) { var bh = (0.3 + 0.7 * Math.abs(Math.sin(s * 3 + i * 0.7) * Math.sin(s * 1.7 + i))) * h * 0.22; x.fillStyle = i % 2 ? '#4dff9a' : '#3fb8ff'; x.fillRect(8 + i * 7, h - 6 - bh, 5, bh); x.fillRect(w - 8 - 5 - i * 7, h - 6 - bh, 5, bh); }
+      } else if (kind === 'comet') {
+        x.fillStyle = '#030716'; x.fillRect(0, 0, w, h);
+        // a star warp: stars streaming out from the middle
+        o.stars.forEach(function (st) {
+          var z = (st[3] + s * 0.18) % 1, sx = w / 2 + (st[0] - w / 2) * (0.2 + z * 2.2), syy = h / 2 + (st[1] - h / 2) * (0.2 + z * 2.2);
+          x.strokeStyle = 'rgba(190,235,255,' + (z * 0.9).toFixed(2) + ')'; x.lineWidth = st[2] * z * 1.6;
+          x.beginPath(); x.moveTo(sx, syy); x.lineTo(w / 2 + (sx - w / 2) * 0.93, h / 2 + (syy - h / 2) * 0.93); x.stroke();
+        });
+        var ct = (s * 0.23) % 1.6, cx = w * (1.15 - ct), cy = h * (0.25 + ct * 0.25);
+        if (ct < 1.4) { var cg = x.createLinearGradient(cx, cy, cx + w * 0.3, cy - h * 0.25); cg.addColorStop(0, 'rgba(255,255,255,.95)'); cg.addColorStop(0.3, 'rgba(63,241,255,.6)'); cg.addColorStop(1, 'rgba(63,241,255,0)'); x.strokeStyle = cg; x.lineWidth = 6; x.lineCap = 'round'; x.beginPath(); x.moveTo(cx, cy); x.lineTo(cx + w * 0.3, cy - h * 0.25); x.stroke(); x.fillStyle = '#fff'; x.beginPath(); x.arc(cx, cy, 5, 0, 7); x.fill(); }
+      } else {
+        g = x.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#2a1240'); g.addColorStop(1, '#120a24'); x.fillStyle = g; x.fillRect(0, 0, w, h);
+        o.stars.forEach(function (st) { var sx = (st[0] - s * 14 * st[2]) % w; if (sx < 0) sx += w; x.fillStyle = 'rgba(255,255,255,' + (0.35 + 0.5 * Math.abs(Math.sin(s * 2 + st[3] * 9))).toFixed(2) + ')'; x.beginPath(); x.arc(sx, st[1], st[2], 0, 7); x.fill(); });
+        var pxp = w * 0.14, pyp = h * 0.5 + Math.sin(s * 0.8) * 6;
+        x.strokeStyle = '#ffb347'; x.lineWidth = 4; x.beginPath(); x.ellipse(pxp, pyp, h * 0.36, h * 0.09, -0.3 + Math.sin(s * 0.5) * 0.05, 0, 7); x.stroke();
+        x.fillStyle = '#ff7a59'; x.beginPath(); x.arc(pxp, pyp, h * 0.2, 0, 7); x.fill();
+        var shoot = (s * 0.35) % 2; if (shoot < 1) { var ssx = w * (0.95 - shoot * 0.6), ssy = h * (0.15 + shoot * 0.3); x.strokeStyle = 'rgba(120,230,255,.9)'; x.lineWidth = 3; x.beginPath(); x.moveTo(ssx, ssy); x.lineTo(ssx + 60, ssy - 30); x.stroke(); x.fillStyle = '#bff3ff'; x.beginPath(); x.arc(ssx, ssy, 4, 0, 7); x.fill(); }
+      }
+      // the alley's name (or the strike show on our lane)
+      var ev = o.main && showEvt && s - showEvt.t0 < showEvt.dur ? showEvt : null;
+      if (ev) { drawEvent(o, s - ev.t0, ev); }
+      else {
+        var pulse = 0.7 + 0.3 * Math.sin(s * 2.2);
+        x.textAlign = 'center'; x.textBaseline = 'middle'; x.font = '900 ' + Math.round(h * 0.3) + 'px Georgia, "Times New Roman", serif';
+        x.shadowColor = hexCss(A.neon[0]); x.shadowBlur = 18 * pulse; x.fillStyle = '#fff4fd'; x.fillText(A.title, w / 2, h * 0.42); x.shadowBlur = 0;
+        if (o.main) { x.font = '800 ' + Math.round(h * 0.13) + 'px -apple-system, system-ui, sans-serif'; x.fillStyle = hexCss(A.neon[1]); x.fillText('LANE 7', w / 2, h * 0.78); }
+      }
+      o.tex.needsUpdate = true;
+    }
+    function drawEvent(o, t, ev) {
+      var x = o.x, w = o.w, h = o.h, k = Math.min(1, t / 0.35), cols = ev.cols;
+      x.fillStyle = 'rgba(0,0,0,' + (0.55 * k).toFixed(2) + ')'; x.fillRect(0, 0, w, h);
+      // bursts of rays and confetti
+      x.save(); x.translate(w / 2, h / 2);
+      for (var i = 0; i < 24; i++) { x.rotate(Math.PI * 2 / 24); x.fillStyle = cols[i % cols.length]; x.globalAlpha = 0.35; x.beginPath(); x.moveTo(0, 0); x.lineTo(w, -12 - 10 * Math.sin(t * 8 + i)); x.lineTo(w, 12); x.fill(); }
+      x.restore(); x.globalAlpha = 1;
+      for (var c = 0; c < 40; c++) { var a = c * 2.4, r = t * (120 + (c % 7) * 30); x.fillStyle = cols[c % cols.length]; x.fillRect(w / 2 + Math.cos(a) * r * 1.6, h / 2 + Math.sin(a) * r * 0.6 + t * t * 30, 5, 5); }
+      var sc = ev.big ? 0.42 : 0.3, bounce = 1 + 0.25 * Math.max(0, 1 - t * 3) * Math.sin(t * 30);
+      x.textAlign = 'center'; x.textBaseline = 'middle'; x.font = '900 ' + Math.round(h * sc * bounce) + 'px Georgia, "Times New Roman", serif';
+      x.shadowColor = cols[Math.floor(t * 8) % cols.length]; x.shadowBlur = 24; x.fillStyle = '#ffffff'; x.fillText(ev.text, w / 2, h * 0.47); x.shadowBlur = 0;
+      if (ev.sub) { x.font = '800 ' + Math.round(h * 0.12) + 'px -apple-system, system-ui, sans-serif'; x.fillStyle = cols[1]; x.fillText(ev.sub, w / 2, h * 0.82); }
+    }
+    var clockT0 = performance.now(), lastShow = 0;
+    function event(kind, text, sub) {
+      var big = kind === 'strike';
+      if (kind !== 'strike' && kind !== 'spare') return;
+      showEvt = { t0: (performance.now() - clockT0) / 1000, dur: big ? 2.8 : 2.0, text: text, sub: sub || '', big: big,
+        cols: big ? ['#ffe14d', '#ff4fd8', '#5ce1ff', '#ff7a45', '#4dff9a'] : ['#5ce1ff', '#ffffff', '#8a6cff'] };
+    }
+    function updateScreens(force) {
+      var now = performance.now(); if (!force && now - lastShow < 40) return; lastShow = now;
+      var s = (now - clockT0) / 1000;
+      screens.forEach(function (o) { drawShow(o, s); });
+    }
+
+    // ---------------- build the room ----------------
+    function buildAlley(id) {
+      A = ALLEYS[id] || ALLEYS.starlight;
+      if (room) { scene.remove(room); room.traverse(function (o) { if (o.geometry && o.geometry !== pinGeo) o.geometry.dispose(); if (o.material) [].concat(o.material).forEach(function (m) { if (m.map) m.map.dispose(); if (m.emissiveMap && m.emissiveMap !== m.map) m.emissiveMap.dispose(); m.dispose(); }); }); }
+      if (scene.environment) { scene.environment.dispose(); scene.environment = null; }
+      room = new T.Group(); scene.add(room); screens = [];
+      var BG = new T.Color(A.bg); scene.background = BG; scene.fog = new T.Fog(BG, A.fog[0], A.fog[1]);
+      // lights
+      add(new T.HemisphereLight(A.hemi[0], A.hemi[1], A.hemi[2]));
+      var key = new T.DirectionalLight(A.key[0], A.key[1]); key.position.set(-2, 8, 4); key.target.position.set(0, 0, 12); add(key); add(key.target);
+      var deckLight = new T.PointLight(A.deck[0], A.deck[1], 6, 1.6); deckLight.position.set(0, 1.5, HEAD + 0.3); add(deckLight);
+      [3, 9, 15].forEach(function (z) { var p = new T.PointLight(A.wash[0], A.wash[1], 9, 1.8); p.position.set(0, 2.6, z); add(p); });
+      var neonL = new T.PointLight(A.neon[0], 2.2, 9, 1.6); neonL.position.set(0, 2.6, PIT - 0.5); add(neonL);
+      // reflections: a little dark room with bright light strips over the lanes, so the lane, pins and ball shine
+      try {
+        var env = new T.Scene(); env.background = new T.Color(A.bg);
+        for (var s2 = -2; s2 <= 2; s2++) { var strip = new T.Mesh(new T.BoxGeometry(0.25, 0.05, 30), new T.MeshBasicMaterial({ color: s2 === 0 ? A.env[0] : A.env[1] })); strip.position.set(s2 * 1.6, 3, 0); env.add(strip); }
+        var gl = new T.Mesh(new T.BoxGeometry(4, 1.2, 0.1), new T.MeshBasicMaterial({ color: A.env[2] })); gl.position.set(0, 1.4, 12); env.add(gl);
+        var pm = new T.PMREMGenerator(renderer); scene.environment = pm.fromScene(env, 0.03).texture; pm.dispose();
+        env.traverse(function (o) { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
+        if ('environmentIntensity' in scene) scene.environmentIntensity = 0.6;
+      } catch (e) { /* reflections are only a nicety */ }
+
+      // the lanes
+      var lt = laneTex(A.lane);
+      var laneMat = std(0xffffff, A.lane.rough, { map: lt });
+      if (A.lane.glow) { laneMat.emissive = new T.Color(0xffffff); laneMat.emissiveMap = lt; laneMat.emissiveIntensity = A.lane.glow; }
+      var gutterMat = std(A.gutter, 0.35, { metalness: 0.6, side: T.DoubleSide });
+      var capMat = std(A.cap, 0.5), kickMat = std(A.kick, 0.6), pitMat = std(0x0a0810, 1), curtainMat = std(0x07060c, 1);
+      var neonA = glowMat(A.neon[0]), neonB = glowMat(A.neon[1]);
+      var mainScr = makeScreen(512, 176, true), sideScr = makeScreen(384, 132, false);
+      screens.push(mainScr, sideScr); mainScreen = mainScr;
+      var mainScrMat = new T.MeshBasicMaterial({ map: mainScr.tex, toneMapped: false }), sideScrMat = new T.MeshBasicMaterial({ map: sideScr.tex, toneMapped: false, color: 0xb8b0c8 });
+      var fasciaMat = std(A.kick, 0.5);
+      for (var li = -SIDE; li <= SIDE; li++) {
+        var xc = li * PITCH, main = li === 0;
+        var g = new T.PlaneGeometry(LW, LEN); g.rotateX(-Math.PI / 2);
+        var m = new T.Mesh(g, laneMat); m.position.set(xc, 0, Z0 + LEN / 2); add(m);
+        // gutters: half pipes along both sides, past the pin deck into the pit
+        [-1, 1].forEach(function (sd) {
+          var gg = new T.CylinderGeometry(GUT / 2, GUT / 2, PIT - Z0 + 0.5, 20, 1, true, -Math.PI / 2, Math.PI); gg.rotateX(Math.PI / 2);
+          var gm = new T.Mesh(gg, gutterMat); gm.position.set(xc + sd * (HALF + GUT / 2), 0.02, Z0 + (PIT - Z0 + 0.5) / 2); add(gm);
+          box(0.16, 0.06, HEAD - 1 - Z0, capMat, xc + sd * (HALF + GUT + 0.08), 0.03, Z0 + (HEAD - 1 - Z0) / 2);   // capping
+          box(0.08, 0.9, PIT - HEAD + 1.6, kickMat, xc + sd * (HALF + GUT + 0.04), 0.45, HEAD - 1 + (PIT - HEAD + 1.6) / 2);   // kickbacks
+          if (A.lane.glow) box(0.02, 0.012, PIT - Z0, sd < 0 ? neonA : neonB, xc + sd * (HALF + GUT + 0.15), 0.065, Z0 + (PIT - Z0) / 2);   // glowing gutter edges
+        });
+        box(LW + 2 * GUT, 0.05, PIT - DECK, pitMat, xc, -0.42, (DECK + PIT) / 2);
+        var cur = new T.Mesh(new T.PlaneGeometry(LW + 2 * GUT, 1.7), curtainMat); cur.position.set(xc, 0.4, PIT + 0.05); add(facing(cur));
+        // the masking unit over the pins: a screen with its frame and a lane number plate
+        var scr = new T.Mesh(new T.PlaneGeometry(PITCH - 0.1, SCR_H), main ? mainScrMat : sideScrMat); scr.position.set(xc, SCR_Y0 + SCR_H / 2, HEAD + 0.15); add(facing(scr));
+        box(PITCH, 0.06, 0.12, fasciaMat, xc, SCR_Y0 - 0.03, HEAD + 0.2);
+        box(PITCH - 0.1, 0.012, 0.02, li % 2 ? neonB : neonA, xc, SCR_Y0 - 0.065, HEAD + 0.12);
+        var plate = new T.Mesh(new T.PlaneGeometry(0.3, 0.11), new T.MeshBasicMaterial({ map: plateTex(7 - li), toneMapped: false })); plate.position.set(xc, SCR_Y0 + SCR_H + 0.08, HEAD + 0.14); add(facing(plate));
+        box(0.06, SCR_H + 0.26, 0.14, fasciaMat, xc + PITCH / 2, SCR_Y0 + SCR_H / 2 + 0.1, HEAD + 0.2);   // post between screens
+      }
+      box(ROOMW, SCR_H + 0.5, 0.1, fasciaMat, 0, SCR_Y0 + SCR_H / 2 + 0.15, HEAD + 0.3);   // the dark fascia behind the screens
+      // the back wall: the mural, with a neon line along its bottom and top
+      var mural = new T.Mesh(new T.PlaneGeometry(ROOMW, CEIL - 1.95), new T.MeshBasicMaterial({ map: muralTex(id), toneMapped: false, color: 0xd8d8d8 }));
+      mural.position.set(0, 1.95 + (CEIL - 1.95) / 2, BACKZ); add(facing(mural));
+      box(ROOMW, 0.03, 0.03, neonA, 0, 1.96, BACKZ - 0.05); box(ROOMW, 0.03, 0.03, neonB, 0, CEIL - 0.03, BACKZ - 0.05);
+      // the ceiling: dark, with long light strips over the gaps between lanes and beams across
+      var ceil = new T.Mesh(new T.PlaneGeometry(ROOMW, BACKZ - FRONTZ), std(A.ceil, 0.9)); ceil.rotation.x = Math.PI / 2; ceil.position.set(0, CEIL, (BACKZ + FRONTZ) / 2); add(ceil);
+      var stripMat = glowMat(A.strip);
+      for (var sx = -SIDE; sx <= SIDE + 1; sx++) box(0.1, 0.03, BACKZ - FRONTZ - 1, stripMat, (sx - 0.5) * PITCH, CEIL - 0.03, (BACKZ + FRONTZ) / 2);
+      var beamMat = std(A.beam, 0.7);
+      for (var bz = FRONTZ + 2; bz < BACKZ - 1; bz += 3.2) box(ROOMW, 0.22, 0.2, beamMat, 0, CEIL - 0.11, bz);
+      // hanging lamps over our lane and its neighbours (round glowing shades)
+      var lampMat = glowMat(A.neon[1]), cordMat = std(0x111111, 0.8);
+      [-1, 0, 1].forEach(function (lx) { [6, 11].forEach(function (lz) { box(0.01, 0.6, 0.01, cordMat, lx * PITCH * 2, CEIL - 0.3, lz); var sh = new T.Mesh(new T.SphereGeometry(0.12, 16, 10), lampMat); sh.position.set(lx * PITCH * 2, CEIL - 0.66, lz); add(sh); }); });
+      // side walls and the carpet
+      var wt = wallTex(id, A), wm = new T.MeshStandardMaterial({ map: wt, roughness: 0.85 });
+      [-1, 1].forEach(function (sd) { var wl = new T.Mesh(new T.PlaneGeometry(BACKZ - FRONTZ, CEIL), wm); wl.position.set(sd * WALLX, CEIL / 2, (BACKZ + FRONTZ) / 2); wl.rotation.y = sd > 0 ? -Math.PI / 2 : Math.PI / 2; add(wl); });
+      // (carpet only beside the block of lanes: under the lanes it would cut through the gutters)
+      var under = new T.Mesh(new T.PlaneGeometry(ROOMW, BACKZ - FRONTZ), std(0x050408, 1)); under.rotation.x = -Math.PI / 2; under.position.set(0, -0.5, (BACKZ + FRONTZ) / 2); add(under);
+      var edge = (SIDE + 0.5) * PITCH, cw = WALLX - edge, ct = carpetTex(A); ct.repeat.set(cw / 2, 14);
+      [-1, 1].forEach(function (sd) { var fl = new T.Mesh(new T.PlaneGeometry(cw, BACKZ - FRONTZ), new T.MeshStandardMaterial({ map: ct, roughness: 0.95 })); fl.rotation.x = -Math.PI / 2; fl.position.set(sd * (edge + cw / 2), 0.0, (BACKZ + FRONTZ) / 2); add(fl); });
+      // and the approach area behind the lanes
+      var ap = new T.Mesh(new T.PlaneGeometry(2 * edge, Z0 - FRONTZ), new T.MeshStandardMaterial({ map: ct, roughness: 0.95 })); ap.rotation.x = -Math.PI / 2; ap.position.set(0, 0.0, (Z0 + FRONTZ) / 2); add(ap);
+      // ball returns between the lane pairs on the approach, with a few house balls
+      var hoodMat = std(A.hood, 0.3, { metalness: 0.2 });
+      for (var hx = -SIDE; hx <= SIDE; hx += 2) {
+        var x0 = (hx + 0.5) * PITCH;
+        var hood = new T.Mesh(new T.CapsuleGeometry ? new T.CapsuleGeometry(0.22, 0.6, 6, 12) : new T.SphereGeometry(0.3, 16, 12), hoodMat); hood.rotation.x = Math.PI / 2; hood.position.set(x0, 0.25, -2.4); add(hood);
+        box(0.36, 0.08, 1.4, hoodMat, x0, 0.12, -3.4);
+        ['#e0283c', '#2f7cf6', '#f2c230'].forEach(function (c, k) { var bm = new T.Mesh(new T.SphereGeometry(0.108, 20, 14), std(c, 0.1, { metalness: 0.1 })); bm.position.set(x0, 0.27, -3.0 - k * 0.24); add(bm); });
+      }
+      updateScreens(true);
+    }
+    function plateTex(n) {
+      return tex(192, 72, function (x, w, h) {
+        x.fillStyle = '#0a0a12'; x.fillRect(0, 0, w, h); x.textAlign = 'center'; x.textBaseline = 'middle';
+        x.font = '800 44px -apple-system, system-ui, sans-serif'; x.shadowColor = hexCss(A.neon[1]); x.shadowBlur = 10; x.fillStyle = '#ffffff'; x.fillText(String(n), w / 2, h / 2 + 2);
+      });
+    }
+    buildAlley(alleyId);
+
+    // ================= updates from the app =================
     // pins: list of { n, p: {x,y,z}, q: {x,y,z,w}, a (opacity 0..1), s (scale, for the rack dropping in) }
     function setPins(list) {
       var seen = {};
@@ -763,15 +1035,16 @@ var BWScene = (function () {
       ballShadow.position.set(-p.x, 0.003, p.z); ballShadow.material.opacity = Math.max(0, 1 - Math.max(0, p.y - BW.BALLR) * 4);
     }
     function resize(w, h) { renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
-    function render() { renderer.render(scene, camera); }
+    function render() { updateScreens(false); renderer.render(scene, camera); }
     // the camera, in lane coordinates (x mirrored like everything else)
     function look(p, l) { camera.position.set(-p[0], p[1], p[2]); camera.lookAt(-l[0], l[1], l[2]); }
     // where a lane point is on the screen (for the drag-to-move and the aim marks)
     var v3 = new T.Vector3();
     function toScreen(x, y, z, w, h) { v3.set(-x, y, z).project(camera); return { x: (v3.x + 1) / 2 * w, y: (1 - v3.y) / 2 * h }; }
-    return { renderer: renderer, scene: scene, camera: camera, setPins: setPins, setBall: setBall, setBallColor: setBallColor, setTrail: setTrail, resize: resize, render: render, toScreen: toScreen, look: look };
+    return { renderer: renderer, scene: scene, camera: camera, setPins: setPins, setBall: setBall, setBallColor: setBallColor, setTrail: setTrail, resize: resize, render: render, toScreen: toScreen, look: look,
+      setAlley: function (id) { buildAlley(id); }, event: event, alley: function () { return A; } };
   }
-  return { build: build };
+  return { build: build, ALLEYS: ALLEYS, ORDER: ORDER };
 })();
 </script>
 <script src="../../shared/ads.js"></script>
@@ -787,8 +1060,8 @@ var BWScene = (function () {
 
   // ================= storage =================
   var store = Goobs.store('bowling');
-  var settings = { sound: false, adEvery: 2, ball: '#2f7cf6', trail: true, lefty: false };
-  (function () { var s = store.get('settings', {}) || {}; for (var k in settings) if (typeof s[k] === typeof settings[k]) settings[k] = s[k]; settings.adEvery = Math.min(10, Math.max(1, settings.adEvery | 0)); })();
+  var settings = { sound: false, adEvery: 2, ball: '#2f7cf6', trail: true, lefty: false, alley: 'starlight' };   // alley: an id from BWScene.ORDER, or 'mix' (a different one each game)
+  (function () { var s = store.get('settings', {}) || {}; for (var k in settings) if (typeof s[k] === typeof settings[k]) settings[k] = s[k]; settings.adEvery = Math.min(10, Math.max(1, settings.adEvery | 0)); if (settings.alley !== 'mix' && !BWScene.ALLEYS[settings.alley]) settings.alley = 'starlight'; })();
   function saveSettings() { store.set('settings', settings); }
   var meta = store.get('meta', null) || {};
   var MD = { games: 0, best: 0, total: 0, strikes: 0, spares: 0, balls: 0, gutters: 0, streak: 0, perfect: 0, hist: [], seen: false, finished: 0, lastAdAt: 0, throws: 0 };
@@ -811,7 +1084,11 @@ var BWScene = (function () {
   // game: { rolls: pins down per ball, leave: pins left standing for the next ball ([n, x, z, yaw] each) or null for a
   //         full rack, x: where the bowler stands (m from the middle), streak: strikes in a row now }
   var turbo = false, game = null, sim = null, phase = 'load', runT = 0, acc = 0, settleN = 0, hitPlayed = false, gutterPlayed = false, sweep = null, lastV = {};
+  // the alley on show: the chosen one, or with "Mix it up" the next one in turn for each new game (kept in meta)
+  function alleyNow() { return settings.alley === 'mix' ? (BWScene.ALLEYS[meta.mixAlley] ? meta.mixAlley : BWScene.ORDER[0]) : settings.alley; }
+  function nextMix() { var o = BWScene.ORDER, i = o.indexOf(meta.mixAlley); meta.mixAlley = o[(i + 1) % o.length]; saveMeta(); }
   function newGame() {
+    if (settings.alley === 'mix' && SC) { nextMix(); SC.setAlley(alleyNow()); }
     game = { rolls: [], leave: null, x: settings.lefty ? -0.2 : 0.2, streak: 0 };
     store.set('game', game); setupBall();
   }
@@ -864,9 +1141,10 @@ var BWScene = (function () {
       meta.strikes++; game.streak++; meta.streak = Math.max(meta.streak, game.streak);
       html = game.streak >= 3 ? (['', '', '', 'TURKEY!', 'HAMBONE!'][game.streak] || game.streak + ' IN A ROW!') + '<small>' + game.streak + ' strikes in a row</small>' : game.streak === 2 ? 'DOUBLE!' : 'STRIKE!';
       cls = 'strike'; S.strike();
+      SC.event('strike', game.streak >= 3 ? (['', '', '', 'TURKEY!', 'HAMBONE!'][game.streak] || game.streak + ' IN A ROW!') : game.streak === 2 ? 'DOUBLE!' : 'STRIKE!', game.streak >= 2 ? game.streak + ' strikes in a row' : '');
     } else {
       if (full) game.streak = 0;
-      if (!full && stand.length === 0) { meta.spares++; html = 'SPARE!'; cls = 'spare'; S.spare(); }
+      if (!full && stand.length === 0) { meta.spares++; html = 'SPARE!'; cls = 'spare'; S.spare(); SC.event('spare', 'SPARE!'); }
       else if (sim.gutter) { html = 'Gutter ball'; S.miss(); }
       else if (down === 0) { html = 'Missed!'; S.miss(); }
       else html = down + ' pin' + (down === 1 ? '' : 's') + (full && isSplit(stand) ? '<small>Split!</small>' : '');
@@ -1084,6 +1362,7 @@ var BWScene = (function () {
       'Right-handers aim for the <b>pocket</b> between the 1 and 3 pins (just right of the head pin), coming in at an angle. Head-on hits tend to split.',
       '<b>Scoring</b>: ten frames, two balls each. A <b>strike</b> (all ten with the first ball) scores 10 plus your next two balls; a <b>spare</b> (all ten with two) scores 10 plus your next ball. A strike or spare in the tenth earns extra balls. A perfect game is 300.',
       'The arrows on the lane help you aim; Settings → Show my line draws where your last ball went.',
+      '<b>Alleys</b>: Settings → Alley picks where you bowl: Starlight Lanes, Blue Comet (blue lanes), Tiki Cove or Midnight Neon, or Mix it up for a different one each game.',
       'Your game is saved after every ball. Works offline.'
     ].map(function (x) { return '<li>' + x + '</li>'; }).join('');
     $('ovHelp').classList.add('show');
@@ -1091,8 +1370,13 @@ var BWScene = (function () {
   function syncSettings() {
     $('setSound').checked = settings.sound; $('setTrail').checked = settings.trail; $('setLefty').checked = settings.lefty;
     $('setAds').checked = Goobs.adsOn(); $('adEvery').textContent = settings.adEvery; $('rowAdEvery').classList.toggle('off', !Goobs.adsOn());
+    $('alleys').innerHTML = BWScene.ORDER.concat(['mix']).map(function (id) {
+      var a = BWScene.ALLEYS[id], nm = a ? a.name : 'Mix it up', sub = a ? ALLEY_NOTE[id] : 'A different alley each game';
+      return '<button data-a="' + id + '" class="alleybtn ' + id + (settings.alley === id ? ' on' : '') + '"><b>' + nm + '</b><small>' + sub + '</small></button>';
+    }).join('');
     $('swatches').innerHTML = BALLS.map(function (c) { return '<button style="background:' + c + '" data-c="' + c + '" class="' + (c === settings.ball ? 'on' : '') + '" aria-label="Ball color"></button>'; }).join('');
   }
+  var ALLEY_NOTE = { starlight: 'Maple lanes, a starry night', comet: 'Blue lanes under blacklight', tiki: 'Honey wood, a tropical sunset', neon: 'Black lanes, pink and green neon' };
   function confirmNew() {
     if (!game.rolls.length || phase === 'over') { $('ovEnd').classList.remove('show'); newGame(); return; }
     $('endTitle').textContent = 'Start a new game?';
@@ -1132,6 +1416,13 @@ var BWScene = (function () {
     $('setTrail').addEventListener('change', function () { settings.trail = this.checked; saveSettings(); if (!settings.trail && SC) SC.setTrail([]); });
     $('setLefty').addEventListener('change', function () { settings.lefty = this.checked; saveSettings(); if (game && phase === 'aim' && !game.rolls.length) game.x = settings.lefty ? -0.2 : 0.2; });
     $('swatches').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; settings.ball = b.dataset.c; saveSettings(); if (SC) SC.setBallColor(settings.ball); syncSettings(); });
+    $('alleys').addEventListener('click', function (e) {
+      var b = e.target.closest('button'); if (!b) return;
+      settings.alley = b.dataset.a; saveSettings();
+      if (settings.alley === 'mix' && !BWScene.ALLEYS[meta.mixAlley]) { meta.mixAlley = BWScene.ORDER[0]; saveMeta(); }
+      if (SC) SC.setAlley(alleyNow());
+      syncSettings();
+    });
     $('setAds').addEventListener('change', function () { Goobs.setAds(this.checked); syncSettings(); });
     $('adLess').addEventListener('click', function () { settings.adEvery = Math.max(1, settings.adEvery - 1); saveSettings(); syncSettings(); });
     $('adMore').addEventListener('click', function () { settings.adEvery = Math.min(10, settings.adEvery + 1); saveSettings(); syncSettings(); });
@@ -1143,7 +1434,7 @@ var BWScene = (function () {
     Goobs.initUpdates({ beforeReload: function () { saveGame(); saveMeta(); }, onVersions: function (v) { $('version').textContent = 'Strike Alley ' + (v.bowling || '?') + ' · Goobs-Games ' + (v.shell || '?'); } });
     Promise.all([import('../../shared/three.module.min.js'), import('../../shared/cannon-es.min.js')]).then(function (m) {
       T = m[0]; C = m[1]; BW.use(C);
-      SC = BWScene.build(T, cv, BW); SC.setBallColor(settings.ball);
+      SC = BWScene.build(T, cv, BW, alleyNow()); SC.setBallColor(settings.ball);
       layout();
       try { if (!loadGame()) newGame(); else setupBall(); } catch (e) { store.del('game'); newGame(); }
       updateCamera(0, true);
@@ -1157,7 +1448,7 @@ var BWScene = (function () {
 
   // test hook (Playwright and the checks): throw with exact numbers, read the state
   window.__bw = { get game() { return game; }, get sim() { return sim; }, get phase() { return phase; }, throwBall: throwBall, meta: meta, BW: BW,
-    screen: function (x, y, z) { return SC.toScreen(x, y, z, W, H); }, newGame: newGame, turbo: function (v) { turbo = !!v; } };
+    screen: function (x, y, z) { return SC.toScreen(x, y, z, W, H); }, newGame: newGame, setAlley: function (id) { SC.setAlley(id); }, event: function (k, t) { SC.event(k, t); }, turbo: function (v) { turbo = !!v; } };
 })();
 </script>
 </body>
