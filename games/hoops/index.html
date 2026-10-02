@@ -472,27 +472,65 @@ var HPScene = (function () {
     lawnTex.wrapS = lawnTex.wrapT = T.RepeatWrapping;
     // the lawn is four pieces around the deck (so it never covers the pool)
     [[-80, 80, -80, -8], [-80, 80, 8, 80], [-80, -6.5, -8, 8], [6.5, 80, -8, 8]].forEach(function (r) { var t = lawnTex.clone(); t.needsUpdate = true; t.repeat.set((r[1] - r[0]) / 5.3, (r[3] - r[2]) / 5.3); var m = new T.Mesh(new T.PlaneGeometry(r[1] - r[0], r[3] - r[2]), lam({ map: t })); m.rotation.x = -Math.PI / 2; add(m, (r[0] + r[1]) / 2, -0.02, (r[2] + r[3]) / 2); });
-    var fenceM = lam({ color: 0xf4efe4 }), fenceGeo = new T.BoxGeometry(0.12, 1.4, 0.05), cnt = 0, fenceCells = [];
-    function fenceLine(x0, z0, x1, z1) { var n = Math.round(Math.hypot(x1 - x0, z1 - z0) / 0.3); for (var i = 0; i <= n; i++) fenceCells.push([x0 + (x1 - x0) * i / n, z0 + (z1 - z0) * i / n, Math.atan2(x1 - x0, z1 - z0)]); }
-    fenceLine(-9, -10, 9, -10); fenceLine(9, -10, 9, 11); fenceLine(9, 11, -9, 11); fenceLine(-9, 11, -9, -10);
-    var fence = new T.InstancedMesh(fenceGeo, fenceM, fenceCells.length), mtx = new T.Matrix4(), q = new T.Quaternion();
-    fenceCells.forEach(function (c, i) { q.setFromAxisAngle(new T.Vector3(0, 1, 0), c[2] + Math.PI / 2); mtx.compose(new T.Vector3(c[0], 0.7, c[1]), q, new T.Vector3(1, 1, 1)); fence.setMatrixAt(i, mtx); });
+    // a solid wooden privacy fence, about 1.75 m tall (1.2.0, Glenn: "a more solid wood fence a bit taller, and more trees
+    // behind it"): stained boards side by side (one instanced mesh, each board a slightly different shade), two rails
+    // and posts on the inside, a cap along the top
+    var FH = 1.75, boardGeo = new T.BoxGeometry(0.15, FH, 0.03), boards = [], fenceRuns = [[-9, -10, 9, -10], [9, -10, 9, 11], [9, 11, -9, 11], [-9, 11, -9, -10]];
+    fenceRuns.forEach(function (r) { var len = Math.hypot(r[2] - r[0], r[3] - r[1]), n = Math.ceil(len / 0.152); for (var i = 0; i < n; i++) boards.push([r[0] + (r[2] - r[0]) * (i + 0.5) / n, r[1] + (r[3] - r[1]) * (i + 0.5) / n, Math.atan2(r[2] - r[0], r[3] - r[1])]); });
+    var fence = new T.InstancedMesh(boardGeo, lam({ color: 0xffffff, emissive: 0x3a2412 }), boards.length), mtx = new T.Matrix4(), q = new T.Quaternion(), fcol = new T.Color();
+    boards.forEach(function (c, i) {
+      q.setFromAxisAngle(new T.Vector3(0, 1, 0), c[2] + Math.PI / 2); mtx.compose(new T.Vector3(c[0], FH / 2, c[1]), q, new T.Vector3(1, 1 + rnd(-0.01, 0.01), 1)); fence.setMatrixAt(i, mtx);
+      var l = rnd(0.86, 1.08); fence.setColorAt(i, fcol.setRGB(0.74 * l, 0.47 * l, 0.28 * l));
+    });
+    fence.instanceMatrix.needsUpdate = true; if (fence.instanceColor) fence.instanceColor.needsUpdate = true;
     scene.add(fence);
-    var leaf = [flat({ color: 0x3f9a3a, roughness: 1 }), flat({ color: 0x55b447, roughness: 1 }), flat({ color: 0x2f7f35, roughness: 1 })], bark = flat({ color: 0x8a5a33, roughness: 1 });
-    function tree(x, z, s, kind) {
-      var g = new T.Group();
-      if (kind === 'palm') {
-        var tr = new T.Mesh(new T.CylinderGeometry(0.1 * s, 0.18 * s, 4 * s, 7), bark); tr.position.y = 2 * s; tr.rotation.z = 0.12; g.add(tr);
-        for (var i = 0; i < 7; i++) { var fr = new T.Mesh(new T.ConeGeometry(0.35 * s, 2.2 * s, 4), leaf[i % 2]); fr.position.set(0.25 * s, 4 * s, 0); fr.rotation.set(0, i * 0.9, 1.9); var p = new T.Group(); p.add(fr); p.rotation.y = i * Math.PI * 2 / 7; p.position.y = 0; g.add(p); }
-      } else {
-        var t2 = new T.Mesh(new T.CylinderGeometry(0.15 * s, 0.25 * s, 1.8 * s, 7), bark); t2.position.y = 0.9 * s; g.add(t2);
-        for (var k = 0; k < 5; k++) { var bl = new T.Mesh(new T.IcosahedronGeometry(rnd(0.8, 1.2) * s, 0), leaf[k % 3]); bl.position.set(rnd(-0.7, 0.7) * s, (2.1 + rnd(0, 1)) * s, rnd(-0.7, 0.7) * s); g.add(bl); }
+    var railM = lam({ color: 0x8a5634, emissive: 0x2a180a }), capM = lam({ color: 0x6e4126, emissive: 0x24140a });
+    fenceRuns.forEach(function (r) {
+      var len = Math.hypot(r[2] - r[0], r[3] - r[1]), ang = Math.atan2(r[2] - r[0], r[3] - r[1]), cx = (r[0] + r[2]) / 2, cz = (r[1] + r[3]) / 2;
+      // which side is inside (toward the pool, the middle of the yard)
+      var nx = Math.cos(ang), nz = -Math.sin(ang); if (nx * (0 - cx) + nz * (0.5 - cz) < 0) { nx = -nx; nz = -nz; }
+      [0.45, FH - 0.35].forEach(function (y) { var rl = new T.Mesh(new T.BoxGeometry(0.05, 0.1, len), railM); rl.rotation.y = ang; add(rl, cx + nx * 0.04, y, cz + nz * 0.04); });
+      var cap = new T.Mesh(new T.BoxGeometry(0.1, 0.05, len + 0.1), capM); cap.rotation.y = ang; add(cap, cx, FH + 0.025, cz);
+      var np = Math.round(len / 2.4);
+      for (var k = 0; k <= np; k++) { var px = r[0] + (r[2] - r[0]) * k / np, pz = r[1] + (r[3] - r[1]) * k / np, po = new T.Mesh(new T.BoxGeometry(0.1, FH + 0.12, 0.1), capM); po.rotation.y = ang; add(po, px + nx * 0.06, (FH + 0.12) / 2, pz + nz * 0.06); }
+    });
+    // trees: two rings beyond the fence (instanced: trunks, round leafy crowns in three greens, cone-stacked pines) and
+    // a few palms; tall enough to rise over the fence
+    var leafCols = [0x3f9a3a, 0x55b447, 0x2f7f35], leaf = leafCols.map(function (c) { return flat({ color: c, roughness: 1 }); }), bark = flat({ color: 0x8a5a33, roughness: 1 });
+    var trunks = [], crowns = [[], [], []], pineCones = [], palms = [];
+    function inYard(x, z) { return x > -9.6 && x < 9.6 && z > -10.6 && z < 11.6; }
+    [[2.0, 1.0, 0.95, 1.4], [4.0, 3.0, 1.2, 1.8], [6.6, 5.4, 1.5, 2.3]].forEach(function (ring, ri) {
+      var gap = ring[0], spread = ring[1];
+      for (var x0 = -9 - gap - spread; x0 <= 9 + gap + spread; x0 += 2.3 + ri * 0.4) [-1, 1].forEach(function (sd) { plant(x0 + rnd(-0.5, 0.5), (sd < 0 ? -10 - gap : 11 + gap) + sd * rnd(0, spread), rnd(ring[2], ring[3]), ri); });
+      for (var z0 = -10 - gap; z0 <= 11 + gap; z0 += 2.3 + ri * 0.4) [-1, 1].forEach(function (sd) { plant(sd * (9 + gap + rnd(0, spread)), z0 + rnd(-0.5, 0.5), rnd(ring[2], ring[3]), ri); });
+    });
+    function plant(x, z, s, ri) {
+      if (inYard(x, z)) return;
+      var kind = R(); if (kind < 0.09 && ri === 0) { palms.push([x, z, s * 0.85]); return; }
+      if (kind < 0.33) { // a pine: trunk and three stacked cones
+        trunks.push([x, z, s * 0.18, s * 1.4]);
+        for (var k = 0; k < 3; k++) pineCones.push([x, s * (1.3 + k * 0.85), z, s * (1.25 - k * 0.3), s * 1.5]);
+        return;
       }
+      trunks.push([x, z, s * 0.2, s * 2.0]);
+      var nb = 4 + Math.floor(R() * 3);
+      for (var b = 0; b < nb; b++) crowns[Math.floor(R() * 3)].push([x + rnd(-0.75, 0.75) * s, (2.3 + rnd(0, 1.1)) * s, z + rnd(-0.75, 0.75) * s, rnd(0.8, 1.2) * s]);
+    }
+    function instanced(geo, mat, list, setM) { if (!list.length) return; var im = new T.InstancedMesh(geo, mat, list.length), m4 = new T.Matrix4(); list.forEach(function (it, i) { setM(m4, it); im.setMatrixAt(i, m4); }); im.instanceMatrix.needsUpdate = true; scene.add(im); }
+    var V = function (x, y, z) { return new T.Vector3(x, y, z); }, Q0 = new T.Quaternion();
+    instanced(new T.CylinderGeometry(0.6, 1, 1, 7), bark, trunks, function (m, t) { m.compose(V(t[0], t[3] / 2, t[1]), Q0, V(t[2], t[3], t[2])); });
+    var crownGeo = new T.IcosahedronGeometry(1, 1);
+    crowns.forEach(function (list, i) { instanced(crownGeo, leaf[i], list, function (m, c) { m.compose(V(c[0], c[1], c[2]), new T.Quaternion().setFromEuler(new T.Euler(rnd(0, 3), rnd(0, 3), 0)), V(c[3], c[3] * 0.9, c[3])); }); });
+    instanced(new T.ConeGeometry(1, 1, 8), flat({ color: 0x2c6e3a, roughness: 1 }), pineCones, function (m, c) { m.compose(V(c[0], c[1], c[2]), Q0, V(c[3], c[4], c[3])); });
+    function palm(x, z, s) {
+      var g = new T.Group();
+      var tr = new T.Mesh(new T.CylinderGeometry(0.1 * s, 0.18 * s, 4 * s, 7), bark); tr.position.y = 2 * s; tr.rotation.z = 0.12; g.add(tr);
+      for (var i = 0; i < 7; i++) { var fr = new T.Mesh(new T.ConeGeometry(0.35 * s, 2.2 * s, 4), leaf[i % 2]); fr.position.set(0.25 * s, 4 * s, 0); fr.rotation.set(0, i * 0.9, 1.9); var p = new T.Group(); p.add(fr); p.rotation.y = i * Math.PI * 2 / 7; g.add(p); }
       g.position.set(x, 0, z); g.rotation.y = rnd(0, 6); scene.add(g);
     }
-    [[-11, -4, 1.2], [-12, 5, 1.4], [11, 3, 1.3], [12, -6, 1.1], [-6, 14, 1.6], [5, 15, 1.4], [0, 17, 1.8], [-14, 12, 1.5], [14, 12, 1.6]].forEach(function (t, i) { tree(t[0], t[1], t[2], i % 3 === 1 ? 'palm' : 'leafy'); });
+    palms.forEach(function (p) { palm(p[0], p[1], p[2]); });
     var bushM = flat({ color: 0x4fa53f, roughness: 1 });
-    for (var bi = 0; bi < 16; bi++) { var bx = -8.3 + bi * 1.1; var bu = new T.Mesh(new T.IcosahedronGeometry(rnd(0.45, 0.7), 0), bushM); bu.position.set(bx, 0.35, 10.4); bu.scale.y = 0.75; scene.add(bu); }
+    for (var bi = 0; bi < 16; bi++) { var bx = -8.3 + bi * 1.1; var bu = new T.Mesh(new T.IcosahedronGeometry(rnd(0.5, 0.75), 1), bushM); bu.position.set(bx, 0.35, 10.4); bu.scale.y = 0.75; scene.add(bu); }
 
     // ---------------- the deck, coping and pool ----------------
     var P = PH.POOL, deckTex = tex(256, 256, function (x, w, h) { x.fillStyle = '#efe3cc'; x.fillRect(0, 0, w, h); for (var i = 0; i < 900; i++) { x.fillStyle = R() < 0.5 ? 'rgba(160,130,90,.12)' : 'rgba(255,255,255,.25)'; x.fillRect(rnd(0, w), rnd(0, h), 2, 2); } x.strokeStyle = 'rgba(150,120,80,.35)'; x.lineWidth = 2; for (var j = 0; j <= 4; j++) { x.beginPath(); x.moveTo(j * 64, 0); x.lineTo(j * 64, h); x.stroke(); x.beginPath(); x.moveTo(0, j * 64); x.lineTo(w, j * 64); x.stroke(); } });
@@ -503,7 +541,7 @@ var HPScene = (function () {
     [[0, P.z0, P.x1 - P.x0 + 0.6, 0.3], [0, P.z1, P.x1 - P.x0 + 0.6, 0.3], [P.x0, 0, 0.3, P.z1 - P.z0], [P.x1, 0, 0.3, P.z1 - P.z0]].forEach(function (c) { add(new T.Mesh(new T.BoxGeometry(c[2], 0.07, c[3]), copM), c[0], 0.02, c[1]); });
     var tileTex = tex(256, 256, function (x, w, h) { x.fillStyle = '#7fd6f2'; x.fillRect(0, 0, w, h); x.strokeStyle = 'rgba(255,255,255,.55)'; x.lineWidth = 2; for (var i = 0; i <= 8; i++) { x.beginPath(); x.moveTo(i * 32, 0); x.lineTo(i * 32, h); x.stroke(); x.beginPath(); x.moveTo(0, i * 32); x.lineTo(w, i * 32); x.stroke(); } x.fillStyle = '#1f6fb8'; x.fillRect(0, 0, w, 36); });
     tileTex.wrapS = tileTex.wrapT = T.RepeatWrapping;
-    function wall(w, cx, cz, ry) { var t = tileTex.clone(); t.needsUpdate = true; t.repeat.set(w / 1.2, 1); var m = new T.Mesh(new T.PlaneGeometry(w, 1.6), lam({ map: t, side: T.DoubleSide })); m.position.set(cx, -0.8, cz); m.rotation.y = ry; scene.add(m); }
+    function wall(w, cx, cz, ry) { var t = tileTex.clone(); t.needsUpdate = true; t.repeat.set(w / 1.2, 1); var m = new T.Mesh(new T.PlaneGeometry(w, 1.6), lam({ map: t, side: T.DoubleSide })); m.position.set(cx + Math.sin(ry) * 0.012, -0.8, cz + Math.cos(ry) * 0.012); m.rotation.y = ry; scene.add(m); }   // 1.2.0: set in from the deck slabs' faces (they z-fought: the flickering tile line)
     wall(P.x1 - P.x0, 0, P.z0, 0); wall(P.x1 - P.x0, 0, P.z1, Math.PI); wall(P.z1 - P.z0, P.x0, 0, Math.PI / 2); wall(P.z1 - P.z0, P.x1, 0, -Math.PI / 2);
     var floor = new T.Mesh(new T.PlaneGeometry(P.x1 - P.x0, P.z1 - P.z0), lam({ color: 0x59bfe6 })); floor.rotation.x = -Math.PI / 2; add(floor, 0, -1.6, 0);
     // lane line on the floor
@@ -707,12 +745,14 @@ var HPScene = (function () {
     if (state !== 'ready' || !SC) return false;
     var s = spot(), sh = PH.fromFlick(f, s.dist);
     ball = PH.launch(W, s, sh.power, sh.yaw, sh.elev, sh.spin);
-    state = 'flying'; S.throw(f.speed); $('flickHint').classList.remove('show');
+    state = 'flying'; flyT = performance.now(); S.throw(f.speed); $('flickHint').classList.remove('show');
     if (around && !around.started) { around.started = true; around.t0 = performance.now(); }
     return true;
   }
+  var skipping = false;   // fast-forwarding a shot (tap to skip): no sounds or splashes for the skipped part
   function onBallEvents(ev) {
     ev.forEach(function (e) {
+      if (skipping && e.t !== 'done') return;
       if (e.t === 'rim') S.rim(e.v);
       else if (e.t === 'board') S.board(e.v);
       else if (e.t === 'float' || e.t === 'deck') S.bounce(e.v);
@@ -754,11 +794,31 @@ var HPScene = (function () {
       [{ label: 'Go again', red: true, go: function () { between(startAround); } }, { label: 'Free Shoot', go: function () { between(startFree); } }]);
   }
 
+  // ================= tap to skip =================
+  // Glenn (2026-10-02): "the recovery time to get the ball back is too long - allow the user to touch the screen
+  // (anywhere) to skip the animations". A touch while the ball is in the air finishes the shot at once (the same
+  // physics, run ahead without sounds, so the result is exactly what it would have been); a touch on the result
+  // brings the next ball straight away. (Not in the first 0.25 s after a flick, so the flick's own finger can't skip it.)
+  var flyT = 0;
+  function skip() {
+    if (state === 'flying' && ball && performance.now() - flyT > 250) {
+      skipping = true;
+      for (var n = 0; n < 1600 && state === 'flying'; n++) { PH.stepWorld(W, PH.DT); PH.stepBall(W, ball, PH.DT); onBallEvents(PH.takeEvents(ball)); }
+      skipping = false;
+      if (state === 'flying') return true;   // (a shot that somehow never ends: leave it)
+      resultT = performance.now() - 450;     // still show the result for a moment
+      return true;
+    }
+    if (state === 'result') { afterResult(); return true; }
+    return state === 'flying';
+  }
+
   // ================= flick input =================
   var stroke = null, ink = [], inkRaf = 0;
   function pos(e) { var r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top, t: performance.now() }; }
   function onDown(e) {
     S.unlock(); if (sheetOpen() || !SC) return;
+    if (state === 'flying' || state === 'result') { skip(); return; }
     stroke = { id: e.pointerId, pts: [pos(e)] };
     try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
     addInk(stroke.pts[0]);
@@ -881,6 +941,7 @@ var HPScene = (function () {
       '<b>Scoring</b>: a make is 2, a <b>swish</b> (no rim, no board) is 3, a long shot from the deep end +1. Make 3 in a row and the ball heats up: points ×2 (×3 from 6 in a row). A miss cools it off.',
       '<b>Free Shoot</b>: any spot (Spot button), wind on or off (Wind button). Just practice.',
       '<b>Around the Pool</b>: 7 spots in order. Make it to move on; miss twice at a spot and you go back one. The clock starts with your first shot. Fastest time wins.',
+      '<b>Tap the screen</b> while the ball is flying to skip to the result, and again to get the next ball.',
       'Tap the <b>shooter</b> name to switch between Glenn, Cindy and Guest. Each has their own stats (trophy button).'
     ].map(function (x) { return '<li>' + x + '</li>'; }).join('');
     $('ovHelp').classList.add('show');
