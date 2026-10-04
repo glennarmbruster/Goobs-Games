@@ -823,6 +823,23 @@
       }
     },
     {
+      id: 'huddle', name: 'Huddle', blurb: 'Find four groups of four', path: 'games/huddle/',
+      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="hdTile" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2f7fb5"/><stop offset="1" stop-color="#1d4e86"/></linearGradient></defs>' +
+        '<rect width="100" height="100" fill="url(#hdTile)"/><path d="M0 92 Q12 86 25 92 T50 92 T75 92 T100 92 V100 H0Z" fill="#8fd0e6" opacity=".45"/>' +
+        '<rect x="9" y="9" width="82" height="17" rx="5" fill="#6fd3c0"/><circle cx="18" cy="17.5" r="3.4" fill="#16404a"/><rect x="26" y="15.5" width="40" height="4" rx="2" fill="#16404a" opacity=".55"/>' +
+        '<rect x="9" y="29" width="82" height="17" rx="5" fill="#ffb766"/><path d="M18 33.5l4 7.5h-8z" fill="#4a2800"/><rect x="26" y="35.5" width="32" height="4" rx="2" fill="#4a2800" opacity=".55"/>' +
+        '<g fill="#fffdf8"><rect x="9" y="50" width="18.5" height="17" rx="4"/><rect x="30.2" y="50" width="18.5" height="17" rx="4"/><rect x="51.4" y="50" width="18.5" height="17" rx="4"/><rect x="72.5" y="50" width="18.5" height="17" rx="4"/>' +
+        '<rect x="9" y="70" width="18.5" height="17" rx="4"/><rect x="51.4" y="70" width="18.5" height="17" rx="4"/></g>' +
+        '<g fill="#1f3b5c"><rect x="30.2" y="70" width="18.5" height="17" rx="4"/><rect x="72.5" y="70" width="18.5" height="17" rx="4"/></g>' +
+        '<g fill="#1b2130" opacity=".5"><rect x="13" y="57" width="10.5" height="3" rx="1.5"/><rect x="34" y="57" width="11" height="3" rx="1.5"/><rect x="55.5" y="57" width="10" height="3" rx="1.5"/><rect x="76.5" y="57" width="10.5" height="3" rx="1.5"/>' +
+        '<rect x="13" y="77" width="10" height="3" rx="1.5"/><rect x="55.5" y="77" width="10.5" height="3" rx="1.5"/></g>' +
+        '<g fill="#fff" opacity=".8"><rect x="34" y="77" width="11" height="3" rx="1.5"/><rect x="76.5" y="77" width="10.5" height="3" rx="1.5"/></g></svg>',
+      status: function () {
+        var m = readLS('huddle.meta'), c = m && typeof m.count === 'number' ? m.count : 0;
+        return c ? c + (c === 1 ? ' puzzle solved' : ' puzzles solved') : 'Sixteen words, four groups';
+      }
+    },
+    {
       id: 'nonogram', name: 'Pixel Pier', blurb: 'Picture logic: fill the grid from the clues', path: 'games/nonogram/',
       art: '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="ngTile" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e4f3fb"/><stop offset="1" stop-color="#8fcde9"/></linearGradient></defs>' +
         '<rect width="100" height="100" fill="url(#ngTile)"/><rect x="5" y="5" width="91" height="88" rx="8" fill="#fff"/><rect x="34" y="8" width="60" height="21" fill="#eef4fa"/><rect x="8" y="30" width="25" height="60" fill="#eef4fa"/>' +
