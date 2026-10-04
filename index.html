@@ -508,8 +508,10 @@
         var s = readLS('daily.stats'), d = readLS('daily.day');
         if (!s || !s.daily) return 'A new word every day';
         var today = (function () { var n = new Date(); return Math.floor((Date.UTC(n.getFullYear(), n.getMonth(), n.getDate()) - Date.UTC(2026, 8, 28)) / 86400000) + 1; })();
-        var done = d && d.day === today && d.done, streak = s.daily.lastWonDay >= today - 1 ? s.daily.streak : 0;
-        return (done ? (d.won ? 'Solved today' : 'Done for today') : 'Today\u2019s word is waiting') + (streak ? ' \u00b7 streak ' + streak : '');
+        // two words of the day since Lettermind 1.2.0 (word 2 saved as daily.day2)
+        var d2 = readLS('daily.day2'), n = (d && d.day === today && d.done ? 1 : 0) + (d2 && d2.day === today && d2.done ? 1 : 0);
+        var streak = s.daily.lastWonDay >= today - 1 ? s.daily.streak : 0;
+        return (n === 2 ? 'Both words done today' : n === 1 ? '1 of 2 words done today' : 'Today\u2019s 2 words are waiting') + (streak ? ' \u00b7 streak ' + streak : '');
       }
     },
     {
