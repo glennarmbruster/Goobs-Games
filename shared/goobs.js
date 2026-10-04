@@ -235,6 +235,36 @@ var Goobs = (function () {
     else exitCards();
   }
 
+  // ---------- a way out of a broken game (shell 2.73.0) ----------
+  // Glenn's phone once opened straight into a half-uploaded game page that couldn't start, with no way back to the
+  // menu. If a game page hits an uncaught error, a small bar appears at the top: "All games" goes to the menu, × hides
+  // it. Shown once per page; harmless browser noise is ignored.
+  if (isGame) {
+    var oopsShown = false;
+    var oops = function (msg) {
+      if (oopsShown) return;
+      msg = String(msg || '');
+      if (/ResizeObserver loop|^Script error\.?$/i.test(msg)) return;
+      oopsShown = true;
+      var put = function () {
+        var d = document.createElement('div');
+        d.setAttribute('role', 'alert');
+        d.style.cssText = 'position:fixed;left:50%;top:calc(env(safe-area-inset-top, 0px) + 8px);transform:translateX(-50%);z-index:2147483000;display:flex;align-items:center;gap:8px;padding:8px 8px 8px 14px;border-radius:999px;background:#1b1f33;color:#fff;font:700 14px -apple-system,system-ui,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.35);max-width:calc(100vw - 24px)';
+        d.innerHTML = '<span style="white-space:nowrap">Something went wrong.</span>';
+        var go = document.createElement('button'); go.textContent = 'All games';
+        go.style.cssText = 'white-space:nowrap;border:0;border-radius:999px;padding:8px 14px;background:#5a54f0;color:#fff;font:800 14px -apple-system,system-ui,sans-serif';
+        go.addEventListener('click', function () { home(); });
+        var x = document.createElement('button'); x.textContent = '\u00d7'; x.setAttribute('aria-label', 'Hide');
+        x.style.cssText = 'border:0;background:transparent;color:#fff;font:700 20px -apple-system,system-ui,sans-serif;padding:4px 8px';
+        x.addEventListener('click', function () { d.remove(); });
+        d.appendChild(go); d.appendChild(x); document.body.appendChild(d);
+      };
+      if (document.body) put(); else document.addEventListener('DOMContentLoaded', put);
+    };
+    window.addEventListener('error', function (e) { if (e && e.target && e.target !== window && !e.message) return; oops(e && e.message); });
+    window.addEventListener('unhandledrejection', function (e) { var r = e && e.reason; oops(r && (r.message || r)); });
+  }
+
   return {
     ROOT: ROOT, store: store, settings: settings, THEMES: THEMES,
     theme: function () { return themeNow; }, setTheme: setTheme, onTheme: function (cb) { themeListeners.push(cb); }, themePicker: themePicker,
