@@ -8836,6 +8836,597 @@ var GORoom18 = (function () {
     SPACES: SPACES, roll: roll, build: build, clueInfo: clueInfo, STORY: STORY, bellName: bellName };
 })();
 if (typeof module !== 'undefined') module.exports = GORoom18;
+
+/* Get Out! Room 19 (Wren's Grand Tour, stop 8): The Old Schoolhouse (data). Loaded by the page and by tools/check.js.
+   The village school of Little Pennywick (invented), on a summer evening after the children have gone home: one tall
+   schoolroom with a bellcote on the roof, a cloakroom of pegs and lunch pails, and Miss Ada Thistle's little office.
+   Spaces: the schoolroom (4 walls: the front door, the blackboards, the windows, the back wall with the stove), the
+   cloakroom (2 walls: the pegs and pails; the washstand and the way back) and the teacher's office (2 walls: the
+   roll-top desk; the fireplace, the shelves and the way back).
+   The idea: Ada, Aunt Wren's old friend, rang the school bell every morning for forty years. Every night she hangs the
+   door key up in the bellcote; ring her bell properly and the key comes rattling down the rope hole.
+   Same frame as the other rooms (1000 x 1400, floor at y=1100); art19.js draws it from L. Answers live only in P. */
+var GORoom19 = (function () {
+  'use strict';
+  var GE = typeof GOEngine !== 'undefined' ? GOEngine : require('../engine.js');
+
+  // ---------- the schoolroom's things ----------
+  // pictures for Miss Thistle's picture sums (and the drawer's wheels)
+  var SUMPICS = ['apple', 'pear', 'bell', 'star', 'leaf', 'fish', 'kite', 'boat'];
+  // the little enamel places on the globe (and on Aunt Wren's postcards)
+  var PLACES = ['windmill', 'palm', 'mountain', 'castle', 'volcano', 'tower', 'bridge', 'igloo'];
+  var PLACENAME = { windmill: 'windmill', palm: 'palm tree', mountain: 'snowy mountain', castle: 'castle', volcano: 'volcano', tower: 'tall tower', bridge: 'bridge', igloo: 'igloo' };
+  var NAMES = ['Alfie', 'Bertie', 'Clara', 'Dora', 'Edie', 'Fred', 'George', 'Hattie', 'Ivy', 'Jack', 'Kitty', 'Lily', 'Molly', 'Ned', 'Olive', 'Percy',
+    'Ruby', 'Sam', 'Tom', 'Violet', 'Walter', 'Winnie', 'Arthur', 'Elsie'];
+  // the word the office door's letter lock spells (Easy 4 letters, Medium and Hard 5)
+  var WORDS4 = ['BELL', 'DESK', 'BOOK', 'SUMS', 'READ', 'KITE', 'NEST', 'WREN', 'LAMP', 'STAR', 'DOVE', 'PLUM', 'SONG', 'GAME', 'POND', 'DUCK', 'MILK', 'LARK'];
+  var WORDS5 = ['CHALK', 'SLATE', 'GLOBE', 'PUPIL', 'RULER', 'SPELL', 'CLASS', 'PAPER', 'BOOKS', 'LUNCH', 'LEARN', 'WRITE', 'STOVE', 'CLOCK', 'HONEY',
+    'APPLE', 'TABLE', 'RHYME', 'HAPPY', 'MERRY', 'SUNNY', 'DAISY', 'ROBIN', 'GAMES', 'TULIP'];
+  // this week's spellings come from here (and last week's, on Hard)
+  var SPELL = ['GARDEN', 'PENCIL', 'ORANGE', 'WINDOW', 'BASKET', 'LADDER', 'KITTEN', 'PLANET', 'CASTLE', 'FOREST', 'PUDDLE', 'MARKET', 'RABBIT', 'LETTER',
+    'NUMBER', 'SPRING', 'SUMMER', 'AUTUMN', 'WINTER', 'PICNIC', 'CANDLE', 'BUTTON', 'POCKET', 'MEADOW', 'HARVEST', 'KITCHEN', 'BLANKET', 'PUMPKIN',
+    'VILLAGE', 'BICYCLE', 'WEATHER', 'HOLIDAY', 'LANTERN', 'FEATHER', 'THUNDER', 'RAINBOW', 'MORNING', 'BISCUIT', 'CABBAGE', 'CARROT', 'PARROT', 'ISLAND',
+    'BRIDGE', 'CHERRY', 'SADDLE', 'TURNIP', 'MITTEN', 'BALLOON'];
+  var ALPHA = 'ABCDEFGHIJKLMNOPRSTUWY'.split('');
+  var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  var MDAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  var NUMW = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
+  var SPACES = { school: 'The schoolroom', cloak: 'Cloakroom', office: 'Teacher’s office' };
+
+  // ---------- layout (shared with art19.js) ----------
+  var L = {
+    floor: 1100,
+    // the door wall (start)
+    door: [370, 300, 260, 800], note: [420, 560, 160, 120], arch: [110, 360, 220, 740], rope: [690, 140, 170, 960], honour: [110, 150, 220, 170], stand: [880, 860, 100, 200],
+    // the blackboard wall
+    bbL: [70, 240, 420, 380], bbR: [510, 240, 420, 380], clock: [455, 140, 90, 90], tdesk: [300, 690, 400, 330], hbell: [330, 610, 80, 80], apple: [600, 625, 80, 70], abacus: [40, 900, 190, 170],
+    // the windows wall
+    win: [[100, 190, 220, 500], [390, 190, 220, 500], [680, 190, 220, 500]], desks: [220, 720, 600, 330], globe: [40, 420, 190, 230], nature: [840, 900, 150, 140],
+    // the back wall
+    cup: [80, 300, 260, 760], stove: [390, 620, 230, 440], map: [345, 150, 310, 90], mapDown: [345, 150, 310, 380], offdoor: [680, 300, 230, 800],
+    // the cloakroom: the pegs wall, the washstand wall
+    shelf: [80, 190, 840, 170], coats: [80, 380, 840, 360], rack: [280, 760, 440, 230], boots: [80, 1000, 840, 100], old: [820, 400, 130, 170],
+    wash: [110, 560, 290, 500], cwin: [430, 220, 220, 300], cback: [640, 300, 240, 800], coal: [420, 920, 170, 150], kindling: [870, 940, 120, 150],
+    // the office: the desk wall, the fireplace wall
+    rolltop: [190, 500, 520, 580], photo: [240, 220, 200, 200], pnote: [500, 250, 160, 160], owin: [720, 200, 230, 360], chair: [740, 760, 200, 300],
+    oback: [90, 300, 230, 780], oshelves: [360, 160, 380, 380], fire: [360, 640, 380, 440], matches: [470, 585, 110, 60], mabel: [610, 565, 110, 80], pole: [800, 160, 90, 900],
+    // close-ups
+    lockZ: [420, 640, 160, 200], caseZ: [260, 300, 480, 800], tailZ: [420, 210, 300, 260], pullZ: [400, 480, 200, 560], holdZ: [700, 860, 220, 180], dkeyZ: [400, 1080, 200, 120],
+    planZ: [110, 1010, 330, 170], ckeyZ: [500, 1030, 180, 120], hookZ: [710, 1030, 180, 120],
+    inkZ: [170, 560, 200, 240], canZ: [420, 560, 200, 240], wellsZ: [100, 300, 800, 820],
+    letterZ: [320, 560, 220, 160], rkeyZ: [570, 600, 150, 120],
+    stoveZ: [250, 520, 500, 620], damperZ: [440, 190, 120, 200], paperZ: [360, 440, 280, 110]
+  };
+  // the pails on the cloakroom shelf (k of them, left to right)
+  function pailRect(i, k) { var w = 840 / k; return [80 + i * w + 6, 205, w - 12, 140]; }
+
+  // ---------- small helpers ----------
+  function pick(r, arr, n) { return r.shuffle(arr).slice(0, n); }
+  function range(n) { var o = []; for (var i = 0; i < n; i++) o.push(i); return o; }
+  function sorted(a) { return a.slice().sort(function (x, y) { return x - y; }); }
+  function inOrder(a) { for (var i = 1; i < a.length; i++) if (a[i] < a[i - 1]) return false; return true; }
+  function ham(a, b) { if (a.length !== b.length) return 99; var d = 0; for (var i = 0; i < a.length; i++) if (a[i] !== b[i]) d++; return d; }
+  function roman(n) { var V = [[10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']], s = ''; V.forEach(function (p) { while (n >= p[0]) { s += p[1]; n -= p[0]; } }); return s; }
+  function romanL(n) { var s = ''; while (n >= 10) { s += 'X'; n -= 10; } return s + roman(n); }   // (days up to 31)
+  // every way to give the pictures different numbers from 2 to 9 that fits the sums (the room's own generator check)
+  function sumSolutions(syms, eqs, cap) {
+    var out = [], val = {}, used = {};
+    function ok() {
+      for (var i = 0; i < eqs.length; i++) { var e = eqs[i], a = val[e.a], b = e.b ? val[e.b] : e.n; if (a == null || b == null) continue; if (a * b !== e.p) return false; }
+      return true;
+    }
+    (function go(k) {
+      if (out.length >= (cap || 9)) return;
+      if (k === syms.length) { out.push(syms.map(function (s) { return val[s]; })); return; }
+      for (var d = 2; d <= 9; d++) { if (used[d]) continue; val[syms[k]] = d; used[d] = 1; if (ok()) go(k + 1); delete val[syms[k]]; used[d] = 0; }
+    })(0);
+    return out;
+  }
+  function dateText(diff, c) {
+    if (diff === 'h') return romanL(c.d) + ' · ' + roman(c.m + 1);
+    return c.d + ' ' + MONTHS[c.m];
+  }
+
+  // ---------- this playthrough's random values ----------
+  function roll(diff, r) {
+    var P = { diff: diff }, E = diff === 'e', M = diff === 'm', H = diff === 'h', g, i;
+    // ---- Miss Thistle's picture sums (times tables with a twist): each picture is a number 2-9, all different ----
+    var k = E ? 3 : 4;
+    g = 0;
+    do {
+      P.syms = pick(r, SUMPICS, k);
+      var digs = pick(r, [2, 3, 4, 5, 6, 7, 8, 9], k), V = {};
+      P.syms.forEach(function (s, j) { V[s] = digs[j]; });
+      var eqs = [];
+      if (E) P.syms.forEach(function (s) { var n = 2 + r.int(8); eqs.push({ a: s, n: n, p: V[s] * n }); });
+      else {
+        if (M) pick(r, P.syms, 2).forEach(function (s) { var n = 2 + r.int(8); eqs.push({ a: s, n: n, p: V[s] * n }); });
+        var tries = 0;
+        while ((eqs.length < 4 || sumSolutions(P.syms, eqs, 2).length !== 1 || P.syms.some(function (s) { return !eqs.some(function (e) { return e.a === s || e.b === s; }); })) && tries++ < 30 && eqs.length < (M ? 5 : 6)) {
+          var a = r.pick(P.syms), b = r.pick(P.syms);
+          if (H && a === b && r() < 0.6) continue;
+          if (eqs.some(function (e) { return e.b && ((e.a === a && e.b === b) || (e.a === b && e.b === a)); })) continue;
+          eqs.push({ a: a, b: b, p: V[a] * V[b] });
+        }
+      }
+      P.eqs = r.shuffle(eqs);
+      P.val = V;
+    } while ((sumSolutions(P.syms, P.eqs, 2).length !== 1 || (!E && P.eqs.length < 4) || P.syms.some(function (s) { return !P.eqs.some(function (e) { return e.a === s || e.b === s; }); })) && g++ < 400);
+    g = 0;
+    do { P.wheel = r.shuffle(P.syms); } while (P.wheel.join() === P.syms.join() && g++ < 50);
+    P.code = P.wheel.map(function (s) { return P.val[s]; });
+
+    // ---- the spelling bee with a twist: each slate is one of this week's words with one letter wrong; the wrong letters
+    // spell the office door's word (Easy: Miss Thistle has ringed them) ----
+    var len = E ? 4 : 5, list = [], slates = [];
+    g = 0;
+    do {
+      P.word = r.pick(E ? WORDS4 : WORDS5);
+      var pool = r.shuffle(SPELL), bad = false; list = []; slates = [];
+      for (i = 0; i < len && !bad; i++) {
+        var L0 = P.word.charAt(i), done = false;
+        for (var q = 0; q < pool.length && !done; q++) {
+          var w = pool[q]; if (list.indexOf(w) >= 0) continue;
+          var poss = range(w.length).filter(function (p) { return p > 0 && w.charAt(p) !== L0; });
+          if (!poss.length) continue;
+          var p0 = r.pick(poss), m = w.slice(0, p0) + L0 + w.slice(p0 + 1);
+          list.push(w); slates.push({ m: m, pos: p0, w: w }); done = true;
+        }
+        if (!done) bad = true;
+      }
+      if (H) { var extra = pool.filter(function (x) { return list.indexOf(x) < 0; }); list.push(extra[0], extra[1]); }
+      // every slate is one letter away from exactly one word on the list
+      if (!bad) bad = slates.some(function (s) { return list.filter(function (x) { return ham(x, s.m) <= 1; }).length !== 1; });
+    } while (bad && g++ < 400);
+    P.list = r.shuffle(list);
+    if (H) {
+      // the slates hang on pegs marked with times-table sums: smallest answer first (sums up to 12 x 12, answers all different)
+      g = 0; var prods;
+      do { P.tags = slates.map(function () { var a = 2 + r.int(11), b = 2 + r.int(11); return { a: a, b: b }; }); prods = P.tags.map(function (t) { return t.a * t.b; }); }
+      while (new Set(prods).size < len && g++ < 400);
+      P.tags.sort(function (x, y) { return x.a * x.b - y.a * y.b; });
+      // last week's spellings (a red herring): none of them is one letter from a slate
+      g = 0;
+      do { P.old = pick(r, SPELL.filter(function (x) { return list.indexOf(x) < 0; }), 5); }
+      while (slates.some(function (s) { return P.old.some(function (o) { return ham(o, s.m) <= 1; }); }) && g++ < 200);
+    }
+    P.slates = slates.map(function (s, j) { return { m: s.m, pos: s.pos, tag: H ? P.tags[j] : j + 1 }; });
+    g = 0;
+    do { P.rack = r.shuffle(range(len)); } while (inOrder(P.rack) && g++ < 50);      // how the slates hang on the rack, left to right
+    var nt = H ? 8 : 6;
+    P.tiles = P.word.split('').map(function (ch) { return r.shuffle([ch].concat(pick(r, ALPHA.filter(function (x) { return x !== ch; }), nt - 1))); });
+    P.tileInit = P.tiles.map(function (t, j) { var ii; do { ii = r.int(nt); } while (t[ii] === P.word.charAt(j)); return ii; });
+
+    // ---- the class: a seating plan, the register (who was away; Hard: who was late) ----
+    var n = H ? 4 : 3, N = n * n;
+    P.n = n;
+    P.seat = pick(r, NAMES, N);                      // P.seat[row * n + col]: row 0 = the front (by the blackboard), col n-1 = the windows side
+    var nAbs = E ? 2 : M ? 2 + r.int(3) : 4 + r.int(2), nLate = H ? 3 + r.int(2) : 0;
+    var who;
+    g = 0;
+    do { who = r.shuffle(range(N)); }      // (Hard: the plan is drawn turned round; reading it unturned must never work)
+    while (H && sorted(who.slice(0, nAbs).map(function (d) { return N - 1 - d; })).join() === sorted(who.slice(0, nAbs)).join() && g++ < 100);
+    P.absent = sorted(who.slice(0, nAbs));
+    P.late = sorted(who.slice(nAbs, nAbs + nLate));
+    P.roll = r.shuffle(range(N));                     // the register's order (each child's desk)
+    P.ring = E ? 3 + r.int(5) : N - nAbs - nLate;     // the bell: Easy says it; Medium children present; Hard those not late
+    // the stove's lid lifter went home in a lunch pail (Medium, Hard)
+    if (!E) {
+      var present = range(N).filter(function (d) { return P.absent.indexOf(d) < 0; });
+      g = 0;
+      do {
+        P.pailDesk = null;
+        if (M) { P.pailRule = { row: r.int(2) ? 'front' : 'back', side: r.int(2) ? 'windows' : 'door' }; P.pailDesk = (P.pailRule.row === 'front' ? 0 : n - 1) * n + (P.pailRule.side === 'windows' ? n - 1 : 0); }
+        else {
+          var rel = r.int(2) ? 'behind' : 'beside', ref;
+          if (rel === 'behind') { ref = r.int(N - n); P.pailDesk = ref + n; }
+          else { ref = r.int(N); if (ref % n === n - 1) continue; P.pailDesk = ref + 1; }
+          P.pailRule = { rel: rel, ref: ref };
+        }
+      } while ((P.pailDesk == null || P.absent.indexOf(P.pailDesk) >= 0) && g++ < 400);
+      var others = r.shuffle(present.filter(function (d) { return d !== P.pailDesk; })).slice(0, (M ? 5 : 6) - 1);
+      P.pails = r.shuffle(others.concat([P.pailDesk]));
+    }
+
+    // ---- Aunt Wren's postcards, pinned along the wall map; the globe's places in the order she was there ----
+    var nc = { e: 4, m: 5, h: 6 }[diff];
+    P.places = pick(r, PLACES, nc);
+    g = 0;
+    do {
+      P.cards = P.places.map(function (pl) { var m0 = E ? 5 : r.int(12); return { pic: pl, m: m0, d: 1 + r.int(MDAYS[m0]) }; });
+    } while (new Set(P.cards.map(function (c) { return c.m * 100 + c.d; })).size < nc && g++ < 400);
+    P.order = P.cards.slice().sort(function (a, b) { return (a.m * 100 + a.d) - (b.m * 100 + b.d); }).map(function (c) { return c.pic; });
+    g = 0;
+    do { P.globeBtns = r.shuffle(P.places); } while (P.globeBtns.join() === P.order.join() && g++ < 100);
+    g = 0;
+    do { P.pins = r.shuffle(range(nc)); }        // where each card is pinned along the map (never already in date order)
+    while (P.pins.map(function (j) { return P.cards[j].pic; }).join() === P.order.join() && g++ < 50);
+    if (H) { var m1 = r.int(12); P.mabel = { pic: r.pick(PLACES.filter(function (x) { return P.places.indexOf(x) < 0; })), m: m1, d: 1 + r.int(MDAYS[m1]) }; }
+    return P;
+  }
+
+  // ---------- one difficulty ----------
+  function build(diff, P) {
+    var E = diff === 'e', M = diff === 'm', H = diff === 'h';
+    var steps = [], views = {}, puzzles = {}, clues = {}, items = {};
+    function step(s) { steps.push(s); return s; }
+    function view(id, o) { views[id] = o; o.hs = o.hs || []; return o; }
+    function hs(v, h) { views[v].hs.push(h); }
+    function f(x) { return function (st) { return !!st.f[x]; }; }
+    function nf(x) { return function (st) { return !st.f[x]; }; }
+    var OFFICE = 'f:office';                          // the teacher's office is open (every step inside needs this)
+    var POLE = H ? 'hpole' : 'pole';
+
+    // ----- spaces and walls -----
+    var spaces = {
+      school: { name: 'The schoolroom', walls: ['door', 'board', 'windows', 'back'] },
+      cloak: { name: 'Cloakroom', walls: ['pegs', 'wash'], back: 'door', backLabel: 'Back to the schoolroom' },
+      office: { name: 'Teacher’s office', walls: ['odesk', 'ofire'], back: 'back', backLabel: 'Back to the schoolroom' }
+    };
+    for (var sp in spaces) spaces[sp].walls.forEach(function (w, i) { view(w, { wall: i, space: sp }); });
+
+    // ----- items -----
+    items.ckey = { name: 'Cupboard key', text: 'A little iron key on a paper tag: STOCK CUPBOARD.' };
+    items.pole = { name: 'Window pole', text: H ? 'The long window pole for the high windows. Its brass hook has come off the end.' : 'The long window pole with a brass hook on the end, for the high windows (and anything else up high).' };
+    items.matches = { name: 'Matches', text: 'A box of Swan Vestas from the office mantelpiece.' };
+    items.coal = { name: 'Coal scuttle', text: 'A black scuttle of coal from the cloakroom.' };
+    items.letter = { name: 'Blank letter', text: 'A sheet of Aunt Wren’s blue notepaper, folded in three. Quite blank on both sides... and it smells faintly of lemons.' };
+    items.dkey = { name: 'Door key', text: 'The big brass door key of the schoolhouse, on a red ribbon, a little dusty from the bellcote.' };
+    if (E) items.ink = { name: 'Ink jar', text: 'A stone jar of blue-black school ink, with a pouring lip.' };
+    if (M) items.ink = { name: 'Ink jar', text: 'A stone jar of blue-black school ink. Too wide to pour into a little inkwell.' };
+    if (!E) {
+      items.can = { name: 'Ink can', text: 'The ink monitor’s long-spouted can, for filling inkwells without a drop spilt. ' + (H ? 'Empty, and dry.' : 'Empty.') };
+      items.inkcan = { name: 'Can of ink', text: 'The ink monitor’s can, full of good blue-black ink.' };
+      items.rkey = { name: 'Little brass key', text: 'A tiny brass key. It looks like it belongs to a desk.' };
+      items.lifter = { name: 'Stove lifter', text: 'A coiled iron handle for lifting the hot lid of a stove.' };
+      items.kindling = { name: 'Kindling', text: 'A bundle of dry sticks and a twist of old newspaper.' };
+    }
+    if (H) {
+      items.powder = { name: 'Ink powder', text: 'A tin of ink powder: mix it with water to make school ink.' };
+      items.wcan = { name: 'Can of water', text: 'The ink can, filled with water from the cloakroom jug.' };
+      items.hook = { name: 'Brass hook', text: 'A brass hook with a screw thread: it came off the window pole.' };
+      items.hpole = { name: 'Window pole', text: 'The long window pole, its brass hook screwed back on.' };
+      items.apple = { name: 'Apple', text: 'A shiny red apple, left on the teacher’s desk.', back: 'A note on the stalk: “For Miss Thistle, from Percy.” Not yours to eat!' };
+    }
+
+    // ----- views (close-ups) -----
+    view('notez', { parent: 'door', name: 'A note' });
+    view('doorz', { parent: 'door', name: 'The front door' });
+    view('ropez', { parent: 'door', name: 'The bell rope' });
+    view('sumsz', { parent: 'board', name: 'The left blackboard' });
+    view('listz', { parent: 'board', name: 'The right blackboard' });
+    view('tdeskz', { parent: 'board', name: 'The teacher’s desk' });
+    view('planz', { parent: 'tdeskz', name: 'The seating plan' });
+    view('inkz', { parent: 'windows', name: 'The desks' });
+    view('globez', { parent: 'windows', name: 'The globe' });
+    view('cupz', { parent: 'back', name: 'The stock cupboard' });
+    view('mapz', { parent: 'back', name: 'The wall map' });
+    view('stovez', { parent: 'back', name: 'The stove' });
+    view('letterz', { parent: 'stovez', name: 'Aunt Wren’s letter' });
+    view('offdoorz', { parent: 'back', name: 'The office door' });
+    view('slatesz', { parent: 'pegs', name: 'The slates' });
+    view('regz', { parent: 'odesk', name: 'The register' });
+    if (!E) view('pnotez', { parent: 'odesk', name: 'A note' });
+    if (H) { view('oldz', { parent: 'pegs', name: 'An old slate' }); view('mabelz', { parent: 'ofire', name: 'A postcard' }); }
+
+    // ----- the steps -----
+    step({ id: 'see_note', kind: 'see', view: 'notez', add: ['k:note'], clue: 'note',
+      hint: ['Someone left a note on the front door.', 'Aunt Wren’s note is pinned to the front door.', 'On the door wall, look at the note pinned to the door.'] });
+    views.notez.enter = 'see_note';
+    clues.note = { kind: 'note', lines: ['Dear one! My oldest friend Ada Thistle taught at this school for forty years, and rang its bell every morning.',
+      'Each night she hangs the door key up in the bellcote. Ring her bell properly and down it comes!',
+      'I fitted the old schoolroom with a few of my little locks. Love, W.'] };
+
+    // --- the picture sums and the teacher's desk drawer ---
+    step({ id: 'see_sums', kind: 'see', view: 'sumsz', add: ['k:sums'], clue: 'sums',
+      hint: ['The teacher’s desk drawer has number wheels with pictures over them.', 'The left blackboard has Miss Thistle’s picture sums.', 'On the blackboard wall, look at the left blackboard.'] });
+    views.sumsz.enter = 'see_sums';
+    clues.sums = { kind: 'sums', eqs: P.eqs.map(function (e) { return { a: e.a, b: e.b || null, n: e.b ? null : e.n, p: e.p }; }) };
+    var sumWhy = E ? 'Each picture is a number: its sum tells you which (the picture times a number makes the answer).'
+      : M ? 'Two sums give a picture straight away; use those numbers in the sums with two pictures to find the rest.'
+        : 'Every picture is a different number from 2 to 9. Try the square sums first (a picture times itself), then the others.';
+    step({ id: 'solve_sums', kind: 'solve', puzzle: 'sums', view: 'tdeskz', know: ['k:sums'], add: ['f:drawer'], snd: 'shDrawer',
+      hint: ['The teacher’s desk drawer is locked by number wheels, a picture over each.', sumWhy, 'Set the wheels under the pictures: ' + P.wheel.map(function (s, j) { return s + ' ' + P.code[j]; }).join(', ') + '.'] });
+    puzzles.sums = { type: 'digits', view: 'tdeskz', step: 'solve_sums', syms: P.wheel.slice(), answer: P.code.slice(), init: { d: P.code.map(function () { return 0; }) }, tap: 'shWheel',
+      locked: function () { return 'Locked.'; } };
+    step({ id: 'take_ckey', kind: 'take', view: 'tdeskz', need: ['f:drawer'], add: ['i:ckey'],
+      hint: ['The teacher’s drawer is open.', 'There’s a key in it with a tag: STOCK CUPBOARD.', 'Look in the open drawer of the teacher’s desk and take the cupboard key.'] });
+    step({ id: 'see_plan', kind: 'see', view: 'planz', need: ['f:drawer'], add: ['k:plan'], clue: 'plan',
+      hint: ['Who sits where?', 'Miss Thistle’s seating plan is in her desk drawer.', 'Look in the open drawer of the teacher’s desk and look at the seating plan.'] });
+    views.planz.enter = 'see_plan';
+    var rot = H ? 2 : 0, grid = [];
+    for (var rr0 = 0; rr0 < P.n; rr0++) { var row = []; for (var cc0 = 0; cc0 < P.n; cc0++) row.push(P.seat[rr0 * P.n + cc0]); grid.push(row); }
+    if (rot) grid = grid.reverse().map(function (rw) { return rw.slice().reverse(); });
+    clues.plan = { kind: 'plan', rows: grid, top: rot ? 'STOVE' : 'BLACKBOARD', bottom: rot ? 'BLACKBOARD' : 'STOVE', left: rot ? 'WINDOWS' : 'DOOR', right: rot ? 'DOOR' : 'WINDOWS' };
+    if (H) step({ id: 'take_hook', kind: 'take', view: 'tdeskz', need: ['f:drawer'], add: ['i:hook'],
+      hint: ['The window pole’s hook has come off.', 'There’s a brass hook in the teacher’s drawer.', 'Look in the open drawer of the teacher’s desk and take the brass hook.'] });
+
+    // --- the stock cupboard and the ink ---
+    step({ id: 'use_ckey', kind: 'use', item: 'ckey', target: 'cup', view: 'back', need: ['i:ckey'], del: ['i:ckey'], add: ['f:cup'], snd: 'shCupboard',
+      hint: ['The stock cupboard on the back wall is locked.', 'The key from the teacher’s drawer opens it.', 'Select the cupboard key, turn to the back wall and tap the stock cupboard.'] });
+    var INK = H ? 'powder' : 'ink';
+    step({ id: 'take_ink', kind: 'take', view: 'cupz', need: ['f:cup'], add: ['i:' + INK],
+      hint: ['The children’s inkwells are dry.', H ? 'The stock cupboard has a tin of ink powder.' : 'The stock cupboard has a jar of ink.', 'Look in the open stock cupboard and take the ' + (H ? 'ink powder.' : 'ink jar.')] });
+    if (!E) {
+      step({ id: 'take_can', kind: 'take', view: 'cupz', need: ['f:cup'], add: ['i:can'],
+        hint: ['Inkwells are filled with a special can.', 'The ink monitor’s can is in the stock cupboard.', 'Look in the open stock cupboard and take the ink can.'] });
+      if (H) {
+        step({ id: 'use_can', kind: 'use', item: 'can', target: 'jug', view: 'wash', need: ['i:can'], del: ['i:can'], add: ['i:wcan'], snd: 'shWater',
+          hint: ['Ink powder needs water.', 'Fill the ink can at the washstand in the cloakroom.', 'Select the ink can, go into the cloakroom and tap the jug on the washstand.'] });
+        step({ id: 'comb_ink', kind: 'combine', items: ['wcan', 'powder'], need: ['i:wcan', 'i:powder'], del: ['i:wcan', 'i:powder'], add: ['i:inkcan'], snd: 'shStir',
+          hint: ['Make the ink.', 'Stir the ink powder into the can of water.', 'Drag the ink powder onto the can of water.'] });
+      } else step({ id: 'comb_ink', kind: 'combine', items: ['can', 'ink'], need: ['i:can', 'i:ink'], del: ['i:can', 'i:ink'], add: ['i:inkcan'], snd: 'shPour',
+        hint: ['The ink jar is too wide to fill an inkwell.', 'Pour the ink into the ink monitor’s can.', 'Drag the ink jar onto the ink can.'] });
+    }
+
+    // --- the spelling slates and the office door ---
+    step({ id: 'see_list', kind: 'see', view: 'listz', add: ['k:list'], clue: 'list',
+      hint: ['The office door’s lock is a row of letters.', 'The right blackboard has this week’s spellings.', 'On the blackboard wall, look at the right blackboard.'] });
+    views.listz.enter = 'see_list';
+    clues.list = { kind: 'list', title: 'This week’s spellings', words: P.list.slice() };
+    step({ id: 'see_slates', kind: 'see', view: 'slatesz', add: ['k:slates'], clue: 'slates',
+      hint: ['The spelling bee was today.', 'The children’s slates hang in the cloakroom.', 'In the cloakroom, look at the rack of slates on the pegs wall.'] });
+    views.slatesz.enter = 'see_slates';
+    clues.slates = { kind: 'slates', list: P.rack.map(function (j) { var s = P.slates[j]; return { m: s.m, tag: s.tag, ring: E ? s.pos : null }; }) };
+    var wordWhy = E ? 'Miss Thistle ringed the wrong letter on each slate in red. Read them from slate 1 to slate ' + P.word.length + '.'
+      : M ? 'Each slate is one of this week’s words with one letter wrong (check against the right blackboard). Read the wrong letters from slate 1.'
+        : 'Each slate is one of this week’s words with one letter wrong. The slates’ pegs have sums: read the wrong letters from the smallest answer up.';
+    step({ id: 'solve_word', kind: 'solve', puzzle: 'word', view: 'offdoorz', know: ['k:list', 'k:slates'], add: [OFFICE], snd: 'shOffice',
+      hint: ['The office door has one of Aunt Wren’s letter locks.', wordWhy, 'Set the office door’s letters to ' + P.word.split('').join(' ') + '.'] });
+    puzzles.word = { type: 'symbols', view: 'offdoorz', step: 'solve_word', sets: P.tiles.map(function (t) { return t.slice(); }), answer: P.word.split(''), init: { s: P.tileInit.slice() }, tap: 'shTile',
+      rule: H ? 'sums' : 'number' };
+
+    // --- the office: the window pole, the matches, the register ---
+    step({ id: 'take_pole', kind: 'take', view: 'ofire', need: [OFFICE], add: ['i:pole'],
+      hint: ['Something long would reach things up high.', 'The window pole leans in the corner of the office.', 'In the office, by the fireplace, take the window pole from the corner.'] });
+    if (H) step({ id: 'comb_pole', kind: 'combine', items: ['pole', 'hook'], need: ['i:pole', 'i:hook'], del: ['i:pole', 'i:hook'], add: ['i:hpole'], snd: 'shScrew',
+      hint: ['The window pole has no hook.', 'Screw the brass hook back onto it.', 'Drag the brass hook onto the window pole.'] });
+    step({ id: 'take_matches', kind: 'take', view: 'ofire', need: [OFFICE], add: ['i:matches'],
+      hint: ['The stove needs lighting.', 'A box of matches sits on the office mantelpiece.', 'In the office, take the matches from the mantelpiece.'] });
+
+    // --- the wall map and the globe ---
+    step({ id: 'use_pole_map', kind: 'use', item: POLE, target: 'map', view: 'back', need: ['i:' + POLE], add: ['f:map'], snd: 'shMap',
+      hint: ['The wall map is rolled up high on the back wall.', 'Pull it down with the window pole' + (H ? ' (once it has its hook).' : '.'), 'Select the window pole, turn to the back wall and tap the rolled-up map.'] });
+    step({ id: 'see_cards', kind: 'see', view: 'mapz', need: ['f:map'], add: ['k:cards'], clue: 'cards',
+      hint: ['The globe wants Aunt Wren’s travels.', 'Postcards from her are pinned along the wall map.', 'On the back wall, look closely at the pulled-down map.'] });
+    views.mapz.enter = 'see_cards';
+    clues.cards = { kind: 'cards', list: P.pins.map(function (j) { var c = P.cards[j]; return { pic: c.pic, date: dateText(diff, c), from: 'W' }; }) };
+    var globeWhy = E ? 'The postcards’ postmarks are all in June: press the places from the earliest date.'
+      : M ? 'Read each postcard’s postmark date and press the globe’s places from the earliest in the year.'
+        : 'The postmarks are in Roman numerals: day, then month. Press the places from the earliest in the year.';
+    step({ id: 'solve_globe', kind: 'solve', puzzle: 'globe', view: 'globez', know: ['k:cards'], add: ['f:globe'], snd: 'shGlobe',
+      hint: ['The globe has little enamel places on it: one of Aunt Wren’s locks.', globeWhy, 'Press the globe’s places in this order: ' + P.order.map(function (p) { return PLACENAME[p]; }).join(', ') + '.'] });
+    puzzles.globe = { type: 'sequence', view: 'globez', step: 'solve_globe', buttons: P.globeBtns.slice(), answer: P.order.slice(), init: { got: [] }, tap: 'shPlace',
+      wrongMsg: 'Clunk! The places pop back out: start again.' };
+    step({ id: 'take_letter', kind: 'take', view: 'globez', need: ['f:globe'], add: ['i:letter'],
+      hint: ['The globe has opened.', 'There’s a folded letter inside it.', 'Look at the open globe and take the letter.'] });
+    if (!E) {
+      step({ id: 'take_rkey', kind: 'take', view: 'globez', need: ['f:globe'], add: ['i:rkey'],
+        hint: ['The globe has opened.', 'A little brass key is tucked inside it too.', 'Look at the open globe and take the little brass key.'] });
+      step({ id: 'use_rkey', kind: 'use', item: 'rkey', target: 'rolltop', view: 'odesk', need: ['i:rkey', OFFICE], del: ['i:rkey'], add: ['f:roll'], snd: 'shRoll',
+        hint: ['Miss Thistle’s roll-top desk is locked.', 'The little brass key from the globe fits it.', 'Select the little brass key, go into the office and tap the roll-top desk.'] });
+    }
+    step({ id: 'see_register', kind: 'see', view: 'regz', need: E ? [OFFICE] : [OFFICE, 'f:roll'], add: ['k:register'], clue: 'register',
+      hint: ['Who came to school today?', 'Miss Thistle’s register is on her desk in the office.', 'In the office, look at the register on the ' + (E ? 'desk.' : 'roll-top desk.')] });
+    views.regz.enter = 'see_register';
+    var key = E ? 'here or away' : M ? '/ here · O away' : '/ here · L late · O away';
+    clues.register = { kind: 'register', key: key, lines: P.roll.map(function (d) {
+      var mk = P.absent.indexOf(d) >= 0 ? (E ? 'away' : 'O') : P.late.indexOf(d) >= 0 ? 'L' : (E ? 'here' : '/');
+      return { name: P.seat[d], mark: mk };
+    }) };
+
+    // --- the stove: lifter (Medium, Hard), kindling, coal, damper, a match; then the blank letter on the warm plate ---
+    if (!E) {
+      step({ id: 'see_pailnote', kind: 'see', view: 'pnotez', need: [OFFICE], add: ['k:pailnote'], clue: 'pailnote',
+        hint: ['The stove’s lid lifter is missing.', 'A note in the office says where it went.', 'In the office, look at the note pinned over the desk.'] });
+      views.pnotez.enter = 'see_pailnote';
+      var pr = P.pailRule, ptxt = M ? 'the child at the ' + pr.row + ' desk on the ' + pr.side + ' side'
+        : pr.rel === 'behind' ? 'the child who sits just behind ' + P.seat[pr.ref] : 'the child who sits next to ' + P.seat[pr.ref] + ', on the windows side';
+      clues.pailnote = { kind: 'pailnote', lines: ['Mrs Brook borrowed my stove lifter, and it came back in a lunch pail!', 'It’s in the pail of ' + ptxt + '.', 'A. T.'] };
+      step({ id: 'take_lifter', kind: 'take', view: 'pegs', know: ['k:pailnote', 'k:plan'], add: ['i:lifter'],
+        hint: ['The stove’s lid won’t come off without its lifter.', 'It’s in one of the lunch pails in the cloakroom: Miss Thistle’s note and the seating plan say whose.', 'In the cloakroom, take the lifter from ' + P.seat[P.pailDesk] + '’s lunch pail.'] });
+      step({ id: 'use_lifter', kind: 'use', item: 'lifter', target: 'stove', view: 'stovez', need: ['i:lifter'], del: ['i:lifter'], add: ['f:lid'], snd: 'shLid',
+        hint: ['The stove is cold and its lid is on.', 'Lift the lid with the stove lifter.', 'Select the stove lifter, look at the stove and tap it.'] });
+      step({ id: 'take_kindling', kind: 'take', view: 'wash', add: ['i:kindling'],
+        hint: ['A fire starts with sticks and paper.', 'There’s kindling in the cloakroom.', 'In the cloakroom, by the washstand wall, take the kindling from its box.'] });
+      step({ id: 'use_kindling', kind: 'use', item: 'kindling', target: 'stove', view: 'stovez', need: ['i:kindling', 'f:lid'], del: ['i:kindling'], add: ['f:kind'], snd: 'shSticks',
+        wait: 'The stove’s lid is on.',
+        hint: ['Lay the fire.', 'Kindling goes in first.', 'Select the kindling, look at the stove and tap it.'] });
+    }
+    step({ id: 'take_coal', kind: 'take', view: 'wash', add: ['i:coal'],
+      hint: ['The stove needs fuel.', 'There’s a scuttle of coal in the cloakroom.', 'In the cloakroom, by the washstand wall, take the coal scuttle.'] });
+    step({ id: 'use_coal', kind: 'use', item: 'coal', target: 'stove', view: 'stovez', need: E ? ['i:coal'] : ['i:coal', 'f:kind'], del: ['i:coal'], add: ['f:coal'], snd: 'shCoal',
+      wait: 'Kindling first, then coal.',
+      hint: ['The stove is empty.', 'Put the coal in it.', 'Select the coal scuttle, look at the stove and tap it.'] });
+    if (!E) step({ id: 'act_damper', kind: 'act', view: 'stovez', need: ['f:coal'], add: ['f:damper'], snd: 'shDamper',
+      hint: ['A stove with its damper shut only smokes.', 'Open the damper in the stovepipe.', 'Look at the stove and turn the damper handle on its pipe.'] });
+    step({ id: 'use_matches', kind: 'use', item: 'matches', target: 'stove', view: 'stovez', need: ['i:matches', E ? 'f:coal' : 'f:damper'], del: ['i:matches'], add: ['f:lit'], snd: 'shFire',
+      wait: E ? 'There’s nothing in the stove to light.' : 'Not yet: lay the fire and open the damper first.',
+      hint: ['The fire is laid.', 'Light it with a match.', 'Select the matches, look at the stove and tap it.'] });
+    step({ id: 'use_letter', kind: 'use', item: 'letter', target: 'stove', view: 'stovez', need: ['i:letter', 'f:lit'], del: ['i:letter'], add: ['f:warm'], snd: 'shReveal',
+      wait: 'The stove is cold.',
+      hint: ['Aunt Wren’s letter is blank... and smells of lemons.', 'Lemon-juice writing shows when it’s warmed. Lay it on the warm stove.', 'Select the blank letter, look at the lit stove and tap it.'] });
+    step({ id: 'see_letter', kind: 'see', view: 'letterz', need: ['f:warm'], add: ['k:letter'], clue: 'letter',
+      hint: ['Writing has come up on Aunt Wren’s letter.', 'Read it.', 'Look at the stove and tap the letter on its warm plate.'] });
+    views.letterz.enter = 'see_letter';
+    clues.letter = { kind: 'letter', lines: [E ? 'Ring Ada’s bell ' + NUMW[P.ring] + ' times, then hold the rope still.'
+      : M ? 'Ring Ada’s bell once for every child who came to school today, then hold the rope still.'
+        : 'Ring Ada’s bell once for every child who was in their seat on time this morning (latecomers don’t count!), then hold the rope still.',
+    'Too many or too few, and she’ll know! W.'] };
+
+    // --- the inkwells and the bell rope's case ---
+    step({ id: 'see_case', kind: 'see', view: 'ropez', add: ['k:case'], clue: 'case',
+      hint: ['The bell rope is shut in a tall wooden case.', 'Aunt Wren put a plate on it.', 'On the door wall, look at the bell rope’s case.'] });
+    views.ropez.enter = 'see_case';
+    clues.case = { kind: 'case', lines: ['AUNT WREN’S INK LOCK', 'Fill the inkwells of the children who were away today,', 'so their desks are ready for tomorrow.'] };
+    var ITEM = E ? 'ink' : 'inkcan';
+    step({ id: 'use_ink', kind: 'use', item: ITEM, target: 'wells', view: 'inkz', need: ['i:' + ITEM], del: ['i:' + ITEM], add: ['f:inked'], snd: 'shInk',
+      hint: ['The inkwells in the children’s desks are all dry.', E ? 'Bring the ink jar.' : 'Bring the can of ink.', 'Select the ' + (E ? 'ink jar' : 'can of ink') + ', look at the children’s desks and tap them.'] });
+    var inkWhy = H ? 'The register’s O means away. The seating plan is drawn from the back of the room: check where the blackboard is.' : 'The register says who was away; the seating plan says where they sit.';
+    step({ id: 'solve_ink', kind: 'solve', puzzle: 'ink', view: 'inkz', need: ['f:inked'], know: ['k:case', 'k:plan', 'k:register'], add: ['f:case'], snd: 'shCase',
+      hint: ['Aunt Wren’s ink lock opens the bell rope’s case.', inkWhy, 'Fill the inkwells of: ' + P.absent.map(function (d) { return P.seat[d]; }).join(', ') + '.'] });
+    puzzles.ink = { type: 'pins', view: 'inkz', step: 'solve_ink', n: P.n, answer: P.absent.slice(), init: { on: new Array(P.n * P.n).fill(0) }, tap: 'shWell' };
+    step({ id: 'use_pole_rope', kind: 'use', item: POLE, target: 'tail', view: 'ropez', need: ['i:' + POLE, 'f:case'], add: ['f:rope'], snd: 'shRope',
+      hint: ['The rope’s end is looped over a cleat, high out of reach.', 'Unhook it with the window pole.', 'Select the window pole, look at the bell rope and tap the loop high up.'] });
+    var bellWhy = E ? 'Aunt Wren’s letter says how many times.' : M ? 'Count the children the register marks as here (not away).' : 'Count only the children marked / (not away, and not late).';
+    step({ id: 'solve_bell', kind: 'solve', puzzle: 'bell', view: 'ropez', need: ['f:rope'], know: ['k:letter'].concat(E ? [] : ['k:register']), add: ['f:rung'], snd: 'shPeal',
+      hint: ['Ring Ada’s bell properly.', bellWhy, 'Pull the rope ' + P.ring + ' times, then tap Hold.'] });
+    var bellAns = []; for (var b0 = 0; b0 < P.ring; b0++) bellAns.push('pull'); bellAns.push('hold');
+    puzzles.bell = { type: 'sequence', view: 'ropez', step: 'solve_bell', buttons: ['pull', 'hold'], answer: bellAns, init: { got: [] }, tap: 'shBell',
+      wrongMsg: 'The bell clangs out of time. Let it settle and start again.' };
+    step({ id: 'take_dkey', kind: 'take', view: 'ropez', need: ['f:rung'], add: ['i:dkey'], snd: 'shKey',
+      hint: ['Something came rattling down the rope!', 'The door key, on its ribbon.', 'Look at the bell rope and take the door key from the bottom of the case.'] });
+    step({ id: 'use_dkey', kind: 'use', item: 'dkey', target: 'lock', view: 'doorz', need: ['i:dkey'], del: ['i:dkey'], add: ['f:unlocked'], snd: 'unlock',
+      hint: ['The front door is locked.', 'The key from the bellcote fits it.', 'Select the door key, look at the front door and tap its lock.'] });
+    step({ id: 'open_door', kind: 'auto', need: ['f:unlocked'], add: ['f:doorOpen'] });
+
+    // --- red herrings (Hard) ---
+    if (H) {
+      step({ id: 'take_apple', kind: 'take', view: 'board', herring: true, add: ['i:apple'] });
+      step({ id: 'see_old', kind: 'see', view: 'oldz', herring: true, add: ['k:old'], clue: 'old' });
+      views.oldz.enter = 'see_old';
+      clues.old = { kind: 'list', title: 'Last week’s spellings', words: P.old.slice() };
+      step({ id: 'see_mabel', kind: 'see', view: 'mabelz', herring: true, need: [OFFICE], add: ['k:mabel'], clue: 'mabel' });
+      views.mabelz.enter = 'see_mabel';
+      clues.mabel = { kind: 'cards', list: [{ pic: P.mabel.pic, date: dateText(diff, P.mabel), from: 'Mabel' }] };
+    }
+
+    // ----- hotspots -----
+    // the door wall
+    hs('door', { id: 'honour', r: L.honour, say: 'The honour board: gold names of the best scholars, back to 1871.' });
+    hs('door', { id: 'stand', r: L.stand, say: 'An umbrella stand with one forgotten umbrella.' });
+    hs('door', { id: 'door', r: L.door, zoom: 'doorz' });
+    hs('door', { id: 'note', r: L.note, zoom: 'notez' });
+    hs('door', { id: 'rope', r: L.rope, zoom: 'ropez' });
+    hs('door', { id: 'toCloak', r: L.arch, go: 'pegs' });
+    // the blackboard wall
+    hs('board', { id: 'clock', r: L.clock, say: 'The school clock, ticking steadily. Its numbers are Roman: I, II, III, IV...' });
+    hs('board', { id: 'bbL', r: L.bbL, zoom: 'sumsz' });
+    hs('board', { id: 'bbR', r: L.bbR, zoom: 'listz' });
+    hs('board', { id: 'tdesk', r: L.tdesk, zoom: 'tdeskz' });
+    hs('board', { id: 'hbell', r: L.hbell, say: 'Miss Thistle’s brass handbell, for calling the children in from play.' });
+    if (H) hs('board', { id: 'apple', r: L.apple, step: 'take_apple', show: function (st) { return !st.done.take_apple; } });
+    hs('board', { id: 'abacus', r: L.abacus, say: 'A counting frame with red and white beads.' });
+    // the windows wall
+    L.win.forEach(function (w, i) { hs('windows', { id: 'win' + i, r: w, say: ['Tall windows onto the village green, gold in the evening sun.', 'The green, the duck pond and the great oak. Swallows are swooping over the grass.', 'The church tower beyond the green, and the hills going blue.'][i] }); });
+    hs('windows', { id: 'desks', r: L.desks, zoom: 'inkz' });
+    hs('windows', { id: 'globe', r: L.globe, zoom: 'globez' });
+    hs('windows', { id: 'nature', r: L.nature, say: 'The nature table: a bird’s nest, conkers, a jam jar of frogspawn (now tadpoles).' });
+    // the back wall
+    hs('back', { id: 'cup', r: L.cup, target: 'cup', show: nf('f:cup'), say: 'The stock cupboard, locked. Its paper label says: STOCK.' });
+    hs('back', { id: 'cupOpen', r: L.cup, zoom: 'cupz', show: f('f:cup') });
+    hs('back', { id: 'stove', r: L.stove, zoom: 'stovez' });
+    hs('back', { id: 'map', r: L.map, target: 'map', show: nf('f:map'), say: 'A wall map, rolled up high by its cord. Far out of reach.' });
+    hs('back', { id: 'mapDown', r: L.mapDown, zoom: 'mapz', show: f('f:map') });
+    hs('back', { id: 'offdoor', r: L.offdoor, zoom: 'offdoorz', show: nf(OFFICE) });
+    hs('back', { id: 'toOffice', r: L.offdoor, go: 'odesk', show: f(OFFICE) });
+    // the cloakroom
+    hs('pegs', { id: 'shelf', r: L.shelf, say: 'The lunch-pail shelf.' });
+    if (!E) P.pails.forEach(function (d, i) {
+      var nm = P.seat[d];
+      if (d === P.pailDesk) hs('pegs', { id: 'pail' + i, pail: nm, r: pailRect(i, P.pails.length), step: 'take_lifter', show: function (st) { return !st.done.take_lifter; }, say: nm + '’s lunch pail.' });
+      else hs('pegs', { id: 'pail' + i, pail: nm, r: pailRect(i, P.pails.length), say: nm + '’s lunch pail: ' + ['a crust and an apple core.', 'crumbs and a cold potato.', 'a slice of bread and dripping.', 'an empty cocoa tin.', 'a jam sandwich, half eaten.', 'two pickled onions!'][i % 6] });
+    });
+    else hs('pegs', { id: 'pails', r: L.shelf, say: 'Tin lunch pails with the children’s names: crusts, crumbs and apple cores.' });
+    hs('pegs', { id: 'coats', r: L.coats, say: 'Coat pegs with the children’s names over them, and a few forgotten caps and scarves.' });
+    hs('pegs', { id: 'rack', r: L.rack, zoom: 'slatesz' });
+    hs('pegs', { id: 'boots', r: L.boots, say: 'A bench, and under it a row of muddy boots.' });
+    if (H) hs('pegs', { id: 'old', r: L.old, zoom: 'oldz' });
+    hs('wash', { id: 'cwin', r: L.cwin, say: 'A little window onto the yard: the privies, the woodshed and a hopscotch grid in chalk.' });
+    if (H) hs('wash', { id: 'wash', r: L.wash, target: 'jug', say: 'The washstand: a big jug of water, a basin, a cake of carbolic soap.' });
+    else hs('wash', { id: 'wash', r: L.wash, say: 'The washstand: a big jug of water, a basin, a cake of carbolic soap.' });
+    hs('wash', { id: 'coal', r: L.coal, step: 'take_coal', show: function (st) { return !st.done.take_coal; } });
+    if (!E) hs('wash', { id: 'kindling', r: L.kindling, step: 'take_kindling', show: function (st) { return !st.done.take_kindling; } });
+    hs('wash', { id: 'cback', r: L.cback, go: 'door' });
+    // the office
+    hs('odesk', { id: 'photo', r: L.photo, say: 'A photograph: two young women with bicycles, laughing. On the back, “Ada and Wren, 1889”.' });
+    hs('odesk', { id: 'owin', r: L.owin, say: 'The office window: the lane, and the swallows’ nests under the eaves.' });
+    hs('odesk', { id: 'chair', r: L.chair, say: 'Miss Thistle’s chair, with a knitted cushion.' });
+    if (E) hs('odesk', { id: 'rolltop', r: L.rolltop, zoom: 'regz' });
+    else {
+      hs('odesk', { id: 'rolltop', r: L.rolltop, target: 'rolltop', show: nf('f:roll'), say: 'Miss Thistle’s roll-top desk. The roll is locked: a tiny brass keyhole.' });
+      hs('odesk', { id: 'rollOpen', r: L.rolltop, zoom: 'regz', show: f('f:roll') });
+      hs('odesk', { id: 'pnote', r: L.pnote, zoom: 'pnotez' });
+    }
+    hs('ofire', { id: 'oshelves', r: L.oshelves, say: 'School books, the log book, a stuffed owl under a glass dome.' });
+    hs('ofire', { id: 'fire', r: L.fire, say: 'A little fireplace, swept clean for the summer.' });
+    hs('ofire', { id: 'matches', r: L.matches, step: 'take_matches', show: function (st) { return !st.done.take_matches; } });
+    if (H) hs('ofire', { id: 'mabel', r: L.mabel, zoom: 'mabelz' });
+    hs('ofire', { id: 'pole', r: L.pole, step: 'take_pole', show: function (st) { return !st.done.take_pole; } });
+    hs('ofire', { id: 'oback', r: L.oback, go: 'back' });
+
+    // close-ups
+    hs('doorz', { id: 'lock', r: L.lockZ, target: 'lock', say: 'The front door is locked, and the key isn’t here.' });
+    hs('ropez', { id: 'case', r: L.caseZ, show: nf('f:case'), say: 'The rope case is locked. There’s a plate on it with an inkwell drawn on it.' });
+    hs('ropez', { id: 'tail', r: L.tailZ, target: 'tail', show: function (st) { return !!st.f['f:case'] && !st.f['f:rope']; }, say: 'The rope’s end is looped over a cleat, high out of reach.' });
+    hs('ropez', { id: 'dkey', r: L.dkeyZ, step: 'take_dkey', show: function (st) { return !!st.f['f:rung'] && !st.done.take_dkey; } });
+    hs('tdeskz', { id: 'plan', r: L.planZ, zoom: 'planz', show: f('f:drawer') });
+    hs('tdeskz', { id: 'ckey', r: L.ckeyZ, step: 'take_ckey', show: function (st) { return !!st.f['f:drawer'] && !st.done.take_ckey; } });
+    if (H) hs('tdeskz', { id: 'hook', r: L.hookZ, step: 'take_hook', show: function (st) { return !!st.f['f:drawer'] && !st.done.take_hook; } });
+    hs('cupz', { id: 'ink', r: L.inkZ, step: 'take_ink', show: function (st) { return !st.done.take_ink; } });
+    if (!E) hs('cupz', { id: 'can', r: L.canZ, step: 'take_can', show: function (st) { return !st.done.take_can; } });
+    hs('inkz', { id: 'wells', r: L.wellsZ, target: 'wells', show: nf('f:inked'), say: 'The inkwells in the desks are all dry.' });
+    hs('globez', { id: 'letter', r: L.letterZ, step: 'take_letter', show: function (st) { return !!st.f['f:globe'] && !st.done.take_letter; } });
+    if (!E) hs('globez', { id: 'rkey', r: L.rkeyZ, step: 'take_rkey', show: function (st) { return !!st.f['f:globe'] && !st.done.take_rkey; } });
+    hs('stovez', { id: 'stove', r: L.stoveZ, target: 'stove', say: function (st) {
+      if (st.f['f:lit']) return 'The stove roars away. Its top plate is warm.';
+      if (!E && !st.f['f:lid']) return 'A black iron stove, cold. Its lid is on: you’d need the lifter.';
+      if (!E && !st.f['f:kind']) return 'The stove is empty and cold.';
+      if (!st.f['f:coal']) return E ? 'The stove is empty and cold.' : 'Kindling laid. It needs coal.';
+      return E ? 'The fire is laid. It needs a match.' : st.f['f:damper'] ? 'The fire is laid. It needs a match.' : 'The fire is laid. Open the damper before you light it.';
+    } });
+    if (!E) hs('stovez', { id: 'damper', r: L.damperZ, step: 'act_damper', say: function (st) { return st.f['f:damper'] ? 'The damper is open.' : 'The stovepipe’s damper, shut. Best opened once the fire is laid.'; } });
+    hs('stovez', { id: 'paper', r: L.paperZ, zoom: 'letterz', show: f('f:warm') });
+
+    var R = { id: 19, diff: diff, steps: steps, views: views, puzzles: puzzles, clues: clues, items: items, goal: 'f:doorOpen',
+      walls: spaces.school.walls, spaces: spaces, start: 'door', doorMs: 2600,
+      nope: [{ items: ['ink', 'matches'], say: 'Ink and matches? Better not.' }, { items: ['coal', 'kindling'], say: 'They go in the stove, kindling first.' },
+        { items: ['letter', 'matches'], say: 'Burn Aunt Wren’s letter? Never! Warm it gently.' }, { items: ['pole', 'ckey'], say: 'The key opens the stock cupboard.' },
+        { items: ['powder', 'can'], say: 'The ink powder needs water first.' }, { items: ['apple', 'pole'], say: 'Leave Miss Thistle’s apple alone.' },
+        { items: ['lifter', 'pole'], say: 'The lifter is for the stove’s lid.' }, { items: ['rkey', 'ckey'], say: 'Two keys for two locks.' }].filter(function (x) { return items[x.items[0]] && items[x.items[1]]; }),
+      wrong: [{ item: 'pole', target: 'map', say: 'The pole’s hook has come off: it just slides off the roller.' }, { item: 'pole', target: 'tail', say: 'Without its hook, the pole can’t lift the loop.' },
+        { item: 'ckey', target: 'lock', say: 'That’s the stock cupboard’s key.' }, { item: 'rkey', target: 'lock', say: 'Far too small for the front door.' },
+        { item: 'ink', target: 'wells', say: 'The jar is too wide: you’d spill ink everywhere. Use the ink monitor’s can.' }, { item: 'can', target: 'wells', say: 'The can is empty.' },
+        { item: 'wcan', target: 'wells', say: 'That’s just water. Mix in the ink powder.' }, { item: 'powder', target: 'wells', say: 'Powder needs mixing with water first.' },
+        { item: 'letter', target: 'wells', say: 'Aunt Wren’s letter wants warming, not inking.' }, { item: 'dkey', target: 'cup', say: 'That’s the front door’s key.' },
+        { item: 'coal', target: 'wells', say: 'Coal in the inkwells?' }].filter(function (x) { return items[x.item] && !(x.item === 'pole' && !H) && !(x.item === 'ink' && E); }) };
+    return R;
+  }
+
+  function clueInfo(id, c) {
+    if (id === 'note') return { title: 'Aunt Wren’s note', text: c.lines.join(' '), view: 'notez' };
+    if (id === 'sums') return { title: 'Picture sums', text: 'Each picture is a different number from 2 to 9: ' + c.eqs.map(function (e) { return e.a + ' × ' + (e.b || e.n) + ' = ' + e.p; }).join('; ') + '.', view: 'sumsz' };
+    if (id === 'list') return { title: c.title, text: c.words.join(', ') + '.', view: 'listz' };
+    if (id === 'old') return { title: c.title, text: c.words.join(', ') + '.', view: 'oldz' };
+    if (id === 'slates') return { title: 'The spelling slates', text: 'Slates on the rack, left to right: ' + c.list.map(function (s) { return (typeof s.tag === 'number' ? s.tag + '. ' : s.tag.a + ' × ' + s.tag.b + ': ') + s.m; }).join('; ') + '.', view: 'slatesz' };
+    if (id === 'plan') return { title: 'The seating plan', text: 'Who sits where (' + c.top.toLowerCase() + ' at the top). See the drawing.', view: 'planz' };
+    if (id === 'register') return { title: 'The register', text: 'Today (' + c.key + '): ' + c.lines.map(function (l) { return l.name + ' ' + l.mark; }).join(', ') + '.', view: 'regz' };
+    if (id === 'pailnote') return { title: 'A note from Miss Thistle', text: c.lines.join(' '), view: 'pnotez' };
+    if (id === 'cards') return { title: 'Aunt Wren’s postcards', text: 'Pinned along the map: ' + c.list.map(function (x) { return PLACENAME[x.pic] + ' (' + x.date + ')'; }).join(', ') + '.', view: 'mapz' };
+    if (id === 'mabel') return { title: 'A postcard', text: 'From Cousin Mabel: ' + PLACENAME[c.list[0].pic] + ' (' + c.list[0].date + ').', view: 'mabelz' };
+    if (id === 'letter') return { title: 'Aunt Wren’s secret letter', text: c.lines.join(' '), view: 'letterz' };
+    if (id === 'case') return { title: 'The bell rope’s case', text: c.lines.slice(1).join(' '), view: 'casePic' };
+    return { title: id, text: '' };
+  }
+
+  var STORY = {
+    name: 'The Old Schoolhouse', short: 'Old Schoolhouse', amb: 'schoolhouse', tour: true,
+    desc: 'The village school of Little Pennywick on a summer evening: chalkboards and inkwells, a globe, a cloakroom of lunch pails, the teacher’s office and a bell rope up to the bellcote.',
+    next: 'Ada rang me out with her bell, and half the village waved. Then up the valley to a country inn, where I took the two best rooms and a very large breakfast.',
+    stamp: { name: 'Schoolhouse stamp', svg: '<svg viewBox="0 0 100 100"><g transform="rotate(-3 50 50)"><rect x="8" y="8" width="84" height="84" rx="6" fill="#fbf1de"/>' +
+      '<rect x="8" y="8" width="84" height="84" rx="6" fill="none" stroke="#2a5a3a" stroke-width="4" stroke-dasharray="2.6 2.6"/><rect x="15" y="15" width="70" height="70" rx="3" fill="#f6c870"/>' +
+      '<path d="M15 62 Q50 54 85 62 V85 H15z" fill="#6aa04a"/><path d="M26 74 V48 L50 30 L74 48 V74z" fill="#c86a4a" stroke="#5a2a1a" stroke-width="1.6"/>' +
+      '<path d="M22 50 L50 27 L78 50" fill="none" stroke="#3a3a4a" stroke-width="4" stroke-linecap="round"/><rect x="45" y="16" width="10" height="13" fill="#e8dcc4" stroke="#5a2a1a" stroke-width="1.2"/>' +
+      '<path d="M43 17 L50 11 L57 17z" fill="#3a3a4a"/><path d="M47.5 21 q2.5 -3 5 0 v4 h-5z" fill="#d8a838"/>' +
+      '<rect x="45" y="58" width="10" height="16" fill="#3a2410"/><rect x="31" y="54" width="9" height="9" fill="#fff4c8" stroke="#5a2a1a" stroke-width="1"/><rect x="60" y="54" width="9" height="9" fill="#fff4c8" stroke="#5a2a1a" stroke-width="1"/>' +
+      '<text x="50" y="45" text-anchor="middle" font-family="Georgia,serif" font-size="5" font-weight="700" fill="#fff4c8">SCHOOL</text>' +
+      '<text x="50" y="94" text-anchor="middle" font-family="Georgia,serif" font-size="6.5" font-weight="700" fill="#2a5a3a">LITTLE PENNYWICK</text></g></svg>' }
+  };
+
+  return { id: 19, L: L, SUMPICS: SUMPICS, PLACES: PLACES, PLACENAME: PLACENAME, NAMES: NAMES, WORDS4: WORDS4, WORDS5: WORDS5, SPELL: SPELL, MONTHS: MONTHS, NUMW: NUMW,
+    SPACES: SPACES, pailRect: pailRect, roman: roman, roll: roll, build: build, clueInfo: clueInfo, STORY: STORY };
+})();
+if (typeof module !== 'undefined') module.exports = GORoom19;
 </script>
 <script>
 /* Get Out! art: every scene, item and clue drawn in code on a 2D canvas (original cartoon art, warm lamplight).
@@ -25925,6 +26516,1006 @@ var GOArt18 = (function () {
   return mod;
 })();
 
+/* Get Out! Room 19 art: The Old Schoolhouse (Wren's Grand Tour, stop 8), drawn in code on the 1000 x 1400 frame.
+   The village school of Little Pennywick on a summer evening: cream plaster over a school-green boarded dado, dark
+   ceiling boards and beams, pitch-pine floor, tall pointed windows full of low gold sun, two blackboards in pine frames,
+   the teacher's high desk on its dais, rows of double desks with inkwells, a globe on a tall stand, a tortoise stove.
+   The cloakroom is lime-washed brick and flagstones; Miss Thistle's office has sprigged wallpaper and a rag rug.
+   Every clue is drawn from the room's data (the picture sums, the spellings and slates, the seating plan, the register,
+   the postcards, the pail note, the warmed letter). Registers with GOArt and GOAtmos. */
+var GOArt19 = (function () {
+  'use strict';
+  var H = GOArt.H, R19 = GORoom19, L = R19.L, PI = Math.PI, TAU = PI * 2;
+  var rr = H.rr, lin = H.lin, rad = H.rad, box = H.box, circ = H.circ, line = H.line, txt = H.txt, seeded = H.seeded, shade = H.shade,
+    wood = H.wood, brass = H.brass, gloss = H.gloss, dropShadow = H.dropShadow, noShadow = H.noShadow,
+    SERIF = H.SERIF, HAND = H.HAND, SANS = H.SANS;
+  var INK = '#2a1e14', CREAM = '#f6eed8', PLASTER = '#efe2c2', GREEN = '#4f7d5a', DKG = '#2a4a34', PINE = '#b8834a', DPINE = '#6e4422',
+    SLATE = '#28342f', CHALK = '#f2f0e6', RED = '#c8402a', NAVY = '#24386a', GOLD = '#e8c060', IRON = '#2a2a2e';
+  var CHALKS = { white: '#f2f0e6', yellow: '#f6e08a', pink: '#f4a8b8', blue: '#a8d0f4', green: '#b8e8a8' };
+  var V = {};
+
+  // ================= small helpers =================
+  function fit(c, s, x, y, size, col, maxW, o) {
+    o = o || {}; var sz = size;
+    c.font = (o.italic ? 'italic ' : '') + (o.weight || 700) + ' ' + sz + 'px ' + (o.font || SANS);
+    while (sz > 10 && c.measureText(s).width > maxW) { sz -= 1; c.font = (o.italic ? 'italic ' : '') + (o.weight || 700) + ' ' + sz + 'px ' + (o.font || SANS); }
+    txt(c, s, x, y, sz, col, o);
+  }
+  function wrapText(c, s, x, y, w, size, col, o) {
+    o = o || {}; c.font = (o.italic ? 'italic ' : '') + (o.weight || 700) + ' ' + size + 'px ' + (o.font || SANS);
+    var words = s.split(' '), lines = [], cur = '';
+    words.forEach(function (wd) { var t = cur ? cur + ' ' + wd : wd; if (c.measureText(t).width > w && cur) { lines.push(cur); cur = wd; } else cur = t; });
+    if (cur) lines.push(cur);
+    var lh = size * (o.lh || 1.3), top = o.top ? y : y - (lines.length - 1) * lh / 2;
+    lines.forEach(function (ln, i) { txt(c, ln, x, top + i * lh, size, col, o); });
+    return lines.length * lh;
+  }
+  function closeBg(c, e, a, b) { c.fillStyle = lin(c, 0, e.y0, 0, e.y1, [[0, a || '#5a4028'], [1, b || '#1e140a']]); c.fillRect(e.x0, e.y0, e.x1 - e.x0, e.y1 - e.y0); }
+  function paper(c, x, y, w, h, rot, col) { c.save(); c.translate(x + w / 2, y + h / 2); c.rotate(rot || 0); dropShadow(c, 24, 10, 0.4); box(c, -w / 2, -h / 2, w, h, 6, col || CREAM); noShadow(c); c.restore(); }
+  function dim(c, e, a) { c.fillStyle = 'rgba(0,0,0,' + a + ')'; c.fillRect(e.x0, e.y0, e.x1 - e.x0, e.y1 - e.y0); }
+  function pin(c, x, y, col) { circ(c, x + 2, y + 3, 9, 'rgba(0,0,0,.25)'); circ(c, x, y, 9, col || RED); circ(c, x - 3, y - 3, 3, 'rgba(255,255,255,.6)'); }
+  function chalkLine(c, x0, y0, x1, y1, col, lw) { c.save(); c.globalAlpha = 0.85; line(c, x0, y0, x1, y1, col || CHALK, lw || 4); c.restore(); }
+  function chalkTxt(c, s, x, y, size, col, o) { o = o || {}; c.save(); c.globalAlpha = 0.92; txt(c, s, x, y, size, col || CHALK, { font: o.font || HAND, weight: o.weight || 700, italic: o.italic, align: o.align }); c.restore(); }
+  function msg(c, s, ok, y) { fit(c, s, 500, y || 190, 36, ok ? '#8dffa8' : '#ffe8b8', 900, { font: SERIF, italic: true, weight: 800, stroke: ['rgba(30,16,4,.7)', 6] }); }
+
+  // ================= pictures: the sums' pictures and the globe's places =================
+  function pic(c, kind, x, y, s, chalky) {
+    c.save(); c.translate(x, y); c.scale(s / 100, s / 100); c.lineJoin = 'round'; c.lineCap = 'round';
+    var ol = chalky ? 'rgba(255,255,255,.85)' : '#2a1a10', lw = chalky ? 5 : 4;
+    function fillS(col) { c.fillStyle = chalky ? 'rgba(255,255,255,.06)' : col; c.fill(); c.strokeStyle = chalky ? col : ol; c.lineWidth = lw; c.stroke(); }
+    if (kind === 'apple') { c.beginPath(); c.moveTo(0, -24); c.bezierCurveTo(-40, -50, -52, 10, -22, 38); c.bezierCurveTo(-10, 48, 10, 48, 22, 38); c.bezierCurveTo(52, 10, 40, -50, 0, -24); fillS('#d8302a'); line(c, 0, -24, 6, -44, chalky ? '#c8a070' : '#5a3a1a', 5); c.beginPath(); c.ellipse(18, -40, 14, 7, -0.4, 0, TAU); fillS('#4a9a3a'); }
+    else if (kind === 'pear') { c.beginPath(); c.moveTo(0, -40); c.bezierCurveTo(-16, -40, -14, -6, -30, 14); c.bezierCurveTo(-46, 40, -20, 50, 0, 48); c.bezierCurveTo(20, 50, 46, 40, 30, 14); c.bezierCurveTo(14, -6, 16, -40, 0, -40); fillS('#b8c838'); line(c, 0, -40, -4, -52, chalky ? '#c8a070' : '#5a3a1a', 5); }
+    else if (kind === 'bell') { c.beginPath(); c.moveTo(-34, 30); c.bezierCurveTo(-30, 10, -26, -36, 0, -38); c.bezierCurveTo(26, -36, 30, 10, 34, 30); c.lineTo(42, 36); c.lineTo(-42, 36); c.closePath(); fillS('#e0b040'); c.beginPath(); c.arc(0, 42, 9, 0, TAU); fillS('#c89030'); c.beginPath(); c.arc(0, -44, 7, 0, TAU); fillS('#e0b040'); }
+    else if (kind === 'star') { c.beginPath(); for (var k = 0; k < 10; k++) { var a = -PI / 2 + k * PI / 5, rr2 = k % 2 ? 20 : 46; c.lineTo(Math.cos(a) * rr2, Math.sin(a) * rr2); } c.closePath(); fillS('#f6c830'); }
+    else if (kind === 'leaf') { c.beginPath(); c.moveTo(-36, 36); c.bezierCurveTo(-40, -20, 10, -44, 40, -40); c.bezierCurveTo(40, 0, 10, 40, -36, 36); fillS('#5aaa4a'); line(c, -36, 36, 26, -26, chalky ? 'rgba(255,255,255,.7)' : '#2a6a2a', 3); }
+    else if (kind === 'fish') { c.beginPath(); c.moveTo(-38, 0); c.bezierCurveTo(-20, -30, 20, -30, 32, 0); c.bezierCurveTo(20, 30, -20, 30, -38, 0); fillS('#5a9ad8'); c.beginPath(); c.moveTo(30, 0); c.lineTo(48, -20); c.lineTo(48, 20); c.closePath(); fillS('#5a9ad8'); circ(c, -20, -6, 4, chalky ? '#fff' : '#1a1a1a'); }
+    else if (kind === 'kite') { c.beginPath(); c.moveTo(0, -46); c.lineTo(30, -6); c.lineTo(0, 30); c.lineTo(-30, -6); c.closePath(); fillS('#e85a8a'); line(c, 0, -46, 0, 30, ol, 2); line(c, -30, -6, 30, -6, ol, 2); c.strokeStyle = chalky ? '#fff' : '#5a3a2a'; c.lineWidth = 3; c.beginPath(); c.moveTo(0, 30); c.quadraticCurveTo(14, 40, 0, 50); c.stroke(); }
+    else if (kind === 'boat') { c.beginPath(); c.moveTo(-42, 10); c.lineTo(42, 10); c.lineTo(28, 32); c.lineTo(-28, 32); c.closePath(); fillS('#a85a2a'); line(c, 0, 10, 0, -44, ol, 4); c.beginPath(); c.moveTo(4, -40); c.lineTo(34, 4); c.lineTo(4, 4); c.closePath(); fillS('#f4f0e0'); }
+    c.restore();
+  }
+  function place(c, kind, x, y, s) {
+    c.save(); c.translate(x, y); c.scale(s / 100, s / 100); c.lineJoin = 'round'; c.lineCap = 'round';
+    var ol = '#2a1a10';
+    function fs(col) { c.fillStyle = col; c.fill(); c.strokeStyle = ol; c.lineWidth = 3; c.stroke(); }
+    if (kind === 'windmill') { c.beginPath(); c.moveTo(-16, 44); c.lineTo(-10, -14); c.lineTo(10, -14); c.lineTo(16, 44); c.closePath(); fs('#e8dcc0'); c.beginPath(); c.moveTo(-14, -14); c.lineTo(0, -28); c.lineTo(14, -14); c.closePath(); fs('#a85a3a'); for (var k = 0; k < 4; k++) { c.save(); c.translate(0, -18); c.rotate(PI / 4 + k * PI / 2); c.beginPath(); c.rect(-6, -46, 12, 40); fs('#f4f0e0'); c.restore(); } circ(c, 0, -18, 5, '#5a3a2a'); }
+    else if (kind === 'palm') { c.strokeStyle = '#8a5a2a'; c.lineWidth = 9; c.beginPath(); c.moveTo(-6, 46); c.quadraticCurveTo(-2, 0, 8, -26); c.stroke(); for (var j = 0; j < 5; j++) { var a = -PI + j * PI / 4 - 0.2; c.beginPath(); c.moveTo(8, -26); c.quadraticCurveTo(8 + Math.cos(a) * 30, -40 + Math.sin(a) * 10, 8 + Math.cos(a) * 44, -26 + Math.sin(a) * 26 + 16); c.strokeStyle = '#3a9a3a'; c.lineWidth = 8; c.stroke(); } circ(c, 6, -20, 5, '#6a3a1a'); }
+    else if (kind === 'mountain') { c.beginPath(); c.moveTo(-46, 40); c.lineTo(-6, -36); c.lineTo(46, 40); c.closePath(); fs('#7a8aa0'); c.beginPath(); c.moveTo(-18, -14); c.lineTo(-6, -36); c.lineTo(7, -12); c.lineTo(0, -6); c.lineTo(-8, -12); c.closePath(); c.fillStyle = '#fff'; c.fill(); }
+    else if (kind === 'castle') { c.beginPath(); c.rect(-34, -10, 68, 50); fs('#c8b89a'); [-34, 14].forEach(function (tx) { c.beginPath(); c.rect(tx, -34, 20, 26); fs('#c8b89a'); c.beginPath(); c.moveTo(tx - 2, -34); c.lineTo(tx + 10, -50); c.lineTo(tx + 22, -34); c.closePath(); fs('#a83a3a'); }); c.beginPath(); c.moveTo(-8, 40); c.lineTo(-8, 22); c.arc(0, 22, 8, PI, 0); c.lineTo(8, 40); fs('#4a2a1a'); }
+    else if (kind === 'volcano') { c.beginPath(); c.moveTo(-48, 40); c.lineTo(-14, -20); c.lineTo(14, -20); c.lineTo(48, 40); c.closePath(); fs('#8a5a4a'); c.beginPath(); c.moveTo(-14, -20); c.lineTo(-6, -8); c.lineTo(2, -18); c.lineTo(8, -6); c.lineTo(14, -20); c.closePath(); c.fillStyle = '#f06a2a'; c.fill(); [[-6, -32, 8], [6, -44, 10], [-2, -58, 12]].forEach(function (p) { circ(c, p[0], p[1], p[2], 'rgba(160,150,150,.85)'); }); }
+    else if (kind === 'tower') { c.save(); c.rotate(0.12); for (var f = 0; f < 5; f++) { c.beginPath(); c.rect(-14, 34 - f * 16, 28, 16); fs(f % 2 ? '#f0e8d8' : '#e4dac4'); } c.beginPath(); c.rect(-10, -62, 20, 16); fs('#f0e8d8'); c.restore(); }
+    else if (kind === 'bridge') { c.beginPath(); c.moveTo(-48, 0); c.lineTo(48, 0); c.lineTo(48, 30); c.quadraticCurveTo(24, 6, 0, 30); c.quadraticCurveTo(-24, 6, -48, 30); c.closePath(); fs('#b89a7a'); c.fillStyle = '#5a9ad8'; c.fillRect(-48, 32, 96, 10); line(c, -48, 0, 48, 0, ol, 3); }
+    else if (kind === 'igloo') { c.beginPath(); c.moveTo(-44, 36); c.arc(0, 36, 44, PI, 0); c.closePath(); fs('#f4f8ff'); c.beginPath(); c.moveTo(-14, 36); c.arc(0, 36, 14, PI, 0); c.closePath(); fs('#2a3a5a'); c.strokeStyle = '#a8b8d0'; c.lineWidth = 2; [12, 24].forEach(function (yy) { c.beginPath(); c.moveTo(-40 + yy * 0.3, 36 - yy); c.lineTo(40 - yy * 0.3, 36 - yy); c.stroke(); }); }
+    c.restore();
+  }
+
+  // ================= the schoolroom =================
+  function ceilingBoards(c, e) {
+    var top = Math.min(e.y0, 0) - 10;
+    c.fillStyle = lin(c, 0, top, 0, 140, [[0, '#2a1a10'], [1, '#4a3020']]); c.fillRect(e.x0, top, e.x1 - e.x0, 140 - top);
+    c.strokeStyle = 'rgba(0,0,0,.25)'; c.lineWidth = 2; for (var x = Math.floor(e.x0 / 60) * 60; x < e.x1; x += 60) { c.beginPath(); c.moveTo(x, top); c.lineTo(x, 112); c.stroke(); }
+    c.fillStyle = lin(c, 0, 108, 0, 142, [[0, '#5a3a22'], [1, '#2e1c10']]); c.fillRect(e.x0, 108, e.x1 - e.x0, 34);
+  }
+  function floorBoards(c, e) {
+    var b = Math.max(e.y1, 1400);
+    c.fillStyle = lin(c, 0, 1100, 0, b, [[0, '#8a5a30'], [1, '#5a3618']]); c.fillRect(e.x0, 1100, e.x1 - e.x0, b - 1100);
+    var y = 1100, hgt = 16, row = 0;
+    while (y < b) {
+      line(c, e.x0, y, e.x1, y, 'rgba(40,20,6,.45)', 2);
+      var off = (row * 137) % 260;
+      for (var x = Math.floor(e.x0 / 260) * 260 - off; x < e.x1; x += 260) line(c, x, y, x, y + hgt, 'rgba(40,20,6,.35)', 2);
+      y += hgt; hgt *= 1.22; row++;
+    }
+  }
+  function schoolWall(c, e, o) {
+    o = o || {};
+    ceilingBoards(c, e);
+    c.fillStyle = lin(c, 0, 140, 0, 610, [[0, '#e6d6b2'], [1, PLASTER]]); c.fillRect(e.x0, 140, e.x1 - e.x0, 470);
+    var r = seeded(1901 + (o.seed || 0)); c.strokeStyle = 'rgba(120,90,50,.12)'; c.lineWidth = 1.5;
+    for (var k = 0; k < 5; k++) { var cx = e.x0 + r() * (e.x1 - e.x0), cy = 200 + r() * 360; c.beginPath(); c.moveTo(cx, cy); c.lineTo(cx + 20 - r() * 40, cy + 18); c.lineTo(cx + 30 - r() * 60, cy + 40); c.stroke(); }
+    // the green boarded dado
+    c.fillStyle = lin(c, 0, 610, 0, 1050, [[0, '#5a8a64'], [1, '#3e6a4a']]); c.fillRect(e.x0, 610, e.x1 - e.x0, 440);
+    for (var x = Math.floor(e.x0 / 44) * 44; x < e.x1; x += 44) { line(c, x, 624, x, 1046, 'rgba(20,40,24,.35)', 2); line(c, x + 2, 624, x + 2, 1046, 'rgba(255,255,255,.07)', 1); }
+    c.fillStyle = lin(c, 0, 600, 0, 626, [[0, '#8a5a30'], [1, '#4a2e14']]); c.fillRect(e.x0, 600, e.x1 - e.x0, 26);
+    c.fillStyle = lin(c, 0, 1040, 0, 1100, [[0, '#4a2e18'], [1, '#2a180a']]); c.fillRect(e.x0, 1040, e.x1 - e.x0, 60);
+    floorBoards(c, e);
+  }
+  // the evening outside: sky, the green, the oak, the pond, the church tower, the hills
+  function outside(c, x, y, w, h, seed, part) {
+    c.save(); c.beginPath(); c.rect(x, y, w, h); c.clip();
+    var X0 = -300, W0 = 1600;   // one picture across the whole wall; each window shows its part
+    c.fillStyle = lin(c, 0, y, 0, y + h, [[0, '#f4c27a'], [0.45, '#f6d898'], [0.7, '#e8e0b8'], [1, '#c8d8a0']]); c.fillRect(x, y, w, h);
+    var hy = y + h * 0.66;
+    c.fillStyle = 'rgba(255,240,200,.85)'; c.beginPath(); c.arc(820, hy - 30, 40, 0, TAU); c.fill();
+    c.fillStyle = '#8aa0b8'; c.beginPath(); c.moveTo(X0, hy); for (var k = 0; k <= 16; k++) c.lineTo(X0 + k * 100, hy - 30 - 26 * Math.sin(k * 1.3 + seed)); c.lineTo(X0 + W0, hy + 10); c.lineTo(X0, hy + 10); c.fill();
+    c.fillStyle = '#7aa05a'; c.fillRect(x, hy, w, h);
+    c.fillStyle = '#8ab86a'; c.beginPath(); c.ellipse(500, hy + h * 0.5, 900, h * 0.4, 0, 0, TAU); c.fill();
+    // the church tower (right), the oak (middle), the pond (left)
+    c.fillStyle = '#a89878'; c.fillRect(760, hy - 150, 46, 150); c.beginPath(); c.moveTo(752, hy - 150); c.lineTo(783, hy - 210); c.lineTo(814, hy - 150); c.fill();
+    c.fillStyle = '#6a4a2a'; c.fillRect(492, hy - 70, 18, 90);
+    c.fillStyle = '#4a7a3a'; [[500, hy - 120, 90], [440, hy - 90, 64], [560, hy - 92, 66], [500, hy - 170, 60]].forEach(function (b) { c.beginPath(); c.arc(b[0], b[1], b[2], 0, TAU); c.fill(); });
+    c.fillStyle = 'rgba(255,220,140,.25)'; c.beginPath(); c.arc(520, hy - 150, 70, 0, TAU); c.fill();
+    c.fillStyle = '#7ab0c8'; c.beginPath(); c.ellipse(150, hy + 60, 120, 26, 0, 0, TAU); c.fill(); c.fillStyle = 'rgba(255,240,200,.5)'; c.beginPath(); c.ellipse(170, hy + 56, 60, 8, 0, 0, TAU); c.fill();
+    c.fillStyle = '#f4f4f0'; c.beginPath(); c.ellipse(120, hy + 58, 9, 6, 0, 0, TAU); c.fill(); circ(c, 112, hy + 52, 4, '#f4f4f0');
+    // the duck's friend and a fence along the lane
+    c.strokeStyle = '#8a6a4a'; c.lineWidth = 3; c.beginPath(); c.moveTo(-200, hy + 110); c.lineTo(1200, hy + 96); c.stroke(); for (var f = -200; f < 1200; f += 40) line(c, f, hy + 90, f, hy + 116, '#8a6a4a', 3);
+    c.restore();
+  }
+  // a tall pointed school window with small panes
+  function gothicWin(c, x, y, w, h, seed) {
+    var top = y + w * 0.5;
+    c.save(); c.beginPath(); c.moveTo(x, y + h); c.lineTo(x, top); c.quadraticCurveTo(x, y, x + w / 2, y); c.quadraticCurveTo(x + w, y, x + w, top); c.lineTo(x + w, y + h); c.closePath(); c.clip();
+    outside(c, x, y, w, h, seed);
+    // leaded panes
+    c.strokeStyle = 'rgba(40,40,40,.55)'; c.lineWidth = 2;
+    for (var gx = x + w / 4; gx < x + w; gx += w / 4) { c.beginPath(); c.moveTo(gx, y); c.lineTo(gx, y + h); c.stroke(); }
+    for (var gy = y + 40; gy < y + h; gy += 52) { c.beginPath(); c.moveTo(x, gy); c.lineTo(x + w, gy); c.stroke(); }
+    c.restore();
+    c.strokeStyle = '#e8dcc0'; c.lineWidth = 14; c.beginPath(); c.moveTo(x, y + h); c.lineTo(x, top); c.quadraticCurveTo(x, y, x + w / 2, y); c.quadraticCurveTo(x + w, y, x + w, top); c.lineTo(x + w, y + h); c.stroke();
+    line(c, x + w / 2, y, x + w / 2, y + h, '#e8dcc0', 10); line(c, x, y + h * 0.56, x + w, y + h * 0.56, '#e8dcc0', 10);
+    box(c, x - 18, y + h - 4, w + 36, 24, 4, lin(c, 0, y + h, 0, y + h + 24, [[0, '#d8c8a4'], [1, '#a89874']]));
+    gloss(c, x, y, w, h, 0.16);
+  }
+  function blackboard(c, b) {
+    dropShadow(c, 18, 8, 0.4); box(c, b[0] - 16, b[1] - 16, b[2] + 32, b[3] + 32, 6, lin(c, b[0], 0, b[0] + b[2], 0, [[0, '#7a4a20'], [0.5, PINE], [1, '#7a4a20']])); noShadow(c);
+    c.fillStyle = lin(c, b[0], b[1], b[0] + b[2], b[1] + b[3], [[0, '#34423c'], [0.6, SLATE], [1, '#1e2824']]); c.fillRect(b[0], b[1], b[2], b[3]);
+    // old chalk smears
+    var r = seeded(b[0] + 7); c.fillStyle = 'rgba(255,255,255,.05)'; for (var k = 0; k < 6; k++) { c.beginPath(); c.ellipse(b[0] + r() * b[2], b[1] + r() * b[3], 60 + r() * 60, 14 + r() * 10, r() - 0.5, 0, TAU); c.fill(); }
+    // the chalk ledge
+    box(c, b[0] - 20, b[1] + b[3] + 12, b[2] + 40, 16, 3, DPINE);
+    box(c, b[0] + 30, b[1] + b[3] + 4, 40, 10, 4, CHALK); box(c, b[0] + 90, b[1] + b[3] + 4, 30, 10, 4, CHALKS.yellow); box(c, b[0] + b[2] - 110, b[1] + b[3] - 6, 80, 22, 4, '#8a5a3a'); box(c, b[0] + b[2] - 108, b[1] + b[3] + 6, 76, 10, 3, '#5a5a5a');
+  }
+  function sumLine(c, e, x, y, s, chalky) {
+    // one picture sum: [pic] × [pic or n] = p
+    pic(c, e.a, x, y, s, chalky);
+    chalkTxt(c, '×', x + s * 0.85, y, s * 0.6, CHALK, { font: SERIF });
+    if (e.b) pic(c, e.b, x + s * 1.7, y, s, chalky); else chalkTxt(c, String(e.n), x + s * 1.7, y + 2, s * 0.72, CHALK, { font: SERIF, weight: 800 });
+    chalkTxt(c, '=', x + s * 2.55, y, s * 0.6, CHALK, { font: SERIF });
+    chalkTxt(c, String(e.p), x + s * 3.5, y + 2, s * 0.72, CHALKS.yellow, { font: SERIF, weight: 800 });
+  }
+  function teacherDesk(c, X, big) {
+    var d = L.tdesk, st = X.st;
+    // the dais
+    wood(c, 250, 1010, 500, 90, '#8a5a30', false, 1911); line(c, 250, 1010, 750, 1010, 'rgba(255,230,190,.3)', 2);
+    // a high pine desk with a sloping top and a drawer
+    dropShadow(c, 22, 10, 0.45);
+    wood(c, d[0], d[1] + 60, d[2], 260, PINE, true, 1912); noShadow(c);
+    c.fillStyle = lin(c, 0, d[1], 0, d[1] + 70, [[0, '#d8a060'], [1, '#9a6430']]); c.beginPath(); c.moveTo(d[0] - 14, d[1] + 70); c.lineTo(d[0] + 20, d[1]); c.lineTo(d[0] + d[2] - 20, d[1]); c.lineTo(d[0] + d[2] + 14, d[1] + 70); c.closePath(); c.fill();
+    line(c, d[0] - 14, d[1] + 70, d[0] + d[2] + 14, d[1] + 70, DPINE, 6);
+    // the drawer front with its picture-wheel lock
+    var dr = [d[0] + 40, d[1] + 110, d[2] - 80, 90]; box(c, dr[0], dr[1], dr[2], dr[3], 6, st.f['f:drawer'] ? '#3a2410' : '#c88a50', DPINE, 3);
+    if (!st.f['f:drawer']) { var pz = X.R.puzzles.sums, n = pz.syms.length; for (var i = 0; i < n; i++) { var wx = 500 + (i - (n - 1) / 2) * 52; box(c, wx - 20, dr[1] + 18, 40, 54, 6, brass(c, wx - 20, 0, wx + 20, 0), '#5a3a10', 2); } }
+    else { wood(c, dr[0] + 10, dr[1] + dr[3] - 10, dr[2] - 20, 60, '#a8703a', false, 1913); box(c, dr[0] + 30, dr[1] + dr[3], 120, 40, 3, CREAM); }
+    // the inkwell, a pen, a book
+    circ(c, d[0] + 330, d[1] + 32, 14, '#1a1a2a', '#c8a050', 3); line(c, d[0] + 300, d[1] + 20, d[0] + 350, d[1] - 10, '#3a2a1a', 4);
+    box(c, d[0] + 150, d[1] + 18, 110, 26, 3, '#7a2a2a', '#3a1010', 2);
+  }
+  function handbell(c, x, y, s) { c.save(); c.translate(x, y); c.scale(s, s); box(c, -7, -60, 14, 34, 6, '#5a3418'); c.beginPath(); c.moveTo(-30, 10); c.bezierCurveTo(-26, -10, -22, -28, 0, -30); c.bezierCurveTo(22, -28, 26, -10, 30, 10); c.lineTo(36, 16); c.lineTo(-36, 16); c.closePath(); c.fillStyle = brass(c, -36, 0, 36, 0); c.fill(); c.restore(); }
+  function appleArt(c, x, y, s) { pic(c, 'apple', x, y, s, false); c.save(); c.globalAlpha = 0.5; circ(c, x - s * 0.12, y - s * 0.08, s * 0.08, '#fff'); c.restore(); }
+  function abacus(c, a) {
+    box(c, a[0], a[1], a[2], a[3], 6, null, DPINE, 8);
+    for (var k = 0; k < 5; k++) { var y = a[1] + 22 + k * 30; line(c, a[0] + 6, y, a[0] + a[2] - 6, y, '#a8a8a8', 3); for (var b = 0; b < 8; b++) circ(c, a[0] + 22 + b * 13 + (b > 4 - k % 3 ? 40 : 0), y, 7, b % 2 ? '#f4f0e0' : '#c8302a'); }
+    line(c, a[0] + 20, a[1] + a[3], a[0] + 10, 1100, DPINE, 8); line(c, a[0] + a[2] - 20, a[1] + a[3], a[0] + a[2] - 10, 1100, DPINE, 8);
+  }
+  function schoolClock(c, x, y, r) {
+    dropShadow(c, 14, 6, 0.4); circ(c, x, y, r + 10, lin(c, x - r, y - r, x + r, y + r, [[0, '#8a5a30'], [1, '#4a2a10']])); noShadow(c);
+    circ(c, x, y, r, '#fbf6e6', '#2a1a10', 3);
+    var RN = ['XII', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI'];
+    for (var k = 0; k < 12; k++) { var a = k * TAU / 12 - PI / 2; txt(c, RN[k], x + Math.cos(a) * r * 0.76, y + Math.sin(a) * r * 0.76, r * 0.2, '#2a1a10', { font: SERIF, weight: 700 }); }
+    // ten past six in the evening
+    var ha = (6 + 10 / 60) * TAU / 12 - PI / 2, ma = 10 * TAU / 60 - PI / 2;
+    line(c, x, y, x + Math.cos(ha) * r * 0.5, y + Math.sin(ha) * r * 0.5, '#1a0e06', 5); line(c, x, y, x + Math.cos(ma) * r * 0.74, y + Math.sin(ma) * r * 0.74, '#1a0e06', 3.5); circ(c, x, y, 5, '#1a0e06');
+  }
+  function frieze(c, e) {
+    var ab = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split(''), k = 0;
+    for (var x = 30; x < 990; x += 46) {
+      if (x > 420 && x < 560) continue;
+      box(c, x, 156, 40, 46, 4, k % 2 ? '#f6ecd0' : '#eadcb8', 'rgba(90,60,30,.4)', 1.5);
+      txt(c, ab[k % 26] + ab[k % 26].toLowerCase(), x + 20, 180, 18, ['#c8402a', '#2a5a9a', '#3a8a3a', '#a8602a'][k % 4], { font: SERIF, weight: 800 }); k++;
+    }
+  }
+  // a row of the children's desks (each a little desk with its own inkwell and a bench), for the wall view
+  function deskRow(c, x, y, w, h, n, X, row) {
+    var st = X.st, gap = w * 0.06, dw = (w - gap * (n - 1)) / n;
+    for (var i = 0; i < n; i++) {
+      var dx = x + i * (dw + gap);
+      // the bench behind, the legs, the sloping lid with its groove and inkwell
+      box(c, dx + 6, y + h * 0.8, dw - 12, h * 0.1, 4, '#7a4a20');
+      line(c, dx + 16, y + h * 0.72, dx + 16, y + h * 1.25, '#2a1a10', 6); line(c, dx + dw - 16, y + h * 0.72, dx + dw - 16, y + h * 1.25, '#2a1a10', 6);
+      line(c, dx + 16, y + h * 1.12, dx + dw - 16, y + h * 1.12, '#2a1a10', 4);
+      c.fillStyle = lin(c, 0, y, 0, y + h * 0.5, [[0, '#d0985a'], [1, '#8a5a2a']]); c.beginPath(); c.moveTo(dx, y + h * 0.5); c.lineTo(dx + 10, y); c.lineTo(dx + dw - 10, y); c.lineTo(dx + dw, y + h * 0.5); c.closePath(); c.fill();
+      box(c, dx, y + h * 0.5, dw, h * 0.24, 3, '#6a3e1a'); line(c, dx + 4, y + h * 0.5, dx + dw - 4, y + h * 0.5, '#3a2210', 3);
+      line(c, dx + 14, y + h * 0.16, dx + dw - 30, y + h * 0.16, 'rgba(40,20,6,.45)', 3);
+      var filled = !!st.f['f:case'] && X.R.puzzles.ink.answer.indexOf(row * n + i) >= 0;
+      circ(c, dx + dw - 18, y + h * 0.14, Math.max(5, h * 0.07), filled ? '#1a2450' : '#d8d0c0', brass(c, 0, 0, 10, 0), 2);
+    }
+  }
+  function globeArt(c, cx, cy, r, open, X, big) {
+    // the stand
+    if (!big) { line(c, cx, cy + r, cx, 1080, DPINE, 10); line(c, cx - 50, 1100, cx, 1070, DPINE, 8); line(c, cx + 50, 1100, cx, 1070, DPINE, 8); }
+    c.save();
+    if (open) {
+      // the top half tipped back on its hinge, the bottom half a little bowl
+      // the lid, tipped back on its hinge: we see the inside of the dome above the open bowl
+      c.save(); c.translate(cx, cy - r * 0.62); c.scale(1, 0.42);
+      c.beginPath(); c.arc(0, 0, r * 0.98, PI, TAU); c.closePath(); c.fillStyle = lin(c, 0, -r, 0, 0, [[0, '#4a7ab8'], [1, '#2a4a80']]); c.fill();
+      c.beginPath(); c.ellipse(0, 0, r * 0.98, r * 0.5, 0, 0, TAU); c.fillStyle = '#5a3a20'; c.fill(); c.beginPath(); c.ellipse(0, 4, r * 0.9, r * 0.42, 0, 0, TAU); c.fillStyle = '#7a5434'; c.fill();
+      c.restore();
+      box(c, cx - 14, cy - r * 0.46, 28, r * 0.4, 4, brass(c, cx - 14, 0, cx + 14, 0));
+      c.beginPath(); c.arc(cx, cy, r, 0, PI); c.closePath(); c.fillStyle = lin(c, 0, cy, 0, cy + r, [[0, '#2a4a80'], [1, '#1a2a5a']]); c.fill();
+      c.fillStyle = '#5a3a20'; c.beginPath(); c.ellipse(cx, cy, r, r * 0.22, 0, 0, TAU); c.fill(); c.fillStyle = '#3a2410'; c.beginPath(); c.ellipse(cx, cy + 4, r * 0.92, r * 0.18, 0, 0, TAU); c.fill();
+    } else {
+      c.beginPath(); c.arc(cx, cy, r, 0, TAU); c.fillStyle = rad(c, cx - r * 0.35, cy - r * 0.35, r * 0.1, r * 1.1, [[0, '#7ab0e8'], [0.6, '#3a6aa8'], [1, '#1a2a5a']]); c.fill();
+      c.clip();
+      c.fillStyle = '#7aa85a'; var rs = seeded(1919);
+      for (var k = 0; k < 7; k++) { var lx = cx + (rs() - 0.5) * r * 1.6, ly = cy + (rs() - 0.5) * r * 1.5; c.beginPath(); c.ellipse(lx, ly, r * (0.15 + rs() * 0.22), r * (0.1 + rs() * 0.18), rs() * 3, 0, TAU); c.fill(); }
+      c.strokeStyle = 'rgba(255,255,255,.18)'; c.lineWidth = 2; for (var q = -2; q <= 2; q++) { c.beginPath(); c.ellipse(cx, cy, r * Math.abs(q) / 2.4 + 2, r, 0, 0, TAU); c.stroke(); c.beginPath(); c.moveTo(cx - r, cy + q * r * 0.36); c.lineTo(cx + r, cy + q * r * 0.36); c.stroke(); }
+      c.fillStyle = 'rgba(255,255,255,.18)'; c.beginPath(); c.ellipse(cx - r * 0.35, cy - r * 0.4, r * 0.3, r * 0.18, -0.6, 0, TAU); c.fill();
+    }
+    c.restore();
+    // the brass meridian ring
+    c.strokeStyle = brass(c, cx - r, cy - r, cx + r, cy + r); c.lineWidth = big ? 16 : 7; c.beginPath(); c.arc(cx, cy, r + (big ? 18 : 8), -PI * 0.62, PI * 0.62, false); c.stroke();
+    if (!big) box(c, cx - 18, cy + r + 4, 36, 12, 3, brass(c, cx - 18, 0, cx + 18, 0));
+  }
+  function stoveArt(c, x, y, w, h, st, E, big) {
+    // a black iron tortoise stove on legs, a pipe up and an elbow into the wall
+    var cx = x + w / 2;
+    c.save();
+    if (!big) { var py = y + 10; c.fillStyle = lin(c, cx - 22, 0, cx + 22, 0, [[0, '#1a1a1e'], [0.5, '#4a4a52'], [1, '#1a1a1e']]); c.fillRect(cx - 20, 560, 40, py - 560); c.fillRect(cx - 20, 540, 120, 40); box(c, cx + 96, 530, 30, 60, 4, '#2a2a2e'); line(c, cx - 22, 600, cx + 22, 600, '#5a5a62', 4); }
+    dropShadow(c, 26, 10, 0.5);
+    c.fillStyle = lin(c, x, 0, x + w, 0, [[0, '#141416'], [0.45, '#3e3e46'], [1, '#121214']]);
+    c.beginPath(); c.moveTo(x + w * 0.2, y + 40); c.bezierCurveTo(x - 10, y + h * 0.3, x - 10, y + h * 0.75, x + w * 0.22, y + h * 0.84); c.lineTo(x + w * 0.78, y + h * 0.84); c.bezierCurveTo(x + w + 10, y + h * 0.75, x + w + 10, y + h * 0.3, x + w * 0.8, y + 40); c.closePath(); c.fill(); noShadow(c);
+    // the top plate and the lid
+    box(c, x + w * 0.12, y + 26, w * 0.76, 22, 6, '#2a2a30', '#5a5a62', 2);
+    if (E || st.f['f:lid']) { c.fillStyle = '#0a0a0c'; c.beginPath(); c.ellipse(cx, y + 34, w * 0.18, 8, 0, 0, TAU); c.fill(); if (st.f['f:lit']) { c.fillStyle = 'rgba(255,140,40,.6)'; c.beginPath(); c.ellipse(cx, y + 34, w * 0.16, 6, 0, 0, TAU); c.fill(); } }
+    else { c.fillStyle = '#3a3a42'; c.beginPath(); c.ellipse(cx, y + 30, w * 0.2, 10, 0, 0, TAU); c.fill(); c.strokeStyle = '#6a6a72'; c.lineWidth = 2; c.stroke(); }
+    // the firebox door with a mica window
+    var dw = w * 0.36, dh = h * 0.24, dx = cx - dw / 2, dy = y + h * 0.4;
+    box(c, dx - 6, dy - 6, dw + 12, dh + 12, 10, '#26262c', '#5a5a62', 2);
+    c.fillStyle = st.f['f:lit'] ? rad(c, cx, dy + dh * 0.7, 4, dw, [[0, '#ffe08a'], [0.4, '#f08a2a'], [1, '#6a1a0a']]) : '#3a2a20'; rr(c, dx, dy, dw, dh, 8); c.fill();
+    if (!st.f['f:lit'] && (st.f['f:coal'] || st.f['f:kind'])) { for (var k = 0; k < 6; k++) circ(c, dx + 14 + k * (dw - 28) / 5, dy + dh - 14 - (k % 2) * 8, big ? 12 : 6, st.f['f:coal'] ? '#141414' : '#8a6a3a'); }
+    gloss(c, dx, dy, dw, dh, 0.25);
+    // the ash door, the legs, the decoration
+    box(c, cx - dw * 0.4, y + h * 0.7, dw * 0.8, h * 0.08, 6, '#1e1e22', '#4a4a52', 2);
+    [[x + w * 0.24, -1], [x + w * 0.76, 1]].forEach(function (p) { c.fillStyle = '#18181a'; c.beginPath(); c.moveTo(p[0] - 10, y + h * 0.84); c.lineTo(p[0] + 10, y + h * 0.84); c.lineTo(p[0] + p[1] * 16 + 8, y + h); c.lineTo(p[0] + p[1] * 16 - 8, y + h); c.closePath(); c.fill(); });
+    txt(c, 'SLOW BUT SURE', cx, y + h * 0.32, big ? 22 : 11, 'rgba(200,190,170,.5)', { font: SERIF, weight: 800 });
+    c.restore();
+  }
+  function ropeCase(c, X, b, big) {
+    // a tall pine case the bell rope runs down; Aunt Wren's ink lock on its door
+    var st = X.st, open = st.f['f:case'], x = b[0], y = b[1], w = b[2], h = b[3];
+    dropShadow(c, 18, 8, 0.4); wood(c, x, y, w, h, '#9a6a38', true, 1921); noShadow(c);
+    c.strokeStyle = DPINE; c.lineWidth = big ? 8 : 4; c.strokeRect(x, y, w, h);
+    var ix = x + w * 0.1, iw = w * 0.8;
+    c.fillStyle = '#2a1a0e'; c.fillRect(ix, y + 10, iw, h - 20);
+    // the rope: down from the ceiling hole; the red, white and blue sally; the tail looped over a cleat until unhooked
+    var rx = x + w / 2, roped = st.f['f:rope'];
+    if (open || !big) {
+      line(c, rx, y - 40, rx, roped ? y + h * 0.86 : y + h * 0.42, '#c8a878', big ? 12 : 6);
+      var sy = roped ? y + h * 0.5 : y + h * 0.18, sh = h * 0.2, sw = big ? 34 : 16;
+      for (var k = 0; k < 8; k++) box(c, rx - sw / 2, sy + k * sh / 8, sw, sh / 8 + 1, big ? 8 : 4, ['#c8302a', '#f4f0e0', '#2a4a9a'][k % 3]);
+      if (!roped) {
+        // the loop up over the cleat
+        var clx = rx + (big ? 70 : 20), cly = y + (big ? 40 : 30); box(c, clx, cly, big ? 50 : 18, big ? 22 : 8, 4, brass(c, clx, cly, clx + 50, cly + 22), '#5a3a10', 2); if (big) box(c, clx + 18, cly + 18, 14, 30, 3, brass(c, clx, 0, clx + 14, 0));
+        c.strokeStyle = '#c8a878'; c.lineWidth = big ? 10 : 5; c.beginPath(); c.moveTo(rx, y + h * 0.42); c.quadraticCurveTo(rx + (big ? 120 : 40), y + h * 0.3, rx + (big ? 95 : 29), y + (big ? 40 : 30)); c.stroke();
+      }
+    }
+    if (!open) {
+      // the door (shut), with the ink lock's plate (the close-up draws its own, bigger plate)
+      wood(c, ix, y + 10, iw, h - 20, '#a87440', true, 1922); c.strokeStyle = DPINE; c.lineWidth = big ? 6 : 3; c.strokeRect(ix, y + 10, iw, h - 20);
+      if (big) { c.strokeStyle = 'rgba(60,30,10,.35)'; c.lineWidth = 4; c.strokeRect(ix + 30, y + 60, iw - 60, h * 0.3); c.strokeRect(ix + 30, y + h * 0.62, iw - 60, h * 0.3); circ(c, x + w * 0.8, y + h * 0.5, 12, brass(c, 0, 0, 12, 0), '#5a3a10', 2); return; }
+      var pw = iw * 0.7, ph = big ? 180 : 70, px = x + w / 2 - pw / 2, pyy = y + h * 0.36;
+      box(c, px, pyy, pw, ph, 8, brass(c, px, pyy, px + pw, pyy + ph), '#5a3a10', 2);
+      // an inkwell drawn on the plate
+      circ(c, x + w / 2, pyy + ph * 0.55, big ? 36 : 13, '#1a2450', '#3a2a10', 2); box(c, x + w / 2 - (big ? 14 : 5), pyy + ph * 0.18, big ? 28 : 10, big ? 30 : 11, 3, '#3a2a10');
+      circ(c, x + w * 0.78, y + h * 0.56, big ? 12 : 5, '#5a3a10');
+    } else if (big) {
+      // the door hangs open to the left
+      wood(c, x - w * 0.36, y + 10, w * 0.36, h - 20, '#8a5a30', true, 1923);
+    }
+  }
+
+  V.door = function (c, X) {
+    var e = X.ext, st = X.st; schoolWall(c, e, { seed: 1 });
+    // the honour board over the cloakroom arch
+    var hb = L.honour; box(c, hb[0], hb[1], hb[2], hb[3], 6, lin(c, 0, hb[1], 0, hb[1] + hb[3], [[0, '#4a2a12'], [1, '#2a160a']]), GOLD, 3);
+    txt(c, 'HONOURS', hb[0] + hb[2] / 2, hb[1] + 26, 22, GOLD, { font: SERIF, weight: 900 });
+    for (var k = 0; k < 5; k++) line(c, hb[0] + 30, hb[1] + 56 + k * 22, hb[0] + hb[2] - 30 - (k % 2) * 40, hb[1] + 56 + k * 22, 'rgba(232,192,96,.55)', 3);
+    // the cloakroom arch: a dim room of pegs and coats beyond
+    var a = L.arch, ar = a[2] / 2;
+    c.save(); c.beginPath(); c.moveTo(a[0], a[1] + a[3]); c.lineTo(a[0], a[1] + ar); c.arc(a[0] + ar, a[1] + ar, ar, PI, 0); c.lineTo(a[0] + a[2], a[1] + a[3]); c.closePath(); c.clip();
+    c.fillStyle = lin(c, 0, a[1], 0, a[1] + a[3], [[0, '#d8d0bc'], [0.55, '#b8b098'], [0.56, '#3e5a44'], [1, '#2a3a2e']]); c.fillRect(a[0], a[1], a[2], a[3]);
+    line(c, a[0], a[1] + 260, a[0] + a[2], a[1] + 260, '#6a4a2a', 8);
+    [['#8a3a2a', 30], ['#3a4a6a', 90], ['#6a6a3a', 150]].forEach(function (cc) { c.fillStyle = cc[0]; c.beginPath(); c.moveTo(a[0] + cc[1], a[1] + 266); c.lineTo(a[0] + cc[1] - 26, a[1] + 440); c.lineTo(a[0] + cc[1] + 26, a[1] + 440); c.closePath(); c.fill(); });
+    c.fillStyle = 'rgba(0,0,0,.28)'; c.fillRect(a[0], a[1], a[2], a[3]); c.restore();
+    c.strokeStyle = '#7a4a22'; c.lineWidth = 14; c.beginPath(); c.moveTo(a[0], a[1] + a[3]); c.lineTo(a[0], a[1] + ar); c.arc(a[0] + ar, a[1] + ar, ar, PI, 0); c.lineTo(a[0] + a[2], a[1] + a[3]); c.stroke();
+    txt(c, 'CLOAKROOM', a[0] + ar, a[1] - 22, 22, '#3a2a1a', { font: SERIF, weight: 900 });
+    // the front door, its fanlight full of sunset
+    doorArt(c, L.door, X.doorT || 0);
+    // Aunt Wren's note pinned to it
+    if (!(X.doorT > 0)) { var nt = L.note; c.save(); c.translate(nt[0] + nt[2] / 2, nt[1] + nt[3] / 2); c.rotate(0.05); dropShadow(c, 8, 3, 0.3); box(c, -62, -44, 124, 88, 3, CREAM); noShadow(c); txt(c, 'Dear one,', 0, -12, 22, '#2a3a6a', { font: HAND, italic: true }); line(c, -40, 14, 44, 14, 'rgba(42,58,106,.4)', 3); line(c, -40, 28, 30, 28, 'rgba(42,58,106,.4)', 3); pin(c, 0, -40); c.restore(); }
+    // the bell rope's case
+    ropeCase(c, X, L.rope, false);
+    // a hole in the ceiling where the rope comes down
+    c.fillStyle = '#120a04'; c.beginPath(); c.ellipse(L.rope[0] + L.rope[2] / 2, 118, 18, 6, 0, 0, TAU); c.fill();
+    // the umbrella stand
+    var us = L.stand; box(c, us[0] + 20, us[1] + 80, 60, 120, 8, brass(c, us[0] + 20, 0, us[0] + 80, 0), '#5a3a10', 2);
+    c.strokeStyle = '#2a2a3a'; c.lineWidth = 8; c.beginPath(); c.moveTo(us[0] + 50, us[1] + 90); c.lineTo(us[0] + 40, us[1] - 10); c.arc(us[0] + 28, us[1] - 10, 12, 0, PI, true); c.stroke();
+  };
+  function doorArt(c, d, k) {
+    var x = d[0], y = d[1], w = d[2], h = d[3], top = y + 110;
+    // what's outside: the green at sunset (seen as the door swings)
+    c.save(); c.beginPath(); c.rect(x, top, w, h - 110); c.clip(); outside(c, x - 240, top - 120, w + 480, h + 40, 2); c.restore();
+    // the frame and the fanlight
+    c.fillStyle = '#5a3418'; c.fillRect(x - 24, y, w + 48, h);
+    c.save(); c.beginPath(); c.moveTo(x, top); c.arc(x + w / 2, top, w / 2, PI, 0); c.closePath(); c.clip(); outside(c, x - 300, y - 40, w + 600, 400, 3); c.restore();
+    c.strokeStyle = '#e8dcc0'; c.lineWidth = 6; for (var s = 1; s < 5; s++) { var a = PI + s * PI / 5; line(c, x + w / 2, top, x + w / 2 + Math.cos(a) * w / 2, top + Math.sin(a) * w / 2, '#e8dcc0', 5); }
+    c.beginPath(); c.arc(x + w / 2, top, w / 2, PI, 0); c.stroke(); line(c, x, top, x + w, top, '#5a3418', 12);
+    c.save(); c.beginPath(); c.rect(x, top + 6, w, h - 116); c.clip(); outside(c, x - 240, top - 120, w + 480, h + 40, 2); c.restore();
+    // the door leaf swings in (hinged on the left), narrowing as it opens
+    var lw = w * (1 - 0.86 * k); if (lw < 4) return;
+    c.save(); c.translate(x, top + 6); c.scale(lw / w, 1);
+    wood(c, 0, 0, w, h - 116, '#7a2e22', true, 1924);
+    for (var p = 1; p < 5; p++) line(c, p * w / 5, 0, p * w / 5, h - 116, 'rgba(30,8,4,.4)', 3);
+    [[24, 40, w - 48, (h - 116) * 0.36], [24, (h - 116) * 0.5, w - 48, (h - 116) * 0.42]].forEach(function (pp) { c.strokeStyle = 'rgba(30,8,4,.5)'; c.lineWidth = 5; c.strokeRect(pp[0], pp[1], pp[2], pp[3]); });
+    [70, h - 220].forEach(function (hy) { line(c, -6, hy, w * 0.55, hy, '#1a1a1a', 12); circ(c, w * 0.55, hy, 9, '#1a1a1a'); });
+    box(c, w - 52, (h - 116) * 0.46, 30, 70, 6, brass(c, w - 52, 0, w - 22, 0), '#5a3a10', 2); circ(c, w - 37, (h - 116) * 0.46 + 52, 6, '#1a0e04');
+    c.restore();
+  }
+
+  V.board = function (c, X) {
+    var e = X.ext, st = X.st, Hd = X.diff === 'h'; schoolWall(c, e, { seed: 2 }); frieze(c, e);
+    // the two blackboards with tonight's work
+    blackboard(c, L.bbL); blackboard(c, L.bbR);
+    var bl = L.bbL, eqs = X.R.clues.sums.eqs;
+    chalkTxt(c, 'Picture sums', bl[0] + bl[2] / 2, bl[1] + 34, 30, CHALKS.yellow);
+    eqs.forEach(function (q, i) { sumLine(c, q, bl[0] + 70, bl[1] + 86 + i * (280 / Math.max(4, eqs.length)), 46, true); });
+    var br = L.bbR, words = X.R.clues.list.words;
+    chalkTxt(c, 'Spellings', br[0] + br[2] / 2, br[1] + 34, 30, CHALKS.pink);
+    words.forEach(function (w, i) { chalkTxt(c, w.toLowerCase(), br[0] + (i % 2 ? 300 : 120), br[1] + 90 + Math.floor(i / 2) * 64, 28, CHALK); });
+    schoolClock(c, 500, 186, 40);
+    teacherDesk(c, X, false);
+    handbell(c, L.hbell[0] + 40, L.hbell[1] + 66, 0.8);
+    if (Hd && !st.done.take_apple) appleArt(c, L.apple[0] + 40, L.apple[1] + 38, 60);
+    abacus(c, L.abacus);
+  };
+
+  V.windows = function (c, X) {
+    var e = X.ext, st = X.st; schoolWall(c, e, { seed: 3 });
+    L.win.forEach(function (w, i) { gothicWin(c, w[0], w[1], w[2], w[3], i); });
+    // the evening sun falls through the windows onto the floor
+    c.save(); c.globalCompositeOperation = 'lighter';
+    L.win.forEach(function (w) { c.fillStyle = lin(c, 0, w[1] + w[3], 0, 1300, [[0, 'rgba(255,200,120,.14)'], [1, 'rgba(255,200,120,0)']]); c.beginPath(); c.moveTo(w[0], w[1] + w[3]); c.lineTo(w[0] + w[2], w[1] + w[3]); c.lineTo(w[0] + w[2] - 160, 1300); c.lineTo(w[0] - 160, 1300); c.closePath(); c.fill(); });
+    c.restore();
+    // the globe on its tall stand
+    var g = L.globe; globeArt(c, g[0] + g[2] / 2, g[1] + 100, 80, !!st.f['f:globe'], X, false);
+    // the children's desks, two rows seen from the side of the room
+    var d = L.desks, n = X.R.puzzles.ink.n;
+    deskRow(c, d[0] + 90, d[1] - 10, d[2] - 180, 90, n, X, 0);
+    deskRow(c, d[0] + 45, d[1] + 90, d[2] - 90, 110, n, X, 1);
+    deskRow(c, d[0], d[1] + 210, d[2], 130, n, X, n - 1);
+    // the nature table
+    var nb = L.nature; box(c, nb[0], nb[1] + 40, nb[2], 18, 3, '#8a5a30'); line(c, nb[0] + 14, nb[1] + 58, nb[0] + 14, 1100, '#5a3418', 6); line(c, nb[0] + nb[2] - 14, nb[1] + 58, nb[0] + nb[2] - 14, 1100, '#5a3418', 6);
+    c.fillStyle = '#8a6a3a'; c.beginPath(); c.ellipse(nb[0] + 40, nb[1] + 30, 30, 14, 0, 0, TAU); c.fill(); [[nb[0] + 34, 24], [nb[0] + 46, 26]].forEach(function (p) { circ(c, p[0], nb[1] + p[1], 6, '#d8e8f0'); });
+    circ(c, nb[0] + 90, nb[1] + 32, 9, '#7a3a14'); circ(c, nb[0] + 106, nb[1] + 34, 9, '#6a3010');
+    box(c, nb[0] + 118, nb[1] - 4, 26, 44, 6, 'rgba(200,230,230,.6)', 'rgba(120,150,150,.8)', 2);
+  };
+
+  V.back = function (c, X) {
+    var e = X.ext, st = X.st, E = X.diff === 'e'; schoolWall(c, e, { seed: 4 });
+    // the stock cupboard
+    var cp = L.cup, op = st.f['f:cup'];
+    dropShadow(c, 22, 10, 0.4); wood(c, cp[0], cp[1], cp[2], cp[3], '#a87440', true, 1931); noShadow(c); c.strokeStyle = DPINE; c.lineWidth = 5; c.strokeRect(cp[0], cp[1], cp[2], cp[3]);
+    if (op) {
+      c.fillStyle = '#3a2410'; c.fillRect(cp[0] + 12, cp[1] + 12, cp[2] - 24, cp[3] - 24);
+      for (var s = 0; s < 4; s++) { var sy = cp[1] + 180 + s * 160; box(c, cp[0] + 12, sy, cp[2] - 24, 12, 2, '#8a5a30'); for (var b = 0; b < 6; b++) box(c, cp[0] + 24 + b * 34, sy - 70 - (b % 3) * 8, 26, 70 + (b % 3) * 8, 2, ['#c8402a', '#2a5a9a', '#3a8a3a', '#e8c060', '#8a4a8a', '#f4f0e0'][(b + s) % 6]); }
+      if (!st.done.take_ink) { box(c, cp[0] + 40, cp[1] + 600, 50, 70, 10, '#c8b89a', '#5a4a3a', 2); }
+    } else {
+      line(c, cp[0] + cp[2] / 2, cp[1], cp[0] + cp[2] / 2, cp[1] + cp[3], DPINE, 4);
+      [[cp[0] + 18, cp[1] + 30], [cp[0] + cp[2] / 2 + 10, cp[1] + 30]].forEach(function (p) { c.strokeStyle = 'rgba(60,30,10,.4)'; c.lineWidth = 3; c.strokeRect(p[0], p[1], cp[2] / 2 - 28, cp[3] * 0.4); c.strokeRect(p[0], p[1] + cp[3] * 0.46, cp[2] / 2 - 28, cp[3] * 0.44); });
+      box(c, cp[0] + cp[2] / 2 - 50, cp[1] + 90, 100, 40, 3, CREAM, 'rgba(60,40,20,.5)', 1.5); txt(c, 'STOCK', cp[0] + cp[2] / 2, cp[1] + 111, 22, INK, { font: SERIF, weight: 900 });
+      circ(c, cp[0] + cp[2] / 2 + 14, cp[1] + cp[3] * 0.5, 7, '#1a0e04', brass(c, 0, 0, 10, 0), 3);
+    }
+    // the stove and its pipe (it goes up, then into the chimney breast)
+    var sv = L.stove; stoveArt(c, sv[0], sv[1], sv[2], sv[3], st, E, false);
+    // the fireguard
+    c.strokeStyle = '#a89a7a'; c.lineWidth = 4; c.strokeRect(sv[0] - 30, sv[1] + 240, sv[2] + 60, 160); for (var gx = sv[0] - 20; gx < sv[0] + sv[2] + 30; gx += 24) line(c, gx, sv[1] + 244, gx, sv[1] + 396, 'rgba(168,154,122,.6)', 2);
+    // the wall map: rolled up high, or pulled down with Aunt Wren's postcards pinned along it
+    var mp = L.map;
+    if (st.f['f:map']) mapArt(c, X, L.mapDown, false);
+    else { box(c, mp[0] - 10, mp[1] + 20, mp[2] + 20, 50, 25, lin(c, 0, mp[1] + 20, 0, mp[1] + 70, [[0, '#e8dcb8'], [0.5, '#c8b890'], [1, '#8a7a58']])); box(c, mp[0] - 24, mp[1] + 34, 18, 22, 4, DPINE); box(c, mp[0] + mp[2] + 6, mp[1] + 34, 18, 22, 4, DPINE); line(c, mp[0] + mp[2] - 40, mp[1] + 70, mp[0] + mp[2] - 40, mp[1] + 130, '#8a6a3a', 3); circ(c, mp[0] + mp[2] - 40, mp[1] + 134, 7, '#8a6a3a'); }
+    // the office door, its letter lock; once open, ajar on Miss Thistle's office
+    var od = L.offdoor, OPEN = st.f['f:office'];
+    c.fillStyle = '#5a3418'; c.fillRect(od[0] - 18, od[1] - 18, od[2] + 36, od[3] + 18);
+    if (OPEN) { c.fillStyle = lin(c, 0, od[1], 0, od[1] + od[3], [[0, '#d8c8a0'], [0.6, '#a89870'], [0.61, '#6a4a2a'], [1, '#4a3018']]); c.fillRect(od[0], od[1], od[2], od[3]); c.fillStyle = 'rgba(255,220,150,.25)'; c.fillRect(od[0], od[1], od[2], od[3]); wood(c, od[0] + od[2] - 50, od[1], 50, od[3], '#7a4a22', true, 1932); }
+    else {
+      wood(c, od[0], od[1], od[2], od[3], '#8a5228', true, 1933);
+      c.strokeStyle = 'rgba(30,10,4,.4)'; c.lineWidth = 4; c.strokeRect(od[0] + 20, od[1] + 30, od[2] - 40, od[3] * 0.36); c.strokeRect(od[0] + 20, od[1] + od[3] * 0.5, od[2] - 40, od[3] * 0.44);
+      box(c, od[0] + 40, od[1] + 120, od[2] - 80, 50, 6, brass(c, od[0] + 40, 0, od[0] + od[2] - 40, 0), '#5a3a10', 2); txt(c, 'MISS THISTLE', od[0] + od[2] / 2, od[1] + 146, 20, '#3a2410', { font: SERIF, weight: 900 });
+      var nl = X.R.puzzles.word.answer.length; for (var i = 0; i < nl; i++) box(c, od[0] + od[2] / 2 + (i - (nl - 1) / 2) * 34 - 14, od[1] + od[3] * 0.45, 28, 36, 4, brass(c, 0, 0, 28, 0), '#5a3a10', 2);
+      circ(c, od[0] + od[2] - 30, od[1] + od[3] * 0.52, 10, brass(c, 0, 0, 10, 0), '#5a3a10', 2);
+    }
+  };
+  // the map of the world (invented coastlines) with the postcards pinned along it
+  function mapArt(c, X, b, big) {
+    var x = b[0], y = b[1], w = b[2], h = b[3];
+    box(c, x - 10, y, w + 20, 30, 12, DPINE);
+    c.fillStyle = lin(c, 0, y, 0, y + h, [[0, '#e8dcb4'], [1, '#d8c898']]); c.fillRect(x, y + 24, w, h - 24);
+    c.fillStyle = '#a8c8d8'; c.fillRect(x + 12, y + 40, w - 24, h * (big ? 0.62 : 0.6));
+    var rs = seeded(1941); c.fillStyle = '#c8b878';
+    [[0.2, 0.3, 0.12, 0.18], [0.24, 0.62, 0.07, 0.2], [0.52, 0.32, 0.1, 0.14], [0.55, 0.6, 0.08, 0.2], [0.75, 0.36, 0.16, 0.16], [0.85, 0.72, 0.07, 0.06]].forEach(function (q) {
+      c.beginPath(); var cx = x + 12 + q[0] * (w - 24), cy = y + 40 + q[1] * h * 0.6; for (var k = 0; k < 14; k++) { var a = k * TAU / 14, rr2 = 1 + (rs() - 0.5) * 0.4; c.lineTo(cx + Math.cos(a) * q[2] * w * rr2, cy + Math.sin(a) * q[3] * h * 0.6 * rr2); } c.closePath(); c.fill();
+    });
+    c.strokeStyle = 'rgba(80,60,40,.25)'; c.lineWidth = big ? 2 : 1; for (var g = 1; g < 6; g++) { c.beginPath(); c.moveTo(x + 12 + g * (w - 24) / 6, y + 40); c.lineTo(x + 12 + g * (w - 24) / 6, y + 40 + h * 0.6); c.stroke(); }
+    txt(c, 'THE WORLD', x + w / 2, y + 30 + h * 0.66, big ? 28 : 14, '#5a3a1a', { font: SERIF, weight: 900 });
+    box(c, x - 10, y + h - 14, w + 20, 18, 8, DPINE);
+    // the postcards along the bottom (tiny on the wall view)
+    var cards = X.R.clues.cards.list, nC = cards.length;
+    if (!big) cards.forEach(function (cd, i) { var cx = x + 20 + (i + 0.5) * (w - 40) / nC; c.save(); c.translate(cx, y + h * 0.82); c.rotate((i % 2 ? 1 : -1) * 0.06); box(c, -26, -20, 52, 40, 2, '#fbf4e0'); place(c, cd.pic, -8, 0, 26); circ(c, 14, -6, 8, 'rgba(160,40,40,.5)'); c.restore(); pin(c, cx, y + h * 0.82 - 18, '#3a6ad8'); });
+  }
+
+  // ================= the cloakroom =================
+  function cloakWall(c, e) {
+    var top = Math.min(e.y0, 0) - 10;
+    c.fillStyle = '#4a3a2a'; c.fillRect(e.x0, top, e.x1 - e.x0, 150 - top); line(c, e.x0, 148, e.x1, 148, '#2a1a0e', 6);
+    // lime-washed brick
+    c.fillStyle = lin(c, 0, 150, 0, 640, [[0, '#ddd6c4'], [1, '#ece6d6']]); c.fillRect(e.x0, 150, e.x1 - e.x0, 490);
+    c.strokeStyle = 'rgba(150,130,100,.22)'; c.lineWidth = 2;
+    for (var y = 170, row = 0; y < 640; y += 30, row++) { c.beginPath(); c.moveTo(e.x0, y); c.lineTo(e.x1, y); c.stroke(); for (var x = Math.floor(e.x0 / 80) * 80 + (row % 2) * 40; x < e.x1; x += 80) { c.beginPath(); c.moveTo(x, y); c.lineTo(x, y + 30); c.stroke(); } }
+    c.fillStyle = lin(c, 0, 640, 0, 1060, [[0, '#3e6a4a'], [1, '#2a4a34']]); c.fillRect(e.x0, 640, e.x1 - e.x0, 420); line(c, e.x0, 642, e.x1, 642, '#1e3424', 6);
+    c.fillStyle = '#1e2e22'; c.fillRect(e.x0, 1050, e.x1 - e.x0, 50);
+    // flagstones
+    var b = Math.max(e.y1, 1400); c.fillStyle = lin(c, 0, 1100, 0, b, [[0, '#8a867a'], [1, '#5a564c']]); c.fillRect(e.x0, 1100, e.x1 - e.x0, b - 1100);
+    c.strokeStyle = 'rgba(40,36,30,.45)'; c.lineWidth = 3; var hh = 40; for (var fy = 1100, r2 = 0; fy < b; fy += hh, hh *= 1.3, r2++) { c.beginPath(); c.moveTo(e.x0, fy); c.lineTo(e.x1, fy); c.stroke(); for (var fx = Math.floor(e.x0 / 220) * 220 + (r2 % 2) * 110; fx < e.x1; fx += 220) { c.beginPath(); c.moveTo(fx, fy); c.lineTo(fx, fy + hh); c.stroke(); } }
+  }
+  function pailArt(c, x, y, w, h, name, has) {
+    // a tin lunch pail with a lid, a wire handle and a paper name tag
+    var cx = x + w / 2, pw = Math.min(w * 0.8, 120);
+    c.strokeStyle = '#6a6a6a'; c.lineWidth = 4; c.beginPath(); c.arc(cx, y + h * 0.42, pw * 0.42, PI, 0); c.stroke();
+    c.fillStyle = lin(c, cx - pw / 2, 0, cx + pw / 2, 0, [[0, '#8a8a90'], [0.4, '#d8d8de'], [1, '#6a6a70']]); c.beginPath(); c.moveTo(cx - pw / 2, y + h * 0.42); c.lineTo(cx + pw / 2, y + h * 0.42); c.lineTo(cx + pw * 0.42, y + h); c.lineTo(cx - pw * 0.42, y + h); c.closePath(); c.fill();
+    box(c, cx - pw / 2 - 4, y + h * 0.38, pw + 8, 12, 4, '#9a9aa0', '#5a5a60', 1.5);
+    box(c, cx - pw * 0.36, y + h * 0.58, pw * 0.72, 30, 3, CREAM, 'rgba(60,40,20,.5)', 1.5);
+    fit(c, name, cx, y + h * 0.58 + 16, 20, INK, pw * 0.68, { font: HAND, italic: true, weight: 800 });
+  }
+  function slateArt(c, x, y, w, h, s, X, big) {
+    // a slate in a pine frame, a word in chalk letter by letter (Easy: the wrong letter ringed in red)
+    box(c, x, y, w, h, 6, PINE, DPINE, 3); c.fillStyle = SLATE; c.fillRect(x + 10, y + 10, w - 20, h - 20);
+    var m = s.m, n = m.length, sp = Math.min((w - 50) / n, h * 0.42), x0 = x + w / 2 - sp * (n - 1) / 2, cy = y + h * 0.55;
+    for (var i = 0; i < n; i++) {
+      chalkTxt(c, m.charAt(i), x0 + i * sp, cy, sp * 1.05, CHALK, { font: SERIF, weight: 700 });
+      if (s.ring === i) { c.strokeStyle = 'rgba(240,90,80,.95)'; c.lineWidth = big ? 4 : 2; c.beginPath(); c.ellipse(x0 + i * sp, cy, sp * 0.5, sp * 0.62, 0, 0, TAU); c.stroke(); }
+    }
+    // the tag: a painted number on the frame (Hard: a times-table sum on the peg above)
+    if (typeof s.tag === 'number') { circ(c, x + 22, y + 22, big ? 22 : 10, CREAM, DPINE, 2); txt(c, String(s.tag), x + 22, y + 23, big ? 28 : 12, INK, { font: SERIF, weight: 900 }); }
+    else { box(c, x + w / 2 - (big ? 70 : 30), y - (big ? 56 : 24), big ? 140 : 60, big ? 44 : 20, 4, CREAM, DPINE, 2); txt(c, s.tag.a + ' × ' + s.tag.b, x + w / 2, y - (big ? 33 : 14), big ? 28 : 12, INK, { font: SERIF, weight: 900 }); }
+  }
+  V.pegs = function (c, X) {
+    var e = X.ext, st = X.st, P = X.P, E = X.diff === 'e'; cloakWall(c, e);
+    // the lunch-pail shelf
+    var sh = L.shelf; box(c, sh[0], sh[1] + sh[3] - 18, sh[2], 18, 3, '#7a4a22'); [sh[0] + 40, sh[0] + sh[2] - 40].forEach(function (bx) { c.fillStyle = '#5a3418'; c.beginPath(); c.moveTo(bx, sh[1] + sh[3]); c.lineTo(bx + 10, sh[1] + sh[3]); c.lineTo(bx + 10, sh[1] + sh[3] + 50); c.closePath(); c.fill(); });
+    if (!E) P.pails.forEach(function (d, i) { var r = R19.pailRect(i, P.pails.length); pailArt(c, r[0], r[1], r[2], r[3] - 14, P.seat[d], d === P.pailDesk && !st.done.take_lifter); });
+    else { var names = P.seat.filter(function (x, k) { return P.absent.indexOf(k) < 0; }).slice(0, 5); names.forEach(function (nm, i) { var r = R19.pailRect(i, 5); pailArt(c, r[0], r[1], r[2], r[3] - 14, nm, false); }); }
+    // the coat pegs, names over them, a few caps and scarves left behind
+    var cr = L.coats; box(c, cr[0], cr[1] + 20, cr[2], 26, 3, '#7a4a22');
+    var rs = seeded(1951);
+    for (var k = 0; k < 10; k++) {
+      var px = cr[0] + 40 + k * 84; circ(c, px, cr[1] + 60, 8, '#3a3a3a'); line(c, px, cr[1] + 52, px, cr[1] + 70, '#3a3a3a', 6);
+      box(c, px - 34, cr[1] - 6, 68, 22, 3, CREAM, 'rgba(60,40,20,.4)', 1); fit(c, P.seat[k % P.seat.length], px, cr[1] + 5, 15, INK, 62, { font: HAND, italic: true });
+      var kind = rs();
+      if (kind < 0.3) {
+        // a little coat on its peg: shoulders, sleeves, buttons
+        var cc = ['#8a3a2a', '#3a4a6a', '#5a6a3a'][k % 3]; c.fillStyle = cc;
+        c.beginPath(); c.moveTo(px - 8, cr[1] + 62); c.quadraticCurveTo(px - 34, cr[1] + 70, px - 38, cr[1] + 110); c.lineTo(px - 44, cr[1] + 300); c.lineTo(px + 44, cr[1] + 300); c.lineTo(px + 38, cr[1] + 110); c.quadraticCurveTo(px + 34, cr[1] + 70, px + 8, cr[1] + 62); c.closePath(); c.fill();
+        c.fillStyle = shade(cc, -0.25); c.beginPath(); c.moveTo(px - 38, cr[1] + 106); c.lineTo(px - 50, cr[1] + 240); c.lineTo(px - 36, cr[1] + 244); c.lineTo(px - 30, cr[1] + 130); c.closePath(); c.fill(); c.beginPath(); c.moveTo(px + 38, cr[1] + 106); c.lineTo(px + 50, cr[1] + 240); c.lineTo(px + 36, cr[1] + 244); c.lineTo(px + 30, cr[1] + 130); c.closePath(); c.fill();
+        line(c, px, cr[1] + 76, px, cr[1] + 296, 'rgba(0,0,0,.25)', 3); for (var bu = 0; bu < 4; bu++) circ(c, px + 8, cr[1] + 110 + bu * 44, 4, '#d8c8a0');
+        c.fillStyle = shade(cc, 0.15); c.beginPath(); c.moveTo(px - 8, cr[1] + 62); c.lineTo(px - 24, cr[1] + 90); c.lineTo(px, cr[1] + 100); c.lineTo(px + 24, cr[1] + 90); c.lineTo(px + 8, cr[1] + 62); c.closePath(); c.fill();
+      }
+      else if (kind < 0.55) { c.fillStyle = ['#c8402a', '#2a6a4a', '#d8a838'][k % 3]; c.fillRect(px - 8, cr[1] + 66, 16, 200); for (var f = 0; f < 4; f++) line(c, px - 8 + f * 5, cr[1] + 266, px - 8 + f * 5, cr[1] + 286, c.fillStyle, 2); }
+      else if (kind < 0.7) { c.fillStyle = '#4a4a52'; c.beginPath(); c.ellipse(px, cr[1] + 84, 30, 16, 0, 0, TAU); c.fill(); }
+    }
+    // the slate rack
+    var rk = L.rack; box(c, rk[0], rk[1], rk[2], rk[3], 6, '#8a5a30', DPINE, 3);
+    var sl = X.R.clues.slates.list, ns = sl.length;
+    sl.forEach(function (s, i) { var sw = (rk[2] - 30) / ns; slateArt(c, rk[0] + 15 + i * sw + 4, rk[1] + 40, sw - 8, rk[3] - 60, s, X, false); });
+    // the bench and its boots
+    var bt = L.boots; wood(c, bt[0], bt[1], bt[2], 22, '#7a4a22', false, 1952); line(c, bt[0] + 30, bt[1] + 22, bt[0] + 30, 1100, '#4a2a12', 8); line(c, bt[0] + bt[2] - 30, bt[1] + 22, bt[0] + bt[2] - 30, 1100, '#4a2a12', 8);
+    for (var bb = 0; bb < 6; bb++) { var bx2 = bt[0] + 90 + bb * 130; c.fillStyle = '#2a1a10'; rr(c, bx2, 1040, 34, 60, 8); c.fill(); rr(c, bx2 + 36, 1046, 34, 54, 8); c.fill(); c.fillStyle = 'rgba(120,90,50,.5)'; c.fillRect(bx2, 1084, 70, 10); }
+    if (X.diff === 'h') { var ol = L.old; line(c, ol[0] + ol[2] / 2, ol[1] - 10, ol[0] + ol[2] / 2, ol[1] + 12, '#3a3a3a', 6); c.save(); c.translate(ol[0] + ol[2] / 2, ol[1] + ol[3] / 2 + 10); c.rotate(0.06); box(c, -ol[2] / 2, -ol[3] / 2, ol[2], ol[3], 6, PINE, DPINE, 3); c.fillStyle = SLATE; c.fillRect(-ol[2] / 2 + 8, -ol[3] / 2 + 8, ol[2] - 16, ol[3] - 16); for (var q = 0; q < 5; q++) line(c, -40, -54 + q * 26, 30 - (q % 2) * 16, -54 + q * 26, 'rgba(240,240,230,.6)', 3); c.restore(); }
+  };
+  V.wash = function (c, X) {
+    var e = X.ext, st = X.st, E = X.diff === 'e'; cloakWall(c, e);
+    // the window onto the yard
+    var w = L.cwin; c.save(); c.beginPath(); c.rect(w[0], w[1], w[2], w[3]); c.clip(); outside(c, w[0] - 500, w[1] - 60, 1400, w[3] + 160, 5);
+    c.fillStyle = '#9a8a6a'; c.fillRect(w[0], w[1] + w[3] * 0.72, w[2], w[3]); for (var h2 = 0; h2 < 4; h2++) { c.strokeStyle = 'rgba(255,255,255,.7)'; c.lineWidth = 2; c.strokeRect(w[0] + 60 + (h2 % 2) * 30, w[1] + w[3] * 0.76 + h2 * 14, 30, 14); }
+    c.restore(); c.strokeStyle = '#e8e0cc'; c.lineWidth = 12; c.strokeRect(w[0], w[1], w[2], w[3]); line(c, w[0] + w[2] / 2, w[1], w[0] + w[2] / 2, w[1] + w[3], '#e8e0cc', 8); line(c, w[0], w[1] + w[3] / 2, w[0] + w[2], w[1] + w[3] / 2, '#e8e0cc', 8); gloss(c, w[0], w[1], w[2], w[3], 0.2);
+    // the washstand: jug and basin, a towel, soap
+    var ws = L.wash; wood(c, ws[0], ws[1] + 140, ws[2], 30, '#8a5a30', false, 1961); line(c, ws[0] + 20, ws[1] + 170, ws[0] + 20, 1100, '#5a3418', 10); line(c, ws[0] + ws[2] - 20, ws[1] + 170, ws[0] + ws[2] - 20, 1100, '#5a3418', 10); box(c, ws[0] + 10, ws[1] + 360, ws[2] - 20, 16, 3, '#7a4a22');
+    c.fillStyle = '#f4f4f0'; c.beginPath(); c.ellipse(ws[0] + ws[2] / 2, ws[1] + 132, 120, 22, 0, 0, TAU); c.fill(); c.strokeStyle = '#3a6ab8'; c.lineWidth = 4; c.stroke();
+    c.fillStyle = lin(c, ws[0] + 100, 0, ws[0] + 190, 0, [[0, '#d8d8d4'], [0.5, '#fbfbf8'], [1, '#c8c8c4']]); c.beginPath(); c.moveTo(ws[0] + 112, ws[1] + 124); c.bezierCurveTo(ws[0] + 92, ws[1] + 60, ws[0] + 120, ws[1] + 30, ws[0] + 128, ws[1] - 10); c.lineTo(ws[0] + 176, ws[1] - 16); c.bezierCurveTo(ws[0] + 172, ws[1] + 30, ws[0] + 200, ws[1] + 60, ws[0] + 180, ws[1] + 124); c.closePath(); c.fill();
+    line(c, ws[0] + 118, ws[1] + 40, ws[0] + 176, ws[1] + 40, '#3a6ab8', 4); line(c, ws[0] + 112, ws[1] + 90, ws[0] + 184, ws[1] + 90, '#3a6ab8', 4);
+    box(c, ws[0] + 230, ws[1] + 110, 40, 22, 6, '#e8d8a8');
+    c.fillStyle = '#f0ece0'; c.fillRect(ws[0] + ws[2] - 30, ws[1] + 160, 26, 160); for (var t = 0; t < 3; t++) line(c, ws[0] + ws[2] - 30, ws[1] + 280 + t * 10, ws[0] + ws[2] - 4, ws[1] + 280 + t * 10, '#c8402a', 3);
+    // the coal scuttle; the kindling box (Medium, Hard)
+    var co = L.coal; if (!st.done.take_coal) coalArt(c, co[0] + co[2] / 2, co[1] + co[3] / 2 + 10, 1);
+    if (!E) { var kb = L.kindling; wood(c, kb[0], kb[1] + 50, kb[2], kb[3] - 50, '#8a5a30', false, 1962); if (!st.done.take_kindling) kindlingArt(c, kb[0] + kb[2] / 2, kb[1] + 50, 0.9); }
+    // the way back into the schoolroom: the warm gold room through the doorway
+    var cb = L.cback; c.fillStyle = '#5a3418'; c.fillRect(cb[0] - 18, cb[1] - 18, cb[2] + 36, cb[3] + 18);
+    c.fillStyle = lin(c, 0, cb[1], 0, cb[1] + cb[3], [[0, '#efe0bc'], [0.42, '#f4e4c0'], [0.43, '#5a8a64'], [0.78, '#3e6a4a'], [0.79, '#8a5a30'], [1, '#6a4020']]); c.fillRect(cb[0], cb[1], cb[2], cb[3]);
+    c.fillStyle = 'rgba(255,210,130,.3)'; c.fillRect(cb[0], cb[1], cb[2], cb[3]);
+    box(c, cb[0] + 40, cb[1] + 120, 130, 100, 4, SLATE, PINE, 6);
+    txt(c, 'Schoolroom', cb[0] + cb[2] / 2, cb[1] + 60, 26, '#5a3a1a', { font: SERIF, italic: true, weight: 800 });
+  };
+  function coalArt(c, x, y, s) {
+    c.save(); c.translate(x, y); c.scale(s, s);
+    c.fillStyle = lin(c, -70, 0, 70, 0, [[0, '#141416'], [0.5, '#3a3a40'], [1, '#141416']]); c.beginPath(); c.moveTo(-60, -40); c.lineTo(70, -60); c.lineTo(56, 40); c.lineTo(-56, 40); c.closePath(); c.fill();
+    for (var k = 0; k < 9; k++) circ(c, -46 + (k % 5) * 24, -46 - Math.floor(k / 5) * 12 + (k % 2) * 4, 13, '#0e0e10', '#3a3a40', 1);
+    c.strokeStyle = brass(c, -40, -80, 40, -40); c.lineWidth = 7; c.beginPath(); c.arc(0, -40, 46, PI * 1.1, PI * 1.9); c.stroke();
+    c.restore();
+  }
+  function kindlingArt(c, x, y, s) {
+    c.save(); c.translate(x, y); c.scale(s, s);
+    for (var k = 0; k < 9; k++) { c.save(); c.rotate(-0.15 + k * 0.04); box(c, -6 - 24 + k * 6, -70, 8, 100, 2, ['#c8a070', '#b88a5a', '#d8b080'][k % 3]); c.restore(); }
+    c.fillStyle = '#e8e0cc'; c.beginPath(); c.moveTo(-24, -10); c.lineTo(28, -20); c.lineTo(20, 20); c.lineTo(-28, 16); c.closePath(); c.fill(); line(c, -18, -2, 18, -10, '#8a8a8a', 2); line(c, -18, 6, 14, 0, '#8a8a8a', 2);
+    line(c, -34, -20, 34, -24, '#8a6a3a', 4);
+    c.restore();
+  }
+
+  // ================= the office =================
+  function officeWall(c, e) {
+    var top = Math.min(e.y0, 0) - 10;
+    c.fillStyle = '#4a3020'; c.fillRect(e.x0, top, e.x1 - e.x0, 150 - top); line(c, e.x0, 146, e.x1, 146, '#e8dcc0', 8);
+    c.fillStyle = lin(c, 0, 150, 0, 650, [[0, '#d8c8a0'], [1, '#e8dab4']]); c.fillRect(e.x0, 150, e.x1 - e.x0, 500);
+    // sprigged wallpaper
+    for (var y = 180; y < 640; y += 60) for (var x = Math.floor(e.x0 / 60) * 60 + (y / 60 % 2) * 30; x < e.x1; x += 60) { circ(c, x, y, 4, 'rgba(160,70,80,.4)'); line(c, x, y + 4, x - 4, y + 14, 'rgba(70,110,60,.4)', 2); line(c, x, y + 4, x + 6, y + 10, 'rgba(70,110,60,.4)', 2); }
+    wood(c, e.x0, 640, e.x1 - e.x0, 410, '#7a4e2a', true, 1971); for (var p = Math.floor(e.x0 / 180) * 180 + 20; p < e.x1; p += 180) { c.strokeStyle = 'rgba(30,14,4,.4)'; c.lineWidth = 3; c.strokeRect(p, 680, 140, 330); }
+    line(c, e.x0, 642, e.x1, 642, '#3a2010', 8); c.fillStyle = '#2a180a'; c.fillRect(e.x0, 1050, e.x1 - e.x0, 50);
+    var b = Math.max(e.y1, 1400); floorBoards(c, e);
+    c.fillStyle = 'rgba(160,60,60,.5)'; c.beginPath(); c.ellipse(500, 1220, 420, 90, 0, 0, TAU); c.fill(); c.strokeStyle = 'rgba(240,220,170,.5)'; c.lineWidth = 6; c.beginPath(); c.ellipse(500, 1220, 380, 76, 0, 0, TAU); c.stroke(); c.strokeStyle = 'rgba(60,90,140,.5)'; c.beginPath(); c.ellipse(500, 1220, 320, 60, 0, 0, TAU); c.stroke();
+    void b;
+  }
+  V.odesk = function (c, X) {
+    var e = X.ext, st = X.st, E = X.diff === 'e'; officeWall(c, e);
+    // the window with its curtains
+    var w = L.owin; c.save(); c.beginPath(); c.rect(w[0], w[1], w[2], w[3]); c.clip(); outside(c, w[0] - 600, w[1] - 40, 1400, w[3] + 100, 7); c.restore();
+    c.strokeStyle = '#e8dcc0'; c.lineWidth = 12; c.strokeRect(w[0], w[1], w[2], w[3]); line(c, w[0] + w[2] / 2, w[1], w[0] + w[2] / 2, w[1] + w[3], '#e8dcc0', 7); gloss(c, w[0], w[1], w[2], w[3], 0.18);
+    [w[0] - 30, w[0] + w[2] - 20].forEach(function (cx) { c.fillStyle = lin(c, cx, 0, cx + 50, 0, [[0, '#7a2a3a'], [0.5, '#a84a5a'], [1, '#6a1a2a']]); c.fillRect(cx, w[1] - 30, 50, w[3] + 70); });
+    box(c, w[0] - 40, w[1] - 40, w[2] + 80, 14, 6, brass(c, 0, 0, 10, 0));
+    // the photograph
+    var ph = L.photo; dropShadow(c, 12, 5, 0.35); box(c, ph[0], ph[1], ph[2], ph[3], 4, '#3a2410'); noShadow(c); c.fillStyle = lin(c, 0, ph[1], 0, ph[1] + ph[3], [[0, '#d8c8a8'], [1, '#a8987a']]); c.fillRect(ph[0] + 16, ph[1] + 16, ph[2] - 32, ph[3] - 32);
+    [[ph[0] + 70, '#6a5a4a'], [ph[0] + 130, '#5a4a3a']].forEach(function (p) { circ(c, p[0], ph[1] + 70, 14, p[1]); c.fillStyle = p[1]; c.fillRect(p[0] - 14, ph[1] + 84, 28, 70); });
+    c.strokeStyle = '#3a2a1a'; c.lineWidth = 3; [ph[0] + 46, ph[0] + 154].forEach(function (bx) { c.beginPath(); c.arc(bx, ph[1] + 150, 14, 0, TAU); c.stroke(); });
+    // the pail note pinned over the desk (Medium, Hard)
+    if (!E) { var pn = L.pnote; c.save(); c.translate(pn[0] + pn[2] / 2, pn[1] + pn[3] / 2); c.rotate(-0.05); dropShadow(c, 8, 3, 0.3); box(c, -70, -66, 140, 132, 3, '#f8f2dc'); noShadow(c); for (var q = 0; q < 5; q++) line(c, -50, -36 + q * 20, 46 - (q % 2) * 20, -36 + q * 20, 'rgba(42,42,106,.45)', 3); pin(c, 0, -60); c.restore(); }
+    // the roll-top desk: locked (Medium, Hard) or open on the register
+    var rt = L.rolltop, open = E || st.f['f:roll'];
+    dropShadow(c, 26, 12, 0.45); wood(c, rt[0], rt[1] + 200, rt[2], 380, '#8a5228', true, 1972); noShadow(c);
+    box(c, rt[0] + 20, rt[1] + 230, 130, 340, 4, null, 'rgba(30,10,4,.4)', 3); box(c, rt[0] + rt[2] - 150, rt[1] + 230, 130, 340, 4, null, 'rgba(30,10,4,.4)', 3);
+    for (var dk = 0; dk < 3; dk++) { circ(c, rt[0] + 85, rt[1] + 290 + dk * 110, 7, brass(c, 0, 0, 7, 0)); circ(c, rt[0] + rt[2] - 85, rt[1] + 290 + dk * 110, 7, brass(c, 0, 0, 7, 0)); }
+    c.fillStyle = '#6a3e1a'; c.beginPath(); c.moveTo(rt[0], rt[1] + 200); c.lineTo(rt[0], rt[1] + 40); c.quadraticCurveTo(rt[0], rt[1], rt[0] + 60, rt[1]); c.lineTo(rt[0] + rt[2] - 60, rt[1]); c.quadraticCurveTo(rt[0] + rt[2], rt[1], rt[0] + rt[2], rt[1] + 40); c.lineTo(rt[0] + rt[2], rt[1] + 200); c.closePath(); c.fill();
+    if (open) {
+      c.fillStyle = '#3a2210'; c.fillRect(rt[0] + 20, rt[1] + 30, rt[2] - 40, 160);
+      for (var ph2 = 0; ph2 < 6; ph2++) { box(c, rt[0] + 30 + ph2 * 78, rt[1] + 40, 70, 60, 2, '#5a3418'); box(c, rt[0] + 38 + ph2 * 78, rt[1] + 54, 54, 40, 2, ph2 % 2 ? '#f0e8d0' : '#e8dcc0'); }
+      box(c, rt[0] + 20, rt[1] + 180, rt[2] - 40, 24, 2, '#7a4a22');
+      // the register, open
+      c.save(); c.translate(rt[0] + rt[2] / 2, rt[1] + 150); box(c, -150, -20, 300, 60, 4, '#f6eed8', '#5a3a1a', 2); line(c, 0, -20, 0, 40, '#8a6a4a', 2); for (var rl = 0; rl < 4; rl++) { line(c, -136, -6 + rl * 12, -14, -6 + rl * 12, 'rgba(40,40,100,.4)', 2); line(c, 14, -6 + rl * 12, 136, -6 + rl * 12, 'rgba(40,40,100,.4)', 2); } c.restore();
+    } else {
+      c.fillStyle = lin(c, 0, rt[1], 0, rt[1] + 200, [[0, '#9a6234'], [1, '#6a3e1a']]); c.beginPath(); c.moveTo(rt[0] + 20, rt[1] + 200); c.lineTo(rt[0] + 20, rt[1] + 46); c.quadraticCurveTo(rt[0] + 20, rt[1] + 20, rt[0] + 70, rt[1] + 20); c.lineTo(rt[0] + rt[2] - 70, rt[1] + 20); c.quadraticCurveTo(rt[0] + rt[2] - 20, rt[1] + 20, rt[0] + rt[2] - 20, rt[1] + 46); c.lineTo(rt[0] + rt[2] - 20, rt[1] + 200); c.closePath(); c.fill();
+      for (var sl2 = rt[1] + 36; sl2 < rt[1] + 200; sl2 += 14) line(c, rt[0] + 22, sl2, rt[0] + rt[2] - 22, sl2, 'rgba(30,14,4,.35)', 2);
+      box(c, rt[0] + rt[2] / 2 - 16, rt[1] + 170, 32, 24, 4, brass(c, 0, 0, 30, 0)); circ(c, rt[0] + rt[2] / 2, rt[1] + 182, 4, '#1a0e04');
+    }
+    // a green-shaded lamp on top
+    box(c, rt[0] + rt[2] - 120, rt[1] - 50, 14, 50, 4, brass(c, 0, 0, 14, 0)); c.fillStyle = '#2a6a3a'; c.beginPath(); c.moveTo(rt[0] + rt[2] - 160, rt[1] - 40); c.lineTo(rt[0] + rt[2] - 66, rt[1] - 40); c.lineTo(rt[0] + rt[2] - 90, rt[1] - 80); c.lineTo(rt[0] + rt[2] - 136, rt[1] - 80); c.closePath(); c.fill();
+    // the chair
+    var ch = L.chair; wood(c, ch[0] + 20, ch[1], 30, ch[3], '#6a3e1a', true, 1973); box(c, ch[0], ch[1] + 130, ch[2] - 20, 30, 6, '#7a4a22'); c.fillStyle = '#c86a7a'; c.beginPath(); c.ellipse(ch[0] + 90, ch[1] + 124, 70, 14, 0, 0, TAU); c.fill(); line(c, ch[0] + ch[2] - 40, ch[1] + 160, ch[0] + ch[2] - 40, 1100, '#5a3418', 10);
+  };
+  V.ofire = function (c, X) {
+    var e = X.ext, st = X.st, Hd = X.diff === 'h'; officeWall(c, e);
+    // the way back: through the door into the schoolroom
+    var ob = L.oback; c.fillStyle = '#5a3418'; c.fillRect(ob[0] - 18, ob[1] - 18, ob[2] + 36, ob[3] + 18);
+    c.fillStyle = lin(c, 0, ob[1], 0, ob[1] + ob[3], [[0, '#efe0bc'], [0.4, '#f4e4c0'], [0.41, '#5a8a64'], [0.78, '#3e6a4a'], [0.79, '#8a5a30'], [1, '#6a4020']]); c.fillRect(ob[0], ob[1], ob[2], ob[3]);
+    c.fillStyle = 'rgba(255,210,130,.3)'; c.fillRect(ob[0], ob[1], ob[2], ob[3]); box(c, ob[0] + 30, ob[1] + 100, 160, 110, 4, SLATE, PINE, 6);
+    wood(c, ob[0] - 60, ob[1], 50, ob[3], '#7a4a22', true, 1981);
+    txt(c, 'Schoolroom', ob[0] + ob[2] / 2, ob[1] + 50, 26, '#5a3a1a', { font: SERIF, italic: true, weight: 800 });
+    // the bookshelves, the log book, the stuffed owl
+    var bs = L.oshelves; wood(c, bs[0], bs[1], bs[2], bs[3], '#6a3e1a', true, 1982);
+    var rs = seeded(1983);
+    for (var s = 0; s < 3; s++) { var sy = bs[1] + 20 + s * 120; box(c, bs[0] + 10, sy + 100, bs[2] - 20, 10, 2, '#4a2a12'); for (var x = bs[0] + 16; x < bs[0] + bs[2] - (s === 1 ? 120 : 30);) { var bw = 18 + rs() * 16, bh = 70 + rs() * 26; box(c, x, sy + 100 - bh, bw, bh, 2, ['#8a2a2a', '#2a4a7a', '#3a6a3a', '#7a5a2a', '#5a2a5a'][Math.floor(rs() * 5)]); x += bw + 2; } }
+    c.fillStyle = 'rgba(220,235,240,.45)'; c.beginPath(); c.moveTo(bs[0] + bs[2] - 110, bs[1] + 240); c.lineTo(bs[0] + bs[2] - 110, bs[1] + 170); c.quadraticCurveTo(bs[0] + bs[2] - 65, bs[1] + 120, bs[0] + bs[2] - 20, bs[1] + 170); c.lineTo(bs[0] + bs[2] - 20, bs[1] + 240); c.closePath(); c.fill();
+    c.fillStyle = '#8a6a4a'; c.beginPath(); c.ellipse(bs[0] + bs[2] - 65, bs[1] + 210, 24, 30, 0, 0, TAU); c.fill(); circ(c, bs[0] + bs[2] - 74, bs[1] + 196, 7, '#f4d860'); circ(c, bs[0] + bs[2] - 56, bs[1] + 196, 7, '#f4d860');
+    // the fireplace, the mantel
+    var fp = L.fire; wood(c, fp[0] - 20, fp[1] - 30, fp[2] + 40, 34, '#5a3418', false, 1984);
+    box(c, fp[0], fp[1], fp[2], fp[3] - 20, 4, '#c8b89a'); c.fillStyle = '#1a120c'; c.beginPath(); c.moveTo(fp[0] + 80, fp[1] + fp[3] - 20); c.lineTo(fp[0] + 80, fp[1] + 140); c.arc(fp[0] + fp[2] / 2, fp[1] + 140, fp[2] / 2 - 80, PI, 0); c.lineTo(fp[0] + fp[2] - 80, fp[1] + fp[3] - 20); c.closePath(); c.fill();
+    for (var gb = 0; gb < 6; gb++) line(c, fp[0] + 110 + gb * 32, fp[1] + 300, fp[0] + 110 + gb * 32, fp[1] + 380, '#3a3a3e', 5); line(c, fp[0] + 100, fp[1] + 300, fp[0] + fp[2] - 100, fp[1] + 300, '#3a3a3e', 6);
+    // a fan of paper in the swept grate for summer
+    c.fillStyle = '#e8d8b0'; c.beginPath(); c.moveTo(fp[0] + fp[2] / 2, fp[1] + 380); for (var fa = 0; fa <= 8; fa++) { var a = PI + fa * PI / 8; c.lineTo(fp[0] + fp[2] / 2 + Math.cos(a) * 90, fp[1] + 380 + Math.sin(a) * 90); } c.closePath(); c.fill();
+    // on the mantel: a clock, the matches, (Hard) Cousin Mabel's postcard
+    box(c, fp[0] + 30, fp[1] - 110, 70, 80, 10, '#3a2410'); circ(c, fp[0] + 65, fp[1] - 76, 22, '#fbf6e6', '#c8a050', 3);
+    if (!st.done.take_matches) matchArt(c, L.matches[0] + 55, L.matches[1] + 30, 1);
+    if (Hd) { var mb = L.mabel; c.save(); c.translate(mb[0] + mb[2] / 2, mb[1] + mb[3] / 2); c.rotate(0.08); box(c, -50, -36, 100, 72, 3, '#fbf4e0', 'rgba(60,40,20,.4)', 1.5); place(c, X.R.clues.mabel.list[0].pic, -20, 4, 44); circ(c, 28, -14, 12, 'rgba(160,40,40,.5)'); c.restore(); }
+    // the window pole leaning in the corner
+    if (!st.done.take_pole) { c.save(); c.translate(L.pole[0] + 50, 1090); c.rotate(-0.07); poleArt(c, 0, 0, 1, !Hd); c.restore(); }
+  };
+  function matchArt(c, x, y, s) { c.save(); c.translate(x, y); c.scale(s, s); box(c, -46, -22, 92, 44, 4, '#f4e8c0', '#5a3a1a', 2); c.fillStyle = '#c8302a'; c.fillRect(-46, -22, 92, 12); txt(c, 'SWAN', 2, 4, 16, '#2a4a8a', { font: SERIF, weight: 900 }); c.fillStyle = '#5a3a2a'; c.fillRect(-46, 16, 92, 6); c.restore(); }
+  function poleArt(c, x, y, s, hook) {
+    c.save(); c.translate(x, y); c.scale(s, s);
+    c.fillStyle = lin(c, -8, 0, 8, 0, [[0, '#7a4a22'], [0.5, '#c8904e'], [1, '#6a3e1a']]); c.fillRect(-7, -900, 14, 900);
+    box(c, -9, -912, 18, 20, 3, brass(c, -9, 0, 9, 0));
+    if (hook) { c.strokeStyle = brass(c, -30, -960, 10, -900); c.lineWidth = 8; c.lineCap = 'round'; c.beginPath(); c.moveTo(0, -910); c.lineTo(0, -940); c.arc(-16, -940, 16, 0, PI + 0.6, true); c.stroke(); }
+    c.restore();
+  }
+
+  // ================= close-ups =================
+  V.notez = function (c, X) {
+    var e = X.ext, cl = X.R.clues.note; closeBg(c, e, '#7a2e22', '#2a0e08');
+    paper(c, 110, 230, 780, 920, -0.02, CREAM); pin(c, 500, 250);
+    c.save(); c.translate(500, 690); c.rotate(-0.02);
+    var y = -400; cl.lines.forEach(function (l) { y += wrapText(c, l, 0, y, 660, 42, '#2a3a6a', { font: HAND, italic: true, weight: 800, top: true }) + 30; });
+    c.restore();
+  };
+  V.doorz = function (c, X) {
+    var e = X.ext; closeBg(c, e, '#7a2e22', '#2a0e08');
+    wood(c, 140, 160, 720, 1100, '#7a2e22', true, 1991);
+    for (var p = 1; p < 5; p++) line(c, 140 + p * 144, 160, 140 + p * 144, 1260, 'rgba(30,8,4,.4)', 4);
+    [300, 1100].forEach(function (hy) { line(c, 120, hy, 560, hy, '#1a1a1a', 22); circ(c, 560, hy, 16, '#1a1a1a'); });
+    var lk = L.lockZ; box(c, lk[0], lk[1], lk[2], lk[3], 16, brass(c, lk[0], lk[1], lk[0] + lk[2], lk[1] + lk[3]), '#5a3a10', 3);
+    c.fillStyle = '#140a04'; c.beginPath(); c.arc(500, lk[1] + 110, 18, 0, TAU); c.fill(); c.fillRect(491, lk[1] + 118, 18, 46);
+    box(c, 720, 600, 60, 240, 10, brass(c, 720, 0, 780, 0), '#5a3a10', 2);
+    if (!X.st.f['f:unlocked']) txt(c, 'Locked', 500, lk[1] + lk[3] + 46, 34, '#ffd8b8', { font: SERIF, italic: true, weight: 800 });
+  };
+  // the ink lock's plate (also the notebook's picture of it, which stays the same once the case is open)
+  function casePlate(c, X) {
+    var cl = X.R.clues.case.lines; dropShadow(c, 16, 6, 0.4); box(c, 210, 470, 580, 420, 18, brass(c, 210, 470, 790, 890), '#5a3a10', 4); noShadow(c);
+    [[232, 492], [768, 492], [232, 868], [768, 868]].forEach(function (q) { circ(c, q[0], q[1], 8, '#7a4e12'); });
+    txt(c, cl[0], 500, 530, 32, '#3a2410', { font: SERIF, weight: 900 });
+    circ(c, 500, 610, 28, '#1a2450', '#3a2a10', 3); box(c, 489, 572, 22, 16, 3, '#3a2a10'); line(c, 522, 596, 552, 566, '#3a2410', 4);
+    var y = 660; cl.slice(1).forEach(function (l) { y += wrapText(c, l, 500, y, 500, 32, '#3a2410', { font: SERIF, italic: true, weight: 800, top: true }) + 8; });
+  }
+  V.casePic = function (c, X) { var e = X.ext; schoolWall(c, e, { seed: 6 }); dim(c, e, 0.3); wood(c, 300, 150, 400, 1080, '#a87440', true, 1922); casePlate(c, X); };
+  V.ropez = function (c, X) {
+    var e = X.ext, st = X.st, open = st.f['f:case'], roped = st.f['f:rope'], rung = st.f['f:rung'];
+    schoolWall(c, e, { seed: 6 }); dim(c, e, 0.3);
+    var b = [300, 150, 400, 1080];
+    ropeCase(c, X, b, true);
+    if (!open) {
+      // the plate: the ink lock's rule
+      casePlate(c, X);
+      msg(c, 'The bell rope runs down inside a locked case', false);
+    } else {
+      // the counter: how many strokes so far
+      var got = rung ? X.R.puzzles.bell.answer.length - 1 : st.pz.bell.got.length;
+      if (roped) {
+        // the Hold handle
+        var hz = L.holdZ; box(c, hz[0], hz[1], hz[2], hz[3], 18, rung ? '#3a2a1a' : brass(c, hz[0], hz[1], hz[0] + hz[2], hz[1] + hz[3]), '#5a3a10', 4);
+        txt(c, 'HOLD', hz[0] + hz[2] / 2, hz[1] + hz[3] / 2 - 18, 40, '#3a2410', { font: SERIF, weight: 900 }); txt(c, 'the rope still', hz[0] + hz[2] / 2, hz[1] + hz[3] / 2 + 26, 24, '#3a2410', { font: SERIF, italic: true, weight: 800 });
+        box(c, 60, 860, 220, 180, 18, 'rgba(30,20,10,.75)', GOLD, 3); txt(c, 'Strokes', 170, 910, 28, '#ffe8b8', { font: SERIF, italic: true, weight: 800 }); txt(c, String(got), 170, 980, 64, '#fff2c0', { font: SERIF, weight: 900 });
+        if (X.hit && !rung) { X.hit({ pz: 'bell', b: 'pull' }, L.pullZ.slice()); X.hit({ pz: 'bell', b: 'hold' }, L.holdZ.slice()); }
+      }
+      if (rung && !st.done.take_dkey) dkeyArt(c, L.dkeyZ[0] + 100, L.dkeyZ[1] + 60, 150, 0.2);
+      msg(c, rung ? 'Dong! Down the rope hole comes the door key!' : roped ? 'Tap the rope to pull it; Hold to stop the bell' : 'The rope’s end is looped high over a cleat', rung);
+    }
+  };
+  V.sumsz = function (c, X) {
+    var e = X.ext, eqs = X.R.clues.sums.eqs; schoolWall(c, e, { seed: 2 }); dim(c, e, 0.35);
+    var b = [60, 220, 880, 960]; blackboard(c, b);
+    chalkTxt(c, 'Picture sums', 500, 290, 56, CHALKS.yellow);
+    chalkTxt(c, 'Each picture is a different number from 2 to 9', 500, 352, 30, CHALK, { italic: true });
+    var gap = Math.min(150, 760 / eqs.length);
+    eqs.forEach(function (q, i) { sumLine(c, q, 200, 440 + i * gap + gap / 2 - 60, 100, true); });
+    chalkTxt(c, '— A. T.', 790, 1130, 34, CHALK, { italic: true });
+  };
+  V.listz = function (c, X) { listBoard(c, X, X.R.clues.list); };
+  function listBoard(c, X, cl) {
+    var e = X.ext; schoolWall(c, e, { seed: 2 }); dim(c, e, 0.35);
+    var b = [60, 220, 880, 960]; blackboard(c, b);
+    chalkTxt(c, cl.title, 500, 300, 54, CHALKS.pink);
+    cl.words.forEach(function (w, i) { var col = cl.words.length > 6 ? 2 : 1, cx = col === 2 ? (i % 2 ? 680 : 320) : 500, cy = 420 + (col === 2 ? Math.floor(i / 2) : i) * 112; chalkTxt(c, w.toLowerCase(), cx, cy, 62, CHALK); });
+    chalkTxt(c, 'Learn them for the spelling bee!', 500, 1120, 30, CHALKS.yellow, { italic: true });
+  }
+  V.tdeskz = function (c, X) {
+    var e = X.ext, st = X.st, pz = X.R.puzzles.sums, n = pz.answer.length, open = st.f['f:drawer'], d = open ? pz.answer : st.pz.sums.d, Hd = X.diff === 'h';
+    closeBg(c, e, '#6a4220', '#20120a');
+    wood(c, 60, 240, 880, 620, PINE, true, 1995);
+    box(c, 130, 300, 740, 500, 20, '#c88a50', DPINE, 5);
+    {
+      txt(c, 'PICTURE SUMS LOCK', 500, 350, 34, '#3a2410', { font: SERIF, weight: 900 });
+      var ww = n === 3 ? 140 : 116, gap = 30, tot = n * ww + (n - 1) * gap, x0 = 500 - tot / 2;
+      for (var i = 0; i < n; i++) {
+        var wx = x0 + i * (ww + gap);
+        box(c, wx, 380, ww, 110, 12, '#fbf6e6', DPINE, 3); pic(c, pz.syms[i], wx + ww / 2, 435, 80, false);
+        box(c, wx, 540, ww, 190, 14, lin(c, 0, 540, 0, 730, [[0, '#3a3430'], [0.5, '#f4ecd8'], [1, '#3a3430']]), '#2a1a08', 3);
+        txt(c, String(d[i]), wx + ww / 2, 637, 92, INK, { font: SERIF, weight: 900 });
+        txt(c, '▲', wx + ww / 2, 516, 30, '#3a2410'); txt(c, '▼', wx + ww / 2, 760, 30, '#3a2410');
+        if (X.hit && !open) { X.hit({ pz: 'sums', i: i, dir: 1 }, [wx - gap / 2, 380, ww + gap, 255]); X.hit({ pz: 'sums', i: i, dir: -1 }, [wx - gap / 2, 635, ww + gap, 160]); }
+      }
+    }
+    if (open) {
+      // the drawer pulled out: the seating plan, the cupboard key, (Hard) the window pole's hook
+      wood(c, 80, 960, 840, 260, '#a8703a', false, 1996); box(c, 100, 980, 800, 220, 6, '#3a2410');
+      c.save(); c.translate(L.planZ[0] + L.planZ[2] / 2, L.planZ[1] + L.planZ[3] / 2); c.rotate(-0.04); box(c, -150, -76, 300, 152, 3, CREAM, 'rgba(60,40,20,.5)', 1.5); txt(c, 'Seating plan', 0, -48, 24, INK, { font: HAND, italic: true, weight: 800 }); for (var gr = 0; gr < 3; gr++) for (var gc = 0; gc < 4; gc++) box(c, -110 + gc * 58, -26 + gr * 32, 48, 24, 2, null, 'rgba(60,40,20,.5)', 1.5); c.restore();
+      if (!st.done.take_ckey) ckeyArt(c, L.ckeyZ[0] + 90, L.ckeyZ[1] + 60, 150, -0.2);
+      if (Hd && !st.done.take_hook) hookArt(c, L.hookZ[0] + 90, L.hookZ[1] + 60, 130);
+    }
+    msg(c, open ? 'Click! The drawer slides open' : 'Turn the wheels: tap above or below them', open);
+    if (!open) txt(c, 'the pictures’ sums are on the blackboard', 500, 880, 28, 'rgba(255,230,190,.75)', { font: SERIF, italic: true });
+  };
+  V.planz = function (c, X) {
+    var e = X.ext, cl = X.R.clues.plan, n = cl.rows.length; closeBg(c, e, '#6a4220', '#20120a');
+    paper(c, 70, 200, 860, 1040, 0.01, CREAM);
+    txt(c, 'Seating plan', 500, 280, 50, INK, { font: HAND, italic: true, weight: 800 });
+    var gx = 190, gy = 390, gw = 620, cw = gw / n;
+    txt(c, cl.top, 500, gy - 34, 30, '#8a2a1a', { font: SERIF, weight: 900 });
+    txt(c, cl.bottom, 500, gy + gw + 38, 30, '#8a2a1a', { font: SERIF, weight: 900 });
+    [[cl.left, gx - 40, -PI / 2], [cl.right, gx + gw + 40, PI / 2]].forEach(function (q) { c.save(); c.translate(q[1], gy + gw / 2); c.rotate(q[2]); txt(c, q[0], 0, 0, 30, '#8a2a1a', { font: SERIF, weight: 900 }); c.restore(); });
+    cl.rows.forEach(function (row, ri) { row.forEach(function (nm, ci) { var x = gx + ci * cw, y = gy + ri * cw; box(c, x + 8, y + 8, cw - 16, cw - 16, 6, '#f2e2c0', '#7a5a3a', 3); fit(c, nm, x + cw / 2, y + cw / 2, n > 3 ? 34 : 42, '#2a3a6a', cw - 30, { font: HAND, italic: true, weight: 800 }); }); });
+    txt(c, '— A. T.', 760, 1170, 32, INK, { font: HAND, italic: true });
+  };
+  V.inkz = function (c, X) {
+    var e = X.ext, st = X.st, pz = X.R.puzzles.ink, n = pz.n, inked = st.f['f:inked'], done = st.f['f:case'];
+    var on = done ? (function () { var o = []; for (var i = 0; i < n * n; i++) o.push(pz.answer.indexOf(i) >= 0 ? 1 : 0); return o; })() : st.pz.ink.on;
+    closeBg(c, e, '#8a5a30', '#3a2210');
+    var gx = 150, gy = 330, gw = 700, cw = gw / n;
+    txt(c, 'BLACKBOARD', 500, gy - 36, 30, '#ffe8b8', { font: SERIF, weight: 900 }); txt(c, 'STOVE', 500, gy + gw + 40, 30, '#ffe8b8', { font: SERIF, weight: 900 });
+    [['DOOR', gx - 44, -PI / 2], ['WINDOWS', gx + gw + 44, PI / 2]].forEach(function (q) { c.save(); c.translate(q[1], gy + gw / 2); c.rotate(q[2]); txt(c, q[0], 0, 0, 30, '#ffe8b8', { font: SERIF, weight: 900 }); c.restore(); });
+    for (var i = 0; i < n * n; i++) {
+      var x = gx + (i % n) * cw, y = gy + Math.floor(i / n) * cw;
+      wood(c, x + 10, y + 10, cw - 20, cw - 20, '#b8803e', false, 2000 + i); c.strokeStyle = '#5a3418'; c.lineWidth = 3; c.strokeRect(x + 10, y + 10, cw - 20, cw - 20);
+      line(c, x + 20, y + 34, x + cw - 20, y + 34, 'rgba(40,20,6,.5)', 4);
+      var ix = x + cw / 2, iy = y + cw * 0.56, ir = cw * 0.2;
+      circ(c, ix, iy, ir + 8, brass(c, ix - ir, iy - ir, ix + ir, iy + ir), '#5a3a10', 2);
+      circ(c, ix, iy, ir, on[i] ? rad(c, ix - ir * 0.3, iy - ir * 0.3, 1, ir, [[0, '#4a5aa0'], [1, '#0e1430']]) : '#e8e0cc', '#3a2a10', 2);
+      if (on[i]) circ(c, ix - ir * 0.35, iy - ir * 0.35, ir * 0.18, 'rgba(255,255,255,.5)');
+      if (X.hit && inked && !done) X.hit({ pz: 'ink', i: i }, [x + 6, y + 6, cw - 12, cw - 12]);
+    }
+    msg(c, !inked ? 'The inkwells are all dry' : done ? 'Click! Something clicks open by the front door' : 'Tap an inkwell to fill it (tap again to empty it)', done);
+  };
+  // the enamel places on the globe, by count
+  function globeSpots(k) {
+    var all = [[360, 520], [600, 470], [700, 660], [560, 780], [360, 760], [470, 630]];
+    return all.slice(0, k);
+  }
+  V.globez = function (c, X) {
+    var e = X.ext, st = X.st, pz = X.R.puzzles.globe, done = st.f['f:globe'], got = done ? pz.answer.length : st.pz.globe.got.length;
+    closeBg(c, e, '#6a4a28', '#1e140a');
+    // the stand
+    line(c, 500, 960, 500, 1160, DPINE, 26); line(c, 380, 1240, 500, 1150, DPINE, 20); line(c, 620, 1240, 500, 1150, DPINE, 20);
+    globeArt(c, 500, 630, 300, done, X, true);
+    if (!done) {
+      globeSpots(pz.buttons.length).forEach(function (p, i) {
+        var nm = pz.buttons[i], pressed = st.pz.globe.got.indexOf(nm) >= 0;
+        circ(c, p[0], p[1], 54, pressed ? '#c8a050' : '#fbf6e6', brass(c, p[0] - 54, p[1] - 54, p[0] + 54, p[1] + 54), 7);
+        place(c, nm, p[0], p[1] + 4, 74);
+        if (X.hit) X.hit({ pz: 'globe', b: nm }, [p[0] - 62, p[1] - 62, 124, 124]);
+      });
+    } else {
+      // inside: the letter and (Medium, Hard) the little key
+      if (!st.done.take_letter) { c.save(); c.translate(L.letterZ[0] + L.letterZ[2] / 2, L.letterZ[1] + L.letterZ[3] / 2); c.rotate(-0.12); box(c, -95, -55, 190, 110, 4, '#c8d8f0', '#5a6a8a', 2); line(c, -95, -18, 95, -18, 'rgba(90,106,138,.5)', 2); line(c, -95, 18, 95, 18, 'rgba(90,106,138,.5)', 2); c.restore(); }
+      if (X.diff !== 'e' && !st.done.take_rkey) rkeyArt(c, L.rkeyZ[0] + 75, L.rkeyZ[1] + 60, 110, 0.4);
+    }
+    // the stand's plate and the progress lamps
+    box(c, 290, 990, 420, 110, 10, brass(c, 290, 990, 710, 1100), '#5a3a10', 3);
+    fit(c, 'Press Aunt Wren’s places', 500, 1024, 26, '#3a2410', 390, { font: SERIF, weight: 900 }); fit(c, 'in the order she was there', 500, 1062, 26, '#3a2410', 390, { font: SERIF, italic: true, weight: 800 });
+    var tot = pz.answer.length; for (var k = 0; k < tot; k++) circ(c, 500 + (k - (tot - 1) / 2) * 50, 1140, 15, k < got ? '#ffd860' : '#3a2a10', GOLD, 3);
+    msg(c, done ? 'The globe opens like a box!' : 'Tap a place to press it (a wrong one pops them all out)', done);
+  };
+  V.cupz = function (c, X) {
+    var e = X.ext, st = X.st, Hd = X.diff === 'h', E = X.diff === 'e'; closeBg(c, e, '#6a4220', '#20120a');
+    wood(c, 80, 180, 840, 1060, '#a87440', true, 2010); c.fillStyle = '#3a2410'; c.fillRect(110, 210, 780, 1000);
+    for (var s = 0; s < 4; s++) { var sy = 440 + s * 250; box(c, 110, sy, 780, 18, 2, '#8a5a30'); }
+    // exercise books, chalk boxes, slate pencils (top shelf), rulers
+    for (var b = 0; b < 14; b++) box(c, 130 + b * 52, 280 - (b % 3) * 8, 44, 160 + (b % 3) * 8, 3, ['#c8402a', '#2a5a9a', '#3a8a3a', '#e8c060', '#8a4a8a'][b % 5]);
+    box(c, 640, 860, 220, 100, 4, '#f4f0e0', '#8a7a5a', 2); txt(c, 'CHALK', 750, 910, 30, '#3a2410', { font: SERIF, weight: 900 });
+    box(c, 140, 870, 300, 80, 4, '#e8d8a8', '#8a7a5a', 2); txt(c, 'SLATE PENCILS', 290, 910, 24, '#3a2410', { font: SERIF, weight: 900 });
+    for (var r = 0; r < 6; r++) box(c, 140 + r * 120, 1120, 110, 20, 2, '#d8b070', '#8a6a3a', 1);
+    if (!st.done.take_ink) { if (Hd) powderArt(c, L.inkZ[0] + 100, L.inkZ[1] + 140, 1.3); else inkJarArt(c, L.inkZ[0] + 100, L.inkZ[1] + 140, 1.3); }
+    if (!E && !st.done.take_can) canArt(c, L.canZ[0] + 100, L.canZ[1] + 150, 1.3, false);
+    msg(c, 'The stock cupboard', true);
+  };
+  V.mapz = function (c, X) {
+    var e = X.ext, cards = X.R.clues.cards.list, n = cards.length; schoolWall(c, e, { seed: 4 }); dim(c, e, 0.4);
+    mapArt(c, X, [80, 160, 840, 560], true);
+    // Aunt Wren's postcards pinned along under the map
+    var cols = n > 4 ? 3 : 2, cw = 260, ch = 230;
+    cards.forEach(function (cd, i) { var cx = 500 + ((i % cols) - (cols - 1) / 2) * (cw + 24), cy = 780 + Math.floor(i / cols) * (ch + 26) + ch / 2; postcard(c, cx, cy, cw, ch, cd, (i % 2 ? 1 : -1) * 0.03); });
+  };
+  function postcard(c, cx, cy, w, h, cd, rot) {
+    c.save(); c.translate(cx, cy); c.rotate(rot || 0);
+    dropShadow(c, 12, 5, 0.35); box(c, -w / 2, -h / 2, w, h, 4, '#fbf4e0', 'rgba(60,40,20,.4)', 1.5); noShadow(c);
+    box(c, -w / 2 + 14, -h / 2 + 14, w * 0.5, h - 28, 3, '#dcecf4'); place(c, cd.pic, -w / 2 + 14 + w * 0.25, 8, w * 0.36);
+    // the postmark: a round stamp with the date
+    c.strokeStyle = 'rgba(150,30,30,.85)'; c.lineWidth = 3; c.beginPath(); c.arc(w * 0.24, -h * 0.18, 52, 0, TAU); c.stroke();
+    for (var k = 0; k < 3; k++) line(c, w * 0.24 - 72, -h * 0.18 - 20 + k * 20, w * 0.24 - 54, -h * 0.18 - 20 + k * 20, 'rgba(150,30,30,.7)', 3);
+    var dp = / · /.test(cd.date) ? cd.date.split(' · ') : [cd.date.split(' ')[0], cd.date.split(' ').slice(1).join(' ')];
+    fit(c, dp[0], w * 0.24, -h * 0.18 - 16, 30, 'rgba(140,24,24,.95)', 90, { font: SERIF, weight: 900 });
+    fit(c, dp[1], w * 0.24, -h * 0.18 + 18, 26, 'rgba(140,24,24,.95)', 90, { font: SERIF, weight: 900 });
+    txt(c, cd.from === 'W' ? 'Love, W.' : 'Love, Mabel', w * 0.24, h * 0.24, 26, cd.from === 'W' ? '#2a3a6a' : '#5a2a6a', { font: HAND, italic: true, weight: 800 });
+    c.restore();
+    pin(c, cx, cy - h / 2 + 4, '#3a6ad8');
+  }
+  V.mabelz = function (c, X) {
+    var e = X.ext, cd = X.R.clues.mabel.list[0]; officeWall(c, e); dim(c, e, 0.4);
+    postcard(c, 500, 640, 620, 520, cd, -0.02);
+    txt(c, 'Wish you were here!', 500, 1000, 40, '#ffe8b8', { font: HAND, italic: true, weight: 800 });
+    txt(c, 'a postcard from Cousin Mabel', 500, 1060, 30, 'rgba(255,230,190,.8)', { font: SERIF, italic: true });
+  };
+  V.stovez = function (c, X) {
+    var e = X.ext, st = X.st, E = X.diff === 'e'; schoolWall(c, e, { seed: 4 }); dim(c, e, 0.25);
+    // the pipe and its damper
+    c.fillStyle = lin(c, 455, 0, 545, 0, [[0, '#1a1a1e'], [0.5, '#4a4a52'], [1, '#1a1a1e']]); c.fillRect(455, e.y0, 90, 520 - e.y0);
+    var dz = L.damperZ, dop = E || st.f['f:damper'];
+    if (!E) { circ(c, 500, dz[1] + 100, 16, '#5a5a62'); c.save(); c.translate(500, dz[1] + 100); c.rotate(dop ? PI / 2 : 0); box(c, -60, -10, 120, 20, 8, brass(c, -60, 0, 60, 0), '#5a3a10', 2); c.restore(); txt(c, dop ? 'damper open' : 'damper shut', 640, dz[1] + 100, 26, '#ffe8b8', { font: HAND, italic: true, weight: 800, align: 'left' }); }
+    stoveArt(c, 250, 470, 500, 720, st, E, true);
+    // the letter laid on the warm top plate
+    if (st.f['f:warm']) { var pp = L.paperZ; c.save(); c.translate(pp[0] + pp[2] / 2, pp[1] + pp[3] / 2); c.rotate(-0.05); box(c, -130, -46, 260, 92, 4, '#c8d8f0', '#5a6a8a', 2); for (var k = 0; k < 4; k++) line(c, -100, -26 + k * 18, 90 - (k % 2) * 40, -26 + k * 18, 'rgba(140,80,30,.85)', 4); c.restore(); }
+    var m = st.f['f:warm'] ? 'Writing has come up on Aunt Wren’s letter! Tap it' : st.f['f:lit'] ? 'The stove is lit: its top plate is warm' : 'The schoolroom’s stove, cold for the summer';
+    msg(c, m, st.f['f:lit']);
+  };
+  V.letterz = function (c, X) {
+    var e = X.ext, cl = X.R.clues.letter; closeBg(c, e, '#3a2a1a', '#120a04');
+    paper(c, 100, 240, 800, 900, 0.02, '#c8d8f0');
+    for (var k = 0; k < 14; k++) line(c, 140, 330 + k * 56, 860, 330 + k * 56, 'rgba(90,106,138,.3)', 2);
+    c.save(); c.translate(500, 640); c.rotate(0.02);
+    var y = -300; cl.lines.forEach(function (l) { y += wrapText(c, l, 0, y, 640, 46, '#8a4a16', { font: HAND, italic: true, weight: 800, top: true }) + 40; });
+    c.restore();
+    txt(c, '(warm brown letters, lemon-juice ink)', 500, 1210, 28, 'rgba(255,230,190,.75)', { font: SERIF, italic: true });
+  };
+  V.offdoorz = function (c, X) {
+    var e = X.ext, st = X.st, pz = X.R.puzzles.word, n = pz.answer.length, done = st.f['f:office'], Hd = X.diff === 'h';
+    var s = done ? pz.answer.map(function (a, i) { return pz.sets[i].indexOf(a); }) : st.pz.word.s;
+    closeBg(c, e, '#6a3a1a', '#1e0e04');
+    wood(c, 100, 160, 800, 1140, '#8a5228', true, 2020);
+    box(c, 160, 260, 680, 120, 10, brass(c, 160, 260, 840, 380), '#5a3a10', 3); txt(c, 'MISS THISTLE', 500, 320, 50, '#3a2410', { font: SERIF, weight: 900 });
+    // the rule plate
+    box(c, 170, 420, 660, 170, 12, '#2a1a0e', GOLD, 3);
+    var rule = Hd ? ['Every slate has one letter wrong.', 'Spell the wrong letters in the order', 'of the slates’ sums, smallest first.'] : ['Every slate has one letter wrong.', 'Spell the wrong letters,', 'slate 1 first.'];
+    rule.forEach(function (l, i) { txt(c, l, 500, 462 + i * 44, 30, '#ffe8b8', { font: SERIF, italic: true, weight: 800 }); });
+    var w = Math.min(130, 700 / n), x0 = 500 - (n * w) / 2;
+    for (var i = 0; i < n; i++) {
+      var x = x0 + i * w, cw2 = w - 16;
+      txt(c, '▲', x + w / 2, 670, 30, GOLD);
+      box(c, x + 8, 700, cw2, cw2 * 1.3, 10, brass(c, x, 700, x + w, 700 + cw2 * 1.3), '#5a3a10', 3);
+      box(c, x + 18, 716, cw2 - 20, cw2 * 1.3 - 32, 6, '#fbf6e6');
+      txt(c, pz.sets[i][s[i]], x + w / 2, 700 + cw2 * 0.65, cw2 * 0.72, INK, { font: SERIF, weight: 900 });
+      if (X.hit && !done) X.hit({ pz: 'word', i: i, dir: 1 }, [x + 2, 640, w - 4, cw2 * 1.3 + 80]);
+    }
+    txt(c, 'Aunt Wren’s spelling-bee lock', 500, 1000, 30, 'rgba(232,192,96,.8)', { font: SERIF, italic: true });
+    msg(c, done ? 'Click! The office door swings open' : 'Tap a letter to turn it', done);
+  };
+  V.slatesz = function (c, X) {
+    var e = X.ext, sl = X.R.clues.slates.list, n = sl.length; cloakWall(c, e); dim(c, e, 0.35);
+    wood(c, 40, 240, 920, 960, '#8a5a30', false, 2030);
+    var cols = n > 4 ? 3 : 2, w = cols === 3 ? 280 : 400, h = cols === 3 ? 300 : 340;
+    sl.forEach(function (s, i) {
+      var row = Math.floor(i / cols), inRow = Math.min(cols, n - row * cols), cx = 500 + ((i % cols) - (inRow - 1) / 2) * (w + 20), y = 340 + row * (h + 90);
+      slateArt(c, cx - w / 2, y, w, h, s, X, true);
+    });
+    txt(c, 'Today’s spelling bee', 500, 180, 40, '#ffe8b8', { font: SERIF, italic: true, weight: 800, stroke: ['rgba(30,16,4,.7)', 6] });
+  };
+  V.oldz = function (c, X) { listBoard(c, X, X.R.clues.old); };
+  V.regz = function (c, X) {
+    var e = X.ext, cl = X.R.clues.register, n = cl.lines.length; officeWall(c, e); dim(c, e, 0.45);
+    dropShadow(c, 30, 12, 0.5); box(c, 50, 200, 900, 1060, 10, '#5a2a1a'); noShadow(c);
+    box(c, 70, 220, 860, 1020, 6, '#f6eed8'); line(c, 500, 220, 500, 1240, 'rgba(90,60,30,.5)', 4);
+    txt(c, 'REGISTER', 280, 270, 34, '#5a1a10', { font: SERIF, weight: 900 }); txt(c, 'Little Pennywick School', 715, 270, 28, '#5a1a10', { font: SERIF, italic: true, weight: 800 });
+    var per = Math.ceil(n / 2), lh = Math.min(84, 820 / per);
+    cl.lines.forEach(function (l, i) {
+      var col = i < per ? 0 : 1, row = i % per, x = col ? 530 : 100, y = 340 + row * lh;
+      line(c, x, y + lh / 2, x + 370, y + lh / 2, 'rgba(60,60,140,.25)', 2);
+      txt(c, String(i + 1) + '.', x + 30, y + lh / 4 + 6, 26, '#5a4a3a', { font: SERIF, weight: 700 });
+      fit(c, l.name, x + 150, y + lh / 4 + 6, 34, '#2a2a6a', 200, { font: HAND, italic: true, weight: 800 });
+      txt(c, l.mark, x + 320, y + lh / 4 + 6, l.mark.length > 1 ? 30 : 42, l.mark === 'O' || l.mark === 'away' ? '#a82a1a' : '#2a2a6a', { font: HAND, weight: 900 });
+    });
+    box(c, 220, 1160, 560, 56, 8, 'rgba(90,60,30,.12)'); txt(c, 'Today: ' + cl.key, 500, 1188, 30, '#5a1a10', { font: SERIF, italic: true, weight: 800 });
+  };
+  V.pnotez = function (c, X) {
+    var e = X.ext, cl = X.R.clues.pailnote; officeWall(c, e); dim(c, e, 0.4);
+    paper(c, 130, 300, 740, 760, -0.02, '#f8f2dc'); pin(c, 500, 320);
+    c.save(); c.translate(500, 640); c.rotate(-0.02);
+    var y = -260; cl.lines.forEach(function (l) { y += wrapText(c, l, 0, y, 620, 44, '#2a2a6a', { font: HAND, italic: true, weight: 800, top: true }) + 34; });
+    c.restore();
+  };
+
+  // ================= items =================
+  function ckeyArt(c, x, y, s, rot) { c.save(); c.translate(x, y); c.rotate(rot || 0); c.scale(s / 150, s / 150); c.strokeStyle = '#3a3a40'; c.lineWidth = 12; c.beginPath(); c.arc(-40, 0, 24, 0, TAU); c.stroke(); line(c, -16, 0, 60, 0, '#3a3a40', 12); line(c, 46, 0, 46, 20, '#3a3a40', 10); line(c, 60, 0, 60, 16, '#3a3a40', 10); box(c, -90, -40, 50, 30, 3, CREAM, 'rgba(60,40,20,.5)', 1.5); line(c, -64, -10, -50, -2, '#8a6a3a', 2); c.restore(); }
+  function dkeyArt(c, x, y, s, rot) { c.save(); c.translate(x, y); c.rotate(rot || 0); c.scale(s / 150, s / 150); c.strokeStyle = brass(c, -70, -30, 70, 30); c.lineWidth = 14; c.beginPath(); c.arc(-46, 0, 28, 0, TAU); c.stroke(); line(c, -18, 0, 70, 0, '#c8a040', 13); line(c, 54, 0, 54, 26, '#c8a040', 11); line(c, 68, 0, 68, 22, '#c8a040', 11); c.strokeStyle = '#c8302a'; c.lineWidth = 6; c.beginPath(); c.moveTo(-60, -24); c.quadraticCurveTo(-90, -60, -70, -80); c.stroke(); c.restore(); }
+  function rkeyArt(c, x, y, s, rot) { c.save(); c.translate(x, y); c.rotate(rot || 0); c.scale(s / 150, s / 150); c.strokeStyle = brass(c, -40, -20, 40, 20); c.lineWidth = 10; c.beginPath(); c.arc(-34, 0, 20, 0, TAU); c.stroke(); line(c, -14, 0, 44, 0, '#d8b050', 9); line(c, 36, 0, 36, 14, '#d8b050', 8); c.restore(); }
+  function hookArt(c, x, y, s) { c.save(); c.translate(x, y); c.scale(s / 130, s / 130); c.strokeStyle = brass(c, -40, -40, 40, 40); c.lineWidth = 12; c.lineCap = 'round'; c.beginPath(); c.moveTo(20, 40); c.lineTo(20, -10); c.arc(-6, -10, 26, 0, PI + 0.6, true); c.stroke(); for (var k = 0; k < 4; k++) line(c, 12, 22 + k * 7, 28, 18 + k * 7, '#8a6a20', 2); c.restore(); }
+  function inkJarArt(c, x, y, s) { c.save(); c.translate(x, y); c.scale(s, s); c.fillStyle = lin(c, -40, 0, 40, 0, [[0, '#a8987a'], [0.5, '#e8dcc0'], [1, '#8a7a5a']]); rr(c, -40, -60, 80, 110, 16); c.fill(); box(c, -20, -80, 40, 26, 6, '#8a7a5a'); c.fillStyle = '#1a2450'; c.beginPath(); c.moveTo(-26, -82); c.lineTo(-10, -86); c.lineTo(-10, -78); c.closePath(); c.fill(); box(c, -30, -20, 60, 40, 3, CREAM); txt(c, 'INK', 0, 0, 20, NAVY, { font: SERIF, weight: 900 }); c.restore(); }
+  function powderArt(c, x, y, s) { c.save(); c.translate(x, y); c.scale(s, s); box(c, -40, -50, 80, 100, 6, lin(c, -40, 0, 40, 0, [[0, '#2a4a8a'], [0.5, '#4a6aaa'], [1, '#1a3a6a']]), '#0e1e3a', 2); box(c, -44, -60, 88, 16, 4, '#c8c8d0'); box(c, -32, -24, 64, 48, 3, CREAM); txt(c, 'INK', 0, -8, 18, NAVY, { font: SERIF, weight: 900 }); txt(c, 'POWDER', 0, 12, 13, NAVY, { font: SERIF, weight: 900 }); c.restore(); }
+  function canArt(c, x, y, s, full) { c.save(); c.translate(x, y); c.scale(s, s); c.fillStyle = lin(c, -36, 0, 36, 0, [[0, '#7a7a80'], [0.5, '#d8d8de'], [1, '#6a6a70']]); rr(c, -36, -50, 72, 100, 8); c.fill(); c.strokeStyle = '#d8d8de'; c.lineWidth = 8; c.beginPath(); c.moveTo(30, 20); c.quadraticCurveTo(70, 10, 86, -50); c.stroke(); c.strokeStyle = '#8a8a90'; c.lineWidth = 6; c.beginPath(); c.arc(-36, 0, 26, PI * 0.5, PI * 1.5); c.stroke(); if (full) { c.fillStyle = full === 'water' ? '#9ad0f0' : '#1a2450'; c.beginPath(); c.ellipse(0, -50, 34, 8, 0, 0, TAU); c.fill(); } c.restore(); }
+  function lifterArt(c, x, y, s, rot) { c.save(); c.translate(x, y); c.rotate(rot || 0); c.scale(s, s); c.strokeStyle = '#2a2a2e'; c.lineWidth = 9; c.beginPath(); for (var k = 0; k < 40; k++) { var t = k / 39, xx = -60 + t * 80; c.lineTo(xx, Math.sin(t * PI * 10) * 12); } c.stroke(); line(c, 20, 0, 60, 0, '#2a2a2e', 10); line(c, 60, 0, 60, 18, '#2a2a2e', 10); c.restore(); }
+
+  function item(c, id, x, y, s, back, X) {
+    c.save(); c.translate(x, y); c.scale(s / 200, s / 200); c.lineJoin = 'round'; c.lineCap = 'round';
+    if (id === 'ckey') ckeyArt(c, 0, 0, 170, -0.3);
+    else if (id === 'dkey') dkeyArt(c, 0, 0, 170, -0.3);
+    else if (id === 'rkey') rkeyArt(c, 0, 0, 200, -0.3);
+    else if (id === 'hook') hookArt(c, 0, 0, 170);
+    else if (id === 'pole' || id === 'hpole') {
+      c.rotate(0.7); c.fillStyle = lin(c, -10, 0, 10, 0, [[0, '#7a4a22'], [0.5, '#d8a060'], [1, '#6a3e1a']]); c.fillRect(-10, -70, 20, 170); box(c, -12, -84, 24, 18, 3, brass(c, -12, 0, 12, 0));
+      if (id === 'hpole' || !(X && X.diff === 'h')) { c.strokeStyle = brass(c, -40, -130, 10, -80); c.lineWidth = 11; c.lineCap = 'round'; c.beginPath(); c.moveTo(0, -84); c.lineTo(0, -104); c.arc(-20, -104, 20, 0, PI + 0.6, true); c.stroke(); }
+    }
+    else if (id === 'matches') matchArt(c, 0, 0, 1.7);
+    else if (id === 'coal') coalArt(c, 0, 10, 1.1);
+    else if (id === 'kindling') kindlingArt(c, 0, 30, 1.1);
+    else if (id === 'letter') { c.rotate(-0.15); box(c, -80, -56, 160, 112, 4, '#c8d8f0', '#5a6a8a', 3); line(c, -80, -18, 80, -18, 'rgba(90,106,138,.5)', 2); line(c, -80, 18, 80, 18, 'rgba(90,106,138,.5)', 2); txt(c, '?', 40, 40, 30, 'rgba(90,106,138,.7)', { font: SERIF, weight: 900 }); }
+    else if (id === 'ink') inkJarArt(c, 0, 10, 1.1);
+    else if (id === 'powder') powderArt(c, 0, 0, 1.1);
+    else if (id === 'can') canArt(c, -14, 10, 1.1, false);
+    else if (id === 'wcan') canArt(c, -14, 10, 1.1, 'water');
+    else if (id === 'inkcan') canArt(c, -14, 10, 1.1, 'ink');
+    else if (id === 'lifter') lifterArt(c, 0, 0, 1.4, -0.4);
+    else if (id === 'apple') { if (!back) appleArt(c, 0, 0, 150); else { box(c, -90, -40, 180, 80, 6, CREAM, '#8a6a3a', 2); txt(c, 'For Miss', 0, -14, 26, '#2a3a6a', { font: HAND, italic: true, weight: 800 }); txt(c, 'Thistle', 0, 18, 26, '#2a3a6a', { font: HAND, italic: true, weight: 800 }); } }
+    c.restore();
+  }
+
+  // ================= public =================
+  function draw(c, view, X) { if (V[view]) V[view](c, X); }
+  function animated(view, X) {
+    var st = X.st;
+    if (view === 'windows' || view === 'board') return true;
+    if ((view === 'back' || view === 'stovez') && st.f['f:lit']) return true;
+    if (view === 'wash') return true;
+    return false;
+  }
+  function dyn(c, view, X, t) {
+    var st = X.st, drew = false;
+    if (view === 'windows') {
+      // swallows swooping over the green; the oak's leaves stirring
+      L.win.forEach(function (w, i) {
+        c.save(); var top = w[1] + w[2] * 0.5; c.beginPath(); c.moveTo(w[0], w[1] + w[3]); c.lineTo(w[0], top); c.quadraticCurveTo(w[0], w[1], w[0] + w[2] / 2, w[1]); c.quadraticCurveTo(w[0] + w[2], w[1], w[0] + w[2], top); c.lineTo(w[0] + w[2], w[1] + w[3]); c.closePath(); c.clip();
+        for (var b = 0; b < 3; b++) {
+          var p = (t * (0.11 + b * 0.03) + b * 0.37 + i * 0.21) % 1, bx = -100 + p * 1200, by = w[1] + 120 + b * 70 + Math.sin(t * 2 + b * 2 + i) * 40;
+          if (bx < w[0] - 30 || bx > w[0] + w[2] + 30) continue;
+          var fl = Math.sin(t * 14 + b) * 6; c.strokeStyle = '#1a1a2a'; c.lineWidth = 3; c.beginPath(); c.moveTo(bx - 14, by - fl); c.quadraticCurveTo(bx - 6, by - 4, bx, by); c.quadraticCurveTo(bx + 6, by - 4, bx + 14, by - fl); c.stroke();
+        }
+        c.restore();
+      });
+      drew = true;
+    }
+    if (view === 'board') {
+      // the clock's second hand
+      var a = (Math.floor(t) % 60) * TAU / 60 - PI / 2; line(c, 500, 186, 500 + Math.cos(a) * 32, 186 + Math.sin(a) * 32, '#a82a1a', 1.5);
+      drew = true;
+    }
+    if ((view === 'back' || view === 'stovez') && st.f['f:lit']) {
+      // the fire flickers behind the mica window
+      var big = view === 'stovez', cx = big ? 500 : L.stove[0] + L.stove[2] / 2, cy = big ? 470 + 720 * 0.52 : L.stove[1] + L.stove[3] * 0.52, R0 = big ? 160 : 70, fl2 = 0.5 + 0.3 * Math.sin(t * 9) + 0.2 * Math.sin(t * 23);
+      c.save(); c.globalCompositeOperation = 'lighter'; c.fillStyle = rad(c, cx, cy, 0, R0 * 1.8, [[0, 'rgba(255,170,70,' + (0.22 * fl2).toFixed(3) + ')'], [1, 'rgba(255,140,40,0)']]); c.fillRect(cx - R0 * 2, cy - R0 * 2, R0 * 4, R0 * 4); c.restore();
+      drew = true;
+    }
+    if (view === 'wash') {
+      // a slow drip into the basin
+      var ws = L.wash, ph = (t % 3.2) / 3.2;
+      if (ph < 0.6) { var dy = ws[1] + 100 + ph / 0.6 * 30; c.fillStyle = 'rgba(160,200,230,.8)'; c.beginPath(); c.ellipse(ws[0] + 128, dy, 3, 5, 0, 0, TAU); c.fill(); }
+      drew = true;
+    }
+    return drew;
+  }
+
+  // the schoolroom's light: low gold evening sun from the windows; the office's lamp-warm afternoon; the cool cloakroom
+  GOAtmos.add(19, {
+    key: '255,206,140', amb: '40,26,14', fall: 0.26,
+    at: { door: [700, 200], board: [880, 200], windows: [500, 300], back: [180, 200], pegs: [500, 150], wash: [540, 260], odesk: [820, 300], ofire: [300, 200] },
+    acc: { windows: [500, 400, '255,190,110', 0.16], board: [960, 500, '255,190,110', 0.12], wash: [540, 360, '255,220,170', 0.1], odesk: [830, 380, '255,200,140', 0.14] },
+    shafts: { board: [1080, -100, 0.1, '255,214,150'], back: [1100, -100, 0.08, '255,214,150'], door: [1000, -100, 0.07, '255,214,150'] },
+    dyn: function (c, view, X, t, kit) {
+      c.globalCompositeOperation = 'lighter';
+      if (/^(door|board|windows|back)$/.test(view)) kit.motes(c, 560, 600, 800, 700, 9, t, '255,236,190', view.length * 9);
+      if (view === 'pegs' || view === 'wash') kit.motes(c, 500, 500, 700, 700, 5, t, '255,240,220', view.length * 5);
+      if (view === 'odesk' || view === 'ofire') kit.motes(c, 600, 500, 700, 700, 6, t, '255,230,190', view.length * 7);
+    }
+  }, {
+    door: { spec: [[795, 600, 10]] },
+    board: { gloss: [[70, 240, 420, 380, 0.06], [510, 240, 420, 380, 0.06]], spec: [[372, 666, 10]] },
+    windows: { spec: [[180, 540, 12]] },
+    back: { spec: [[505, 700, 12]] },
+    odesk: { spec: [[630, 470, 10]] }
+  });
+
+  var mod = { draw: draw, dyn: dyn, animated: animated, item: item };
+  GOArt.register(19, mod);
+  return mod;
+})();
+
 /* Get Out! finale: what Aunt Wren was making. Plays once all five brass pieces are found (the app decides when; this file
    only draws and times the scene). draw(g, w, h, t) paints the scene at t seconds on a w x h (CSS pixel) canvas; cues are
    the sounds to play and when; letter() is her closing letter. (What happens here is described only in the SPOILERS doc.) */
@@ -27356,6 +28947,76 @@ var GOSound = (function () {
     return { oscs: p.oscs.concat([wind.src, hiss.src]), timers: [t1, t2] };
   });
 })();
+
+/* Get Out! sounds for Room 19, The Old Schoolhouse (loads after sound.js; everything synthesized, original).
+   Effects (prefixed sh so they can't clash with other rooms): the picture-wheel drawer's wheels and its drawer, the stock
+   cupboard, water from the jug, ink powder stirred and ink poured, the office door's letter tiles and its latch, the window
+   pole's hook screwed on, the map rolling down, each enamel place pressed on the globe and the globe opening, the roll-top
+   desk, the stove's lid, kindling, coal, the damper, a match and the fire catching, lemon writing coming up, each inkwell
+   filled (a little glug, higher towards the windows), the rope case clicking open, the rope unhooked, each pull of the bell
+   (the bell up in the bellcote answers), the full peal and the key rattling down the rope hole.
+   Ambient loop "schoolhouse": a summer evening in the empty schoolroom: the clock's slow tick, swallows twittering outside,
+   now and then a far-off sheep or a wood pigeon, the old building creaking as it cools, a few notes of a hymn tune on the
+   harmonium in the corner (original), and the wind in the oak on the green. */
+(function () {
+  'use strict';
+  var S = GOSound, K = S.kit;
+  function G() { try { return window.__go && window.__go.G; } catch (e) { return null; } }
+  // the school bell up in the bellcote: a big, warm bronze bell
+  function bigBell(gain, delay) { K.bell(523.3, 2.6, gain, delay); K.bell(659.3 * 1.002, 2.0, gain * 0.5, delay); K.bell(1046.5, 1.4, gain * 0.35, delay); K.tone('sine', 261.6, 0, 1.8, gain * 0.6, delay); }
+  S.shWheel = K.fx(function (op) { var f = 1400 + ((op && op.i) || 0) * 160; K.noise(f * 2, 9, 0.02, 0.16); K.tone('triangle', f, f * 0.9, 0.03, 0.05); });
+  S.shDrawer = K.fx(function () { K.bell(2349, 0.4, 0.04); K.noise(900, 2, 0.4, 0.14, 0.08, 'bandpass'); K.sweep(240, 420, 0.4, 0.05, 0.1, 3); });
+  S.shCupboard = K.fx(function () { K.noise(2400, 6, 0.04, 0.2); K.tone('square', 520, 420, 0.04, 0.05, 0.02); K.sweep(180, 300, 0.6, 0.05, 0.15, 9); });
+  S.shWater = K.fx(function () { for (var i = 0; i < 12; i++) K.noise(700 + i * 50, 4, 0.08, 0.05, i * 0.06, 'bandpass'); K.sweep(300, 900, 0.8, 0.03, 0.05, 6); });
+  S.shStir = K.fx(function () { for (var i = 0; i < 6; i++) K.noise(1800, 6, 0.06, 0.06, i * 0.12, 'bandpass'); K.tone('sine', 900, 700, 0.1, 0.02, 0.4); });
+  S.shPour = K.fx(function () { for (var i = 0; i < 8; i++) K.noise(600 + i * 40, 5, 0.09, 0.05, i * 0.07, 'bandpass'); K.tone('sine', 400, 700, 0.5, 0.02, 0.05); });
+  S.shTile = K.fx(function (op) { var f = 1200 + ((op && op.i) || 0) * 140; K.noise(f * 2, 8, 0.03, 0.16); K.tone('square', f, f * 0.8, 0.02, 0.04); });
+  S.shOffice = K.fx(function () { K.bell(1568, 0.6, 0.04, 0.05); K.noise(1200, 3, 0.2, 0.15, 0.2, 'bandpass'); K.sweep(150, 260, 1.0, 0.05, 0.3, 10); });
+  S.shScrew = K.fx(function () { for (var i = 0; i < 5; i++) K.noise(4000, 8, 0.03, 0.1, i * 0.09); K.bell(2637, 0.3, 0.02, 0.5); });
+  S.shMap = K.fx(function () { K.noise(1500, 1, 0.7, 0.1, 0, 'bandpass'); K.sweep(600, 200, 0.7, 0.04, 0, 3); K.tone('square', 140, 90, 0.06, 0.1, 0.7); });
+  S.shPlace = K.fx(function (op) { var g = G(), i = g && op && g.R.puzzles.globe ? g.R.puzzles.globe.buttons.indexOf(op.b) : 0; K.tone('triangle', 700 + i * 90, 600 + i * 90, 0.06, 0.06); K.noise(3000, 6, 0.03, 0.12); });
+  S.shGlobe = K.fx(function () { K.sweep(400, 1200, 0.6, 0.05, 0.05, 3); [784, 988, 1175].forEach(function (f, j) { K.bell(f, 0.8, 0.03, 0.4 + j * 0.1); }); K.tone('square', 220, 160, 0.06, 0.06, 0.2); });
+  S.shRoll = K.fx(function () { for (var i = 0; i < 14; i++) K.noise(1300 - i * 30, 6, 0.03, 0.08, i * 0.04); K.tone('square', 600, 500, 0.03, 0.04); });
+  S.shLid = K.fx(function () { K.tone('square', 300, 260, 0.05, 0.1); K.noise(2400, 4, 0.06, 0.12, 0.02); K.bell(880, 0.5, 0.03, 0.05); });
+  S.shSticks = K.fx(function () { for (var i = 0; i < 6; i++) K.noise(2200 + i * 200, 6, 0.04, 0.12, i * 0.06); });
+  S.shCoal = K.fx(function () { for (var i = 0; i < 12; i++) K.noise(1200 + (i % 4) * 400, 5, 0.05, 0.12, i * 0.05); K.tone('square', 120, 80, 0.1, 0.06, 0.6); });
+  S.shDamper = K.fx(function () { K.tone('square', 400, 300, 0.06, 0.08); K.noise(1600, 4, 0.08, 0.12, 0.03); K.sweep(200, 120, 0.4, 0.03, 0.1, 4); });
+  S.shFire = K.fx(function () { K.noise(5000, 4, 0.08, 0.2); K.noise(1600, 2, 0.4, 0.1, 0.08, 'bandpass'); K.noise(300, 1, 1.4, 0.12, 0.3, 'lowpass'); for (var i = 0; i < 8; i++) K.noise(3000, 10, 0.02, 0.06, 0.4 + i * 0.13); });
+  S.shReveal = K.fx(function () { [659.3, 784, 987.8, 1318.5].forEach(function (f, j) { K.bell(f, 1.0, 0.03, 0.1 + j * 0.15); }); K.noise(6000, 2, 0.6, 0.02, 0.1, 'highpass'); });
+  S.shWell = K.fx(function (op) { var g = G(), n = g && g.R.puzzles.ink ? g.R.puzzles.ink.n : 3, col = op && op.i != null ? op.i % n : 0; K.tone('sine', 300 + col * 80, 520 + col * 80, 0.12, 0.06); K.noise(900, 6, 0.05, 0.06, 0.06, 'bandpass'); });
+  S.shCase = K.fx(function () { K.tone('square', 260, 180, 0.06, 0.1); K.noise(1400, 3, 0.2, 0.15, 0.05, 'bandpass'); K.sweep(200, 340, 0.6, 0.05, 0.2, 8); K.bell(1319, 0.5, 0.03, 0.5); });
+  S.shRope = K.fx(function () { K.sweep(800, 300, 0.4, 0.05, 0, 3); K.noise(500, 1, 0.3, 0.12, 0.3, 'lowpass'); K.tone('triangle', 200, 140, 0.15, 0.06, 0.32); });
+  S.shBell = K.fx(function (op) { if (op && op.b === 'hold') { K.noise(400, 1, 0.3, 0.12, 0, 'lowpass'); K.tone('triangle', 160, 120, 0.2, 0.05); return; } K.noise(700, 1, 0.2, 0.08, 0, 'bandpass'); bigBell(0.06, 0.25); });
+  S.shPeal = K.fx(function () { for (var i = 0; i < 3; i++) bigBell(0.05, i * 0.7); for (var k = 0; k < 7; k++) K.noise(2500 + (k % 3) * 500, 8, 0.04, 0.12, 2.3 + k * 0.09); K.bell(2093, 0.4, 0.04, 2.9); });
+  S.shKey = K.fx(function () { K.bell(2349, 0.5, 0.05); K.bell(2794, 0.5, 0.04, 0.08); K.noise(4000, 6, 0.08, 0.1, 0.02); });
+
+  // the schoolroom on a summer evening: the clock's tick, swallows, a far-off sheep, the harmonium, the old building creaking
+  S.addAmb('schoolhouse', function (a, bus) {
+    var wet = K.send(a, bus, 0.45);
+    var PAD = [[174.6, 261.6, 349.2, 440], [196, 293.7, 392, 493.9], [164.8, 246.9, 329.6, 415.3], [174.6, 261.6, 349.2, 440]];
+    var p = K.pad(a, bus, PAD[0], 'triangle', 0.005, 900), pk = 0;
+    var wind = K.bed(a, bus, 'bandpass', 600, 0.4, 0.004), hiss = K.bed(a, bus, 'highpass', 5200, 0.5, 0.0008);
+    // the clock: tick ... tock
+    var tk = 0, t0 = setInterval(function () { tk++; K.noise(tk % 2 ? 3200 : 2600, 14, 0.02, 0.012, 0, 'bandpass', bus); }, 1000);
+    // a hymn tune on the harmonium now and then (original)
+    var MEL = [349.2, 392, 440, 349.2, 466.2, 440, 392, 349.2, 392, 440, 523.3, 440];
+    var t1 = setInterval(function () {
+      if (Math.random() < 0.55) return;
+      var tt = a.currentTime + 0.1;
+      MEL.forEach(function (f, i) { K.pluck(a, wet, f, tt + i * 0.55, 0.9, 0.004, 'triangle'); if (i % 4 === 0) K.pluck(a, wet, f / 2, tt + i * 0.55, 2.0, 0.003, 'sine'); });
+    }, 16000);
+    var t2 = setInterval(function () {
+      pk = (pk + 1) % PAD.length; p.set(PAD[pk]);
+      wind.g.gain.setTargetAtTime(0.002 + Math.random() * 0.006, a.currentTime, 2.2);
+      var r = Math.random();
+      if (r < 0.3) { for (var i = 0; i < 4; i++) K.tone('sine', 3800 + Math.random() * 900, 4400 + Math.random() * 900, 0.05, 0.004, 0.2 + i * 0.11, wet); }   // swallows twittering
+      else if (r < 0.4) { K.tone('sawtooth', 300, 270, 0.5, 0.004, 0.2, wet); K.tone('sawtooth', 290, 250, 0.4, 0.003, 0.8, wet); }                              // a far-off sheep
+      else if (r < 0.52) { [0, 0.45, 0.7, 1.15, 1.4].forEach(function (d, j) { K.tone('sine', j % 2 ? 470 : 520, j % 2 ? 440 : 500, 0.25, 0.004, 0.2 + d, wet); }); }   // a wood pigeon
+      else if (r < 0.64) K.sweep(160, 220, 0.9, 0.004, 0.2, 12, bus);                                                                                         // the old building creaking
+    }, 7000);
+    return { oscs: p.oscs.concat([wind.src, hiss.src]), timers: [t0, t1, t2] };
+  });
+})();
 </script>
 <script src="../../shared/ads.js"></script>
 <script>
@@ -27367,7 +29028,7 @@ var GOSound = (function () {
 (function () {
   'use strict';
   var E = GOEngine, A = GOArt, S = GOSound;
-  var VERSION = '0.12.0';
+  var VERSION = '0.13.0';
   // rooms 1-5: Keyhole Lane (the brass pieces and the finale); rooms 6+: Beyond the Lane (0.5.0), each a separate file that
   // defines GORoom<n> with its own STORY (name, desc, stamp, notes). Rooms 10 and 11 are the two parts of one place.
   var ROOMS = {};
