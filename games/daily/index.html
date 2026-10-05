@@ -51,9 +51,11 @@ html.lm-contrast { --lm-c: #f08c2c; --lm-p: #4da3ff; }
 .kb .kr { display: flex; gap: 5px; justify-content: center; }
 .kb button { flex: 1; height: 54px; min-width: 0; border: 0; border-radius: 8px; background: var(--lm-key); color: var(--ink); font-weight: 800; font-size: 17px; text-transform: uppercase; padding: 0; }
 .kb button.wide { flex: 1.55; font-size: 13px; }
-.kb button.hint { background: #f5c518; color: #3a2a00; font-size: 14px; text-transform: none; display: flex; align-items: center; justify-content: center; gap: 2px; }
+.kb button.hint { background: #3d6fd8; color: #fff; font-size: 14px; text-transform: none; display: flex; align-items: center; justify-content: center; gap: 2px; }
 .kb button.hint svg { width: 17px; height: 17px; }
 .kb button.hint:disabled { opacity: .4; }
+/* Lock key, unlocked for this row: outlined, grey letters typeable again */
+.kb button.hint.open { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 2px #3d6fd8; }
 .tool.go { background: #1f9d55; color: #fff; border-color: transparent; box-shadow: 0 6px 16px -8px #1f9d55; }
 .kb button { position: relative; }
 .kb button.off, .kb button.off:disabled { background: var(--lm-a); color: #fff; opacity: .28; }
@@ -98,6 +100,8 @@ html.gg-fs .kb button.wide { font-size: 14px; }
 <symbol id="i-back" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 5H9l-6 7 6 7h12a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1z"/><path d="M17 9l-6 6M11 9l6 6"/></g></symbol>
 <symbol id="i-enter" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 5v7a3 3 0 0 1-3 3H5"/><path d="M9 11l-4 4 4 4"/></g></symbol>
 <symbol id="i-bulb" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.3 1.1 2.2h5c0-.9.4-1.6 1.1-2.2A6 6 0 0 0 12 3z"/></g></symbol>
+<symbol id="i-lock" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2.2" fill="currentColor" fill-opacity=".18"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></g></symbol>
+<symbol id="i-unlock" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2.2"/><path d="M8 11V8a4 4 0 0 1 7.6-1.7"/></g></symbol>
 <symbol id="i-share" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 8l5-5 5 5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></g></symbol>
 <symbol id="i-pause" viewBox="0 0 24 24"><g fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1.3"/><rect x="14" y="5" width="4" height="14" rx="1.3"/></g></symbol>
 <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 5.2v13.6a1 1 0 0 0 1.5.9l11-6.8a1 1 0 0 0 0-1.7l-11-6.8A1 1 0 0 0 7 5.2z" fill="currentColor"/></symbol>
@@ -153,6 +157,8 @@ html.gg-fs .kb button.wide { font-size: 14px; }
       <div class="themes" id="themes"></div>
       <label class="row"><div>Hard mode<small>Letters you’ve found must be used in the next guesses (green ones in their place). Changes can’t be made halfway through today’s word.</small></div>
         <span class="switch"><input type="checkbox" id="setHard"><span></span></span></label>
+      <label class="row"><div>Lock out grey letters<small>Letters your guesses show grey can’t be typed (the Lock key). Tap Lock to type one anyway, until your next guess.</small></div>
+        <span class="switch"><input type="checkbox" id="setLock"><span></span></span></label>
       <label class="row"><div>High-contrast colors<small>Orange and blue instead of green and gold.</small></div>
         <span class="switch"><input type="checkbox" id="setContrast"><span></span></span></label>
       <label class="row"><div>Sound<small>Soft clicks and chimes.</small></div>
@@ -310,7 +316,7 @@ var LMSound = (function () {
 
   // ================= storage =================
   var store = Goobs.store('daily');
-  var settings = { sound: false, adEvery: 3, hard: false, contrast: false };
+  var settings = { sound: false, adEvery: 3, hard: false, contrast: false, lock: true };
   (function () {
     var s = store.get('settings', {}) || {};
     for (var k in settings) if (typeof s[k] === typeof settings[k]) settings[k] = s[k];
@@ -336,7 +342,7 @@ var LMSound = (function () {
   function rand() { try { return crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296; } catch (e) { return Math.random(); } }
 
   // ================= games =================
-  // a game: { answer, day (daily only), rows: [{ w, m }], cur: typed letters, done, won, hard, lockOn: hint used (grey letters can't be typed) }
+  // a game: { answer, day (daily only), rows: [{ w, m }], cur: typed letters, done, won, hard, unlocked: Lock opened for the row being typed (grey letters typeable until the next guess) }
   var g = null, busy = false, fs = null; // fs: the full-screen Menu (Goobs.fullscreen)
   function today() { return LM.dayNumber(new Date()); }
   // two words of the day (1.2.0): 'daily' (word 1, saved as 'day') and 'daily2' (word 2, saved as 'day2'), each with
@@ -362,8 +368,7 @@ var LMSound = (function () {
     g = isDaily(mode) ? loadDaily(mode) : loadPractice(fresh);
     g.answer = isDaily(mode) ? answerOf(mode, g.day) : g.answer;
     if (!g.rows.length) g.hard = settings.hard;
-    if (typeof g.lockOn !== 'boolean') g.lockOn = !!(g.hintN || (g.locked && g.locked.length));
-    delete g.hints; delete g.hintN; delete g.locked; // earlier test versions of the hint
+    delete g.hints; delete g.hintN; delete g.locked; delete g.lockOn; // the old Hint (1.0.x-1.2.0); Lock replaced it in 1.3.0
     save(); renderAll();
   }
   function streakNow(m) { var st = stats[m && isDaily(m) ? m : (isDaily(meta.mode) ? meta.mode : 'daily')]; return st.lastWonDay >= today() - 1 ? st.streak : 0; }
@@ -373,10 +378,10 @@ var LMSound = (function () {
     if (!g || g.done || busy || sheetOpen()) return;
     S.unlock();
     if (ch === 'enter') { submit(); return; }
-    if (ch === 'hint') { askHint(); return; }
+    if (ch === 'lock') { toggleLock(); return; }
     if (ch === 'back') { if (g.cur.length) { g.cur = g.cur.slice(0, -1); S.del(); renderRow(g.rows.length); } return; }
     if (g.cur.length >= 5) return;
-    if (lockedLetters().indexOf(ch) >= 0) { toast(ch.toUpperCase() + ' isn’t in the word'); return; }
+    if (lockedLetters().indexOf(ch) >= 0) { toast(ch.toUpperCase() + ' isn’t in it · tap Lock', 1600); return; }
     g.cur += ch; S.key(); renderRow(g.rows.length, g.cur.length - 1);
   }
   function submit() {
@@ -385,7 +390,7 @@ var LMSound = (function () {
     if (!LM.valid(w)) { bad('Not in the word list'); return; }
     if (g.hard) { var p = LM.hardProblem(g.rows, w); if (p) { bad(p); return; } }
     var m = LM.mark(w, g.answer), r = g.rows.length;
-    g.rows.push({ w: w, m: m }); g.cur = '';
+    g.rows.push({ w: w, m: m }); g.cur = ''; g.unlocked = false; // Lock comes back on after every guess
     var won = m.join('') === 'ccccc', lost = !won && g.rows.length >= 6;
     if (won || lost) { g.done = true; g.won = won; }
     save();
@@ -412,21 +417,23 @@ var LMSound = (function () {
     S.bad(); toast(msg, 1200);
     var row = $('grid').children[g.rows.length]; row.classList.remove('shake'); void row.offsetWidth; row.classList.add('shake');
   }
-  // ================= hints =================
-  // The hint (one per word) turns on letter lock-out: from then on every letter your guesses show grey (in none of
-  // the word's spots) is greyed out on the keyboard and can't be typed, including letters that turn grey on later
-  // guesses. It asks first, so a stray tap never spends it.
+  // ================= Lock =================
+  // Lock (1.3.0, was "Hint"; Glenn: "the hint isn't really a hint - and calling it that cheapens the game ... it should
+  // block letters that have been tried but not used ... automatically, and clicking [it] temporarily unblocks them").
+  // Every letter your guesses have shown grey (in none of the word's spots) is faded on the keyboard and can't be
+  // typed. Tapping Lock unlocks them for the row you're typing; the next guess locks them again. It only stops typos
+  // of information you already have, so it doesn't count as help (no mark on the result or the share). Settings can
+  // switch it off.
   function lockedLetters() {
-    if (!g.lockOn) return [];
+    if (!settings.lock || g.unlocked) return [];
     var km = LM.keyMarks(g.rows);
     return 'abcdefghijklmnopqrstuvwxyz'.split('').filter(function (ch) { return km[ch] === 'a'; });
   }
-  function askHint() {
-    if (g.lockOn) { toast('Hint is already on'); return; }
-    showCard('Use a hint?', 'Letters that aren’t in the word get greyed out and can’t be typed, now and after every guess. One hint per word.',
-      [{ label: 'Yes', red: true, go: useHint }, { label: 'No', go: function () {} }]);
+  function toggleLock() {
+    if (!settings.lock) { toast('Lock is off in Settings'); return; }
+    g.unlocked = !g.unlocked; save(); S.key(); renderKeys();
+    toast(g.unlocked ? 'Unlocked until your next guess' : 'Grey letters locked', 1600);
   }
-  function useHint() { g.lockOn = true; save(); S.ding(); renderKeys(); toast(g.rows.length ? 'Grey letters are locked out' : 'Grey letters will lock out as you guess', 1800); }
 
   function finish() {
     var st = stats[meta.mode], n = g.rows.length;
@@ -476,7 +483,7 @@ var LMSound = (function () {
     ROWS.forEach(function (row, ri) {
       var d = document.createElement('div'); d.className = 'kr';
       if (ri === 1) d.insertAdjacentHTML('beforeend', '<span class="half"></span>');
-      if (ri === 2) d.insertAdjacentHTML('beforeend', '<button class="wide hint" data-k="hint" aria-label="Hint"><svg viewBox="0 0 24 24"><use href="#i-bulb"/></svg>Hint</button>');
+      if (ri === 2) d.insertAdjacentHTML('beforeend', '<button class="wide hint" data-k="lock" aria-label="Lock grey letters"><svg viewBox="0 0 24 24"><use href="#i-lock"/></svg><span>Lock</span></button>');
       row.split('').forEach(function (ch) { d.insertAdjacentHTML('beforeend', '<button data-k="' + ch + '">' + ch + '</button>'); });
       if (ri === 2) d.insertAdjacentHTML('beforeend', '<button class="wide" data-k="back" aria-label="Delete"><svg viewBox="0 0 24 24"><use href="#i-back"/></svg></button>');
       if (ri === 1) d.insertAdjacentHTML('beforeend', '<span class="half"></span>');
@@ -487,8 +494,13 @@ var LMSound = (function () {
     var km = LM.keyMarks(g.rows), off = lockedLetters();
     Array.prototype.forEach.call($('kb').querySelectorAll('button[data-k]'), function (b) {
       var k = b.dataset.k; b.classList.remove('c', 'p', 'a', 'off'); if (km[k]) b.classList.add(km[k]); 
-      var out = off.indexOf(k) >= 0; b.classList.toggle('off', out); if (k.length === 1) b.disabled = out;
-      if (k === 'hint') b.disabled = g.done || g.lockOn;
+      var out = off.indexOf(k) >= 0; b.classList.toggle('off', out); // faded, not disabled: a tap says how to unlock
+      if (k === 'lock') {
+        var open = !settings.lock || !!g.unlocked;
+        b.disabled = g.done || !settings.lock; b.classList.toggle('open', open);
+        b.querySelector('use').setAttribute('href', open ? '#i-unlock' : '#i-lock');
+        b.setAttribute('aria-label', open ? 'Grey letters unlocked' : 'Grey letters locked');
+      }
     });
   }
   // full screen: the info row sits in the top row, cut down to what matters while playing (the streak, or the New word
@@ -538,7 +550,6 @@ var LMSound = (function () {
   function showResult(justNow) {
     var daily = isDaily(meta.mode), st = stats[meta.mode], n = g.rows.length, title, html;
     title = g.won ? (daily ? 'Solved in ' + n + '!' : 'Got it in ' + n + '!') : 'The word was ' + g.answer.toUpperCase();
-    if (g.won && g.lockOn) title += ' (with a hint)';
     html = tilesFor(st, daily ? '<div class="tile"><b>' + streakNow() + '</b><span>Streak</span></div><div class="tile"><b>' + st.max + '</b><span>Best streak</span></div>' : '') +
       distHtml(st, g.won ? n : 0) + (daily ? '<div class="nextword">Next word in <b id="cd2">' + countdown() + '</b></div>' : '');
     var b = [];
@@ -554,7 +565,7 @@ var LMSound = (function () {
   function shareText() {
     var sym = { c: settings.contrast ? '🟧' : '🟩', p: settings.contrast ? '🟦' : '🟨', a: '⬜' };
     var head = isDaily(meta.mode) ? 'Lettermind #' + g.day + (meta.mode === 'daily2' ? ' (word 2)' : '') : 'Lettermind practice';
-    return head + ' ' + (g.won ? g.rows.length : 'X') + '/6' + (g.hard ? '*' : '') + (g.lockOn ? ' 💡' : '') + '\n\n' + g.rows.map(function (r) { return r.m.map(function (x) { return sym[x]; }).join(''); }).join('\n');
+    return head + ' ' + (g.won ? g.rows.length : 'X') + '/6' + (g.hard ? '*' : '') + '\n\n' + g.rows.map(function (r) { return r.m.map(function (x) { return sym[x]; }).join(''); }).join('\n');
   }
   function share() {
     if (!g || !g.done) return;
@@ -594,7 +605,7 @@ var LMSound = (function () {
       'Each letter then changes color: <b style="color:var(--lm-c)">green</b> means right letter, right place; <b style="color:var(--lm-p)">gold</b> means it’s in the word but somewhere else; <b>grey</b> means it isn’t in the word (or not that many times). The keyboard keeps track.',
       'There are <b>two words of the day</b> (<b>Word 1</b> and <b>Word 2</b> at the top), the same for everyone, so you and Cindy can compare. New ones come at midnight. Each word has its own <b>streak</b> for days in a row solved. <b>Share</b> sends your colored squares (not the letters).',
       '<b>Practice</b> gives as many extra words as you like; it has its own records and doesn’t touch the streak.',
-      '<b>Enter</b> is the green button at the bottom right. Stuck? The yellow <b>Hint</b> key (bottom left of the keyboard) asks first, then greys out every letter that isn’t in the word, now and after each guess, so it can’t be typed. One hint per word; Share shows 💡 if you used it.',
+      '<b>Enter</b> is the green button at the bottom right. Letters your guesses show grey fade on the keyboard and are <b>locked</b>, so you can’t type one by mistake. Want one anyway? Tap the blue <b>Lock</b> key (bottom left) to unlock them until your next guess. (Settings can turn Lock off.)',
       '<b>Hard mode</b> (Settings): whatever you’ve found must be used in the next guesses. <b>High-contrast colors</b> swap green and gold for orange and blue.'
     ].map(function (x) { return '<li>' + x + '</li>'; }).join('');
     $('ovHelp').classList.add('show');
@@ -606,7 +617,7 @@ var LMSound = (function () {
     $('btnSound').classList.toggle('on', settings.sound); $('setSound').checked = settings.sound; S.setEnabled(settings.sound);
   }
   function syncAds() { $('setAds').checked = Goobs.adsOn(); $('adEvery').textContent = settings.adEvery; $('rowAdEvery').classList.toggle('off', !Goobs.adsOn()); }
-  function syncLook() { document.documentElement.classList.toggle('lm-contrast', settings.contrast); $('setContrast').checked = settings.contrast; $('setHard').checked = settings.hard; }
+  function syncLook() { document.documentElement.classList.toggle('lm-contrast', settings.contrast); $('setContrast').checked = settings.contrast; $('setHard').checked = settings.hard; $('setLock').checked = settings.lock; }
   function sheet(btn, ov, close, onOpen) {
     if (btn) $(btn).addEventListener('click', function () { if (onOpen) onOpen(); $(ov).classList.add('show'); });
     $(close).addEventListener('click', function () { $(ov).classList.remove('show'); });
@@ -650,6 +661,7 @@ var LMSound = (function () {
       settings.hard = this.checked; saveSettings(); if (g && !g.rows.length) { g.hard = settings.hard; save(); renderInfo(); }
     });
     $('setContrast').addEventListener('change', function () { settings.contrast = this.checked; saveSettings(); syncLook(); });
+    $('setLock').addEventListener('change', function () { settings.lock = this.checked; saveSettings(); if (g) renderKeys(); });
     $('setAds').addEventListener('change', function () { Goobs.setAds(this.checked); syncAds(); });
     $('adLess').addEventListener('click', function () { settings.adEvery = Math.max(1, settings.adEvery - 1); saveSettings(); syncAds(); });
     $('adMore').addEventListener('click', function () { settings.adEvery = Math.min(10, settings.adEvery + 1); saveSettings(); syncAds(); });
