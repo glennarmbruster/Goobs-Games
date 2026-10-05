@@ -915,6 +915,24 @@
       }
     },
     {
+      id: 'knotty', name: 'Knotty', blurb: 'Untangle the ropes', path: 'games/knotty/',
+      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="knT" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8fd3ff"/><stop offset="1" stop-color="#e3f6ff"/></linearGradient>' +
+        '<radialGradient id="knTr" cx=".35" cy=".3" r=".75"><stop offset="0" stop-color="#ff9aa6"/><stop offset=".45" stop-color="#ef3b4f"/><stop offset="1" stop-color="#a5172a"/></radialGradient>' +
+        '<radialGradient id="knTb" cx=".35" cy=".3" r=".75"><stop offset="0" stop-color="#9cc6ff"/><stop offset=".45" stop-color="#2f74f0"/><stop offset="1" stop-color="#1a3f9c"/></radialGradient>' +
+        '<radialGradient id="knTy" cx=".35" cy=".3" r=".75"><stop offset="0" stop-color="#fff0a0"/><stop offset=".45" stop-color="#ffc21e"/><stop offset="1" stop-color="#c08300"/></radialGradient></defs>' +
+        '<rect width="100" height="100" fill="url(#knT)"/><rect x="8" y="8" width="84" height="84" rx="14" fill="#fff" opacity=".7"/>' +
+        '<g fill="#9aa5b4"><circle cx="22" cy="22" r="3.5"/><circle cx="50" cy="22" r="3.5"/><circle cx="78" cy="22" r="3.5"/><circle cx="22" cy="50" r="3.5"/><circle cx="50" cy="50" r="3.5"/><circle cx="78" cy="50" r="3.5"/><circle cx="22" cy="78" r="3.5"/><circle cx="50" cy="78" r="3.5"/><circle cx="78" cy="78" r="3.5"/></g>' +
+        '<path d="M22 50 Q50 58 78 50" stroke="#c08300" stroke-width="9" fill="none" stroke-linecap="round"/><path d="M22 50 Q50 58 78 50" stroke="#ffc21e" stroke-width="6.5" fill="none" stroke-linecap="round" stroke-dasharray="2.5 3"/>' +
+        '<path d="M22 78 L78 22" stroke="#1a3f9c" stroke-width="9" fill="none" stroke-linecap="round"/><path d="M22 78 L78 22" stroke="#2f74f0" stroke-width="6.5" fill="none" stroke-linecap="round" stroke-dasharray="2.5 3"/>' +
+        '<path d="M22 22 L78 78" stroke="#a5172a" stroke-width="9" fill="none" stroke-linecap="round"/><path d="M22 22 L78 78" stroke="#ef3b4f" stroke-width="6.5" fill="none" stroke-linecap="round" stroke-dasharray="2.5 3"/>' +
+        '<circle cx="22" cy="22" r="8.5" fill="url(#knTr)"/><circle cx="78" cy="78" r="8.5" fill="url(#knTr)"/><circle cx="22" cy="78" r="8.5" fill="url(#knTb)"/><circle cx="78" cy="22" r="8.5" fill="url(#knTb)"/><circle cx="22" cy="50" r="8.5" fill="url(#knTy)"/><circle cx="78" cy="50" r="8.5" fill="url(#knTy)"/>' +
+        '<g fill="#fff" opacity=".8"><circle cx="19" cy="19" r="2.4"/><circle cx="75" cy="75" r="2.4"/><circle cx="19" cy="75" r="2.4"/><circle cx="75" cy="19" r="2.4"/><circle cx="19" cy="47" r="2.4"/><circle cx="75" cy="47" r="2.4"/></g></svg>',
+      status: function () {
+        var m = readLS('knotty.meta'); if (!m || !(m.level > 1)) return 'Untangle the ropes';
+        return 'Level ' + Number(m.level).toLocaleString();
+      }
+    },
+    {
       id: 'nonogram', name: 'Pixel Pier', blurb: 'Picture logic: fill the grid from the clues', path: 'games/nonogram/',
       art: '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="ngTile" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e4f3fb"/><stop offset="1" stop-color="#8fcde9"/></linearGradient></defs>' +
         '<rect width="100" height="100" fill="url(#ngTile)"/><rect x="5" y="5" width="91" height="88" rx="8" fill="#fff"/><rect x="34" y="8" width="60" height="21" fill="#eef4fa"/><rect x="8" y="30" width="25" height="60" fill="#eef4fa"/>' +

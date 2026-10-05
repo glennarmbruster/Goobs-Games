@@ -87,6 +87,21 @@ html.gg-fs .top .info .newword svg { width: 15px; height: 15px; }
 html.gg-fs .kb { max-width: 640px; }
 html.gg-fs .kb button { height: clamp(46px, 7.4dvh, 64px); font-size: clamp(17px, 2.5dvh, 21px); }
 html.gg-fs .kb button.wide { font-size: 14px; }
+
+/* Dark and Blue themes (1.3.1, Glenn: grey letters "look great on a light theme ... but in a dark theme they are
+   indistinguishable"). In the dark, untried keys were #3a4056 and grey (not-in-word) keys #4a5064 at 75%: almost the
+   same. Now untried keys are lighter and raised, grey letters sink into the background (dark key, dim letter), and
+   locked letters are just a faint outline, so the three states read at a glance. */
+:root[data-theme="dark"] .kb button { background: #5a6280; color: #fff; }
+:root[data-theme="dark"] .kb button.a { background: #1c1f28; color: #6f7790; opacity: 1; }
+:root[data-theme="dark"] .kb button.off, :root[data-theme="dark"] .kb button.off:disabled { background: transparent; color: #3f4558; opacity: 1; box-shadow: inset 0 0 0 1.5px #2b303d; }
+:root[data-theme="blue"] .kb button { background: #3f6496; color: #fff; }
+:root[data-theme="blue"] .kb button.a { background: #0e1c31; color: #5f7aa0; opacity: 1; }
+:root[data-theme="blue"] .kb button.off, :root[data-theme="blue"] .kb button.off:disabled { background: transparent; color: #33496a; opacity: 1; box-shadow: inset 0 0 0 1.5px #1c3050; }
+:root[data-theme="dark"] .kb button.c, :root[data-theme="blue"] .kb button.c { background: var(--lm-c); }
+:root[data-theme="dark"] .kb button.p, :root[data-theme="blue"] .kb button.p { background: var(--lm-p); }
+:root[data-theme="dark"] .kb button.hint, :root[data-theme="blue"] .kb button.hint { background: #3d6fd8; color: #fff; }
+:root[data-theme="dark"] .kb button.hint.open, :root[data-theme="blue"] .kb button.hint.open { background: transparent; color: var(--ink); }
 </style>
 </head>
 <body>
