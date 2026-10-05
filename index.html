@@ -871,9 +871,30 @@
         '<ellipse cx="44" cy="49" rx="6" ry="6.6" fill="#2f6f8f"/><ellipse cx="44" cy="45.5" rx="2.6" ry="1" fill="#f2a03d"/><circle cx="44" cy="41" r="4.4" fill="#fff1dc"/><circle cx="42.5" cy="41.3" r=".8" fill="#2a2230"/><circle cx="45.5" cy="41.3" r=".8" fill="#2a2230"/>' +
         '<path d="M44 33.5 q2.4 2.4 .5 4.4 q-1.8-1.2-.5-4.4z" fill="#ffb347"/><path d="M48.5 44 l3 -8" stroke="#8a5a3a" stroke-width="1.2"/><circle cx="51.8" cy="35.4" r="7" fill="url(#wwG)"/><circle cx="51.8" cy="35.4" r="2.2" fill="#ffd36b"/></svg>',
       status: function () {
-        var m = readLS('wickway.meta'); var n = m && m.done ? Object.keys(m.done).length : 0;
+        var m = readLS('wickway.meta');
+        if (m && m.v !== 2 && m.done && Object.keys(m.done).length) return 'New: 10 chapters of bigger levels';
+        var n = m && m.done ? Object.keys(m.done).length : 0;
         if (!n) return 'Paths meet where they look like they meet';
-        return n + ' of 30 lanterns lit' + (m.secretsFound ? ' · ' + m.secretsFound + ' moths' : '');
+        return n + ' of 41 lanterns lit' + (m.secretsFound ? ' · ' + m.secretsFound + ' moths' : '');
+      }
+    },
+    {
+      id: 'pegs', name: 'Peg Lagoon', blurb: 'Aim, bounce, clear the coral', path: 'games/pegs/',
+      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="plT" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8ff0f7"/><stop offset=".55" stop-color="#22a8cf"/><stop offset="1" stop-color="#0b5d8f"/></linearGradient>' +
+        '<radialGradient id="plP" cx=".35" cy=".3" r=".7"><stop offset="0" stop-color="#eafcff"/><stop offset="1" stop-color="#2a86c4"/></radialGradient><radialGradient id="plC" cx=".35" cy=".3" r=".7"><stop offset="0" stop-color="#fff0e6"/><stop offset="1" stop-color="#d63a57"/></radialGradient>' +
+        '<radialGradient id="plG" cx=".35" cy=".3" r=".7"><stop offset="0" stop-color="#fffbe0"/><stop offset="1" stop-color="#e09a10"/></radialGradient><radialGradient id="plV" cx=".35" cy=".3" r=".7"><stop offset="0" stop-color="#f6e6ff"/><stop offset="1" stop-color="#7b3fd1"/></radialGradient></defs>' +
+        '<rect width="100" height="100" fill="url(#plT)"/><path d="M14 0 L26 0 L44 100 L30 100Z M60 0 L68 0 L84 100 L74 100Z" fill="#fff" opacity=".12"/>' +
+        '<path d="M0 88 Q25 80 50 87 T100 85 V100 H0z" fill="#f3d9a0"/>' +
+        '<g stroke="#fff" stroke-width="2.2" stroke-dasharray="0.1 5" stroke-linecap="round" fill="none" opacity=".9"><path d="M50 30 Q56 44 62 52"/></g>' +
+        '<circle cx="18" cy="44" r="5" fill="url(#plP)"/><circle cx="32" cy="54" r="5" fill="url(#plC)"/><circle cx="46" cy="62" r="5" fill="url(#plP)"/><circle cx="64" cy="56" r="5.6" fill="url(#plC)"/><circle cx="64" cy="56" r="8.5" fill="#ff8ca0" opacity=".3"/>' +
+        '<circle cx="80" cy="44" r="5" fill="url(#plP)"/><circle cx="24" cy="70" r="5" fill="url(#plG)"/><circle cx="76" cy="70" r="5" fill="url(#plV)"/><circle cx="50" cy="78" r="5" fill="url(#plP)"/><circle cx="88" cy="62" r="5" fill="url(#plC)"/><circle cx="12" cy="62" r="5" fill="url(#plP)"/>' +
+        '<path d="M36 90 Q45 98 54 90Z" fill="#ff9ec4"/><circle cx="36" cy="90" r="2" fill="#ffd1e3"/><circle cx="54" cy="90" r="2" fill="#ffd1e3"/>' +
+        '<g stroke="#7b3fd1" stroke-width="3" stroke-linecap="round" fill="none"><path d="M42 22 q-6 5 -11 3"/><path d="M45 24 q-3 6 -7 8"/><path d="M55 24 q3 6 7 8"/><path d="M58 22 q6 5 11 3"/></g>' +
+        '<path d="M46 25 L54 25 L56 34 Q50 37 44 34Z" fill="#fde3d3"/><ellipse cx="50" cy="15" rx="11" ry="9.5" fill="#a65cf0"/><circle cx="46" cy="16" r="3" fill="#fff"/><circle cx="54" cy="16" r="3" fill="#fff"/><circle cx="46.5" cy="16.6" r="1.4" fill="#24143d"/><circle cx="54.5" cy="16.6" r="1.4" fill="#24143d"/><path d="M47.5 21 q2.5 2 5 0" stroke="#3a1a5f" stroke-width="1.2" fill="none" stroke-linecap="round"/></svg>',
+      status: function () {
+        var m = readLS('pegs.meta'); if (!m || !(m.open > 1)) return 'Aim, bounce, clear the coral';
+        var st = 0; for (var k in (m.stars || {})) st += m.stars[k] | 0;
+        return 'Level ' + m.open + ' · ' + st + ' ★';
       }
     },
     {
