@@ -2436,7 +2436,7 @@ var PLSound = (function () {
    levels past the bank made in a Worker while you play. Test hook: window.__pegs. */
 (function () {
   'use strict';
-  var S = PLSound, A = PLArt, BANK = PL_BANK.length, PER = PL_PER_ISLAND, W = PL.W, H = PL.H, VERSION = '0.1.0';
+  var S = PLSound, A = PLArt, BANK = PL_BANK.length, PER = PL_PER_ISLAND, W = PL.W, H = PL.H, VERSION = '0.1.1';
   var STEP = 1000 / PL.TPS;
   var GUIDES = A.GUIDES, GK = {}; GUIDES.forEach(function (gd) { GK[gd.key] = gd; });
 
@@ -2607,12 +2607,14 @@ var PLSound = (function () {
     if (settings.release) fire();
   }
   cv.addEventListener('pointerup', endAim); cv.addEventListener('pointercancel', endAim);
-  // the fine-aim dial: drag sideways, a hundredth of a degree per pixel-ish
+  // the fine-aim dial: drag sideways. Glenn (2026-10-05): "a little less fine - it takes forever to scroll the fine aim".
+  // Slow drags still nudge finely (about 0.26 degrees a pixel, twice 0.1.0's), and quick swipes speed up (up to about 0.7
+  // degrees a pixel), so a big correction is one flick and the last touch stays precise.
   var dial = $('dial'), dialCv = $('dialCv'), dialOn = false, dialX = 0, dialOff = 0;
   dial.addEventListener('pointerdown', function (e) { S.unlock(); if (!canAim()) return; dialOn = true; dialX = e.clientX; try { dial.setPointerCapture(e.pointerId); } catch (x) { /* ignore */ } e.preventDefault(); });
   dial.addEventListener('pointermove', function (e) {
     if (!dialOn) return; var dx = e.clientX - dialX; dialX = e.clientX;
-    aimAng = Math.max(-PL.AIM_MAX, Math.min(PL.AIM_MAX, aimAng + dx * 0.0022)); dialOff += dx; drawDial(); e.preventDefault();
+    aimAng = Math.max(-PL.AIM_MAX, Math.min(PL.AIM_MAX, aimAng + dx * (0.0039 + 0.00035 * Math.min(Math.abs(dx), 25)))); dialOff += dx; drawDial(); e.preventDefault();
   });
   function dialEnd() { dialOn = false; }
   dial.addEventListener('pointerup', dialEnd); dial.addEventListener('pointercancel', dialEnd);
