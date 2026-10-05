@@ -2436,7 +2436,7 @@ var PLSound = (function () {
    levels past the bank made in a Worker while you play. Test hook: window.__pegs. */
 (function () {
   'use strict';
-  var S = PLSound, A = PLArt, BANK = PL_BANK.length, PER = PL_PER_ISLAND, W = PL.W, H = PL.H, VERSION = '0.1.1';
+  var S = PLSound, A = PLArt, BANK = PL_BANK.length, PER = PL_PER_ISLAND, W = PL.W, H = PL.H, VERSION = '0.1.2';
   var STEP = 1000 / PL.TPS;
   var GUIDES = A.GUIDES, GK = {}; GUIDES.forEach(function (gd) { GK[gd.key] = gd; });
 
@@ -2581,8 +2581,14 @@ var PLSound = (function () {
     var dx = bx - PL.LX, dy = by - PL.LY;
     if (dy < -10 || (dx * dx + dy * dy) < 18 * 18) { cancelAim = by < PL.LY - 14; return; }
     cancelAim = false;
-    aimAng = Math.max(-PL.AIM_MAX, Math.min(PL.AIM_MAX, Math.atan2(dx, Math.max(dy, -8))));
+    // The launcher sits at the top, so aiming straight at the finger meant a finger anywhere on the board gave a steep
+    // shot: to shoot near the sides you had to touch right beside the launcher (Glenn, 2026-10-05: "almost impossible
+    // to launch the ball near the sides"). The finger's height now counts for only AIM_SQUASH of its real distance,
+    // so sideways movement turns the aim much more: a finger at the board's edge halfway down aims about 70 degrees (it was 34)
+    // out, near the top about 85. The dotted guide still shows exactly where the shot goes.
+    aimAng = Math.max(-PL.AIM_MAX, Math.min(PL.AIM_MAX, Math.atan2(dx, Math.max(dy, -8) * AIM_SQUASH)));
   }
+  var AIM_SQUASH = 0.25;
   function fire() {
     if (!canAim()) return false;
     saveGame(); // a reload comes back to exactly here: the start of this shot
@@ -3122,7 +3128,7 @@ var PLSound = (function () {
   // ---- how to play ----
   var helpThen = null;
   var HELP = [
-    'Drag anywhere to aim Tavi’s shell. The dotted line shows the path to the first bounce. Let go to shoot (or turn that off in Settings and tap the pink button). Slide the <b>fine aim</b> strip for tiny changes. Let go above Tavi to cancel.',
+    'Drag anywhere to aim Tavi’s shell. The dotted line shows the path to the first bounce. Let go to shoot (or turn that off in Settings and tap the pink button). Move your finger sideways to aim toward the sides; slide the <b>fine aim</b> strip for small changes. Let go above Tavi to cancel.',
     'The ball lights every peg it touches. Lit pegs pop when the ball leaves the bottom.',
     'Clear every <b style="color:#e0405d">coral</b> peg to win. <b style="color:#2a86c4">Pearls</b> give points; the <b style="color:#c78a00">gold pearl</b> (it moves every shot) gives big points.',
     '<b style="color:#8a45e0">Violet power pearls</b> set off your guide’s power. Pick a guide on the level card; new guides join as you go.',
@@ -3211,7 +3217,7 @@ var PLSound = (function () {
     botAngle: function (seed) { return PL.botAngle(g, PL.rng(seed || (g.shotNo + 1) * 7919)); },
     // board point -> where it is on screen (css px), for real touches
     client: function (x, y) { return toClient(x, y); },
-    aimPoint: function (a, r) { r = r || 160; return toClient(PL.LX + Math.sin(a) * r, PL.LY + Math.cos(a) * r); },
+    aimPoint: function (a, r) { r = r || 160; return toClient(PL.LX + Math.sin(a) * r, PL.LY + Math.cos(a) * r / AIM_SQUASH); }, // the board point that aims at angle a
     fast: function (k) { fast = k || 0; },
     frameMs: function () { var a = frameMs.slice().sort(function (p, q) { return p - q; }); return { n: a.length, avg: a.reduce(function (s, v) { return s + v; }, 0) / (a.length || 1), p95: a[Math.floor(a.length * 0.95)] || 0, max: a[a.length - 1] || 0 }; },
     resetFrames: function () { frameMs = []; rafGaps = []; },
