@@ -25,9 +25,13 @@ var Goobs = (function () {
     { id: 'auto', label: 'Auto', sw: ['#f4f5f9', '#0f1116'] },
     { id: 'light', label: 'Light', sw: ['#ffffff', '#5a54f0'] },
     { id: 'dark', label: 'Dark', sw: ['#0f1116', '#7c77ff'] },
-    { id: 'blue', label: 'Blue', sw: ['#0b1628', '#4f9dff'] }
+    { id: 'blue', label: 'Blue', sw: ['#0b1628', '#4f9dff'] },
+    // seasonal themes (Glenn, 2026-10-05: "add another theme - for now a halloween theme"). A seasonal theme is a
+    // dark theme plus a "skin": the page gets data-theme="dark" (so every game's own dark-mode rules apply, nothing
+    // breaks) and data-skin="<id>", which goobs.css uses to recolour the shared palette and the menu decorates.
+    { id: 'halloween', label: 'Halloween', sw: ['#1c1026', '#ff7a1a'], base: 'dark', skin: 'halloween' }
   ];
-  var STATUSBAR = { light: '#5a54f0', dark: '#0f1116', blue: '#0b1628' };
+  var STATUSBAR = { light: '#5a54f0', dark: '#0f1116', blue: '#0b1628', halloween: '#1c1026' };
   var settings = { v: 1, theme: 'light', ads: true };
   (function () {
     var s = gs.get('settings', {}) || {};
@@ -38,12 +42,15 @@ var Goobs = (function () {
 
   // ---------- theme (one for the whole arcade) ----------
   var darkQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
-  var themeNow = 'light', themeListeners = [];
+  var themeNow = 'light', skinNow = '', themeListeners = [];
   function applyTheme() {
-    themeNow = settings.theme === 'auto' ? (darkQuery && darkQuery.matches ? 'dark' : 'light') : settings.theme;
+    var t = null; THEMES.forEach(function (x) { if (x.id === settings.theme) t = x; });
+    skinNow = t && t.skin ? t.skin : '';
+    themeNow = settings.theme === 'auto' ? (darkQuery && darkQuery.matches ? 'dark' : 'light') : (t && t.base) || settings.theme;
     document.documentElement.setAttribute('data-theme', themeNow);
+    if (skinNow) document.documentElement.setAttribute('data-skin', skinNow); else document.documentElement.removeAttribute('data-skin');
     var m = document.querySelector('meta[name="theme-color"]');
-    if (m) m.setAttribute('content', STATUSBAR[themeNow]);
+    if (m) m.setAttribute('content', STATUSBAR[skinNow || themeNow]);
     themeListeners.forEach(function (cb) { try { cb(themeNow); } catch (e) { /* ignore */ } });
   }
   if (darkQuery) {
@@ -267,7 +274,7 @@ var Goobs = (function () {
 
   return {
     ROOT: ROOT, store: store, settings: settings, THEMES: THEMES,
-    theme: function () { return themeNow; }, setTheme: setTheme, onTheme: function (cb) { themeListeners.push(cb); }, themePicker: themePicker,
+    theme: function () { return themeNow; }, skin: function () { return skinNow; }, setTheme: setTheme, onTheme: function (cb) { themeListeners.push(cb); }, themePicker: themePicker,
     adsOn: function () { return settings.ads; }, setAds: function (on) { settings.ads = !!on; saveSettings(); },
     markPlayed: markPlayed, recent: function () { return gs.get('recent', []) || []; }, favs: favs, toggleFav: toggleFav,
     initUpdates: initUpdates, home: home, snap: snapSoon, fullscreen: fullscreen

@@ -39,6 +39,16 @@
   --statusbar: #0b1628; --barn-dark: #2f7ae0;
   color-scheme: dark;
 }
+/* Halloween (a seasonal skin on top of dark: data-theme="dark" data-skin="halloween"): midnight purple, pumpkin orange,
+   slime green. Same variable names as above, so every shared control picks it up; games keep their dark-mode art. */
+:root[data-skin="halloween"] {
+  --accent: #ff7a1a; --accent-2: #ffa43b; --accent-ink: #1c1026; --accent-soft: #3d2236;
+  --bg: #140b1c; --bg-top: #2a1538; --surface: #22142e; --surface-2: #2f1d3d; --line: #3a2549; --line-strong: #4d3260;
+  --ink: #f6ecff; --muted: #b9a3c9; --ok: #7ee35a; --bad: #ff5a5f; --gold: #ffb02e; --hint: #b98cff;
+  --x: #140b1c; --x-auto: rgba(14,6,22,.5); --x-wrong: #ff5a5f; --heart-empty: #3a2549; --switch-off: #4d3260;
+  --statusbar: #1c1026; --barn-dark: #d85f0a;
+}
+:root[data-skin="halloween"] body { background: radial-gradient(120% 60% at 50% -10%, #3d1f52 0, transparent 60%) no-repeat, linear-gradient(var(--bg-top) 0, var(--bg) 320px) no-repeat, var(--bg); }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
 body {
@@ -206,10 +216,10 @@ button { font-family: inherit; color: inherit; cursor: pointer; -webkit-tap-high
 body::before { content: ""; position: fixed; left: 0; right: 0; top: 0; height: env(safe-area-inset-top, 0px); background: var(--statusbar); z-index: 25; }
 
 /* ---------- theme picker ---------- */
-.themes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 10px 0 14px; border-bottom: 1px solid var(--line); }
+.themes { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; padding: 10px 0 14px; border-bottom: 1px solid var(--line); }
 .themes button {
-  border-radius: 14px; border: 2px solid transparent; background: var(--surface-2); color: var(--ink); padding: 8px 2px 8px;
-  font-weight: 700; font-size: 13px; display: flex; flex-direction: column; align-items: center; gap: 6px;
+  border-radius: 14px; border: 2px solid transparent; background: var(--surface-2); color: var(--ink); padding: 8px 0 8px;
+  font-weight: 700; font-size: 11px; letter-spacing: -.5px; display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0;
 }
 .themes button.on { border-color: var(--accent); }
 .themes .sw { width: 40px; height: 26px; border-radius: 8px; border: 1px solid rgba(0,0,0,.15); display: grid; grid-template-columns: 1fr 1fr; overflow: hidden; }
