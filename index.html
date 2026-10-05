@@ -898,6 +898,23 @@
       }
     },
     {
+      id: 'perch', name: 'Perch Pals', blurb: 'Sort the birds onto their branches', path: 'games/perch/',
+      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="ppT" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7cc8ff"/><stop offset="1" stop-color="#d4f0ff"/></linearGradient></defs><rect width="100" height="100" fill="url(#ppT)"/>' +
+        '<circle cx="80" cy="18" r="9" fill="#ffe46a"/><path d="M0 92 Q30 82 60 90 T100 86 V100 H0z" fill="#7fd06a"/>' +
+        '<rect x="0" y="0" width="10" height="100" fill="#8a5a32"/><rect x="90" y="0" width="10" height="100" fill="#8a5a32"/>' +
+        '<path d="M9 44 Q30 41 46 43 Q48 45 46 47 Q30 47 9 49z" fill="#7a4e2a"/><path d="M91 74 Q70 71 54 73 Q52 75 54 77 Q70 77 91 79z" fill="#7a4e2a"/>' +
+        '<g><path d="M14 33 q-6 -2 -8 3 q4 2 8 1z" fill="#a71d2e"/><circle cx="21" cy="34" r="8.5" fill="#e8394a"/><ellipse cx="23.5" cy="37" rx="5" ry="4.2" fill="#ff9a9a"/><path d="M18 26 l2 -6 l2 4 l2 -3 l1 5z" fill="#e8394a"/><circle cx="24.5" cy="31" r="1.9" fill="#fff"/><circle cx="25" cy="31.2" r="1.1" fill="#1b1f2a"/><path d="M29 32 l4.5 1.5 l-4.5 1.5z" fill="#ffb21e"/></g>' +
+        '<g><path d="M33 33 q-6 -2 -8 3 q4 2 8 1z" fill="#a71d2e"/><circle cx="40" cy="34" r="8.5" fill="#e8394a"/><ellipse cx="42.5" cy="37" rx="5" ry="4.2" fill="#ff9a9a"/><path d="M37 26 l2 -6 l2 4 l2 -3 l1 5z" fill="#e8394a"/><circle cx="43.5" cy="31" r="1.9" fill="#fff"/><circle cx="44" cy="31.2" r="1.1" fill="#1b1f2a"/><path d="M48 32 l4.5 1.5 l-4.5 1.5z" fill="#ffb21e"/></g>' +
+        '<g><path d="M86 63 q6 -2 8 3 q-4 2 -8 1z" fill="#1a43a8"/><circle cx="79" cy="64" r="8.5" fill="#2f6ef0"/><ellipse cx="76.5" cy="67" rx="5" ry="4.2" fill="#eef3ff"/><ellipse cx="81" cy="53.5" rx="1.3" ry="3.2" fill="#1a43a8" transform="rotate(25 81 53.5)"/><ellipse cx="79" cy="53" rx="1.3" ry="3.4" fill="#1a43a8"/><circle cx="75.5" cy="61" r="1.9" fill="#fff"/><circle cx="75" cy="61.2" r="1.1" fill="#1b1f2a"/><path d="M71 62 l-4.5 1.5 l4.5 1.5z" fill="#2a2f3d"/></g>' +
+        '<g><path d="M67 63 q6 -2 8 3 q-4 2 -8 1z" fill="#c99c00"/><circle cx="60" cy="64" r="8.5" fill="#ffd21e"/><ellipse cx="57.5" cy="67" rx="5" ry="4.2" fill="#fff5b8"/><path d="M60 55.5 c1 -5 -5 -6 -4 -2.5" stroke="#c99c00" stroke-width="1.5" fill="none"/><circle cx="56.5" cy="61" r="1.9" fill="#fff"/><circle cx="56" cy="61.2" r="1.1" fill="#1b1f2a"/><path d="M52 62 l-4.5 1.5 l4.5 1.5z" fill="#ff7a1e"/></g>' +
+        '<g transform="translate(46 14) rotate(-12)"><path d="M0 0 q-4 -7 -10 -6 q4 3 4 7z" fill="#a71d2e"/><path d="M0 0 q4 -7 10 -6 q-4 3 -4 7z" fill="#c42a3a"/><circle cx="0" cy="2" r="6.5" fill="#e8394a"/><circle cx="2.5" cy="0.5" r="1.4" fill="#fff"/><path d="M6 1.5 l3.5 1.2 l-3.5 1.2z" fill="#ffb21e"/></g>' +
+        '<path d="M36 18 q3 4 6 -1" stroke="#fff" stroke-width="1.6" fill="none" stroke-dasharray="1.5 2.5" stroke-linecap="round"/></svg>',
+      status: function () {
+        var m = readLS('perch.meta'); if (!m || !(m.level > 1)) return 'Sort the birds onto their branches';
+        return 'Level ' + Number(m.level).toLocaleString();
+      }
+    },
+    {
       id: 'nonogram', name: 'Pixel Pier', blurb: 'Picture logic: fill the grid from the clues', path: 'games/nonogram/',
       art: '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="ngTile" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e4f3fb"/><stop offset="1" stop-color="#8fcde9"/></linearGradient></defs>' +
         '<rect width="100" height="100" fill="url(#ngTile)"/><rect x="5" y="5" width="91" height="88" rx="8" fill="#fff"/><rect x="34" y="8" width="60" height="21" fill="#eef4fa"/><rect x="8" y="30" width="25" height="60" fill="#eef4fa"/>' +
