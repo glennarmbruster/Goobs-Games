@@ -134,7 +134,16 @@ html[data-theme="dark"] .shelf { background: linear-gradient(#4a3a2c, #3a2c20); 
 .shelf div.no canvas { opacity: .22; filter: grayscale(1); }
 .shelf div b { position: absolute; right: 2px; bottom: 1px; font-size: 11px; font-weight: 800; color: #5a3a1c; }
 html[data-theme="dark"] .shelf div b { color: #f4e2c4; }
-#listModes { margin: -2px 0 10px; }
+#listModes, #diffModes { margin: -2px 0 10px; }
+#diffModes button { font-size: 13px; padding-left: 2px; padding-right: 2px; }
+/* a long list (13 or more slots) packs smaller slots, so the picture keeps its height */
+.list.compact { gap: 4px; }
+.list.compact .slot { height: 41px; border-radius: 9px; }
+.list.compact .slot.pics { height: 44px; }
+.list.compact .slot .word { font-size: 12px; line-height: 13px; }
+.list.compact .slot .word.long { font-size: 10.5px; line-height: 11.5px; }
+.list.compact .slot.done::after { width: 18px; height: 18px; right: 2px; top: 2px; background-size: 12px; }
+.pills .ggpill.over small { color: #e5484d; opacity: 1; }
 </style>
 </head>
 <body>
@@ -201,6 +210,8 @@ html[data-theme="dark"] .shelf div b { color: #f4e2c4; }
     <div class="sheetbody">
       <div class="themelabel">Theme (all games)</div>
       <div class="themes" id="themes"></div>
+      <div class="row"><div>Difficulty<small id="diffNote">Normal: busy scenes, longer lists, things hidden well.</small></div></div>
+      <div class="modes" id="diffModes"><button data-v="relaxed">Relaxed</button><button data-v="normal">Normal</button><button data-v="hard">Hard</button><button data-v="expert">Expert</button></div>
       <div class="row"><div>The list shows<small>By level: pictures first, then words, shapes (silhouettes) and a mix.</small></div></div>
       <div class="modes" id="listModes"><button data-v="level">By level</button><button data-v="pic">Pictures</button><button data-v="word">Words</button></div>
       <label class="row"><div>Show the timer<small>A clock at the top. While it's hidden, time never costs a star.</small></div>
@@ -215,7 +226,7 @@ html[data-theme="dark"] .shelf div b { color: #f4e2c4; }
         <span class="switch"><input type="checkbox" id="setAds"><span></span></span></label>
       <div class="row" id="rowAdEvery"><div>Show an ad every<small>Counted in finished levels.</small></div>
         <div class="stepper"><button id="adLess" aria-label="Fewer">&minus;</button><b id="adEvery">3</b><button id="adMore" aria-label="More">+</button></div></div>
-      <div class="version" id="version">Lost &amp; Found 0.1.0</div>
+      <div class="version" id="version">Lost &amp; Found 0.2.0</div>
     </div>
     <div class="actions"><button class="btn red" id="btnCloseSettings">Done</button></div>
   </div>
@@ -1058,10 +1069,19 @@ var SceneArt = (function () {
   var OBJ = {}, LIST = [];
   function def(name, d) { d.name = name; d.label = d.label || name; d.many = d.many || 2; d.pad = d.pad == null ? 4 : d.pad; OBJ[name] = d; LIST.push(d); }
   function localBox(d) { return INK[d.name] || d.bx || [-d.w / 2, -d.h, d.w / 2, 0]; }
+  // Lost & Found: an item may be turned (it.rot, radians, about the middle of its measured box)
+  function pivot(it) { var b = localBox(OBJ[it.k]); return [(it.flip ? -1 : 1) * (b[0] + b[2]) / 2 * it.s, (b[1] + b[3]) / 2 * it.s]; }
   function box(it) {
     var d = OBJ[it.k], b = localBox(d), s = it.s, p = INK[d.name] ? 2 : d.pad;
     var x0 = it.flip ? -b[2] : b[0], x1 = it.flip ? -b[0] : b[2];
-    return { x: it.x + (x0 - p) * s, y: it.y + (b[1] - p) * s, w: (x1 - x0 + 2 * p) * s, h: (b[3] - b[1] + 2 * p) * s };
+    var r = { x: it.x + (x0 - p) * s, y: it.y + (b[1] - p) * s, w: (x1 - x0 + 2 * p) * s, h: (b[3] - b[1] + 2 * p) * s };
+    if (!it.rot) return r;
+    var pv = pivot(it), cx = it.x + pv[0], cy = it.y + pv[1], c = Math.cos(it.rot), sn = Math.sin(it.rot), ax = 1e9, ay = 1e9, bx = -1e9, by = -1e9;
+    [[r.x, r.y], [r.x + r.w, r.y], [r.x, r.y + r.h], [r.x + r.w, r.y + r.h]].forEach(function (q) {
+      var dx = q[0] - cx, dy = q[1] - cy, X1 = cx + c * dx - sn * dy, Y1 = cy + sn * dx + c * dy;
+      ax = Math.min(ax, X1); ay = Math.min(ay, Y1); bx = Math.max(bx, X1); by = Math.max(by, Y1);
+    });
+    return { x: ax - 1, y: ay - 1, w: bx - ax + 2, h: by - ay + 2 };
   }
   function subBox(it, kind) {
     var d = OBJ[it.k], b = d.sub && d.sub[kind];
@@ -1073,7 +1093,9 @@ var SceneArt = (function () {
   function drawItem(ctx, it) {
     var d = OBJ[it.k]; if (!d) return;
     X = ctx; FL = !!it.flip; TINT = it.tint || null;
-    ctx.save(); ctx.translate(it.x, it.y); ctx.scale(it.s * (FL ? -1 : 1), it.s);
+    ctx.save(); ctx.translate(it.x, it.y);
+    if (it.rot) { var pv = pivot(it); ctx.translate(pv[0], pv[1]); ctx.rotate(it.rot); ctx.translate(-pv[0], -pv[1]); }
+    ctx.scale(it.s * (FL ? -1 : 1), it.s);
     if (d.shadow) shadow(d.w * (d.shadow === true ? 0.92 : d.shadow));
     d.draw(it, d);
     ctx.restore(); FL = false; TINT = null;
@@ -1107,7 +1129,7 @@ var SceneArt = (function () {
     var d = OBJ[k], b = localBox(d), w = b[2] - b[0] + 8, h = b[3] - b[1] + 8, s = size / Math.max(w, h);
     var it = look || { k: k, col: d.cols ? d.cols[0] : null, col2: d.cols2 ? d.cols2[0] : null, v: 0, n: d.n ? d.n[0] : 0, pat: 0, mood: 0, txt: d.txt ? d.txt[0][0] : '', det: d.det ? 1 : 0 };
     var o = {}; for (var q in it) o[q] = it[q]; o.k = k; o.s = s; o.x = x - (b[0] + b[2]) / 2 * s; o.y = y + size / 2 - (b[3] - (h - 8)) * s - 4 * s + (size - h * s) / 2 * 0;
-    o.y = y - (b[1] + b[3]) / 2 * s; o.flip = false;
+    o.y = y - (b[1] + b[3]) / 2 * s; o.flip = false; o.rot = 0;
     drawItem(ctx, o);
   }
 
@@ -3498,7 +3520,26 @@ var HO = (function () {
   }; }
   // curated levels 1-20: the composition used for each (tools/pick.js scores the first eight: busy, many kinds of
   // things, the things to find spread over the whole picture, bigger things early; then looked at by eye)
-  var PIN = {1: 5, 2: 3, 3: 5, 4: 0, 5: 4, 6: 1, 7: 0, 8: 4, 9: 0, 10: 4, 11: 6, 12: 5, 13: 2, 14: 4, 15: 6, 16: 7, 17: 4, 18: 6, 19: 6, 20: 2};
+  // (0.1.0's table, used by Relaxed, which makes exactly 0.1.0's levels)
+  var PIN0 = {1: 5, 2: 3, 3: 5, 4: 0, 5: 4, 6: 1, 7: 0, 8: 4, 9: 0, 10: 4, 11: 6, 12: 5, 13: 2, 14: 4, 15: 6, 16: 7, 17: 4, 18: 6, 19: 6, 20: 2};
+  // 0.2.0: Normal's first 20 (tools/pick.js normal, then looked at by eye)
+  var PIN = /*PIN*/{1: 28, 2: 10, 3: 21, 4: 6, 5: 9, 6: 1, 7: 2, 8: 8, 9: 2, 10: 4, 11: 3, 12: 3, 13: 5, 14: 4, 15: 0, 16: 5, 17: 7, 18: 0, 19: 0, 20: 3}/*PINEND*/;
+  // ---------- difficulty (Settings): Relaxed is 0.1.0's game exactly; Normal (the default) is meaningfully harder;
+  // Hard and Expert ramp faster, hide more, give fewer hints and add a time target for the third star ----------
+  var DIFFS = ['relaxed', 'normal', 'hard', 'expert'], DIFF_NAMES = { relaxed: 'Relaxed', normal: 'Normal', hard: 'Hard', expert: 'Expert' };
+  function dIdx(diff) { var i = DIFFS.indexOf(diff); return i < 0 ? 1 : i; }
+  // colour names, for a listed thing that has a look-alike of another colour in the scene ("red sock" vs a blue one)
+  var CNAMES = [['red', '#e0544b'], ['orange', '#f39b37'], ['yellow', '#f6cc45'], ['lime', '#a3cc4f'], ['green', '#4fa864'], ['teal', '#36ae9f'],
+    ['light blue', '#5aaee6'], ['blue', '#3a6fcf'], ['navy', '#2d467f'], ['purple', '#8a62c6'], ['pink', '#ec7eae'], ['brown', '#a26a43'], ['white', '#fbf8f1'],
+    ['black', '#3b3640'], ['gold', '#e9b73c'], ['silver', '#c9cdd2'], ['mint', '#8fdcc0'], ['lilac', '#bba1e6']];
+  function colourName(c) { if (!hexOk(c)) return null; var best = null, bd = 1e9; CNAMES.forEach(function (n) { var d = A.colorDist(c, n[1]); if (d < bd) { bd = d; best = n[0]; } }); return bd <= 30 ? best : null; }
+  // the kinds that can come in two clearly different colours and be told apart by name: one main colour that names
+  // the thing (not things drawn with a count of parts, background pieces, or frames whose colour is only the edge)
+  var DECOY = {}, NOCOL = { tv: 1, frame: 1, mirror: 1, clock: 1, board: 1, spicerack: 1, utensils: 1, globe: 1, beachball: 1, kite: 1, birdhouse: 1, sailboat: 1, gullsign: 1, signpost: 1, lifeguard: 1, stall: 1 };
+  A.LIST.forEach(function (d) { if (d.cols && d.cols.length > 1 && !d.n && !NEVER[d.name] && !NOCOL[d.name]) DECOY[d.name] = 1; });
+  var DECOY_COL = 200, DECOY_MEAN = 90; // two looks of one kind differ by this much (main colour; average colour of the whole thing)
+  function meanCol(k, col) { var m = A.MEAN[k]; return m && m[col]; }
+  function decoyOk(k, a, b) { var na = colourName(a), nb = colourName(b), ma = meanCol(k, a), mb = meanCol(k, b); return !!(na && nb && na !== nb && ma && mb && A.colorDist(a, b) >= DECOY_COL && A.colorDist(ma, mb) >= DECOY_MEAN); }
 
   function rng(seed) { return A.rng(seed); }
   function shuffle(a, rnd) { a = a.slice(); for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(rnd() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
@@ -3533,44 +3574,71 @@ var HO = (function () {
   function themeFor(n) { var b = Math.floor((n - 1) / 12); return themeOrder(b)[(n - 1) % 12]; }
 
   // ---------- the curve ----------
-  // a breather every 7th level: fewer, bigger, less hidden things
+  // Relaxed (0.1.0): d goes 0 -> 1 over levels 1-61. Normal: over 1-55; Hard starts a little in and gets there by 45;
+  // Expert starts further in and gets there by 35. Every 7th level is an easy one (a breather).
   function breather(n) { return n % 7 === 0; }
-  function ramp(n) { var d = Math.min(1, (n - 1) / 60); return breather(n) ? d * 0.4 : d; }
-  function itemCount(n) {
-    var c = n <= 3 ? 8 : n <= 10 ? 9 : n <= 20 ? 10 : n <= 40 ? 11 : 12;
-    return breather(n) ? Math.max(8, c - 2) : c;
+  var SPAN = [60, 54, 44, 34], BASE = [0, 0, 0.1, 0.22], EASY = [0.4, 0.4, 0.55, 0.65];
+  function ramp(n, D) { D = D || 0; var d = Math.min(1, BASE[D] + (n - 1) / SPAN[D]); return breather(n) ? d * EASY[D] : d; }
+  function itemCount(n, D) {
+    var c;
+    if (!D) { c = n <= 3 ? 8 : n <= 10 ? 9 : n <= 20 ? 10 : n <= 40 ? 11 : 12; return breather(n) ? Math.max(8, c - 2) : c; }
+    c = n <= 2 ? 8 : n <= 4 ? 10 : n <= 7 ? 12 : n <= 12 ? 13 : n <= 20 ? 14 : n <= 35 ? 15 : 16;
+    if (D >= 2) c = Math.min(16, Math.max(8 + D, c + D - 1)); // Hard: one more (Expert two more) early on; 16 at most
+    return breather(n) ? Math.max(8, Math.round(c * 0.7)) : c;
   }
-  // the list's style: pictures first; words from level 9; silhouettes from 15; a mix of all three from 22
+  // the list's style. Relaxed (0.1.0): pictures first; words from 9; silhouettes from 15; a mix from 22.
+  // Normal and up: pictures for 1-3; words from 4 (every other level to 7); silhouettes from 8; a mix from 12
   var TYPES = ['pic', 'word', 'sil', 'mix'];
-  function listType(n) {
-    if (n <= 8) return 'pic';
-    if (n <= 14) return n % 3 === 0 ? 'word' : 'pic';
-    var x = rng(n * 3301 + 7)();
-    if (n <= 21) return x < 0.45 ? 'pic' : x < 0.75 ? 'word' : 'sil';
-    return x < 0.32 ? 'pic' : x < 0.6 ? 'word' : x < 0.8 ? 'sil' : 'mix';
+  function listType(n, D) {
+    if (!D) {
+      if (n <= 8) return 'pic';
+      if (n <= 14) return n % 3 === 0 ? 'word' : 'pic';
+      var x = rng(n * 3301 + 7)();
+      if (n <= 21) return x < 0.45 ? 'pic' : x < 0.75 ? 'word' : 'sil';
+      return x < 0.32 ? 'pic' : x < 0.6 ? 'word' : x < 0.8 ? 'sil' : 'mix';
+    }
+    if (n <= 3) return 'pic';
+    if (n <= 7) return n % 2 === 0 ? 'word' : 'pic';
+    var y = rng(n * 3301 + 7)();
+    if (n <= 11) return y < 0.35 ? 'pic' : y < 0.65 ? 'word' : 'sil';
+    return y < 0.25 ? 'pic' : y < 0.5 ? 'word' : y < 0.75 ? 'sil' : 'mix';
   }
-  // "find 3 of the same" entries: from level 12, about half the levels; from 40, sometimes two
-  function threes(n) {
-    if (n < 12 || breather(n)) return 0;
+  // "find 3 of the same" entries. Relaxed (0.1.0): from level 12, about half the levels; from 40, sometimes two.
+  // Normal: from level 5; from 15 sometimes two. Hard and Expert: from level 3
+  function threes(n, D) {
+    if (breather(n)) return 0;
     var x = rng(n * 1543 + 3)();
-    if (n < 40) return x < 0.5 ? 1 : 0;
-    return x < 0.25 ? 2 : x < 0.75 ? 1 : 0;
+    if (!D) { if (n < 12) return 0; if (n < 40) return x < 0.5 ? 1 : 0; return x < 0.25 ? 2 : x < 0.75 ? 1 : 0; }
+    if (n < (D === 1 ? 5 : 3)) return 0;
+    if (n < 15) return n === 5 || x < 0.55 ? 1 : 0;
+    if (n < 40) return x < 0.25 ? 2 : x < 0.75 ? 1 : 0;
+    return x < 0.4 ? 2 : x < 0.85 ? 1 : 0;
   }
-  function params(n) {
-    var d = ramp(n);
-    return {
-      d: d, count: itemCount(n), type: listType(n), threes: threes(n), breather: breather(n),
-      scale: 1.14 - 0.34 * d,               // object size (SceneArt's default is 1; Double Take uses 1.25)
-      density: 1.5 + 0.5 * d,               // the place's own things
-      ovAdd: 0.1 + 0.22 * d,                // how much they may overlap
-      clutter: Math.round(30 + 30 * d),     // lost things and small things scattered on the ground and shelves
-      piles: 2 + Math.round(2.5 * d),
-      minVis: Math.max(MIN_VIS, 0.85 - 0.35 * d),
-      camo: d < 0.2 ? 0 : 0.08 + 0.3 * d,   // the chance a listed thing is tinted toward the ground colour
-      tint: 0.18 + 0.17 * d,
-      tuck: d < 0.1 ? 0 : 0.1 + 0.45 * d    // the chance a listed thing gets something set partly in front of it
-    };
+  function params(n, diff) {
+    var D = typeof diff === 'number' ? diff : dIdx(diff), d = ramp(n, D), k = Math.max(0, D - 1);
+    var p = { D: D, diff: DIFFS[D], d: d, count: itemCount(n, D), type: listType(n, D), threes: threes(n, D), breather: breather(n) };
+    if (!D) { // 0.1.0, exactly
+      p.scale = 1.14 - 0.34 * d; p.density = 1.5 + 0.5 * d; p.ovAdd = 0.1 + 0.22 * d; p.clutter = Math.round(30 + 30 * d); p.piles = 2 + Math.round(2.5 * d);
+      p.minVis = Math.max(MIN_VIS, 0.85 - 0.35 * d); p.camo = d < 0.2 ? 0 : 0.08 + 0.3 * d; p.tint = 0.18 + 0.17 * d; p.tuck = d < 0.1 ? 0 : 0.1 + 0.45 * d;
+      p.rot = 0; p.decoy = 0; p.near = 0;
+    } else {
+      p.scale = 1.10 - 0.40 * d - 0.03 * k * d;      // object size: x1.10 -> x0.70 (Hard 0.67, Expert 0.64)
+      p.density = 1.7 + 0.7 * d + 0.1 * k;            // the place's own things
+      p.ovAdd = 0.12 + 0.28 * d;                      // how much they may overlap
+      p.clutter = Math.round(40 + 45 * d + 5 * k);    // lost and small things on the ground and shelves
+      p.piles = 3 + Math.round(3 * d);
+      p.minVis = Math.max(MINVIS[D], 0.85 - 0.5 * d); // the most-hidden a listed thing may be: 85% showing -> 40% (Hard 37%, Expert 35%)
+      p.camo = d < 0.06 ? 0 : Math.min(0.95, 0.2 + 0.7 * d + 0.08 * k); // chance a listed thing is tinted toward the ground
+      p.tint = 0.22 + 0.23 * d + 0.04 * k;            // how far (0.45 at the top; Expert 0.53)
+      p.tuck = d < 0.04 ? 0 : Math.min(0.92, 0.2 + 0.7 * d + 0.05 * k); // chance something is set down partly in front of it
+      p.rot = d < 0.1 ? 0 : 0.1 + 0.35 * d + 0.05 * k; // chance a lost thing lies turned (listed ones and clutter alike)
+      p.decoy = d < 0.06 ? 0 : 0.12 + 0.38 * d + 0.07 * k; // chance a listed thing gets a look-alike of another colour
+      p.near = 2.5 * d;                               // listed things lean to ones that blend with what's behind them
+    }
+    p.hints = HINTS[D]; p.parPer = PAR[D][0]; p.parAdd = PAR[D][1]; p.maxWrong = MAXWRONG[D]; p.timed = D >= 2;
+    return p;
   }
+  var MINVIS = [0.5, 0.4, 0.37, 0.35], HINTS = [3, 3, 2, 1], PAR = [[22, 30], [22, 30], [14, 20], [10, 15]], MAXWRONG = [4, 4, 3, 2];
 
   // ---------- shapes: masks ----------
   var B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/', MC = {};
@@ -3582,8 +3650,17 @@ var HO = (function () {
     return (MC[key] = { a: dec(p[0]), s: dec(p[1]) });
   }
   // is scene point (px, py) on item it's shape ('a' any ink / 's' solid)?
+  // an item may be turned (it.rot) about the middle of its measured box: scene <-> the item's own units
+  function pivotOf(it) { var lb = A.localBox(A.OBJECTS[it.k]); return [(it.flip ? -1 : 1) * (lb[0] + lb[2]) / 2 * it.s, (lb[1] + lb[3]) / 2 * it.s]; }
+  function l2s(it, lx, ly) {
+    var x = (it.flip ? -lx : lx) * it.s, y = ly * it.s;
+    if (it.rot) { var p = pivotOf(it), c = Math.cos(it.rot), sn = Math.sin(it.rot), dx = x - p[0], dy = y - p[1]; x = p[0] + c * dx - sn * dy; y = p[1] + sn * dx + c * dy; }
+    return [it.x + x, it.y + y];
+  }
   function onItem(it, px, py, which) {
-    var lb = A.localBox(A.OBJECTS[it.k]), lx = (px - it.x) / it.s, ly = (py - it.y) / it.s;
+    var lb = A.localBox(A.OBJECTS[it.k]), x = px - it.x, y = py - it.y;
+    if (it.rot) { var p = pivotOf(it), c = Math.cos(-it.rot), sn = Math.sin(-it.rot), dx = x - p[0], dy = y - p[1]; x = p[0] + c * dx - sn * dy; y = p[1] + sn * dx + c * dy; }
+    var lx = x / it.s, ly = y / it.s;
     if (it.flip) lx = -lx;
     var gx = Math.floor((lx - lb[0]) / (lb[2] - lb[0]) * G), gy = Math.floor((ly - lb[1]) / (lb[3] - lb[1]) * G);
     if (gx < 0 || gy < 0 || gx >= G || gy >= G) return false;
@@ -3597,11 +3674,12 @@ var HO = (function () {
     for (var gy = 0; gy < G; gy++) for (var gx = 0; gx < G; gx++) {
       if (!m.s[gy * G + gx]) continue;
       tot++;
-      var lx = lb[0] + (gx + 0.5) * cw, ly = lb[1] + (gy + 0.5) * ch, px = it.x + (it.flip ? -lx : lx) * it.s, py = it.y + ly * it.s, hid = false;
+      var q0 = l2s(it, lb[0] + (gx + 0.5) * cw, lb[1] + (gy + 0.5) * ch), px = q0[0], py = q0[1], hid = false;
       for (var q = 0; q < later.length && !hid; q++) if (onItem(later[q], px, py, 'a')) hid = true;
       if (hid) continue;
       seen++; sx += px; sy += py;
       var hx = cw * it.s / 2, hy = ch * it.s / 2;
+      if (it.rot) { var ca = Math.abs(Math.cos(it.rot)), sa = Math.abs(Math.sin(it.rot)), h2 = ca * hx + sa * hy; hy = sa * hx + ca * hy; hx = h2; }
       x0 = Math.min(x0, px - hx); x1 = Math.max(x1, px + hx); y0 = Math.min(y0, py - hy); y1 = Math.max(y1, py + hy);
     }
     var cell = cw * ch * it.s * it.s, mx = seen ? sx / seen : it.x, my = seen ? sy / seen : it.y;
@@ -3609,12 +3687,12 @@ var HO = (function () {
     var px2 = mx, py2 = my, bd = 1e9;
     if (seen) for (gy = 0; gy < G; gy++) for (gx = 0; gx < G; gx++) {
       if (!m.s[gy * G + gx]) continue;
-      var lx2 = lb[0] + (gx + 0.5) * cw, ly2 = lb[1] + (gy + 0.5) * ch, qx = it.x + (it.flip ? -lx2 : lx2) * it.s, qy = it.y + ly2 * it.s, dd = Math.hypot(qx - mx, qy - my);
+      var q1 = l2s(it, lb[0] + (gx + 0.5) * cw, lb[1] + (gy + 0.5) * ch), qx = q1[0], qy = q1[1], dd = Math.hypot(qx - mx, qy - my);
       if (dd >= bd) continue;
       var hid2 = false; for (q = 0; q < later.length && !hid2; q++) if (onItem(later[q], qx, qy, 'a')) hid2 = true;
       if (!hid2) { bd = dd; px2 = qx; py2 = qy; }
     }
-    return { frac: tot ? seen / tot : 0, area: seen * cell, cx: mx, cy: my, px: px2, py: py2,
+    return { frac: tot ? seen / tot : 0, area: seen * cell, cx: mx, cy: my, px: px2, py: py2, cs: Math.max(cw, ch) * it.s,
       vbox: seen ? { x: x0, y: y0, w: x1 - x0, h: y1 - y0 } : null };
   }
 
@@ -3635,7 +3713,9 @@ var HO = (function () {
     if (sl.s0 != null) s *= sl.s0 + (sl.s1 - sl.s0) * depth;
     return s * K2;
   }
-  function tryPlace(sc, si, k, rnd, K2, ov, near, look) {
+  // rot: the chance a lost thing lies turned (0.2.0; never draws a random number when 0, so Relaxed stays 0.1.0)
+  function turn(it, rnd, rot) { if (rot && A.OBJECTS[it.k].lost && rnd() < rot) it.rot = (rnd() < 0.5 ? -1 : 1) * (0.22 + rnd() * 0.5); }
+  function tryPlace(sc, si, k, rnd, K2, ov, near, look, rot) {
     var sl = sc.slots[si], rect = A.slotRect(sl);
     if (sl.t === 'shelf') rect = [rect[0], rect[1], rect[2], Math.max(rect[3], sl.y + 12)];
     for (var t = 0; t < 40; t++) {
@@ -3644,6 +3724,7 @@ var HO = (function () {
       var s = slotScale(sc, sl, y, K2) * (0.88 + rnd() * 0.18);
       var it = A.item(k, x, y, s, rnd);
       if (look) { ['col', 'col2', 'v', 'n', 'pat', 'txt', 'det'].forEach(function (f) { it[f] = look[f]; }); it.flip = rnd() < 0.5 && A.OBJECTS[k].asym ? !look.flip : look.flip; }
+      turn(it, rnd, rot);
       var b = A.box(it);
       if (!A.inside(b, rect)) continue;
       if (sl.not && sl.not.some(function (r) { return A.inter(b, { x: r[0], y: r[1], w: r[2] - r[0], h: r[3] - r[1] }) > 0; })) continue;
@@ -3672,6 +3753,12 @@ var HO = (function () {
     return hexOk(c) || '#b0a090';
   }
   function meanOf(it) { var m = A.MEAN[it.k], c = m && (m[it.col || ''] || m[Object.keys(m)[0]]); c = c || '#808080'; return it.tint ? A.mix(c, it.tint[0], it.tint[1]) : c; }
+  // (0.2.0) the colour right behind the seen part of item i: the thing drawn before it there, or the backdrop
+  function behind(sc, i, v) {
+    var it = sc.items[i]; v = v || visibility(sc, i);
+    for (var j = i - 1; j >= 0; j--) { var o = sc.items[j]; if (!o.gone && sc.slots[o.slot].t !== 'row' && onItem(o, v.cx, v.cy, 'a')) return meanOf(o); }
+    return backdrop(sc, it.slot);
+  }
   function contrast(sc, it) { return A.colorDist(meanOf(it), backdrop(sc, it.slot)); }
   function camoColour(sc) {
     var pal = A.THEMES[sc.theme].pals[sc.pal], c = pal[GROUND[sc.theme]];
@@ -3680,10 +3767,22 @@ var HO = (function () {
   }
 
   // ---------- a level ----------
+  // a level's own liking for a kind, 0..1 (its own random numbers: the composition's stream is untouched)
+  function kindLuck(n, k) { var h = 0; for (var i = 0; i < k.length; i++) h = (h * 31 + k.charCodeAt(i)) >>> 0; return rng((n * 2654435761 >>> 0) ^ h)(); }
   function seedOf(n, attempt) { return (n * 9173 + attempt * 130363 + 41) >>> 0; }
-  function make(n, attempt, why) {
+  // short: (0.2.0) a place that can't give enough fair things after many tries lists one fewer (then two...)
+  function make(n, attempt, why, diff, short) {
     function no(r0) { if (why) why[r0] = (why[r0] || 0) + 1; }
-    var p = params(n), th = themeFor(n), r = rng(seedOf(n, attempt));
+    var p = params(n, diff), th = themeFor(n), r = rng(seedOf(n, attempt)), NEW = p.D > 0;
+    // a thing drawn with a count of parts (books, bales, a board of carrots) has a looser measured shape: more must
+    // show (0.1.0: 8 points more; 0.2.0: at least 80%, since its shape can't be measured closely enough to hide it deep)
+    // a small thing on something of nearly its own colour is too faint to be fair (0.2.0)
+    function faint(i, v) { return v.area < 900 && A.colorDist(meanOf(sc.items[i]), behind(sc, i, v)) < 100; }
+    // the seen part is MIN_SIDE units across both ways (0.2.0: not counting a shape cell at the edge, which the
+    // drawing may only partly fill)
+    function wide(v) { return !!v.vbox && Math.min(v.vbox.w, v.vbox.h) - (NEW ? v.cs : 0) >= MIN_SIDE; }
+    function needVis(k) { return A.OBJECTS[k].n ? (NEW ? Math.max(0.8, p.minVis + 0.08) : p.minVis + 0.08) : p.minVis; }
+    if (short) p.count = Math.max(8, p.count - short);
     var sc = A.compose(th, r, { scale: p.scale, density: p.density, ovAdd: p.ovAdd, slots: moreSlots(p.density) });
     var K2 = p.scale * (A.THEMES[th].scale || 1), zs = zones(sc);
     if (!zs.length) return null;
@@ -3693,7 +3792,7 @@ var HO = (function () {
       var pool = r() < lostShare ? LOST : smallPool(sc.slots[si]);
       if (!pool.length) pool = LOST;
       // mostly one of each lost thing; now and then a second one (a decoy: neither can be on the list)
-      for (var t = 0; t < 8; t++) { var k = pool[Math.floor(r() * pool.length)]; if (!counts[k] || counts[k] < 2 && r() < 0.15 + 0.2 * p.d || pool !== LOST && counts[k] < 3) return k; }
+      for (var t = 0; t < 8; t++) { var k = pool[Math.floor(r() * pool.length)]; if (NEW && reserved(k)) continue; if (!counts[k] || counts[k] < 2 && r() < 0.15 + 0.2 * p.d || pool !== LOST && counts[k] < 3) return k; }
       return null;
     }
     // piles: a few spots where things heap up
@@ -3702,26 +3801,33 @@ var HO = (function () {
       var zsi = pickZone(), zsl = sc.slots[zsi];
       pileAt.push({ si: zsi, x: zsl.x0 + 60 + r() * Math.max(10, zsl.x1 - zsl.x0 - 120), y: zsl.t === 'shelf' ? zsl.y : zsl.y0 + r() * (zsl.y1 - zsl.y0), w: 130, h: 50 });
     }
+    // 0.2.0: the "find 3" kinds are chosen before the clutter, so the clutter leaves them (and their look-alikes) out
+    var resv = {}, resvL = [];
+    if (NEW && p.threes) shuffle(LOST, r).forEach(function (k) {
+      var lb = A.localBox(A.OBJECTS[k]);
+      if (resvL.length < p.threes + 2 && !counts[k] && (lb[2] - lb[0]) * (lb[3] - lb[1]) >= 1500 && !Object.keys(counts).some(function (o) { return alike(k, o); }) && !resvL.some(function (o) { return alike(k, o); })) { resv[k] = 1; resvL.push(k); }
+    });
+    function reserved(k) { return resv[k] || resvL.some(function (o) { return alike(k, o); }); }
     for (var c = 0; c < p.clutter; c++) {
       var pile = pileAt.length && c % 3 !== 2 ? pileAt[c % pileAt.length] : null, si = pile ? pile.si : pickZone();
       var k = pickKind(si, 0.6); if (!k) continue;
-      var it = tryPlace(sc, si, k, r, K2, pile ? 0.6 : 0.42, pile, null);
+      var it = tryPlace(sc, si, k, r, K2, pile ? 0.6 : 0.42, pile, null, p.rot);
       if (it) counts[k] = (counts[k] || 0) + 1;
     }
     // "find 3" (set down last, on top of the clutter): a kind that isn't in the scene yet (nor anything like it), three times, the same look
     var tri = [];
     var tried = {};
     for (var q = 0, kt = 0; q < p.threes && kt < p.threes + 3; q++, kt++) {
-      var opts = LOST.filter(function (k) { var lb = A.localBox(A.OBJECTS[k]); return !counts[k] && !tried[k] && (lb[2] - lb[0]) * (lb[3] - lb[1]) >= 1500 && !Object.keys(counts).some(function (o) { return alike(k, o); }); });
+      var opts = (NEW ? resvL : LOST).filter(function (k) { var lb = A.localBox(A.OBJECTS[k]); return !counts[k] && !tried[k] && (lb[2] - lb[0]) * (lb[3] - lb[1]) >= 1500 && !Object.keys(counts).some(function (o) { return alike(k, o); }); });
       if (!opts.length) break;
       var k3 = opts[Math.floor(r() * opts.length)], look = A.item(k3, 0, 0, 1, r), got = [];
-      for (var t3 = 0; t3 < 50 && got.length < 3; t3++) {
-        var it3 = tryPlace(sc, pickZone(), k3, r, K2, 0.25, null, look);
+      for (var t3 = 0; t3 < (NEW ? 110 : 50) && got.length < 3; t3++) {
+        var it3 = tryPlace(sc, pickZone(), k3, r, K2, NEW ? 0.35 : 0.25, null, look, p.rot);
         if (!it3) continue;
         if (it3.box.x < EDGE || it3.box.y < EDGE || it3.box.x + it3.box.w > W - EDGE || it3.box.y + it3.box.h > H - EDGE) { sc.items.pop(); continue; }
         if (got.some(function (g) { return Math.hypot(g.x - it3.x, g.y - it3.y) < 90; })) { sc.items.pop(); continue; }
         order(sc);
-        if (!got.concat([it3]).every(function (g) { var v = visibility(sc, sc.items.indexOf(g)); return v.frac >= p.minVis && v.area >= MIN_VAREA && v.vbox && Math.min(v.vbox.w, v.vbox.h) >= MIN_SIDE; })) { sc.items.splice(sc.items.indexOf(it3), 1); continue; }
+        if (!got.concat([it3]).every(function (g) { var v = visibility(sc, sc.items.indexOf(g)); return v.frac >= p.minVis && v.area >= MIN_VAREA && wide(v); })) { sc.items.splice(sc.items.indexOf(it3), 1); continue; }
         got.push(it3);
       }
       if (got.length < 3) { got.forEach(function (g) { sc.items.splice(sc.items.indexOf(g), 1); }); tried[k3] = 1; q--; continue; } // try another kind
@@ -3734,15 +3840,22 @@ var HO = (function () {
     sc.items.forEach(function (it, i) {
       var d = A.OBJECTS[it.k], sl = sc.slots[it.slot];
       if (NEVER[it.k] || sl.t === 'row' || sl.back) return no('never');
-      if (it.tri ? counts[it.k] !== 3 : counts[it.k] !== 1) return no('count');
+      it.cdq = null;
+      if (it.tri ? counts[it.k] !== 3 : counts[it.k] !== 1) {
+        // 0.2.0: more than one of a kind can still be listed when each one is a clearly different, nameable colour
+        // ("red sock"; the other sock is blue)
+        if (!p.decoy || it.tri || !DECOY[it.k] || counts[it.k] > 3 || !colourName(it.col) || it.tint || !sc.items.every(function (o) { return o === it || o.k !== it.k || !o.tint && !o.tri && decoyOk(it.k, it.col, o.col); })) return no('count');
+        it.cdq = colourName(it.col);
+      }
       for (var o in counts) if (alike(it.k, o)) return no('alike');
       var b = it.box;
       if (b.x < EDGE || b.y < EDGE || b.x + b.w > W - EDGE || b.y + b.h > H - EDGE) return no('edge');
       if (b.w * b.h > MAX_AREA) return no('big');
       var v = visibility(sc, i);
       // a thing drawn with a count of parts (books, bales) has a looser measured shape: a little more must show
-      if (v.frac < p.minVis + (A.OBJECTS[it.k].n ? 0.08 : 0)) return no('hidden');
-      if (v.area < MIN_VAREA || !v.vbox || Math.min(v.vbox.w, v.vbox.h) < MIN_SIDE) return no('small');
+      if (v.frac < needVis(it.k)) return no('hidden');
+      if (v.area < MIN_VAREA || !wide(v)) return no('small');
+      if (NEW && faint(i, v)) return no('faint');
       it.vis = v; if (!it.tri) cand.push(i);
     });
     // the "find 3" sets: all three must be fair
@@ -3755,14 +3868,19 @@ var HO = (function () {
     if (why) why.cand = (why.cand || []).concat([cand.length + '/' + nSingles]);
     if (cand.length < nSingles + 1) return null;
     // the bonus first: one lost thing kept off the list (optional; it goes on Wren's shelf)
-    var bonusPool = cand.filter(function (i) { return A.OBJECTS[sc.items[i].k].lost; }), bonus = null;
+    var bonusPool = cand.filter(function (i) { return A.OBJECTS[sc.items[i].k].lost && !sc.items[i].cdq; }), bonus = null;
+    // (0.2.0: when every lost thing left is one of two colours, the bonus may be a colour-named one too)
+    if (NEW && !bonusPool.length) bonusPool = cand.filter(function (i) { return A.OBJECTS[sc.items[i].k].lost; });
     if (bonusPool.length > 1 || bonusPool.length && cand.length > nSingles) bonus = bonusPool[Math.floor(r() * bonusPool.length)];
     // pick: later on, smaller and more hidden things; spread over the picture
     var chosen = [], pool = cand.filter(function (i) { return i !== bonus; });
     while (chosen.length < nSingles && pool.length) {
       var tot = 0, ws = pool.map(function (i) {
-        var it = sc.items[i], w = A.OBJECTS[it.k].lost ? 0.75 : 1, a = it.box.w * it.box.h;
-        w *= 1 + p.d * 7 * (1 - it.vis.frac);                     // partly hidden
+        var it = sc.items[i], w = A.OBJECTS[it.k].lost ? (NEW ? 0.5 : 0.75) : 1, a = it.box.w * it.box.h;
+        if (it.cdq) w *= 0.35;                                    // colour-named ones: some, not most
+        if (NEW) w *= 0.2 + 1.6 * kindLuck(n, it.k);               // each level favours its own kinds (fewer gloves every time)
+        w *= 1 + p.d * (NEW ? 12 : 7) * (1 - it.vis.frac);       // partly hidden
+        if (p.near) w *= 1 + p.near * Math.max(0, 1 - contrast(sc, it) / 220); // 0.2.0: close in colour to what's behind
         w *= Math.pow(Math.max(0.25, Math.min(4, a / 4500)), 0.45 - p.d * 0.95); // bigger first, smaller later
         chosen.forEach(function (j) { var o = sc.items[j]; if (Math.hypot(o.vis.cx - it.vis.cx, o.vis.cy - it.vis.cy) < 90) w *= 0.35; });
         tot += w; return w;
@@ -3773,12 +3891,15 @@ var HO = (function () {
     if (chosen.length < nSingles) return null;
     // from here on, hold the things themselves (tucking re-sorts the scene, so indices change)
     var chosenIt = chosen.map(function (i) { return sc.items[i]; }), bonusIt = bonus == null ? null : sc.items[bonus];
+    chosenIt.forEach(function (it) { if (it.cdq) it.dq = it.cdq; });
+    if (bonusIt && bonusIt.cdq) bonusIt.dq = bonusIt.cdq;
+    sc.items.forEach(function (it) { delete it.cdq; });
     var triIt = entries.map(function (e) { return e.ids.map(function (i) { return sc.items[i]; }); });
     var all = chosenIt.concat(bonusIt ? [bonusIt] : []).concat([].concat.apply([], triIt)), listed = {};
     all.forEach(function (it) { listed[it.k] = 1; });
-    function fair(it) { var v = visibility(sc, sc.items.indexOf(it)); return v.frac >= p.minVis + (A.OBJECTS[it.k].n ? 0.08 : 0) && v.area >= MIN_VAREA && v.vbox && Math.min(v.vbox.w, v.vbox.h) >= MIN_SIDE ? v : null; }
+    function fair(it) { var i = sc.items.indexOf(it), v = visibility(sc, i); return v.frac >= needVis(it.k) && !(NEW && faint(i, v)) && v.area >= MIN_VAREA && wide(v) ? v : null; }
     // tucked in: later on, some listed things get something set down partly in front of them
-    chosenIt.forEach(function (tg) {
+    if (!NEW) chosenIt.forEach(function (tg) {
       if (r() >= p.tuck || tg.vis.frac < 0.88) return;
       var sl = sc.slots[tg.slot], si = tg.slot;
       if (sl.t !== 'ground' && sl.t !== 'shelf') return;
@@ -3796,6 +3917,51 @@ var HO = (function () {
         sc.items.splice(sc.items.indexOf(it), 1); order(sc);
       }
     });
+    // 0.2.0: tucked deeper: of up to 14 tries, the one that hides the most while everything listed stays fair; later
+    // on, sometimes a second thing on top
+    function tuckOne(tg) {
+      var sl = sc.slots[tg.slot], si = tg.slot;
+      if (sl.t !== 'ground' && sl.t !== 'shelf') return false;
+      var rect = A.slotRect(sl); if (sl.t === 'shelf') rect = [rect[0], rect[1], rect[2], Math.max(rect[3], sl.y + 12)];
+      var pool = LOST.concat(smallPool(sl)).filter(function (k) { return !listed[k] && (counts[k] || 0) < 2 && !Object.keys(listed).some(function (o) { return alike(k, o); }); });
+      var best = null, bf = 0.85;
+      for (var t = 0; t < 22 && pool.length; t++) {
+        var k = pool[Math.floor(r() * pool.length)];
+        var y = sl.t === 'shelf' ? sl.y : Math.min(sl.y1, tg.y + 3 + r() * 14), x = tg.x + (r() - 0.5) * tg.box.w * 0.9;
+        var it = A.item(k, x, y, slotScale(sc, sl, y, K2) * (0.9 + r() * 0.15), r); turn(it, r, p.rot);
+        var b = A.box(it);
+        if (!A.inside(b, rect) || sl.not && sl.not.some(function (q) { return A.inter(b, { x: q[0], y: q[1], w: q[2] - q[0], h: q[3] - q[1] }) > 0; })) continue;
+        if (sc.items.some(function (o) { return A.OBJECTS[o.k].keep && A.inter(b, A.subBox(o, 'keep')) > 0; })) continue;
+        it.slot = si; it.box = b; it.lift = 0.01; sc.items.push(it); order(sc);
+        var v = visibility(sc, sc.items.indexOf(tg));
+        if (v.frac < bf && fair(tg) && all.every(function (o) { return fair(o); })) { bf = v.frac; best = it; }
+        sc.items.splice(sc.items.indexOf(it), 1); order(sc);
+      }
+      if (!best) return false;
+      sc.items.push(best); order(sc); counts[best.k] = (counts[best.k] || 0) + 1; return true;
+    }
+    if (NEW) all.forEach(function (tg) {
+      if (r() >= p.tuck || visibility(sc, sc.items.indexOf(tg)).frac < 0.8) return;
+      if (tuckOne(tg) && r() < p.d * 0.7) tuckOne(tg);
+    });
+    // 0.2.0: look-alikes: a listed thing gets one more of its kind in a clearly different colour somewhere in the
+    // picture; the list then names the colour ("red sock") and shows the picture, never the bare silhouette
+    var decoys = [];
+    if (NEW && p.decoy) chosenIt.forEach(function (tg) {
+      if (!DECOY[tg.k] || counts[tg.k] !== 1 || !colourName(tg.col) || r() >= p.decoy) return;
+      var dd = A.OBJECTS[tg.k], opts = dd.cols.filter(function (c) { return decoyOk(tg.k, tg.col, c); });
+      if (!opts.length) return;
+      var col = opts[Math.floor(r() * opts.length)];
+      for (var t = 0; t < 4; t++) {
+        var si = r() < 0.5 && zs.indexOf(tg.slot) >= 0 ? tg.slot : pickZone();
+        var it = tryPlace(sc, si, tg.k, r, K2, 0.42, null, null, p.rot);
+        if (!it) continue;
+        it.col = col; if (it.col2 && A.colorDist(it.col2, it.col) < 160) it.col2 = dd.cols2.reduce(function (b, c) { return A.colorDist(c, it.col) > A.colorDist(b, it.col) ? c : b; }, it.col2);
+        it.dec = 1; order(sc);
+        if (all.every(function (o) { return fair(o); })) { tg.dq = colourName(tg.col); counts[tg.k] = 2; decoys.push(it); return; }
+        sc.items.splice(sc.items.indexOf(it), 1); order(sc);
+      }
+    });
     all.forEach(function (it) { it.vis = visibility(sc, sc.items.indexOf(it)); });
     function idOf(it) { return sc.items.indexOf(it); }
     entries.forEach(function (e, q) { e.ids = triIt[q].map(idOf); });
@@ -3806,20 +3972,21 @@ var HO = (function () {
       if (d.cols && d.cols.length > 1) it.col = d.cols.reduce(function (b, c) { return A.colorDist(c, cc) < A.colorDist(b, cc) ? c : b; }, d.cols[0]);
       it.tint = [cc, p.tint];
     }
-    chosenIt.forEach(function (it) { if (r() < p.camo) blend(it); });
-    sc.items.forEach(function (it) { if (all.indexOf(it) < 0 && sc.slots[it.slot].t !== 'row' && A.OBJECTS[it.k].lost && r() < p.camo * 0.6) blend(it); });
-    chosenIt.forEach(function (it) { entries.push({ k: it.k, ids: [idOf(it)], need: 1 }); });
+    // (0.2.0: a tinted thing is never also deeply hidden or tiny: at least 60% and 800 square units of it show)
+    chosenIt.forEach(function (it) { if (r() < p.camo && !it.dq && (!NEW || it.vis.frac >= 0.6 && it.vis.area >= 800)) blend(it); });
+    sc.items.forEach(function (it) { if (all.indexOf(it) < 0 && !it.dec && !(NEW && listed[it.k]) && sc.slots[it.slot].t !== 'row' && A.OBJECTS[it.k].lost && r() < p.camo * 0.6) blend(it); });
+    chosenIt.forEach(function (it) { var e = { k: it.k, ids: [idOf(it)], need: 1 }; if (it.dq) e.dq = it.dq; entries.push(e); });
     if (bonusIt) bonus = idOf(bonusIt);
     entries = shuffle(entries, r);
     // how each entry is shown: a picture, a word or a silhouette
     entries.forEach(function (e, j) {
-      e.i = j; e.label = A.OBJECTS[e.k].label;
+      e.i = j; e.label = (e.dq ? e.dq + ' ' : '') + A.OBJECTS[e.k].label;
       e.show = p.type !== 'mix' ? p.type : ['pic', 'word', 'sil'][Math.floor(r() * 3)];
       if (e.need > 1 && e.show === 'word') e.show = 'pic';
-      if (e.show === 'sil' && PLAIN[e.k]) e.show = 'pic';
+      if (e.show === 'sil' && (PLAIN[e.k] || e.dq)) e.show = 'pic';
     });
-    var lv = { n: n, theme: th, attempt: attempt, type: p.type, breather: p.breather, scene: sc, list: entries,
-      bonus: bonus == null ? null : { k: sc.items[bonus].k, ids: [bonus], need: 1, label: A.OBJECTS[sc.items[bonus].k].label, show: 'pic', bonus: true } };
+    var lv = { n: n, diff: p.diff, p: p, decoys: decoys.map(idOf), theme: th, attempt: attempt, type: p.type, breather: p.breather, scene: sc, list: entries,
+      bonus: bonus == null ? null : { k: sc.items[bonus].k, ids: [bonus], need: 1, label: (sc.items[bonus].dq ? sc.items[bonus].dq + ' ' : '') + A.OBJECTS[sc.items[bonus].k].label, dq: sc.items[bonus].dq || undefined, show: 'pic', bonus: true } };
     lv.targets = targetsOf(lv);
     return lv;
   }
@@ -3830,12 +3997,15 @@ var HO = (function () {
     return t;
   }
   var cache = {};
-  function level(n) {
-    if (cache[n]) return cache[n];
-    var a0 = PIN[n] || 0, lv = null;
-    for (var a = a0; a < a0 + 60 && !lv; a++) lv = make(n, a);
-    var keys = Object.keys(cache); if (keys.length > 6) delete cache[keys[0]];
-    return (cache[n] = lv);
+  function level(n, diff) {
+    var D = dIdx(diff), key = n + ':' + D;
+    if (cache[key]) return cache[key];
+    var a0 = (D === 0 ? PIN0[n] : D === 1 ? PIN[n] : 0) || 0, lv = null;
+    // Relaxed: 0.1.0's search (up to 60 compositions). 0.2.0: 25 compositions at the full count, then one fewer...
+    if (D === 0) for (var a = a0; a < a0 + 60 && !lv; a++) lv = make(n, a, null, 0);
+    else for (a = a0; a < a0 + 150 && !lv; a++) { var sh = Math.floor((a - a0) / 25); lv = make(n, a, null, D, sh); if (lv) lv.short = sh; }
+    var keys = Object.keys(cache); if (keys.length > 8) delete cache[keys[0]];
+    return (cache[key] = lv);
   }
 
   // ---------- taps ----------
@@ -3862,18 +4032,20 @@ var HO = (function () {
 
   // ---------- stars ----------
   function taps(lv) { return lv.list.reduce(function (s, e) { return s + e.need; }, 0); }
-  function par(lv) { return 22 * taps(lv) + 30; }
-  // 3, minus one for a hint (two for 2+), one for more than 4 misses, one when slower than par (only while the timer
-  // is shown); never below 1
+  function par(lv) { var p = lv.p || params(lv.n, lv.diff); return p.parPer * taps(lv) + p.parAdd; }
+  // 3, minus one for a hint (two for 2+), one for more than 4 misses (Hard 3, Expert 2), one when slower than par
+  // (Relaxed and Normal: only while the timer is shown; Hard and Expert: always, with a tighter par); never below 1
   function stars(lv, secs, wrong, hints, timed) {
-    var s = 3 - (hints > 0 ? 1 : 0) - (hints > 1 ? 1 : 0) - (wrong > 4 ? 1 : 0) - (timed && secs > par(lv) ? 1 : 0);
+    var p = lv.p || params(lv.n, lv.diff);
+    var s = 3 - (hints > 0 ? 1 : 0) - (hints > 1 ? 1 : 0) - (wrong > p.maxWrong ? 1 : 0) - ((timed || p.timed) && secs > par(lv) ? 1 : 0);
     return Math.max(1, s);
   }
+  function hintsPer(diff) { return HINTS[dIdx(diff)]; }
   var HINTS_PER_LEVEL = 3, BONUS_EVERY = 5, BONUS_MAX = 5;
   return { level: level, make: make, params: params, themeFor: themeFor, itemCount: itemCount, listType: listType, threes: threes, breather: breather,
-    visibility: visibility, onItem: onItem, contrast: contrast, backdrop: backdrop, meanOf: meanOf, maskOf: maskOf, alike: alike, GROUP: GROUP, hit: hit, anyAt: anyAt, stars: stars, par: par, taps: taps,
+    visibility: visibility, onItem: onItem, contrast: contrast, behind: behind, backdrop: backdrop, meanOf: meanOf, maskOf: maskOf, alike: alike, GROUP: GROUP, hit: hit, anyAt: anyAt, stars: stars, par: par, taps: taps,
     REF: REF, ZMAX: ZMAX, MIN_VIS: MIN_VIS, MIN_VAREA: MIN_VAREA, MIN_SIDE: MIN_SIDE, MAX_AREA: MAX_AREA, EDGE: EDGE, NEVER: NEVER, LOST: LOST, PLAIN: PLAIN, TYPES: TYPES,
-    PIN: PIN, FIRST: FIRST, HINTS_PER_LEVEL: HINTS_PER_LEVEL, BONUS_EVERY: BONUS_EVERY, BONUS_MAX: BONUS_MAX };
+    PIN: PIN, PIN0: PIN0, FIRST: FIRST, DIFFS: DIFFS, DIFF_NAMES: DIFF_NAMES, dIdx: dIdx, hintsPer: hintsPer, colourName: colourName, decoyOk: decoyOk, DECOY: DECOY, MINVIS: MINVIS, DECOY_COL: DECOY_COL, DECOY_MEAN: DECOY_MEAN, HINTS_PER_LEVEL: HINTS_PER_LEVEL, BONUS_EVERY: BONUS_EVERY, BONUS_MAX: BONUS_MAX };
 })();
 if (typeof module !== 'undefined') module.exports = HO;
 </script>
@@ -3964,8 +4136,8 @@ var HS = (function () {
 
   // ================= storage =================
   var store = Goobs.store('hidden');
-  var settings = { sound: false, music: false, adEvery: 3, timer: true, rest: true, list: 'level' };
-  (function () { var s = store.get('settings', {}) || {}; for (var k in settings) if (typeof s[k] === typeof settings[k]) settings[k] = s[k]; settings.adEvery = Math.min(10, Math.max(1, settings.adEvery | 0)); if (['level', 'pic', 'word'].indexOf(settings.list) < 0) settings.list = 'level'; })();
+  var settings = { sound: false, music: false, adEvery: 3, timer: true, rest: true, list: 'level', diff: 'normal' };
+  (function () { var s = store.get('settings', {}) || {}; for (var k in settings) if (typeof s[k] === typeof settings[k]) settings[k] = s[k]; settings.adEvery = Math.min(10, Math.max(1, settings.adEvery | 0)); if (['level', 'pic', 'word'].indexOf(settings.list) < 0) settings.list = 'level'; if (HO.DIFFS.indexOf(settings.diff) < 0) settings.diff = 'normal'; })();
   function saveSettings() { store.set('settings', settings); }
   var meta = store.get('meta', null) || {};
   var MD = { level: 1, seen: false, finished: 0, lastAdAt: 0, stars: {}, bonus: 0, themes: {}, shelf: {} };
@@ -3991,11 +4163,12 @@ var HS = (function () {
   // ================= game state =================
   var lv = null, levelNo = 1, done = [], wrong = 0, hints = 0, secs = 0, over = false, ending = false;
   var marks = [], hintT = -1, hintAt = 0, misses = [], restUntil = 0, lastSave = 0, foundN = 0;
-  function sig(l) { return l.theme + ':' + l.attempt + ':' + l.list.map(function (e) { return e.k + e.need; }).join(',') + ':' + (l.bonus ? l.bonus.k : '-') + ':' + l.targets.length; }
+  // (0.2.0 adds the difficulty and colour names: a 0.1.0 level in progress starts fresh once)
+  function sig(l) { return l.diff + ':' + l.theme + ':' + l.attempt + ':' + l.list.map(function (e) { return e.k + (e.dq || '') + e.need; }).join(',') + ':' + (l.bonus ? l.bonus.k : '-') + ':' + l.targets.length; }
   function itemOf(j) { return lv.scene.items[lv.targets[j].id]; }
   function startLevel(n) {
     levelNo = n; meta.level = n; saveMeta();
-    lv = HO.level(n); lv.scene.items.forEach(function (it) { it.gone = false; });
+    lv = HO.level(n, settings.diff); lv.scene.items.forEach(function (it) { it.gone = false; });
     done = lv.targets.map(function () { return false; });
     wrong = 0; hints = 0; secs = 0; over = false; ending = false; marks = []; hintT = -1; misses = []; restUntil = 0; foundN = 0; flies = []; sparks = []; landedSet = {}; showRest(false);
     meta.themes[lv.theme] = 1; saveMeta();
@@ -4009,7 +4182,7 @@ var HS = (function () {
   function load() {
     var r = store.get('game', null);
     if (!r || r.level !== meta.level || typeof r.sig !== 'string' || !Array.isArray(r.done)) return false;
-    var l = HO.level(r.level); if (!l || sig(l) !== r.sig) return false;
+    var l = HO.level(r.level, settings.diff); if (!l || sig(l) !== r.sig) return false;
     if (!(r.wrong >= 0) || !(r.hints >= 0) || !(r.secs >= 0)) return false;
     if (r.done.some(function (j) { return !(j >= 0 && j < l.targets.length); })) return false;
     lv = l; levelNo = r.level; lv.scene.items.forEach(function (it) { it.gone = false; });
@@ -4024,7 +4197,9 @@ var HS = (function () {
   function requiredAll() { return lv.targets.filter(function (t) { return t.e >= 0; }).length; }
   function entryDone(e) { var all = true; lv.targets.forEach(function (t, j) { if (t.e === e && !done[j]) all = false; }); return all; }
   function entryCount(e) { var k = 0; lv.targets.forEach(function (t, j) { if (t.e === e && done[j]) k++; }); return k; }
-  function hintsLeft() { return Math.max(0, HO.HINTS_PER_LEVEL - hints) + meta.bonus; }
+  function perLevel() { return lv && lv.p ? lv.p.hints : HO.hintsPer(settings.diff); }
+  function hintsLeft() { return Math.max(0, perLevel() - hints) + meta.bonus; }
+  function timedLv() { return !!(lv && lv.p && lv.p.timed); }
 
   // ================= layout =================
   var DPR = 1, SW = 300, SH = 400, V = { x: 0, y: 50, w: 300, h: 350 }, home = 0.5, zMin = 1, cv, cx2, fx, fxc;
@@ -4153,17 +4328,21 @@ var HS = (function () {
       el.setAttribute('aria-label', (isB ? 'Bonus: ' : '') + e.label + (e.need > 1 ? ' (3)' : ''));
       var cvs = null;
       var longest = e.label.split(/[\s-]/).reduce(function (m, x) { return Math.max(m, x.length); }, 0);
-      if (mode === 'word') { var w = document.createElement('div'); w.className = 'word' + (e.label.length > 11 || longest > 6 ? ' long' : ''); w.textContent = e.label.split(' ').map(function (x) { return x.length > 9 ? x.slice(0, Math.floor(x.length / 2) - 1) + '\u00ad' + x.slice(Math.floor(x.length / 2) - 1) : x; }).join(' '); el.appendChild(w); }
+      if (mode === 'word') { var w = document.createElement('div'); w.className = 'word' + (e.label.length > 11 || longest > 6 ? ' long' : ''); w.textContent = e.label.split(' ').map(function (x) { return x.length > 9 ? hyph(x) : x; }).join(' '); el.appendChild(w); }
       else { cvs = document.createElement('canvas'); el.appendChild(cvs); }
       if (e.need > 1) { var b = document.createElement('span'); b.className = 'cnt3'; el.appendChild(b); }
       box.appendChild(el); slots.push({ el: el, e: isB ? -1 : j, entry: e, canvas: cvs, mode: mode });
     });
     syncList(); fitSoon();
   }
+  // a soft hyphen where a long word may break (the library's long words; anything else at its middle)
+  var HY = { sandcastle: 4, lighthouse: 5, wheelbarrow: 5, sunglasses: 3, binoculars: 4, magnifying: 5, headphones: 4 };
+  function hyph(x) { if (x.indexOf('-') >= 0) return x; var b = HY[x] || Math.floor(x.length / 2); return x.slice(0, b) + '\u00ad' + x.slice(b); }
   function layoutList() {
     if (!lv || !slots.length) return;
     var box = $('list'), W = Math.min(640, box.parentNode.getBoundingClientRect().width - 16), words = slots.some(function (s) { return s.mode === 'word'; });
-    var minW = words ? 64 : 50, n = slots.length, cols = Math.max(4, Math.floor((W + 5) / (minW + 5)));
+    var n = slots.length, compact = n > 12, minW = compact ? (words ? 56 : 42) : (words ? 64 : 50), gap = compact ? 4 : 5, cols = Math.max(4, Math.floor((W + gap) / (minW + gap)));
+    box.classList.toggle('compact', compact);
     var rows = Math.ceil(n / cols); cols = Math.ceil(n / rows);
     box.style.gridTemplateColumns = 'repeat(' + cols + ', 1fr)';
     slots.forEach(function (s) { s.el.classList.toggle('pics', !words); });
@@ -4331,7 +4510,7 @@ var HS = (function () {
     var t = lv.targets[j], it = itemOf(j);
     done[j] = true; it.gone = true; foundN++; baseDirty = true; crispKey = ''; if (hintT === j) hintT = -1;
     stats.found++;
-    if (t.e < 0) { meta.shelf[it.k] = (meta.shelf[it.k] || 0) + 1; stats.curios++; saveMeta(); setTimeout(function () { S.bonus(); }, 120); toast('Bonus found: ' + A.OBJECTS[it.k].label + ' (for Wren’s shelf)'); }
+    if (t.e < 0) { meta.shelf[it.k] = (meta.shelf[it.k] || 0) + 1; stats.curios++; saveMeta(); setTimeout(function () { S.bonus(); }, 120); toast('Bonus found: ' + lv.bonus.label + ' (for Wren’s shelf)'); }
     saveStats();
     flyTo(j); S.found(foundN - 1); dirty = true; save(); renderInfo();
     if (requiredLeft() === 0) win();
@@ -4366,7 +4545,7 @@ var HS = (function () {
     // the one that's hardest to see: the smallest visible part
     left.sort(function (a, b) { return itemOf(a).vis.area - itemOf(b).vis.area; });
     var j = left[0];
-    if (hints >= HO.HINTS_PER_LEVEL) { meta.bonus--; saveMeta(); }
+    if (hints >= perLevel()) { meta.bonus--; saveMeta(); }
     hints++; stats.hints++; saveStats(); hintT = j; hintAt = now(); S.hint();
     // bring it into view (pan; zoom out a little if it is far)
     var v = itemOf(j).vis, s = home * view.z, hw = V.w / 2 / s, hh = V.h / 2 / s, mx = Math.min(hw * 0.7, 100 / s), my = Math.min(hh * 0.7, 100 / s);
@@ -4378,7 +4557,7 @@ var HS = (function () {
   function win() {
     if (ending) return;
     ending = true; over = true; cancelPending(); showRest(false); hintT = -1;
-    var n = levelNo, timed = settings.timer, st = HO.stars(lv, secs, wrong, hints, timed), prev = meta.stars[n] || 0, earned = false;
+    var n = levelNo, timed = settings.timer || timedLv(), st = HO.stars(lv, secs, wrong, hints, settings.timer), prev = meta.stars[n] || 0, earned = false, par = HO.par(lv);
     if (st > prev) { stats.stars += st - prev; meta.stars[n] = st; }
     if (st === 3 && prev < 3) stats.three++;
     if (!wrong && !hints) stats.perfect++;
@@ -4387,17 +4566,18 @@ var HS = (function () {
     if (meta.finished % HO.BONUS_EVERY === 0 && meta.bonus < HO.BONUS_MAX) { meta.bonus++; earned = true; }
     saveMeta(); store.del('game');
     setTimeout(function () { S.win(); }, 750);
-    var used = secs, w = wrong, h = hints, nd = HO.taps(lv), bonusGot = lv.bonus && done[lv.targets.length - 1], bk = lv.bonus && lv.bonus.k;
+    var used = secs, w = wrong, h = hints, nd = HO.taps(lv), bonusGot = lv.bonus && done[lv.targets.length - 1], bk = lv.bonus && lv.bonus.k, bl = lv.bonus && lv.bonus.label;
     setTimeout(function () {
       if (!over || levelNo !== n) return;
       var txt = 'All <b>' + nd + '</b> found' + (timed ? ' in <b>' + clock(used) + '</b>' : '') + '. ' + (w ? w + ' miss' + (w > 1 ? 'es' : '') : 'No misses') + (h ? ', ' + h + ' hint' + (h > 1 ? 's' : '') : '') + '.';
-      if (bk) txt += bonusGot ? '<br>Bonus found (<b>' + A.OBJECTS[bk].label + '</b>): it’s on Wren’s shelf.' : '<br>The bonus (<b>' + A.OBJECTS[bk].label + '</b>) is still hiding in there.';
+      if (timedLv()) txt += '<br>' + HO.DIFF_NAMES[settings.diff] + ' target: ' + clock(par) + (used > par ? ' (missed it by ' + clock(used - par) + ')' : ' (made it)') + '.';
+      if (bk) txt += bonusGot ? '<br>Bonus found (<b>' + bl + '</b>): it’s on Wren’s shelf.' : '<br>The bonus (<b>' + bl + '</b>) is still hiding in there.';
       if (earned) txt += '<br>You earned a <b>bonus hint</b> (' + meta.bonus + ' saved).';
       showCard(['Found it all!', 'Nothing stays lost!', 'Sharp eyes!', 'Wren says thank you!', 'All returned!'][n % 5], txt, [
         { label: 'Next level', red: true, go: nextLevel },
         { label: 'Look again', sub: 'see the picture', go: function () { renderInfo(); } }], st);
       for (var s2 = 0; s2 < st; s2++) (function (s2) { setTimeout(function () { S.star(s2); }, 250 + s2 * 150); })(s2);
-      setTimeout(function () { HO.level(n + 1); }, 400);
+      setTimeout(function () { HO.level(n + 1, settings.diff); }, 400);
     }, 1500);
     renderInfo();
   }
@@ -4419,7 +4599,13 @@ var HS = (function () {
   }
 
   // ================= info, cards, sheets =================
-  function renderTime() { var el = $('pillTime'); if (!settings.timer || !lv) { el.innerHTML = ''; return; } el.innerHTML = '<small>Time</small>' + clock(secs); }
+  // Hard and Expert: the time always counts, and the pill shows the target for the third star
+  function renderTime() {
+    var el = $('pillTime'), tl = timedLv();
+    if (!lv || !settings.timer && !tl) { el.innerHTML = ''; el.classList.remove('over'); return; }
+    var par = HO.par(lv); el.classList.toggle('over', tl && secs > par);
+    el.innerHTML = '<small>' + (tl ? '/ ' + clock(par) : 'Time') + '</small>' + clock(secs);
+  }
   function renderInfo() {
     if (!lv) return;
     $('pillLevel').innerHTML = '<small>Level</small>' + fmt(levelNo);
@@ -4432,7 +4618,7 @@ var HS = (function () {
     $('btnHint').querySelector('use').setAttribute('href', over ? '#i-next' : '#i-hint');
   }
   var nameT = 0;
-  function showName() { var el = $('sceneName'); el.textContent = themeName(lv.theme) + (lv.breather ? ' · an easy one' : ''); el.classList.add('show'); clearTimeout(nameT); nameT = setTimeout(function () { el.classList.remove('show'); }, 2600); }
+  function showName() { var el = $('sceneName'); el.textContent = themeName(lv.theme) + (lv.breather ? ' · an easy one' : '') + (settings.diff !== 'normal' ? ' · ' + HO.DIFF_NAMES[settings.diff] : ''); el.classList.add('show'); clearTimeout(nameT); nameT = setTimeout(function () { el.classList.remove('show'); }, 2600); }
   var toastT = 0;
   function toast(t) { var el = $('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(function () { el.classList.remove('show'); }, 2300); }
   function starSVG(on) { return '<svg viewBox="0 0 24 24" class="' + (on ? 'on' : '') + '"><path d="M12 2.8l2.8 5.7 6.3.9-4.5 4.4 1 6.2L12 17l-5.6 3 1-6.2L2.9 9.4l6.3-.9z" fill="' + (on ? '#ffc43d' : 'rgba(150,150,170,.35)') + '" stroke="' + (on ? '#d99400' : 'rgba(120,120,140,.4)') + '" stroke-width="1.4" stroke-linejoin="round"/></svg>'; }
@@ -4456,12 +4642,13 @@ var HS = (function () {
       '<b>Tap a thing</b> when you spot it: it lifts out of the picture and flies to its place on the list.',
       'The list shows <b>pictures</b>, <b>words</b> or <b>shapes</b> (silhouettes). <b>×3</b> means three of the same thing are hidden: find all three. (Settings can keep it to pictures or words.)',
       'The picture is bigger than the screen: <b>drag</b> to look around, <b>pinch</b> to zoom. <b>Double-tap</b> zooms in there, double-tap again to come back; <b>Zoom out</b> shows the whole picture.',
-      'Things hide: behind other things, in piles, on crowded shelves, and some are tinted to blend in. At least half of each one always shows.',
+      'Things hide: behind other things, in piles, on crowded shelves, turned on their side, and some are tinted to blend in. A good part of each one always shows, and zoomed in you can always tell it’s the one.',
+      '<b>Look-alikes:</b> when the list says a colour (<b>“red sock”</b>), there’s another one in a different colour somewhere. Only the one on the list counts.',
       'A wrong tap shows a small red <b>×</b>. Three quick misses and the picture takes a 5-second breather (Settings can switch that off).',
-      '<b>Hint:</b> a magnifying glass shows one thing you haven’t found. 3 per level, plus a bonus hint saved every 5 levels. Each costs a star.',
+      '<b>Hint:</b> a magnifying glass shows one thing you haven’t found. 3 per level (Hard 2, Expert 1), plus a bonus hint saved every 5 levels. Each costs a star.',
       '<b>Bonus</b> (the gold slot with a star): one more lost thing, not needed to finish. Find it and it goes on <b>Wren’s shelf</b> (in Stats).',
-      '<b>Stars:</b> 3, minus one for a hint (two for more), one for more than 4 misses, and one for going over the par time (only while the timer is shown).',
-      'Twelve places, an easy one every 7th level, and the levels never run out.'
+      '<b>Stars:</b> 3, minus one for a hint (two for more), one for more than 4 misses, and one for going over the par time (only while the timer is shown). <b>Hard</b> and <b>Expert</b> have a target time that always counts (it’s on the clock) and allow fewer misses (3 and 2).',
+      '<b>Difficulty</b> (Settings): Relaxed, Normal, Hard or Expert. Twelve places, an easy one every 7th level, and the levels never run out.'
     ].map(function (x) { return '<li>' + x + '</li>'; }).join('');
     $('ovHelp').classList.add('show');
   }
@@ -4485,7 +4672,21 @@ var HS = (function () {
   // ================= wiring =================
   function syncSound() { $('btnSound').innerHTML = '<svg viewBox="0 0 24 24"><use href="#i-sound-' + (settings.sound ? 'on' : 'off') + '"/></svg>'; $('btnSound').classList.toggle('on', settings.sound); $('setSound').checked = settings.sound; S.setEnabled(settings.sound); }
   function syncAds() { $('setAds').checked = Goobs.adsOn(); $('adEvery').textContent = settings.adEvery; $('rowAdEvery').classList.toggle('off', !Goobs.adsOn()); }
-  function syncModes() { Array.prototype.forEach.call($('listModes').querySelectorAll('button'), function (b) { b.classList.toggle('on', b.getAttribute('data-v') === settings.list); }); }
+  var DIFF_NOTE = { relaxed: 'Relaxed: the gentle 0.1.0 game. Fewer things, bigger and easier to see.', normal: 'Normal: busy scenes, longer lists, things hidden well.',
+    hard: 'Hard: hidden deeper, 2 hints a level, and a target time for the third star.', expert: 'Expert: the toughest search, 1 hint a level, a tight target time.' };
+  function syncModes() {
+    Array.prototype.forEach.call($('listModes').querySelectorAll('button'), function (b) { b.classList.toggle('on', b.getAttribute('data-v') === settings.list); });
+    Array.prototype.forEach.call($('diffModes').querySelectorAll('button'), function (b) { b.classList.toggle('on', b.getAttribute('data-v') === settings.diff); });
+    $('diffNote').textContent = DIFF_NOTE[settings.diff];
+  }
+  // a new difficulty starts the level again when nothing is found yet; otherwise it starts with the next level
+  function setDiff(v) {
+    if (v === settings.diff || HO.DIFFS.indexOf(v) < 0) return;
+    settings.diff = v; saveSettings(); syncModes();
+    if (!lv || over) return;
+    if (!foundN && !wrong && !hints) { startLevel(levelNo); toast(HO.DIFF_NAMES[v] + ': the level starts again'); }
+    else toast(HO.DIFF_NAMES[v] + ' from the next level');
+  }
   function sheet(btn, ov, close, onOpen) {
     if (btn) $(btn).addEventListener('click', function () { if (onOpen) onOpen(); $(ov).classList.add('show'); });
     $(close).addEventListener('click', function () { $(ov).classList.remove('show'); });
@@ -4496,7 +4697,7 @@ var HS = (function () {
     Goobs.fullscreen({ overlay: true, menu: ['btnStats', 'btnSettings'], info: function () {
       if (!lv) return '';
       var st = meta.stars[levelNo], nf = 0; lv.targets.forEach(function (t, j) { if (t.e >= 0 && done[j]) nf++; });
-      return '<b>Level ' + fmt(levelNo) + '</b> · ' + themeName(lv.theme) + ' · ' + nf + ' of ' + requiredAll() + ' found · ' + wrong + ' miss' + (wrong === 1 ? '' : 'es') + ' · ' + hints + ' hint' + (hints === 1 ? '' : 's') + (settings.timer ? ' · ' + clock(secs) : '') + (st ? ' · ' + '★★★'.slice(0, st) : '');
+      return '<b>Level ' + fmt(levelNo) + '</b> · ' + themeName(lv.theme) + ' · ' + HO.DIFF_NAMES[settings.diff] + ' · ' + nf + ' of ' + requiredAll() + ' found · ' + wrong + ' miss' + (wrong === 1 ? '' : 'es') + ' · ' + hints + ' hint' + (hints === 1 ? '' : 's') + (settings.timer ? ' · ' + clock(secs) : '') + (st ? ' · ' + '★★★'.slice(0, st) : '');
     } });
     Goobs.themePicker($('themes'));
     Goobs.onTheme(function () { dirty = true; if (lv) drawList(); });
@@ -4536,6 +4737,7 @@ var HS = (function () {
     $('setAds').addEventListener('change', function () { Goobs.setAds(this.checked); syncAds(); });
     $('adLess').addEventListener('click', function () { settings.adEvery = Math.max(1, settings.adEvery - 1); saveSettings(); syncAds(); });
     $('adMore').addEventListener('click', function () { settings.adEvery = Math.min(10, settings.adEvery + 1); saveSettings(); syncAds(); });
+    $('diffModes').addEventListener('click', function (e) { var b = e.target.closest('button'); if (b) setDiff(b.getAttribute('data-v')); });
     $('listModes').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; settings.list = b.getAttribute('data-v'); saveSettings(); syncModes(); if (lv) buildList(); });
     if (window.ResizeObserver) { var ro = new ResizeObserver(fitSoon); ro.observe(document.documentElement); ro.observe(document.querySelector('.top')); }
     window.addEventListener('resize', fitSoon);
@@ -4548,7 +4750,7 @@ var HS = (function () {
     requestAnimationFrame(frame);
     window.__hoReady = true;
     Goobs.markPlayed('hidden');
-    Goobs.initUpdates({ beforeReload: save, onVersions: function (v) { $('version').textContent = 'Lost & Found ' + (v.hidden || '0.1.0') + ' · Goobs-Games ' + (v.shell || '?'); } });
+    Goobs.initUpdates({ beforeReload: save, onVersions: function (v) { $('version').textContent = 'Lost & Found ' + (v.hidden || '0.2.0') + ' · Goobs-Games ' + (v.shell || '?'); } });
   }
   // hook for automated tests
   function client(x, y) { var r = $('stage').getBoundingClientRect(), t = xf(); return { x: r.left + t.ox + x * t.s, y: r.top + t.oy + y * t.s }; }
@@ -4568,9 +4770,10 @@ var HS = (function () {
       return null;
     },
     visible: function (j) { var v = itemOf(j).vis, s = home * view.z, hw = V.w / 2 / s, hh = V.h / 2 / s; return v.px > view.cx - hw + 12 / s && v.px < view.cx + hw - 12 / s && v.py > view.cy - hh + 12 / s && v.py < view.cy + hh - 12 / s; },
+    lookAtXY: function (x, y, z) { view.z = z || view.z; view.cx = x; view.cy = y; vAnim = null; clampView(); viewChanged(); },
     lookAt: function (j, z) { var v = itemOf(j).vis; view.z = z || view.z; view.cx = v.cx; view.cy = v.cy; vAnim = null; clampView(); viewChanged(); },
     slotOf: function (j) { var s = slotFor(j); return s ? s.el.getBoundingClientRect().toJSON() : null; },
-    startLevel: startLevel, hint: hint, meta: function () { return meta; }, stats: function () { return stats; }, settings: function () { return settings; },
+    startLevel: startLevel, hint: hint, setDiff: setDiff, meta: function () { return meta; }, stats: function () { return stats; }, settings: function () { return settings; },
     crispReady: function () { return crispKey === vkey(); }, busy: function () { return !!vAnim || !!gesture || flies.length > 0; }
   };
   init();

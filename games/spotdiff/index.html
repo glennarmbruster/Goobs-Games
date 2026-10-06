@@ -104,6 +104,12 @@ html.gg-fs-over .toolbar .tool:disabled { opacity: .55; }
 .scenename.show { display: block; }
 html[data-theme="dark"] .scenename { color: rgba(220,230,255,.6); }
 html[data-skin="halloween"] .scenename { color: rgba(255,190,120,.75); }
+
+/* 0.2.0: the difficulty row (a segmented control under its label) and the goal-time pill once it's passed */
+.row.rowcol { flex-direction: column; align-items: stretch; gap: 10px; }
+.row.rowcol .modes button { font-size: 14px; }
+.pills .ggpill.over { color: var(--muted); }
+.pills .ggpill.over small { color: #d2553f; opacity: .9; }
 </style>
 </head>
 <body>
@@ -163,7 +169,9 @@ html[data-skin="halloween"] .scenename { color: rgba(255,190,120,.75); }
     <div class="sheetbody">
       <div class="themelabel">Theme (all games)</div>
       <div class="themes" id="themes"></div>
-      <label class="row"><div>Show the timer<small>A clock at the top. While it's hidden, time never costs a star.</small></div>
+      <div class="row rowcol"><div>Difficulty<small id="diffNote"></small></div>
+        <div class="modes" id="setDiff"><button data-d="0">Relaxed</button><button data-d="1">Normal</button><button data-d="2">Hard</button><button data-d="3">Expert</button></div></div>
+      <label class="row" id="rowTimer"><div>Show the timer<small id="timerNote">A clock at the top. While it's hidden, time never costs a star.</small></div>
         <span class="switch"><input type="checkbox" id="setTimer"><span></span></span></label>
       <label class="row"><div>Rest after quick misses<small>Three wrong taps in a row within a few seconds: a 5-second breather.</small></div>
         <span class="switch"><input type="checkbox" id="setRest"><span></span></span></label>
@@ -175,7 +183,7 @@ html[data-skin="halloween"] .scenename { color: rgba(255,190,120,.75); }
         <span class="switch"><input type="checkbox" id="setAds"><span></span></span></label>
       <div class="row" id="rowAdEvery"><div>Show an ad every<small>Counted in finished levels.</small></div>
         <div class="stepper"><button id="adLess" aria-label="Fewer">&minus;</button><b id="adEvery">3</b><button id="adMore" aria-label="More">+</button></div></div>
-      <div class="version" id="version">Double Take 0.1.0</div>
+      <div class="version" id="version">Double Take 0.2.0</div>
     </div>
     <div class="actions"><button class="btn red" id="btnCloseSettings">Done</button></div>
   </div>
@@ -237,7 +245,7 @@ html[data-skin="halloween"] .scenename { color: rgba(255,190,120,.75); }
      many     how many may appear in one scene (default 2)    shadow  draws a soft ground shadow
      keep     true: nothing placed later may cover its sub.keep box (a shop's sign)
    ITEM (one placed object): { k: name, x, y (base point in scene units), s: scale, flip, col, col2, v, n, pat, mood,
-     txt, det }. SceneArt.item(name, x, y, s, rnd) makes one with random looks; SceneArt.drawItem(ctx, item) draws it;
+     txt, det, rot (optional tilt in radians), rp (1: tilt about the middle, else about the base point) }. SceneArt.item(name, x, y, s, rnd) makes one with random looks; SceneArt.drawItem(ctx, item) draws it;
      SceneArt.box(item) is its box in scene units {x, y, w, h} (includes outline and shadow); SceneArt.subBox(item, kind).
 
    THEMES: SceneArt.THEMES[id] (and SceneArt.THEME_IDS): { id, name, pals: [palette...], bg(ctx, pal, scene) paints the
@@ -559,9 +567,17 @@ var SceneArt = (function () {
   var OBJ = {}, LIST = [];
   function def(name, d) { d.name = name; d.label = d.label || name; d.many = d.many || 2; d.pad = d.pad == null ? 4 : d.pad; OBJ[name] = d; LIST.push(d); }
   function localBox(d) { return INK[d.name] || d.bx || [-d.w / 2, -d.h, d.w / 2, 0]; }
+  // a tilted item (it.rot, radians) turns about its pivot: its base point (it.rp falsy: it leans) or the middle of its
+  // box (it.rp 1: sky, water and wall things); its box is the box around the turned rectangle
+  function pivot(it, b) { return it.rp ? [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2] : [0, 0]; }
   function box(it) {
     var d = OBJ[it.k], b = localBox(d), s = it.s, p = INK[d.name] ? 2 : d.pad;
     var x0 = it.flip ? -b[2] : b[0], x1 = it.flip ? -b[0] : b[2];
+    if (it.rot) {
+      var q = [x0 - p, b[1] - p, x1 + p, b[3] + p], pv = pivot(it, [x0, b[1], x1, b[3]]), c = Math.cos(it.rot), sn = Math.sin(it.rot), ax = 1e9, ay = 1e9, bx = -1e9, by = -1e9;
+      [[q[0], q[1]], [q[2], q[1]], [q[0], q[3]], [q[2], q[3]]].forEach(function (v) { var dx = v[0] - pv[0], dy = v[1] - pv[1], rx = pv[0] + dx * c - dy * sn, ry = pv[1] + dx * sn + dy * c; ax = Math.min(ax, rx); ay = Math.min(ay, ry); bx = Math.max(bx, rx); by = Math.max(by, ry); });
+      return { x: it.x + ax * s - s, y: it.y + ay * s - s, w: (bx - ax + 2) * s, h: (by - ay + 2) * s };
+    }
     return { x: it.x + (x0 - p) * s, y: it.y + (b[1] - p) * s, w: (x1 - x0 + 2 * p) * s, h: (b[3] - b[1] + 2 * p) * s };
   }
   function subBox(it, kind) {
@@ -574,7 +590,9 @@ var SceneArt = (function () {
   function drawItem(ctx, it) {
     var d = OBJ[it.k]; if (!d) return;
     X = ctx; FL = !!it.flip;
-    ctx.save(); ctx.translate(it.x, it.y); ctx.scale(it.s * (FL ? -1 : 1), it.s);
+    ctx.save(); ctx.translate(it.x, it.y);
+    if (it.rot) { var b = localBox(d), x0 = FL ? -b[2] : b[0], x1 = FL ? -b[0] : b[2], pv = pivot(it, [x0, b[1], x1, b[3]]); ctx.translate(pv[0] * it.s, pv[1] * it.s); ctx.rotate(it.rot); ctx.translate(-pv[0] * it.s, -pv[1] * it.s); }
+    ctx.scale(it.s * (FL ? -1 : 1), it.s);
     if (d.shadow) shadow(d.w * (d.shadow === true ? 0.92 : d.shadow));
     d.draw(it, d);
     ctx.restore(); FL = false;
@@ -2077,7 +2095,7 @@ var SceneArt = (function () {
 
   // ---------- space ----------
   def('planet', { label: 'planet', th: ['space'], at: ['sky'], w: 140, h: 110, cols: ['#e8a85a', '#d88a6a', '#8ab4e0', '#b89ae0', '#7cc8a0', '#f0c860'], cols2: ['#f6dca0', '#fbe8d8', '#d8ecff'], pat: 2, det: 'ring', many: 1, pad: 3,
-    sub: { det: [-70, -66, 70, -42], pat: [-40, -94, 40, -18] },
+    sub: { det: [-74, -84, 74, -26], pat: [-40, -94, 40, -18] },
     draw: function (o) {
       var c = o.col;
       if (o.det) { B(); X.ellipse(0, -55, 68, 16, -0.25, Math.PI * 1.02, Math.PI * 1.98); X.strokeStyle = rgba(o.col2, 0.95); X.lineWidth = 8; X.stroke(); }
@@ -2127,7 +2145,7 @@ var SceneArt = (function () {
   def('comet', { label: 'comet', th: ['space'], at: ['sky'], w: 150, h: 56, cols: ['#bfe8ff', '#ffe0a0', '#ffc0d8'], asym: true, many: 1, pad: 3,
     draw: function (o) { var c = o.col; var g = X.createLinearGradient(-75, 0, 50, 0); g.addColorStop(0, rgba(c, 0)); g.addColorStop(1, rgba(c, 0.9)); X.fillStyle = g; B(); X.moveTo(-75, -40); X.quadraticCurveTo(20, -40, 52, -22); X.quadraticCurveTo(20, -4, -75, -10); X.closePath(); X.fill(); Cc(52, -26, 16, lt(c, 0.4)); gloss(46, -32, 5, 4, 0.7); } });
   def('satellite', { label: 'satellite', th: ['space'], at: ['sky'], w: 150, h: 70, cols: [K.blue, K.navy, K.teal], asym: true, det: 'dish', many: 1, pad: 3,
-    sub: { det: [8, -76, 40, -46] },
+    sub: { det: [5, -79, 43, -43] },
     draw: function (o) {
       var c = o.col;
       [[-74, -44], [26, -44]].forEach(function (p) { R(p[0], p[1], 48, 26, 2, c); for (var i = 1; i < 4; i++) Ln([p[0] + i * 12, p[1], p[0] + i * 12, p[1] + 26], lt(c, 0.4), 1.2); Ln([p[0], p[1] + 13, p[0] + 48, p[1] + 13], lt(c, 0.4), 1.2); });
@@ -2690,11 +2708,52 @@ var DT = (function () {
   var EDGE = 8;
   // parts that change (px on the short side of the part's own box, on that phone): faces 26, signs 16, others 15
   var SUBMIN = { face: 19, txt: 16, n: 15, det: 15, pat: 15, v: 15 };        // and stay this far inside the picture
-  var KINDS = ['gone', 'color', 'size', 'move', 'flip', 'n', 'pat', 'face', 'txt', 'det', 'v'];
+  var KINDS = ['gone', 'color', 'size', 'move', 'flip', 'n', 'pat', 'face', 'txt', 'det', 'v', 'shade', 'nudge', 'scale', 'tilt'];
   var KIND_NAMES = { gone: 'missing / extra object', color: 'colour change', size: 'size change', move: 'moved object', flip: 'mirrored object',
-    n: 'number of things', pat: 'pattern change', face: 'expression change', txt: 'sign letter change', det: 'missing part', v: 'different picture' };
+    n: 'number of things', pat: 'pattern change', face: 'expression change', txt: 'sign letter change', det: 'missing part', v: 'different picture',
+    shade: 'a near shade of the same colour', nudge: 'nudged a little', scale: 'a little bigger / smaller', tilt: 'tilted' };
+  // ---------- difficulty (0.2.0) ----------
+  // 0 Relaxed: the 0.1.0 rules (the same scenes and differences, except a few space levels since 0.2.0 fixed the
+  // planet ring's box). 1 Normal (default), 2 Hard, 3 Expert: more differences sooner, busier scenes and subtler
+  // changes, all driven by one "subtlety" number s (0..1) per level: Normal 0.1 on levels 1-3, then 0.3 at level 4
+  // rising to 1 at level 60; Hard +0.2, Expert +0.4 (levels 1-3 at most 0.4).
+  var DIFFS = ['Relaxed', 'Normal', 'Hard', 'Expert'];
+  var HINTS = [3, 3, 2, 1];          // hints per level
+  var EASY = [0, 2, 2, 1];           // at least this many easy finds per board (big and obvious, 0.1.0 sizes)
+  // at full subtlety a difference may be as small as 8 px on its short side and 120 px² on a 375 px phone (32 px and
+  // 1,920 px² at 4x zoom); parts of objects 0.68 of their 0.1.0 minimum
+  var MIN_SIDE_S = 8, MIN_AREA_S = 120, SUBF_S = 0.68;
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function clampD(d) { d = d | 0; return d < 0 ? 0 : d > 3 ? 3 : d; }
+  function subtlety(n, d) {
+    d = clampD(d); if (!d) return null;
+    var s = n <= 3 ? 0.1 : 0.3 + 0.7 * Math.min(1, (n - 4) / 56);
+    s += (d - 1) * 0.2;
+    if (n <= 3) s = Math.min(s, 0.4);
+    return Math.min(1, s);
+  }
+  function diffCount(n, d) {
+    d = clampD(d);
+    if (!d) { if (n <= 3) return 5; if (n <= 12) return 5 + (n % 2); if (n <= 30) return 6; if (n <= 60) return 6 + (n % 2); return 7; }
+    var c = n <= 3 ? 5 : n === 4 ? 6 : n === 5 ? 7 : n <= 10 ? 7 + (n % 2) : n <= 30 ? 8 : n <= 60 ? 8 + (n % 2) : 8 + (n % 3);
+    if (d === 2) c += 1; if (d === 3) c += n <= 3 ? 1 : 2;
+    return Math.min(10, c);
+  }
+  // all the numbers for one level
+  function cfg(n, d) {
+    d = clampD(d); var s = subtlety(n, d);
+    if (s === null) return { d: 0, s: null, minSide: MIN_SIDE, minArea: MIN_AREA, subf: 1, need: diffCount(n, 0), easy: 0, maxKind: 2, scale: SCALE, density: 1 };
+    return { d: d, s: s, minSide: lerp(MIN_SIDE, MIN_SIDE_S, s), minArea: lerp(MIN_AREA, MIN_AREA_S, s), subf: lerp(1, SUBF_S, s), need: diffCount(n, d), easy: EASY[d],
+      maxKind: diffCount(n, d) >= 9 ? 3 : 2, scale: SCALE - 0.17 * s, density: 1 + 0.65 * s,
+      shade: lerp(165, 120, s),       // a near shade is this far (redmean) from the colour; 0.1.0 colours are 190+
+      partPx: lerp(50, 28, s),        // a change to a part changes at least this many pixels on that phone
+      wholePx: lerp(100, 50, s),      // other changes at least this many (both proven by tools/pixels.py)
+      nudge: lerp(34, 22, s),         // scene units (13 to 9 px on that phone)
+      tilt: lerp(22, 15, s) * Math.PI / 180 };
+  }
   // early levels lean on the obvious kinds; the others grow in from level 1 to 40
   var OBVIOUS = { gone: 3, color: 3, size: 1.6, move: 1.2 }, SUBTLE = { flip: 1, n: 1.4, pat: 1.2, face: 4, txt: 2.5, det: 1.2, v: 1.5 };
+  var NEW = { shade: 2.2, nudge: 1.3, scale: 1.3, tilt: 1.2 }; // Normal and up (weights times 1.6 x subtlety)
   var FIRST = ['cruise', 'beach', 'harbour', 'garden', 'kitchen', 'toyshop', 'reef', 'living', 'farm', 'winter', 'city', 'space'];
   // curated levels 1-30: the composition attempt picked for each (the fullest scene of the first ten, then looked at
   // by eye); levels not listed use the first attempt that gives enough fair differences
@@ -2717,13 +2776,12 @@ var DT = (function () {
     return (blocks[b] = o);
   }
   function themeFor(n) { var b = Math.floor((n - 1) / 12); return themeOrder(b)[(n - 1) % 12]; }
-  function diffCount(n) { if (n <= 3) return 5; if (n <= 12) return 5 + (n % 2); if (n <= 30) return 6; if (n <= 60) return 6 + (n % 2); return 7; }
   function subtleWeight(n) { return 0.35 + Math.min(1, (n - 1) / 40) * 0.9; }
 
   // ---------- geometry ----------
   function union(a, b) { var x = Math.min(a.x, b.x), y = Math.min(a.y, b.y); return { x: x, y: y, w: Math.max(a.x + a.w, b.x + b.w) - x, h: Math.max(a.y + a.h, b.y + b.h) - y }; }
   function pad(b, p) { return { x: b.x - p, y: b.y - p, w: b.w + 2 * p, h: b.h + 2 * p }; }
-  function bigEnough(b) { var w = b.w * PX375, h = b.h * PX375; return Math.min(w, h) >= MIN_SIDE && w * h >= MIN_AREA; }
+  function bigEnough(b, c) { var w = b.w * PX375, h = b.h * PX375; return Math.min(w, h) >= (c ? c.minSide : MIN_SIDE) && w * h >= (c ? c.minArea : MIN_AREA); }
   function inPicture(b) { return b.x >= EDGE && b.y >= EDGE && b.x + b.w <= W - EDGE && b.y + b.h <= H - EDGE; }
   // how much of box b is covered by items drawn after item index i (a sum of overlaps: an upper bound)
   function coveredAfter(sc, i, b) { var s = 0; for (var j = i + 1; j < sc.items.length; j++) s += A.inter(b, sc.items[j].box); return s / (b.w * b.h); }
@@ -2731,16 +2789,19 @@ var DT = (function () {
   function copy(o) { var r = {}; for (var k in o) r[k] = o[k]; return r; }
 
   // ---------- candidate differences for one item ----------
-  function candidates(sc, i, rnd) {
+  function candidates(sc, i, rnd, c) {
+    c = c || cfg(1, 0);
     var it = sc.items[i], d = A.OBJECTS[it.k], out = [], b0 = it.box, sl = sc.slots[it.slot];
     if (!inPicture(b0)) return out;
     if (coveredAfter(sc, i, b0) > 0.22) return out;
     function add(kind, alt, region) {
       if (d.no && d.no.indexOf(kind) >= 0) return;
       // a change to a part (a face, a letter, a count, a detail, a pattern, a picture) needs that part big enough
-      if (SUBMIN[kind] && kind !== 'n' || kind === 'n' && !d.nstep) { var sb = kind === 'n' ? region : A.subBox(it, kind); if (sb && Math.min(sb.w, sb.h) * PX375 < SUBMIN[kind]) return; }
+      if (SUBMIN[kind] && kind !== 'n' || kind === 'n' && !d.nstep) { var sb = kind === 'n' ? region : A.subBox(it, kind); if (sb && Math.min(sb.w, sb.h) * PX375 < SUBMIN[kind] * c.subf) return; }
+      // Normal and up: a part change must change enough pixels on that phone (measured; with 60% to spare)
+      if (c.s !== null && PARTK[kind]) { var pp = PARTPX[it.k] && PARTPX[it.k][kind]; if (pp != null && pp * Math.pow(it.s * PX375, 2) < c.partPx * 1.6) return; }
       if (!region) { var t = copy(it); for (var k in alt) t[k] = alt[k]; region = union(A.box(it), A.box(t)); }
-      if (!inPicture(region) || !bigEnough(region)) return;
+      if (!inPicture(region) || !bigEnough(region, c)) return;
       if (coveredAfter(sc, i, region) > 0.25) return;
       out.push({ id: i, kind: kind, alt: alt, box: region });
     }
@@ -2764,7 +2825,9 @@ var DT = (function () {
         add('move', { x: t3.x }, union(b0, mb)); return true;
       });
     }
-    if (d.asym) add('flip', { flip: !it.flip }); // its box is the union of both directions
+    // its box is the union of both directions; Normal and up: only when the mirror image changes enough pixels (measured)
+    var pf = PARTPX[it.k] && PARTPX[it.k].flip;
+    if (d.asym && (c.s === null || pf && pf * Math.pow(it.s * PX375, 2) >= c.wholePx * 1.8)) add('flip', { flip: !it.flip });
     if (d.n) {
       var st = d.nstep || 1, nv = it.n + (rnd() < 0.5 ? st : -st);
       if (d.nstep) { nv = ((nv - 1 + 12) % 12) + 1; add('n', { n: nv }, b0); }
@@ -2778,40 +2841,288 @@ var DT = (function () {
     if (d.txt) { var pair = null; d.txt.forEach(function (p) { if (p[0] === it.txt) pair = p; }); if (pair && pair[1]) add('txt', { txt: pair[1] }, sub('txt', {})); }
     if (d.det) add('det', { det: it.det ? 0 : 1 }, sub('det', {}));
     if (d.vdiff && d.vars > 1) { var vv = (it.v + 1 + Math.floor(rnd() * (d.vars - 1))) % d.vars; add('v', { v: vv }, sub('v', {})); }
+    if (c.s === null) return out; // Relaxed: the 0.1.0 kinds only (and the same random stream as 0.1.0)
+    // ----- the subtle kinds (0.2.0) -----
+    // a near shade of the same colour: mixed toward light or dark until it is c.shade apart (same hue)
+    if (it.col && d.cols && d.cols.length > 1 && !(d.no && d.no.indexOf('color') >= 0) && !NOSHADE[it.k]) {
+      var dir = rnd() < 0.5, sh = shadeOf(it.col, c.shade, dir) || shadeOf(it.col, c.shade, !dir);
+      // only where a shade reads (measured: its pixels change by 32+ on average, and enough of them on that phone)
+      var ps = PARTPX[it.k] && PARTPX[it.k].shade;
+      if (sh && ps && ps[1] >= 32 && ps[0] * Math.pow(it.s * PX375, 2) >= c.wholePx * 1.3) add('shade', { col: sh }, b0);
+    }
+    if (sl.t !== 'row') {
+      // a little bigger or smaller
+      var f2 = rnd() < 0.5 ? 1.16 : 0.86, a2 = { s: it.s * f2 };
+      if (sl.t === 'shelf' || sl.t === 'ground') a2.y = it.y;
+      var t4 = copy(it); t4.s = a2.s; var nb2 = A.box(t4);
+      var pz = PARTPX[it.k] && PARTPX[it.k].scale;
+      if (!(d.no && d.no.indexOf('size') >= 0) && pz && pz * Math.pow(it.s * PX375, 2) >= c.wholePx * 1.8 && A.inside(nb2, A.slotRect(sl)) && coveredBy(sc, i, nb2) <= 0.08) add('scale', a2, union(b0, nb2));
+      // nudged: a short slide (sideways; things in the sky, water or on a wall may go up or down)
+      if (!(d.no && d.no.indexOf('move') >= 0)) {
+        var vert = sl.t === 'free' && rnd() < 0.4, sg = rnd() < 0.5 ? -1 : 1;
+        [sg, -sg].some(function (g) {
+          var t5 = copy(it), dd = c.nudge * g; if (vert) t5.y = it.y + dd; else t5.x = it.x + dd; var mb2 = A.box(t5);
+          if (!A.inside(mb2, A.slotRect(sl)) || coveredBy(sc, i, mb2) > 0.04 || coveredBy(sc, i, union(b0, mb2)) > 0.1) return false;
+          add('nudge', vert ? { y: t5.y } : { x: t5.x }, union(b0, mb2)); return true;
+        });
+      }
+      // tilted: small things only (it leans on its base; things in the sky, water or on a wall turn about their middle)
+      var pt = PARTPX[it.k] && PARTPX[it.k].tilt;
+      if (!NOTILT[it.k] && b0.w * PX375 <= 60 && b0.h * PX375 <= 60 && pt && pt * Math.pow(it.s * PX375, 2) >= c.wholePx * 1.8) {
+        var a3 = { rot: c.tilt * (rnd() < 0.5 ? -1 : 1) }; if (sl.t === 'free') a3.rp = 1;
+        var t6 = copy(it); t6.rot = a3.rot; t6.rp = a3.rp; var rb = A.box(t6);
+        if (A.inside(rb, A.slotRect(sl)) && coveredBy(sc, i, rb) <= 0.1) add('tilt', a3, union(b0, rb));
+      }
+    }
     return out;
   }
 
+  function shadeOf(col, target, lighter) {
+    var to = lighter ? '#ffffff' : '#000000', lo = 0, hi = 0.6; // toward pure white or black: the hue stays
+    if (A.colorDist(col, A.mix(col, to, hi)) < target) return null;
+    for (var q = 0; q < 18; q++) { var m = (lo + hi) / 2; if (A.colorDist(col, A.mix(col, to, m)) < target) lo = m; else hi = m; }
+    return A.mix(col, to, hi);
+  }
+  // changed pixels per scene unit² at scale 1 for a change to a part of each object (the smallest seen over its
+  // looks), measured by tools/partpx.py --write
+  /*PARTPX*/
+  var PARTPX = {"cloud":{"tilt":1555,"scale":1468},
+    "sun":{"face":251,"shade":[4547,32],"tilt":1954,"scale":2542},
+    "gull":{"tilt":495,"scale":341},
+    "gullstand":{"tilt":578,"scale":565,"flip":896},
+    "kite":{"det":337,"pat":641,"shade":[1987,38],"tilt":1768,"scale":1770,"flip":409},
+    "balloon":{"shade":[1896,37],"tilt":1274,"scale":1308},
+    "deckchair":{"pat":278,"shade":[1745,42],"tilt":2156,"scale":1413,"flip":2716},
+    "lounger":{"pat":0,"shade":[1656,31],"tilt":3163,"scale":2772,"flip":1743},
+    "parasol":{"pat":1544,"shade":[5729,38],"tilt":2710,"scale":5041},
+    "lifering":{"shade":[680,47],"tilt":749,"scale":1238},
+    "towel":{"pat":516,"shade":[3049,38],"tilt":1192,"scale":1244},
+    "drinkstable":{"n":485,"shade":[1576,27],"tilt":2420,"scale":2109},
+    "funnel":{"n":1521,"det":738,"shade":[1561,38],"tilt":8015,"scale":8239},
+    "lifeboat":{"n":300,"shade":[5294,41],"tilt":7697,"scale":5934,"flip":1706},
+    "poolfloat":{"pat":871,"shade":[2353,35],"tilt":1655,"scale":1424},
+    "duckfloat":{"det":306,"shade":[2617,40],"tilt":1609,"scale":1506,"flip":2449},
+    "beachball":{"tilt":526,"scale":953},
+    "icebucket":{"det":338,"shade":[2557,34],"tilt":1314,"scale":1114},
+    "palmpot":{"shade":[2607,34],"tilt":3877,"scale":3278},
+    "gullsign":{"txt":383,"shade":[2818,34],"tilt":2892,"scale":2668},
+    "sandcastle":{"n":1567,"det":516,"shade":[8088,37],"tilt":4504,"scale":4237},
+    "umbrella":{"pat":1330,"shade":[3742,34],"tilt":3149,"scale":3356,"flip":3042},
+    "beachtowel":{"pat":924,"shade":[4489,39],"tilt":2238,"scale":1423},
+    "bucket":{"det":803,"shade":[2306,39],"tilt":2080,"scale":1886,"flip":2406},
+    "starfish":{"tilt":476,"scale":398},
+    "shell":{"shade":[1077,32],"tilt":285,"scale":287},
+    "crab":{"face":41,"shade":[1731,39],"tilt":1533,"scale":1179},
+    "palm":{"n":154,"shade":[4837,35],"tilt":9179,"scale":6157,"flip":6625},
+    "surfboard":{"pat":605,"shade":[4707,37],"tilt":2850,"scale":1568},
+    "cooler":{"shade":[2942,37],"tilt":1660,"scale":1724},
+    "flipflops":{"shade":[1115,38],"tilt":765,"scale":644,"flip":291},
+    "lifeguard":{"txt":292,"shade":[3575,32],"tilt":6919,"scale":7862},
+    "buoy":{"pat":312,"shade":[1412,38],"tilt":926,"scale":856},
+    "sailboat":{"det":221,"pat":420,"shade":[3440,35],"tilt":4855,"scale":3659,"flip":2693},
+    "house":{"n":1216,"det":659,"shade":[13639,35],"tilt":14438,"scale":13743},
+    "lighthouse":{"n":1866,"det":79,"shade":[4248,38],"tilt":11155,"scale":9635},
+    "rowboat":{"det":0,"shade":[2937,34],"tilt":2322,"scale":1419,"flip":92},
+    "fishboat":{"n":252,"txt":197,"shade":[8942,40],"tilt":9039,"scale":7601,"flip":6636},
+    "stall":{"n":1213,"pat":3164,"shade":[6893,39],"tilt":10444,"scale":12596},
+    "crate":{"n":128,"shade":[3491,38],"tilt":1750,"scale":1915},
+    "barrel":{"det":349,"shade":[3731,41],"tilt":1398,"scale":1630},
+    "cat":{"face":77,"shade":[2512,31],"tilt":2068,"scale":1839,"flip":3072},
+    "dog":{"face":69,"det":86,"shade":[2779,33],"tilt":1529,"scale":1395,"flip":2040},
+    "anchor":{"shade":[1668,36],"tilt":798,"scale":623},
+    "bollard":{"det":240,"shade":[1145,33],"tilt":620,"scale":549},
+    "lamppost":{"n":2236,"shade":[2319,28],"tilt":4033,"scale":1486},
+    "bench":{"shade":[4319,31],"tilt":3988,"scale":4327},
+    "flagline":{"n":472,"shade":[0,0],"tilt":3503,"scale":2904},
+    "bird":{"shade":[904,32],"tilt":584,"scale":598,"flip":886},
+    "tree":{"n":324,"shade":[13617,44],"tilt":3801,"scale":3408},
+    "pine":{"det":314,"shade":[7251,41],"tilt":4962,"scale":3887},
+    "snowpine":{"det":314,"shade":[3408,38],"tilt":5733,"scale":5674},
+    "bush":{"n":207,"shade":[5824,45],"tilt":672,"scale":766},
+    "flowerpot":{"n":299,"shade":[1620,35],"tilt":1560,"scale":1307},
+    "birdhouse":{"det":158,"shade":[1503,38],"tilt":4504,"scale":3382},
+    "gnome":{"face":31,"det":183,"shade":[869,39],"tilt":2281,"scale":2002,"flip":628},
+    "wheelbarrow":{"det":636,"shade":[2545,38],"tilt":2632,"scale":2454,"flip":1630},
+    "wateringcan":{"shade":[2697,34],"tilt":1399,"scale":1126,"flip":1678},
+    "birdbath":{"det":502,"shade":[1807,32],"tilt":2025,"scale":1812},
+    "shed":{"n":1141,"det":1604,"txt":363,"shade":[15790,37],"tilt":8098,"scale":9547},
+    "snail":{"face":21,"shade":[1378,36],"tilt":948,"scale":1041,"flip":1641},
+    "butterfly":{"pat":219,"shade":[1491,37],"tilt":861,"scale":791},
+    "bee":{"shade":[437,39],"tilt":546,"scale":559,"flip":389},
+    "sunflower":{"face":61,"shade":[2537,35],"tilt":5122,"scale":4503},
+    "tulips":{"n":508,"shade":[739,29],"tilt":1252,"scale":1054},
+    "barn":{"n":976,"det":242,"shade":[29508,39],"tilt":12818,"scale":15572},
+    "silo":{"n":3,"shade":[14301,29],"tilt":3759,"scale":3686},
+    "windmill":{"n":5497,"shade":[6213,34],"tilt":9864,"scale":7436},
+    "cow":{"det":215,"pat":1082,"shade":[5062,33],"tilt":2813,"scale":2216,"flip":3749},
+    "pig":{"face":26,"shade":[3858,36],"tilt":1392,"scale":1284,"flip":1467},
+    "sheep":{"face":28,"shade":[2798,31],"tilt":2329,"scale":2121,"flip":2614},
+    "chicken":{"shade":[1112,32],"tilt":590,"scale":513,"flip":978},
+    "tractor":{"det":273,"shade":[3677,39],"tilt":8250,"scale":6658,"flip":12471},
+    "haybales":{"n":2416,"shade":[2316,39],"tilt":1775,"scale":1187},
+    "trough":{"shade":[2524,36],"tilt":1503,"scale":1390},
+    "pumpkin":{"face":106,"shade":[2483,38],"tilt":555,"scale":1160},
+    "scarecrow":{"face":88,"det":523,"shade":[3754,40],"tilt":5154,"scale":5231,"flip":1055},
+    "milkcan":{"shade":[2425,33],"tilt":606,"scale":616},
+    "duck":{"shade":[1165,31],"tilt":660,"scale":587,"flip":1041},
+    "fence":{"shade":[4874,30],"tilt":3316,"scale":3090},
+    "signpost":{"txt":432,"shade":[3300,38],"tilt":3425,"scale":3290,"flip":1273},
+    "snowman":{"n":40,"face":84,"det":763,"tilt":4219,"scale":3782},
+    "cabin":{"n":1161,"det":579,"shade":[16339,35],"tilt":18276,"scale":16681},
+    "sled":{"shade":[2033,34],"tilt":1997,"scale":2011,"flip":465},
+    "penguin":{"face":45,"det":475,"shade":[1518,30],"tilt":1513,"scale":1466,"flip":777},
+    "deer":{"det":240,"shade":[5376,38],"tilt":4834,"scale":4699,"flip":5880},
+    "igloo":{"shade":[6126,35],"tilt":1898,"scale":2469},
+    "mailbox":{"det":215,"shade":[2009,34],"tilt":2232,"scale":2045,"flip":761},
+    "skis":{"shade":[3634,34],"tilt":5233,"scale":2314,"flip":816},
+    "snowflake":{"shade":[51,36],"tilt":1158,"scale":1056},
+    "wreath":{"shade":[777,25],"tilt":1055,"scale":1174},
+    "kettle":{"det":129,"shade":[2939,35],"tilt":1712,"scale":1559,"flip":314},
+    "toaster":{"n":484,"shade":[3373,35],"tilt":1106,"scale":1334,"flip":162},
+    "stewpot":{"det":1033,"shade":[4278,34],"tilt":1484,"scale":1579},
+    "plates":{"n":781,"shade":[1675,30],"tilt":942,"scale":522},
+    "jar":{"txt":152,"shade":[781,38],"tilt":1577,"scale":1997},
+    "fruitbowl":{"n":98,"shade":[1662,31],"tilt":1676,"scale":1602},
+    "cake":{"n":316,"det":142,"shade":[1543,35],"tilt":2663,"scale":2650},
+    "teapot":{"pat":529,"shade":[3506,36],"tilt":1050,"scale":1134,"flip":561},
+    "mug":{"pat":117,"shade":[1917,36],"tilt":476,"scale":758,"flip":274},
+    "board":{"n":246,"shade":[1587,36],"tilt":2085,"scale":984,"flip":726},
+    "spicerack":{"n":383,"shade":[2202,36],"tilt":3422,"scale":2738},
+    "utensils":{"n":656,"shade":[819,25],"tilt":2792,"scale":2483},
+    "mixer":{"shade":[4310,35],"tilt":3007,"scale":3148,"flip":3994},
+    "bread":{"shade":[3175,43],"tilt":1150,"scale":1163,"flip":503},
+    "eggs":{"n":119,"shade":[1795,35],"tilt":1389,"scale":776},
+    "cookiejar":{"face":99,"shade":[4002,35],"tilt":1118,"scale":1378},
+    "ovenmitt":{"pat":458,"shade":[2411,42],"tilt":968,"scale":1143,"flip":401},
+    "clock":{"n":289,"shade":[1130,29],"tilt":484,"scale":1508},
+    "frame":{"v":929,"shade":[2902,27],"tilt":3254,"scale":3524},
+    "sofa":{"n":2094,"shade":[16483,39],"tilt":8807,"scale":8161},
+    "armchair":{"pat":862,"shade":[9293,39],"tilt":2767,"scale":3840},
+    "floorlamp":{"det":705,"shade":[2205,35],"tilt":2824,"scale":2742},
+    "tablelamp":{"shade":[1597,35],"tilt":1378,"scale":1575},
+    "books":{"n":1351,"shade":[0,0],"tilt":1765,"scale":1486},
+    "tv":{"v":1816,"shade":[2945,29],"tilt":8225,"scale":8251},
+    "coffeetable":{"n":465,"shade":[2465,32],"tilt":2582,"scale":2239},
+    "fishbowl":{"n":254,"tilt":820,"scale":1331},
+    "guitar":{"shade":[2338,34],"tilt":3659,"scale":1811,"flip":3894},
+    "vase":{"n":397,"shade":[1877,33],"tilt":1711,"scale":1399},
+    "mirror":{"shade":[1828,31],"tilt":1750,"scale":2365},
+    "radio":{"shade":[2433,33],"tilt":1942,"scale":2046,"flip":1685},
+    "globe":{"shade":[1527,38],"tilt":1594,"scale":1668,"flip":1251},
+    "candles":{"n":436,"shade":[821,31],"tilt":1008,"scale":474},
+    "teddy":{"face":27,"det":357,"shade":[3914,32],"tilt":1894,"scale":1769},
+    "robot":{"n":50,"face":64,"det":98,"shade":[2846,31],"tilt":2011,"scale":2294},
+    "train":{"n":1713,"shade":[1189,37],"tilt":3842,"scale":2544,"flip":6934},
+    "rockinghorse":{"shade":[3797,32],"tilt":4546,"scale":3438,"flip":3983},
+    "blocks":{"txt":254,"shade":[0,0],"tilt":4503,"scale":3903},
+    "spintop":{"pat":557,"shade":[1163,38],"tilt":914,"scale":895},
+    "toycar":{"shade":[2102,37],"tilt":2172,"scale":1952,"flip":155},
+    "drum":{"pat":515,"shade":[2082,42],"tilt":1964,"scale":1831},
+    "jackbox":{"face":95,"shade":[3658,30],"tilt":4015,"scale":3261},
+    "dino":{"face":50,"shade":[3525,39],"tilt":2641,"scale":1963,"flip":2439},
+    "xylophone":{"n":241,"shade":[903,34],"tilt":3060,"scale":2594},
+    "bunny":{"face":34,"shade":[3193,33],"tilt":1989,"scale":1481,"flip":499},
+    "abacus":{"n":151,"shade":[2409,33],"tilt":4811,"scale":5001},
+    "soldier":{"face":20,"shade":[917,36],"tilt":2288,"scale":1910},
+    "dollhouse":{"n":529,"shade":[7032,39],"tilt":5713,"scale":6127},
+    "fish":{"face":26,"pat":263,"shade":[2297,38],"tilt":1231,"scale":1144,"flip":1379},
+    "puffer":{"face":122,"shade":[2835,33],"tilt":592,"scale":1289,"flip":468},
+    "jelly":{"n":171,"shade":[2054,39],"tilt":1476,"scale":1879},
+    "octopus":{"face":174,"shade":[5048,39],"tilt":2672,"scale":2435},
+    "turtle":{"pat":420,"shade":[794,31],"tilt":2228,"scale":2266,"flip":2344},
+    "coral":{"shade":[4120,40],"tilt":4075,"scale":1982},
+    "fancoral":{"shade":[6560,30],"tilt":1677,"scale":1711},
+    "seaweed":{"n":1244,"shade":[2267,33],"tilt":2627,"scale":1381},
+    "chest":{"det":962,"shade":[5044,38],"tilt":3050,"scale":3795},
+    "anemone":{"shade":[3177,39],"tilt":1454,"scale":1406},
+    "bubbles":{"n":89,"tilt":673,"scale":527},
+    "seahorse":{"shade":[1984,39],"tilt":1475,"scale":1062,"flip":1808},
+    "submarine":{"n":315,"shade":[6244,38],"tilt":4281,"scale":3443,"flip":2948},
+    "rock":{"shade":[2282,35],"tilt":412,"scale":334},
+    "shop":{"n":1725,"pat":3574,"txt":475,"shade":[21090,35],"tilt":32373,"scale":32044},
+    "car":{"det":656,"shade":[3991,35],"tilt":5348,"scale":4695,"flip":1446},
+    "taxi":{"txt":141,"shade":[3898,43],"tilt":5425,"scale":4695,"flip":1551},
+    "bus":{"n":939,"txt":26,"shade":[15981,39],"tilt":15016,"scale":13899,"flip":8859},
+    "trafficlight":{"v":759,"shade":[3355,31],"tilt":4007,"scale":2099},
+    "hydrant":{"shade":[2075,33],"tilt":678,"scale":793},
+    "trashcan":{"shade":[2365,34],"tilt":955,"scale":834},
+    "planter":{"shade":[6235,44],"tilt":3529,"scale":3420},
+    "hotdog":{"pat":1026,"shade":[2636,41],"tilt":6383,"scale":8257,"flip":1307},
+    "scooter":{"shade":[1409,34],"tilt":1974,"scale":1796,"flip":2446},
+    "phonebooth":{"txt":76,"shade":[5743,36],"tilt":7550,"scale":6699},
+    "bicycle":{"det":592,"shade":[988,45],"tilt":3013,"scale":2384,"flip":1612},
+    "planet":{"det":1683,"pat":2084,"shade":[4929,30],"tilt":2963,"scale":3995},
+    "rocket":{"n":327,"det":540,"shade":[2528,34],"tilt":5882,"scale":3934},
+    "ufo":{"n":133,"det":252,"shade":[3718,31],"tilt":2793,"scale":2609},
+    "astronaut":{"det":268,"shade":[3615,32],"tilt":3300,"scale":3058,"flip":1337},
+    "moon":{"face":258,"shade":[5098,35],"tilt":236,"scale":1734},
+    "star":{"face":36,"shade":[1089,34],"tilt":908,"scale":777},
+    "comet":{"shade":[2052,25],"tilt":1210,"scale":777,"flip":1853},
+    "satellite":{"det":240,"shade":[2769,36],"tilt":4295,"scale":2927,"flip":469},
+    "alien":{"n":468,"face":57,"shade":[3474,38],"tilt":2207,"scale":2039},
+    "rover":{"n":377,"det":245,"shade":[3303,35],"tilt":3705,"scale":3785,"flip":2051},
+    "asteroid":{"shade":[2545,35],"tilt":421,"scale":712},
+    "spaceflag":{"pat":124,"shade":[1695,38],"tilt":1562,"scale":1491,"flip":3315}};
+  /*PARTPXEND*/
+  var PARTK = { n: 1, face: 1, txt: 1, det: 1, pat: 1, v: 1 };
+  var OLD = { gone: 1, color: 1, size: 1, move: 1 };
+  // never a near shade on these (their colour picks a colour sequence: books, bunting, letter blocks)
+  var NOSHADE = { books: 1, flagline: 1, blocks: 1, snowflake: 1, mug: 1 };
+  // never tilted (clouds are never a difference; the others are measured: a tilt must change enough pixels)
+  var NOTILT = { cloud: 1 };
+  // an easy find: an obvious kind, as big as 0.1.0 asked for every difference
+  function isEasy(c) { return OLD[c.kind] && bigEnough(c.box); }
+
   // ---------- a level ----------
   var cache = {};
-  function make(n, attempt) {
-    var th = themeFor(n), r = rng(n * 7919 + attempt * 104729 + 17);
-    var sc = A.compose(th, r, { density: 1, scale: SCALE });
-    var need = diffCount(n), sw = subtleWeight(n), cands = [];
-    sc.items.forEach(function (it, i) { cands = cands.concat(candidates(sc, i, r)); });
+  function make(n, attempt, d) {
+    var c = cfg(n, d), th = themeFor(n), r = rng(n * 7919 + attempt * 104729 + 17 + (c.d ? c.d * 15485863 : 0));
+    var sc = A.compose(th, r, { density: c.density, scale: c.scale });
+    var need = c.need, sw = subtleWeight(n), cands = [];
+    sc.items.forEach(function (it, i) { cands = cands.concat(candidates(sc, i, r, c)); });
     var chosen = [], usedItems = {}, kindCount = {};
-    var pool = cands.slice();
-    while (chosen.length < need && pool.length) {
-      var tot = 0, ws = pool.map(function (c) { var w = OBVIOUS[c.kind] || (SUBTLE[c.kind] * sw); w /= 1 + 2.2 * (kindCount[c.kind] || 0); tot += w; return w; });
-      var x = r() * tot, k = 0; for (; k < pool.length - 1; k++) { x -= ws[k]; if (x <= 0) break; }
-      var c = pool.splice(k, 1)[0];
-      if (usedItems[c.id] || (kindCount[c.kind] || 0) >= 2) continue;
-      var pb = pad(c.box, GAP / 2);
-      if (chosen.some(function (o) { return A.inter(pb, pad(o.box, GAP / 2)) > 0; })) continue;
-      // the change must not spill onto another chosen item (a moved object sliding over a changed one)
-      chosen.push(c); usedItems[c.id] = 1; kindCount[c.kind] = (kindCount[c.kind] || 0) + 1;
+    function weight(cd) {
+      if (c.s === null) return OBVIOUS[cd.kind] || (SUBTLE[cd.kind] * sw);
+      var w = OBVIOUS[cd.kind] ? OBVIOUS[cd.kind] * (1 - 0.7 * c.s) : SUBTLE[cd.kind] ? SUBTLE[cd.kind] * (0.6 + c.s) : NEW[cd.kind] * 1.6 * c.s;
+      // the subtler the level, the more it leans to small things (up to 4x for a difference a quarter the size)
+      var px = cd.box.w * cd.box.h * PX375 * PX375;
+      return w * Math.max(0.5, Math.min(4, Math.pow(2500 / px, 0.6 * c.s)));
     }
+    function pick(pool, upto, easyOnly) {
+      while (chosen.length < upto && pool.length) {
+        var tot = 0, ws = pool.map(function (cd) { var w = easyOnly ? OBVIOUS[cd.kind] : weight(cd); w /= 1 + 2.2 * (kindCount[cd.kind] || 0); tot += w; return w; });
+        var x = r() * tot, k = 0; for (; k < pool.length - 1; k++) { x -= ws[k]; if (x <= 0) break; }
+        var cd = pool.splice(k, 1)[0];
+        if (usedItems[cd.id] || (kindCount[cd.kind] || 0) >= c.maxKind) continue;
+        var pb = pad(cd.box, GAP / 2);
+        if (chosen.some(function (o) { return A.inter(pb, pad(o.box, GAP / 2)) > 0; })) continue;
+        chosen.push(cd); usedItems[cd.id] = 1; kindCount[cd.kind] = (kindCount[cd.kind] || 0) + 1;
+      }
+    }
+    // the easy finds first (so nobody stalls completely), then the rest
+    if (c.easy) { pick(cands.filter(isEasy), c.easy, true); if (chosen.length < c.easy) return null; }
+    pick(cands.slice(), need, false);
     if (chosen.length < need) return null;
-    chosen.forEach(function (c) { c.side = r() < 0.5 ? 'a' : 'b'; var alt = copy(c.alt); alt.side = c.side; sc.items[c.id].alt = alt; });
+    chosen.forEach(function (cd) { cd.side = r() < 0.5 ? 'a' : 'b'; var alt = copy(cd.alt); alt.side = cd.side; sc.items[cd.id].alt = alt; });
     // read order: top to bottom, left to right (the hint picks from these; the order means nothing else)
     chosen.sort(function (a, b) { return (a.box.y + a.box.h / 2) - (b.box.y + b.box.h / 2) || a.box.x - b.box.x; });
-    return { n: n, theme: th, attempt: attempt, scene: sc, diffs: chosen.map(function (c, j) { var it = sc.items[c.id]; return { i: j, id: c.id, kind: c.kind, side: c.side, box: c.box, k: it.k, label: A.OBJECTS[it.k].label }; }) };
+    return { n: n, d: c.d, s: c.s, theme: th, attempt: attempt, scene: sc, diffs: chosen.map(function (cd, j) { var it = sc.items[cd.id]; return { i: j, id: cd.id, kind: cd.kind, side: cd.side, box: cd.box, k: it.k, label: A.OBJECTS[it.k].label, easy: !!(c.s !== null && isEasy(cd)) }; }) };
   }
-  function level(n) {
-    if (cache[n]) return cache[n];
-    var a0 = PIN[n] || 0, lv = null;
-    for (var a = a0; a < a0 + 40 && !lv; a++) lv = make(n, a);
-    var keys = Object.keys(cache); if (keys.length > 6) delete cache[keys[0]];
-    return (cache[n] = lv);
+  // Normal and up: the busiest of the first three compositions that give enough fair differences (levels pinned in
+  // PIN2 use that attempt)
+  var PIN2 = {};
+  function level(n, d) {
+    d = clampD(d); var key = n + ':' + d;
+    if (cache[key]) return cache[key];
+    var lv = null, a;
+    if (!d) { var a0 = PIN[n] || 0; for (a = a0; a < a0 + 40 && !lv; a++) lv = make(n, a, 0); }
+    else if (PIN2[key] != null) { for (a = PIN2[key]; a < PIN2[key] + 40 && !lv; a++) lv = make(n, a, d); }
+    else {
+      var got = 0;
+      for (a = 0; a < 60 && got < 3; a++) { var l = make(n, a, d); if (l) { got++; if (!lv || l.scene.items.length > lv.scene.items.length) lv = l; } }
+    }
+    var keys = Object.keys(cache); if (keys.length > 8) delete cache[keys[0]];
+    return (cache[key] = lv);
   }
   // which difference (index) is at scene point (x, y)? tol in scene units; -1 when none
   function hit(lv, x, y, tol) {
@@ -2825,14 +3136,19 @@ var DT = (function () {
   }
   // stars: 3, minus one for a hint (two for 2+), one for more than 3 wrong taps, one when slower than par (only
   // while the timer is shown); never below 1
-  function par(lv) { return 25 * lv.diffs.length + 30; }
+  // par: 25 s per difference + 30 (Relaxed, Normal: only while the timer is shown); Hard 20 s + 20 and Expert 15 s
+  // + 15, always counted (the timer is always shown there)
+  function par(lv) { var d = lv.d | 0; return d === 3 ? 15 * lv.diffs.length + 15 : d === 2 ? 20 * lv.diffs.length + 20 : 25 * lv.diffs.length + 30; }
+  function timedAlways(d) { return clampD(d) >= 2; }
   function stars(lv, secs, wrong, hints, timed) {
+    if (timedAlways(lv.d)) timed = true;
     var s = 3 - (hints > 0 ? 1 : 0) - (hints > 1 ? 1 : 0) - (wrong > 3 ? 1 : 0) - (timed && secs > par(lv) ? 1 : 0);
     return Math.max(1, s);
   }
   var HINTS_PER_LEVEL = 3, BONUS_EVERY = 5, BONUS_MAX = 5;
-  return { level: level, make: make, hit: hit, stars: stars, par: par, themeFor: themeFor, diffCount: diffCount, candidates: candidates,
-    bigEnough: bigEnough, inPicture: inPicture, coveredAfter: coveredAfter, PX375: PX375, MIN_SIDE: MIN_SIDE, MIN_AREA: MIN_AREA, GAP: GAP, KINDS: KINDS, KIND_NAMES: KIND_NAMES,
+  return { level: level, make: make, hit: hit, stars: stars, par: par, themeFor: themeFor, diffCount: diffCount, candidates: candidates, cfg: cfg, subtlety: subtlety,
+    DIFFS: DIFFS, HINTS: HINTS, EASY: EASY, timedAlways: timedAlways, isEasy: isEasy, shadeOf: shadeOf, MIN_SIDE_S: MIN_SIDE_S, MIN_AREA_S: MIN_AREA_S,
+    bigEnough: bigEnough, inPicture: inPicture, coveredAfter: coveredAfter, PX375: PX375, PARTK: PARTK, PARTPX: PARTPX, MIN_SIDE: MIN_SIDE, MIN_AREA: MIN_AREA, GAP: GAP, KINDS: KINDS, KIND_NAMES: KIND_NAMES,
     PIN: PIN, FIRST: FIRST, HINTS_PER_LEVEL: HINTS_PER_LEVEL, BONUS_EVERY: BONUS_EVERY, BONUS_MAX: BONUS_MAX, pad: pad, union: union };
 })();
 if (typeof module !== 'undefined') module.exports = DT;
@@ -2914,8 +3230,9 @@ var DS = (function () {
 
   // ================= storage =================
   var store = Goobs.store('spotdiff');
-  var settings = { sound: false, music: false, adEvery: 3, timer: true, rest: true };
-  (function () { var s = store.get('settings', {}) || {}; for (var k in settings) if (typeof s[k] === typeof settings[k]) settings[k] = s[k]; settings.adEvery = Math.min(10, Math.max(1, settings.adEvery | 0)); })();
+  // diff: 0 Relaxed (the 0.1.0 game), 1 Normal (default), 2 Hard, 3 Expert
+  var settings = { sound: false, music: false, adEvery: 3, timer: true, rest: true, diff: 1 };
+  (function () { var s = store.get('settings', {}) || {}; for (var k in settings) if (typeof s[k] === typeof settings[k]) settings[k] = s[k]; settings.adEvery = Math.min(10, Math.max(1, settings.adEvery | 0)); settings.diff = Math.min(3, Math.max(0, settings.diff | 0)); })();
   function saveSettings() { store.set('settings', settings); }
   var meta = store.get('meta', null) || {};
   var MD = { level: 1, seen: false, finished: 0, lastAdAt: 0, stars: {}, bonus: 0, themes: {} };
@@ -2941,10 +3258,12 @@ var DS = (function () {
   // ================= game state =================
   var lv = null, levelNo = 1, found = [], foundT = [], wrong = 0, hints = 0, secs = 0, done = false, ending = false;
   var marks = [], hintJ = -1, hintT = 0, misses = [], restUntil = 0, lastSave = 0;
-  function sig(l) { return l.theme + ':' + l.attempt + ':' + l.diffs.map(function (d) { return d.id + d.kind; }).join(','); }
+  // the level's signature: difficulty, place, composition and differences (a saved level whose signature no longer
+  // matches, e.g. after 0.2.0 changed the composer, starts fresh)
+  function sig(l) { return 'd' + (l.d | 0) + ':' + l.theme + ':' + l.attempt + ':' + l.diffs.map(function (d) { return d.id + d.kind; }).join(','); }
   function startLevel(n) {
     levelNo = n; meta.level = n; saveMeta();
-    lv = DT.level(n); found = lv.diffs.map(function () { return false; }); foundT = found.map(function () { return 0; });
+    lv = DT.level(n, settings.diff); found = lv.diffs.map(function () { return false; }); foundT = found.map(function () { return 0; });
     wrong = 0; hints = 0; secs = 0; done = false; ending = false; marks = []; hintJ = -1; misses = []; restUntil = 0; showRest(false);
     meta.themes[lv.theme] = 1; saveMeta();
     resetView(); newScene(); save(); renderInfo();
@@ -2957,7 +3276,7 @@ var DS = (function () {
   function load() {
     var r = store.get('game', null);
     if (!r || r.level !== meta.level || typeof r.sig !== 'string' || !Array.isArray(r.found)) return false;
-    var l = DT.level(r.level); if (!l || sig(l) !== r.sig) return false;
+    var l = DT.level(r.level, settings.diff); if (!l || sig(l) !== r.sig) return false;
     if (!(r.wrong >= 0) || !(r.hints >= 0) || !(r.secs >= 0)) return false;
     if (r.found.some(function (j) { return !(j >= 0 && j < l.diffs.length); })) return false;
     if (r.found.length >= l.diffs.length) return false;
@@ -2967,7 +3286,10 @@ var DS = (function () {
     resetView(); newScene(); renderInfo(); return true;
   }
   function nFound() { return found.filter(Boolean).length; }
-  function hintsLeft() { return Math.max(0, DT.HINTS_PER_LEVEL - hints) + meta.bonus; }
+  function perLevel() { return DT.HINTS[lv ? lv.d | 0 : settings.diff]; }
+  function hintsLeft() { return Math.max(0, perLevel() - hints) + meta.bonus; }
+  // the clock counts toward the stars: while the timer is shown, and always on Hard and Expert
+  function timed() { return settings.timer || DT.timedAlways(lv ? lv.d : settings.diff); }
 
   // ================= layout =================
   var DPR = 1, SW = 300, SH = 400, P = [{ x: 0, y: 0, w: 300, h: 200 }, { x: 0, y: 210, w: 300, h: 200 }], side2 = false;
@@ -3208,7 +3530,7 @@ var DS = (function () {
     // the remaining one that is easiest to miss: the smallest
     left.sort(function (a, b) { var A1 = lv.diffs[a].box, B1 = lv.diffs[b].box; return A1.w * A1.h - B1.w * B1.h; });
     var j = left[0];
-    if (hints >= DT.HINTS_PER_LEVEL) { meta.bonus--; saveMeta(); }
+    if (hints >= perLevel()) { meta.bonus--; saveMeta(); }
     hints++; stats.hints++; saveStats(); hintJ = j; hintT = now(); S.hint();
     // zoomed in and the ring is off screen: zoom back out
     var b = lv.diffs[j].box, hw = A.W / 2 / view.z, hh = A.H / 2 / view.z;
@@ -3219,7 +3541,7 @@ var DS = (function () {
   function win() {
     if (ending) return;
     ending = true; done = true; cancelPending(); showRest(false); hintJ = -1;
-    var n = levelNo, timed = settings.timer, st = DT.stars(lv, secs, wrong, hints, timed), prev = meta.stars[n] || 0;
+    var n = levelNo, timedNow = timed(), st = DT.stars(lv, secs, wrong, hints, timedNow), prev = meta.stars[n] || 0;
     if (st > prev) { stats.stars += st - prev; meta.stars[n] = st; }
     if (st === 3 && prev < 3) stats.three++;
     if (!wrong && !hints) stats.perfect++;
@@ -3231,13 +3553,13 @@ var DS = (function () {
     var used = secs, w = wrong, h = hints, nd = lv.diffs.length;
     setTimeout(function () {
       if (!done || levelNo !== n) return;
-      var txt = 'All <b>' + nd + '</b> found' + (timed ? ' in <b>' + clock(used) + '</b>' : '') + '. ' + (w ? w + ' miss' + (w > 1 ? 'es' : '') : 'No misses') + (h ? ', ' + h + ' hint' + (h > 1 ? 's' : '') : '') + '.' +
+      var txt = 'All <b>' + nd + '</b> found' + (timedNow ? ' in <b>' + clock(used) + '</b>' + (DT.timedAlways(lv.d) ? ' (target ' + clock(DT.par(lv)) + ')' : '') : '') + '. ' + (w ? w + ' miss' + (w > 1 ? 'es' : '') : 'No misses') + (h ? ', ' + h + ' hint' + (h > 1 ? 's' : '') : '') + '.' +
         (earned ? ' <br>You earned a <b>bonus hint</b> (' + meta.bonus + ' saved).' : '');
       showCard(['Sharp eyes!', 'Well spotted!', 'Double take done!', 'Nothing gets past you!', 'All found!'][n % 5], txt, [
         { label: 'Next level', red: true, go: nextLevel },
         { label: 'Look again', sub: 'see every difference', go: function () { renderInfo(); } }], st);
       for (var s2 = 0; s2 < st; s2++) (function (s2) { setTimeout(function () { S.star(s2); }, 250 + s2 * 150); })(s2);
-      setTimeout(function () { DT.level(n + 1); }, 400);
+      setTimeout(function () { DT.level(n + 1, settings.diff); }, 400);
     }, 1300);
     renderInfo();
   }
@@ -3258,7 +3580,13 @@ var DS = (function () {
   }
 
   // ================= info, cards, sheets =================
-  function renderTime() { var el = $('pillTime'); if (!settings.timer || !lv) { el.innerHTML = ''; return; } el.innerHTML = '<small>Time</small>' + clock(secs); }
+  function renderTime() {
+    var el = $('pillTime'); if (!timed() || !lv) { el.innerHTML = ''; return; }
+    // Hard and Expert: the target time under the label; the pill dims once it's passed
+    var tgt = DT.timedAlways(lv.d), over = tgt && secs > DT.par(lv);
+    el.innerHTML = '<small>' + (tgt ? (over ? 'Over ' : 'Goal ') + clock(DT.par(lv)) : 'Time') + '</small>' + clock(secs);
+    el.classList.toggle('over', !!over);
+  }
   function renderInfo() {
     if (!lv) return;
     $('pillLevel').innerHTML = '<small>Level</small>' + fmt(levelNo);
@@ -3289,13 +3617,14 @@ var DS = (function () {
   }
   function openHelp() {
     $('helpList').innerHTML = [
-      'Two pictures, one above the other, and they are <b>not quite the same</b>. Find every difference (5 to 7; the dots at the top count them).',
+      'Two pictures, one above the other, and they are <b>not quite the same</b>. Find every difference (5 at first, up to 10 later; Found at the top counts them).',
       '<b>Tap a difference</b> on either picture: a green circle appears on both, with a soft chime.',
       'A wrong tap shows a small red <b>×</b>. Three quick misses in a row and the pictures take a 5-second breather (you can switch that off in Settings).',
       '<b>Pinch</b> to zoom and drag to look around: both pictures move together. <b>Double-tap</b> to zoom in there, double-tap again (or Zoom out) to see it all.',
-      'What can change: something <b>missing or extra</b>, a <b>colour</b>, a <b>size</b>, something <b>moved</b> or <b>mirrored</b>, <b>how many</b> (windows, flowers, candles…), a <b>pattern</b>, a <b>face</b>, a <b>letter</b> on a sign, a missing <b>part</b>, a different <b>picture</b>.',
-      '<b>Hint:</b> a ring pulses around one difference you haven\'t found. 3 per level, plus a bonus hint saved for later every 5 levels. Each costs a star.',
-      '<b>Stars:</b> 3, minus one for a hint (two for more), one for more than 3 misses, and one for going over the par time (only while the timer is shown).',
+      'What can change: something <b>missing or extra</b>, a <b>colour</b> (or just a <b>shade</b> lighter or darker), a <b>size</b> (sometimes only a little), something <b>moved</b> (sometimes only a nudge), <b>tilted</b> or <b>mirrored</b>, <b>how many</b> (windows, flowers, candles…), a <b>pattern</b>, a <b>face</b>, a <b>letter</b> on a sign, a missing <b>part</b>, a different <b>picture</b>. Small ones are easiest zoomed in.',
+      '<b>Hint:</b> a ring pulses around one difference you haven\'t found. 3 per level (Hard 2, Expert 1), plus a bonus hint saved for later every 5 levels. Each costs a star.',
+      '<b>Stars:</b> 3, minus one for a hint (two for more), one for more than 3 misses, and one for going over the par time (only while the timer is shown; on Hard and Expert always, against the goal time on the clock).',
+      '<b>Difficulty</b> (Settings): Relaxed, Normal, Hard or Expert. Normal is the default; Relaxed plays like the first version.',
       'Twelve places (a cruise deck, a beach, a harbour, a kitchen, a toy shop, a coral reef, space and more), and the levels never run out.'
     ].map(function (x) { return '<li>' + x + '</li>'; }).join('');
     $('ovHelp').classList.add('show');
@@ -3307,6 +3636,29 @@ var DS = (function () {
       '<div class="tiles"><div class="tile"><b>' + (avg ? clock(avg) : '–') + '</b><span>Average time</span></div><div class="tile"><b>' + fmt(stats.hints) + '</b><span>Hints</span></div><div class="tile"><b>' + fmt(stats.wrong) + '</b><span>Misses</span></div></div>' +
       '<p class="statsnote">' + fmt(lvs) + ' different levels finished · ' + meta.bonus + ' bonus hint' + (meta.bonus === 1 ? '' : 's') + ' saved' + (stats.rests ? ' · ' + fmt(stats.rests) + ' breathers' : '') + '</p>' +
       '<div class="themesgrid">' + A.THEME_IDS.map(function (id) { return '<span class="' + (meta.themes[id] ? 'on' : '') + '">' + themeName(id) + '</span>'; }).join('') + '</div><p class="statsnote">Places visited</p>';
+  }
+
+  // ================= difficulty =================
+  var DIFF_NOTE = [
+    'Like the first version: 5 to 7 bold differences, no clock.',
+    'More to find sooner (up to 10), busier pictures, subtler changes. 3 hints.',
+    'One more difference, subtler sooner, 2 hints, and a goal time for the third star.',
+    'Up to 10 on every board from level 6, the subtlest changes, 1 hint, a tight goal time.'];
+  function syncDiff() {
+    Array.prototype.forEach.call(document.querySelectorAll('#setDiff button'), function (b) { b.classList.toggle('on', +b.getAttribute('data-d') === settings.diff); });
+    $('diffNote').textContent = DIFF_NOTE[settings.diff];
+    // Hard and Expert always show the clock (the goal time counts)
+    var always = DT.timedAlways(settings.diff);
+    $('rowTimer').classList.toggle('off', always); $('setTimer').checked = always || settings.timer;
+    $('timerNote').textContent = always ? 'Always shown on Hard and Expert: beat the goal time for the third star.' : 'A clock at the top. While it\'s hidden, time never costs a star.';
+  }
+  // a new difficulty starts the current level again with it (its scene and differences change); a finished level
+  // just takes it from the next one
+  function setDiff(d) {
+    d = Math.min(3, Math.max(0, d | 0)); if (d === settings.diff) return;
+    settings.diff = d; saveSettings(); syncDiff(); S.ding();
+    if (lv && !done) { var had = nFound() > 0 || secs > 3; startLevel(levelNo); if (had) toast('Level ' + fmt(levelNo) + ' starts again on ' + DT.DIFFS[d]); }
+    renderInfo();
   }
 
   // ================= wiring =================
@@ -3321,7 +3673,7 @@ var DS = (function () {
     Goobs.fullscreen({ overlay: true, menu: ['btnStats', 'btnSettings'], info: function () {
       if (!lv) return '';
       var st = meta.stars[levelNo];
-      return '<b>Level ' + fmt(levelNo) + '</b> · ' + themeName(lv.theme) + ' · ' + nFound() + ' of ' + lv.diffs.length + ' found · ' + wrong + ' miss' + (wrong === 1 ? '' : 'es') + ' · ' + hints + ' hint' + (hints === 1 ? '' : 's') + (settings.timer ? ' · ' + clock(secs) : '') + (st ? ' · ' + '★★★'.slice(0, st) : '');
+      return '<b>Level ' + fmt(levelNo) + '</b> · ' + themeName(lv.theme) + ' · ' + nFound() + ' of ' + lv.diffs.length + ' found · ' + wrong + ' miss' + (wrong === 1 ? '' : 'es') + ' · ' + hints + ' hint' + (hints === 1 ? '' : 's') + (timed() ? ' · ' + clock(secs) : '') + ' · ' + DT.DIFFS[lv.d | 0] + (st ? ' · ' + '★★★'.slice(0, st) : '');
     } });
     Goobs.themePicker($('themes'));
     Goobs.onTheme(function () { dirty = true; });
@@ -3357,6 +3709,8 @@ var DS = (function () {
     $('setMusic').addEventListener('change', function () { settings.music = this.checked; saveSettings(); S.setMusic(settings.music); });
     $('setTimer').checked = settings.timer;
     $('setTimer').addEventListener('change', function () { settings.timer = this.checked; saveSettings(); renderTime(); });
+    Array.prototype.forEach.call(document.querySelectorAll('#setDiff button'), function (b) { b.addEventListener('click', function () { setDiff(+b.getAttribute('data-d')); }); });
+    syncDiff();
     $('setRest').checked = settings.rest;
     $('setRest').addEventListener('change', function () { settings.rest = this.checked; saveSettings(); });
     $('setAds').addEventListener('change', function () { Goobs.setAds(this.checked); syncAds(); });
@@ -3375,7 +3729,7 @@ var DS = (function () {
     requestAnimationFrame(frame);
     window.__sdReady = true;
     Goobs.markPlayed('spotdiff');
-    Goobs.initUpdates({ beforeReload: save, onVersions: function (v) { $('version').textContent = 'Double Take ' + (v.spotdiff || '0.1.0') + ' · Goobs-Games ' + (v.shell || '?'); } });
+    Goobs.initUpdates({ beforeReload: save, onVersions: function (v) { $('version').textContent = 'Double Take ' + (v.spotdiff || '0.2.0') + ' · Goobs-Games ' + (v.shell || '?'); } });
   }
   // hook for automated tests
   function client(i, x, y) { var r = $('stage').getBoundingClientRect(), t = xf(i); return { x: r.left + P[i].x + t.ox + x * t.s, y: r.top + P[i].y + t.oy + y * t.s }; }
@@ -3387,7 +3741,7 @@ var DS = (function () {
     point: function (i, x, y) { return client(i, x, y); },
     // a scene point that is no difference (for a miss)
     empty: function (k) { var got = []; for (var y = 30; y < A.H - 30; y += 17) for (var x = 30; x < A.W - 30; x += 23) { if (DT.hit(lv, x, y, 40) < 0 && got.every(function (g) { return Math.hypot(g.x - x, g.y - y) > 90; })) { got.push({ x: x, y: y }); if (got.length > (k || 0)) return got[got.length - 1]; } } return null; },
-    startLevel: startLevel, hint: hint, meta: function () { return meta; }, stats: function () { return stats; }, settings: function () { return settings; },
+    startLevel: startLevel, hint: hint, setDiff: setDiff, meta: function () { return meta; }, stats: function () { return stats; }, settings: function () { return settings; },
     crispReady: function () { return crispKey[0] === vkey() && crispKey[1] === vkey(); }, busy: function () { return !!vAnim || !!gesture; }
   };
   init();

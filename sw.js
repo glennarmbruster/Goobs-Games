@@ -59,8 +59,8 @@ const VERSIONS = {
   perch: '0.1.0',
   knotty: '0.1.0',
   casino: '0.1.0',
-  spotdiff: '0.1.0',
-  hidden: '0.1.0',
+  spotdiff: '0.2.0',
+  hidden: '0.2.0',
   cases: '0.1.0',
   three: '0.186.1',  // shared 3D library; bump only when three.js itself changes
   planck: '1.5.0',   // shared 2D physics library (planck.js); bump only when planck itself changes
