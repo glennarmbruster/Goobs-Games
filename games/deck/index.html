@@ -47,9 +47,9 @@ html.gg-fs-over .app { position: relative; z-index: 3; height: 100%; pointer-eve
 .app button { pointer-events: auto; }
 
 /* the scoreboard: you on the left, the other side on the right */
-.scorebd { position: fixed; z-index: 7; top: calc(env(safe-area-inset-top, 0px) + 6px); left: 50%; transform: translateX(-50%); width: min(430px, calc(100vw - 116px)); height: 52px; display: flex; align-items: stretch; justify-content: center;
-  pointer-events: none; background: rgba(255,255,255,.93); border-radius: 18px; box-shadow: 0 3px 12px rgba(0,0,0,.18); color: #142847; overflow: hidden; }
-.scorebd .sd { flex: 1 1 0; min-width: 0; display: grid; grid-template-columns: auto 1fr; grid-template-areas: "nm nm" "pts left"; grid-template-rows: 18px 1fr; align-items: center; column-gap: 6px; padding: 3px 7px 3px 9px; transition: background .25s; }
+.scorebd { position: fixed; z-index: 7; top: calc(env(safe-area-inset-top, 0px) + 6px); left: 50%; transform: translateX(-50%); width: min(350px, calc(100vw - 116px)); height: 46px; display: flex; align-items: stretch; justify-content: center;
+  pointer-events: none; background: rgba(9,37,63,.78); border: 1px solid rgba(255,255,255,.30); border-radius: 15px; box-shadow: 0 3px 12px rgba(0,0,0,.15); color: #fff; overflow: hidden; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.scorebd .sd { flex: 1 1 0; min-width: 0; display: grid; grid-template-columns: auto 1fr; grid-template-areas: "nm nm" "pts left"; grid-template-rows: 16px 1fr; align-items: center; column-gap: 6px; padding: 2px 7px 2px 9px; transition: background .25s; }
 .scorebd #sd1 { grid-template-columns: 1fr auto; grid-template-areas: "nm nm" "left pts"; padding: 3px 9px 3px 7px; }
 .scorebd .nm { grid-area: nm; display: flex; align-items: center; gap: 4px; min-width: 0; font-size: 13px; font-weight: 800; letter-spacing: -.2px; }
 .scorebd #sd1 .nm { justify-content: flex-end; }
@@ -57,14 +57,14 @@ html.gg-fs-over .app { position: relative; z-index: 3; height: 100%; pointer-eve
 .scorebd .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; box-shadow: inset 0 -2px 2px rgba(0,0,0,.25); }
 .scorebd #sd0 .dot { background: #e8453c; }
 .scorebd #sd1 .dot { background: #2f6fd6; }
-.scorebd .pts { grid-area: pts; font-size: 24px; line-height: 1; font-weight: 900; font-variant-numeric: tabular-nums; letter-spacing: -.5px; }
+.scorebd .pts { grid-area: pts; font-size: 21px; line-height: 1; font-weight: 900; font-variant-numeric: tabular-nums; letter-spacing: -.5px; }
 .scorebd .left { grid-area: left; display: flex; gap: 3px; height: 10px; align-items: center; }
 .scorebd #sd1 .left { justify-content: flex-end; }
 .scorebd .left i { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid currentColor; opacity: .25; }
 .scorebd #sd0 .left i.on { background: #e8453c; border-color: #e8453c; opacity: 1; }
 .scorebd #sd1 .left i.on { background: #2f6fd6; border-color: #2f6fd6; opacity: 1; }
-.scorebd .sd.turn { background: #fff4c4; }
-.scorebd .mid { flex: none; width: 34px; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 10px; line-height: 1.1; font-weight: 800; color: #6a7a92; border-left: 1px solid #e3e8ef; border-right: 1px solid #e3e8ef; }
+.scorebd .sd.turn { background: rgba(255,205,95,.30); }
+.scorebd .mid { flex: none; width: 34px; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 10px; line-height: 1.1; font-weight: 800; color: #dceaff; border-left: 1px solid rgba(255,255,255,.22); border-right: 1px solid rgba(255,255,255,.22); }
 .scorebd.solo #sd1, .scorebd.solo .mid { display: none; }
 
 
@@ -88,11 +88,11 @@ html.gg-fs-over .app { position: relative; z-index: 3; height: 100%; pointer-eve
 .tip { position: fixed; left: 50%; top: 58%; transform: translateX(-50%); width: max-content; max-width: 90vw; text-align: center; pointer-events: none; z-index: 5;
   background: rgba(14,32,60,.7); color: #fff; font-weight: 700; font-size: 14px; line-height: 1.3; padding: 8px 14px; border-radius: 14px; transition: opacity .3s; }
 .tip.hide { opacity: 0; }
-.turn { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom, 0px) + 14px); z-index: 5; pointer-events: none; display: flex; align-items: center; gap: 7px;
+#turn { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom, 0px) + 14px); z-index: 5; pointer-events: none; display: flex; align-items: center; gap: 7px;
   background: rgba(255,255,255,.92); color: #142847; font-weight: 800; font-size: 15px; padding: 8px 15px; border-radius: 20px; box-shadow: 0 3px 10px rgba(0,0,0,.2); white-space: nowrap; max-width: 92vw; transition: opacity .25s; }
-.turn:empty, .turn.hide { opacity: 0; }
-.turn i { width: 12px; height: 12px; border-radius: 50%; flex: none; box-shadow: inset 0 -2px 2px rgba(0,0,0,.25); }
-.turn small { font-weight: 700; color: #6a7a92; font-size: 13px; }
+#turn:empty, #turn.hide { opacity: 0; }
+#turn i { width: 12px; height: 12px; border-radius: 50%; flex: none; box-shadow: inset 0 -2px 2px rgba(0,0,0,.25); }
+#turn small { font-weight: 700; color: #6a7a92; font-size: 13px; }
 .power { position: fixed; right: 10px; bottom: calc(env(safe-area-inset-bottom, 0px) + 62px); z-index: 5; pointer-events: none; background: rgba(14,32,60,.7); color: #ffe27a; font-weight: 800; font-size: 14px; padding: 6px 11px; border-radius: 12px; opacity: 0; transition: opacity .3s; }
 .power.show { opacity: 1; }
 .loading { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 800; font-size: 17px; pointer-events: none; z-index: 4; text-shadow: 0 2px 6px rgba(0,0,0,.3); }
@@ -141,7 +141,8 @@ html.gg-fs-over .app { position: relative; z-index: 3; height: 100%; pointer-eve
 .vs td:last-child { text-align: right; font-weight: 800; font-variant-numeric: tabular-nums; }
 @media (max-width: 380px) { .scorebd .pts { font-size: 21px; } .scorebd .nm { font-size: 12px; } .msg { font-size: 38px; } }
 /* the New game card on short phones: tighter, and it scrolls if it still doesn't fit */
-#ovStart .card { max-height: calc(100vh - 20px); max-height: calc(100dvh - 20px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
+#ovStart .card { max-height: calc(100vh - 20px); max-height: calc(100vh - 20px); overflow-y: auto; -webkit-overflow-scrolling: touch; }@supports(height:100dvh){/* the New game card on short phones: tighter, and it scrolls if it still doesn't fit */
+#ovStart .card{max-height: calc(100dvh - 20px);}}
 @media (max-height: 720px) {
   #ovStart .card { padding: 14px 14px 12px; }
   .opps { gap: 6px; }
@@ -151,8 +152,31 @@ html.gg-fs-over .app { position: relative; z-index: 3; height: 100%; pointer-eve
   .opps h3 { margin-top: 2px; }
   .startnote { margin-bottom: 6px; font-size: 13px; }
 }
+
+/* Deliberate shuffleboard controls: native sliders support touch, mouse and keyboard. */
+.shuffle-controls { position:fixed; z-index:6; left: max(10px,env(safe-area-inset-left)); right:max(10px,env(safe-area-inset-right)); bottom:0; max-width:460px; margin:auto; padding:8px 12px calc(8px + env(safe-area-inset-bottom, 0px)); border-radius:16px 16px 0 0; background:rgba(250,249,244,.97); color:#142847; box-shadow:0 3px 18px #10233a40; }
+.shuffle-controls[hidden] { display:none; }
+.shuffle-controls label { display:grid; grid-template-columns:48px 1fr 48px; align-items:center; gap:8px; font-size:13px; font-weight:700; }
+.shuffle-controls input { width:100%; height:44px; margin:0; accent-color:#146b80; touch-action:pan-x; }
+.shuffle-controls output { text-align:right; font-variant-numeric:tabular-nums; font-size:12px; }
+.shuffle-controls footer { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.shuffle-controls small { font-size:11px; line-height:1.3; color:#526477; }
+.shuffle-controls button { min-height:44px; min-width:104px; border:0; border-radius:11px; background:#146b80; color:white; font:800 16px system-ui; cursor:pointer; }
+.shuffle-controls button:active { background:#104e60; transform:translateY(1px); }
+body.shuffle-aim #turn { top:103px; bottom:auto; left:10px; transform:none; max-width:calc(100vw - 125px); font-size:12px; padding:7px 9px; }
+@media (orientation:landscape) and (max-height:500px) { .shuffle-controls { display:none; } }
 </style>
-</head>
+<link rel="stylesheet" href="../../shared/collection-ui.css"><script defer src="../../shared/collection-ui.js"></script><link rel="stylesheet" href="../../shared/remaining-navigation.css"><!-- Goobs polish: remaining collection pass --><style>
+@media (orientation:landscape) and (max-height:500px) {
+  #ovStart .card { max-height:calc(100vh - 12px); padding:10px 13px; }
+  #ovStart .opps { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+  #ovStart .opps button { min-height:42px; padding:4px 8px; }
+  #ovStart .opps button .av { width:28px; height:28px; }
+  #ovStart .opps button b { font-size:14px; }
+  #ovStart .opps button small { display:none; }
+  #ovStart .startnote { margin:0 0 4px; }
+}
+</style></head>
 <body>
 <svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
 <symbol id="dk-logo" viewBox="0 0 100 100"><defs><linearGradient id="dkS" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3b8fe0"/><stop offset=".55" stop-color="#9fd3f5"/></linearGradient></defs><rect width="100" height="100" rx="24" fill="url(#dkS)"/>
@@ -172,6 +196,11 @@ html.gg-fs-over .app { position: relative; z-index: 3; height: 100%; pointer-eve
 
 <canvas id="cv3"></canvas>
 <canvas id="swipe"></canvas>
+<section id="shuffleControls" class="shuffle-controls" aria-label="Shuffleboard shot" hidden>
+  <label for="shotAim">Aim <input id="shotAim" type="range" min="-100" max="100" value="0" step="1"><output id="aimValue" for="shotAim">Center</output></label>
+  <label for="shotPower">Power <input id="shotPower" type="range" min="10" max="100" value="50" step="1"><output id="powerValue" for="shotPower">50</output></label>
+  <footer><small>50 ≈ the 10 zone<br>Slide on deck to position disc</small><button id="btnPush" type="button">Push</button></footer>
+</section>
 
 <div class="app" id="app">
   <div class="top">
@@ -972,7 +1001,7 @@ var DKSound = (function () {
    a deck shuffleboard court (cream paint, navy lines, both scoring triangles), a cornhole lane beside it (two painted
    boards with real holes), glass railings with a teak handrail, life rings with the ship's name, the pool with its
    ladder, loungers and striped umbrellas at the stern, the sea with the ship's wake, a summer sky with clouds.
-   Everything is drawn here from shapes and canvas textures (no image files).
+   Local teak and sky photographs complement the procedural geometry and canvas textures.
    Coordinates: the game's (x across, +x to the player's right; z away from the player; y up) map to the world as
    (x + lane offset, y, -z), so the camera looks down -z and nothing is mirrored.
    DKScene.build(THREE, canvas, DK) returns what the app needs; the app moves the camera. */
@@ -989,12 +1018,15 @@ var DKScene = (function () {
     // ---------------- renderer, camera, lights ----------------
     var renderer = new T.WebGLRenderer({ canvas: canvas, antialias: true, powerPreference: 'high-performance' });
     renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFShadowMap;renderer.shadowMap.autoUpdate=false;
+    canvas.addEventListener('webglcontextrestored',function(){renderer.shadowMap.needsUpdate=true;sun.shadow.needsUpdate=true;});
     renderer.toneMapping = T.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.0;
     var scene = new T.Scene(), HAZE = new T.Color('#b9dcf3');
     scene.fog = new T.Fog(HAZE, 140, 1100);
     var camera = new T.PerspectiveCamera(40, 1, 0.05, 2500);
     scene.add(new T.HemisphereLight(0xf0f6ff, 0xc79a6a, 1.05));
     var sun = new T.DirectionalLight(0xfff1dc, 1.7); sun.position.set(7, 12, 9); sun.target.position.set(-1, 0, -8); scene.add(sun); scene.add(sun.target);
+    sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.left=-23;sun.shadow.camera.right=23;sun.shadow.camera.top=25;sun.shadow.camera.bottom=-25;sun.shadow.camera.near=.5;sun.shadow.camera.far=75;sun.shadow.bias=-.00025;sun.shadow.normalBias=.035;
     var fill = new T.DirectionalLight(0xbfe0ff, 0.35); fill.position.set(-6, 5, -12); scene.add(fill);
     // soft reflections from a simple bright sky (the discs, the boards' paint and the railings' glass pick it up)
     try {
@@ -1029,6 +1061,7 @@ var DKScene = (function () {
       m.position.set(Math.cos(a) * d, Math.tan(c[1]) * d + 20, Math.sin(a) * d); m.scale.set(520 * c[2], 260 * c[2], 1); m.renderOrder = -9;
       scene.add(m); clouds.push(m);
     });
+    new T.TextureLoader().load('assets/maritime-sky-v1.webp',function(t){t.colorSpace=T.SRGBColorSpace;t.repeat.y=3;t.offset.y=-1;sky.material.map=t;sky.material.toneMapped=false;sky.material.needsUpdate=true;clouds.forEach(function(c){c.visible=false;});});
     var SEA_Y = -18;
     var seaTex = tex(256, 256, function (x, w, h) {
       x.fillStyle = '#1f6fa8'; x.fillRect(0, 0, w, h);
@@ -1039,7 +1072,17 @@ var DKScene = (function () {
       }
     });
     seaTex.wrapS = seaTex.wrapT = T.RepeatWrapping; seaTex.repeat.set(260, 260);
-    var sea = new T.Mesh(new T.PlaneGeometry(5000, 5000), new T.MeshBasicMaterial({ map: seaTex, color: 0xb8d8ee }));
+    function waveNormals() {
+      var n=256,data=new Uint8Array(n*n*4);
+      for(var y=0;y<n;y++)for(var x=0;x<n;x++){var u=x/n*Math.PI*2,v=y/n*Math.PI*2;
+        var dx=.35*Math.cos(7*u+3*v)+.16*Math.cos(13*u-5*v)+.08*Math.cos(23*u+11*v);
+        var dy=.24*Math.cos(7*u+3*v)-.13*Math.cos(13*u-5*v)+.12*Math.cos(23*u+11*v), len=Math.hypot(dx,dy,1),o=(y*n+x)*4;
+        data[o]=128+127*dx/len;data[o+1]=128+127*dy/len;data[o+2]=128+127/len;data[o+3]=255;
+      }
+      var t=new T.DataTexture(data,n,n);t.wrapS=t.wrapT=T.RepeatWrapping;t.magFilter=T.LinearFilter;t.minFilter=T.LinearMipmapLinearFilter;t.generateMipmaps=true;t.needsUpdate=true;return t;
+    }
+    var seaNormal=waveNormals();seaNormal.repeat.set(220,220);
+    var sea = new T.Mesh(new T.PlaneGeometry(5000, 5000), new T.MeshStandardMaterial({ color:0x1d779d,normalMap:seaNormal,normalScale:new T.Vector2(.55,.4),roughness:.26,metalness:.35,envMapIntensity:1.1 }));
     sea.rotation.x = -Math.PI / 2; sea.position.y = SEA_Y; scene.add(sea);
     // the wake: a widening band of foam behind the stern
     var wakeTex = tex(128, 512, function (x, w, h) {
@@ -1073,6 +1116,7 @@ var DKScene = (function () {
     });
     teakTex.wrapS = teakTex.wrapT = T.RepeatWrapping; teakTex.repeat.set(0.5, 0.5);   // (UVs are in meters: 2 m a texture)
     var teakMat = new T.MeshStandardMaterial({ map: teakTex, roughness: 0.78, metalness: 0 });
+    new T.TextureLoader().load('assets/teak-v1.webp',function(t){t.colorSpace=T.SRGBColorSpace;t.wrapS=t.wrapT=T.RepeatWrapping;t.repeat.set(2/3,2/3);t.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());teakMat.map=t;teakMat.bumpMap=t;teakMat.bumpScale=.006;teakMat.roughness=.72;teakMat.needsUpdate=true;});
     // the deck: one sheet with the pool cut out of it (shape x = world x, shape y = -world z)
     var PX0 = -11.6, PX1 = -5.2, PZ0 = -17.5, PZ1 = -3.5, PD = 1.4;
     var deckShape = new T.Shape(); deckShape.moveTo(DX0, -DZ1); deckShape.lineTo(DX1, -DZ1); deckShape.lineTo(DX1, -DZ0); deckShape.lineTo(DX0, -DZ0); deckShape.closePath();
@@ -1175,12 +1219,16 @@ var DKScene = (function () {
       }
     });
     waterTex.wrapS = waterTex.wrapT = T.RepeatWrapping; waterTex.repeat.set(3, 6);
-    var water = new T.Mesh(new T.PlaneGeometry(PX1 - PX0, PZ1 - PZ0), new T.MeshStandardMaterial({ map: waterTex, color: 0xd8f6ff, roughness: 0.08, metalness: 0.1, transparent: true, opacity: 0.88 }));
+    var poolNormal=waveNormals();poolNormal.repeat.set(2,4);
+    var water = new T.Mesh(new T.PlaneGeometry(PX1 - PX0, PZ1 - PZ0), new T.MeshPhysicalMaterial({ color:0x72cedb,normalMap:poolNormal,normalScale:new T.Vector2(.17,.17),roughness:.14,metalness:.05,transparent:true,opacity:.64,clearcoat:1,clearcoatRoughness:.15 }));
     water.rotation.x = -Math.PI / 2; water.position.set((PX0 + PX1) / 2, -0.18, (PZ0 + PZ1) / 2); scene.add(water);
 
     // ---------------- loungers and umbrellas at the stern ----------------
     var frameMat = new T.MeshStandardMaterial({ color: 0xfafafa, roughness: 0.4 });
     var padMats = [new T.MeshStandardMaterial({ color: 0x1aa0b8, roughness: 0.8 }), new T.MeshStandardMaterial({ color: 0xffb33c, roughness: 0.8 })];
+    var upholstery=tex(128,128,function(c,w,h){c.fillStyle='#e5e5df';c.fillRect(0,0,w,h);for(var i=0;i<128;i+=2){c.strokeStyle=i%4?'#d5d5cd':'#f3f3eb';c.lineWidth=.7;c.beginPath();c.moveTo(i,0);c.lineTo(i,h);c.moveTo(0,i);c.lineTo(w,i);c.stroke();}});
+    upholstery.wrapS=upholstery.wrapT=T.RepeatWrapping;upholstery.repeat.set(2,3);
+    padMats.forEach(function(m){m.map=upholstery;m.bumpMap=upholstery;m.bumpScale=.003;m.color.multiplyScalar(.82);});
     function lounger(x, z, ry, k) {
       var g = new T.Group();
       var base = new T.Mesh(new T.BoxGeometry(0.66, 0.07, 1.25), frameMat); base.position.set(0, 0.3, 0.25); g.add(base);
@@ -1213,15 +1261,19 @@ var DKScene = (function () {
     flag.position.set(FPX - 0.8, 6.4, DZ0 + 0.4); flag.rotation.y = Math.PI; scene.add(flag);
     // potted palms in the stern corners and by the lanes
     var potMat = new T.MeshStandardMaterial({ color: 0xf4efe6, roughness: 0.6 }), leafMat = new T.MeshStandardMaterial({ color: 0x2f9a4f, roughness: 0.7, side: T.DoubleSide });
+    var frondTex=tex(128,512,function(c,w,h){c.strokeStyle='#bdcf87';c.lineWidth=3;c.beginPath();c.moveTo(64,505);c.lineTo(64,10);c.stroke();
+      for(var j=0;j<25;j++){var yy=30+j*18,len=12+38*Math.sin(j/25*Math.PI);[-1,1].forEach(function(side){c.fillStyle=j%2?'#678e4e':'#829e5c';c.beginPath();c.moveTo(64,yy+22);c.quadraticCurveTo(64+side*len*.7,yy,64+side*len,yy-22);c.quadraticCurveTo(64+side*len*.4,yy+22,64,yy+26);c.fill();});}
+    });
+    leafMat.map=frondTex;leafMat.alphaTest=.4;leafMat.color.set('#ffffff');leafMat.roughness=.82;
     var trunkMat = new T.MeshStandardMaterial({ color: 0x8a6a45, roughness: 0.9 });
     function palm(x, z, s) {
       var g = new T.Group();
       var pot = new T.Mesh(new T.CylinderGeometry(0.34, 0.26, 0.55, 14), potMat); pot.position.y = 0.275; g.add(pot);
       var tr = new T.Mesh(new T.CylinderGeometry(0.06, 0.09, 1.9, 8), trunkMat); tr.position.y = 1.5; tr.rotation.z = 0.06; g.add(tr);
       for (var i = 0; i < 9; i++) {
-        var lf = new T.Mesh(new T.PlaneGeometry(0.34, 1.25, 1, 4), leafMat), pa = lf.geometry.attributes.position;
-        for (var k = 0; k < pa.count; k++) { var yy = pa.getY(k) + 0.625; pa.setZ(k, -yy * yy * 0.28); pa.setX(k, pa.getX(k) * (1 - yy / 1.4)); }
-        lf.geometry.computeVertexNormals(); lf.geometry.translate(0, 0.625, 0);
+        var lf = new T.Mesh(new T.PlaneGeometry(0.75, 1.8, 2, 6), leafMat), pa = lf.geometry.attributes.position;
+        for (var k = 0; k < pa.count; k++) { var yy = pa.getY(k) + 0.9; pa.setZ(k, -yy * yy * 0.28); pa.setX(k, pa.getX(k) * (1 - yy / 2.2)); }
+        lf.geometry.computeVertexNormals(); lf.geometry.translate(0, 0.9, 0);
         var hold = new T.Group(); hold.position.y = 2.42; hold.rotation.y = i * 2 * Math.PI / 9 + rnd(-0.2, 0.2); lf.rotation.x = -1.0 - rnd(0, 0.35); hold.add(lf); g.add(hold);
       }
       g.position.set(x, 0, z); g.scale.setScalar(s || 1); scene.add(g);
@@ -1473,16 +1525,18 @@ var DKScene = (function () {
         mg.setAttribute('position', new T.BufferAttribute(pos, 3)); mg.setAttribute('normal', new T.BufferAttribute(nor, 3)); mg.setAttribute('uv', new T.BufferAttribute(uv, 2));
         if (col) mg.setAttribute('color', new T.BufferAttribute(col, 3));
         mg.computeBoundingSphere();
-        var m = new T.Mesh(mg, groups[k].mat); m.renderOrder = groups[k].order; scene.add(m);
+        var m = new T.Mesh(mg, groups[k].mat);m.castShadow=!m.material.transparent;m.receiveShadow=true; m.renderOrder = groups[k].order; scene.add(m);
       });
     })();
 
+    deck.receiveShadow=true;court.receiveShadow=true;
+    renderer.shadowMap.needsUpdate=true;sun.shadow.needsUpdate=true;
     // ---------------- updates from the app ----------------
     var clock = 0;
     function resize(w, h) { renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
     function render(dt) {
       clock += dt || 0;
-      seaTex.offset.set(clock * 0.004, clock * 0.012);
+      seaTex.offset.set(clock * 0.004, clock * 0.012);seaNormal.offset.set(clock*.002,clock*.005);poolNormal.offset.set(clock*.012,clock*.007);
       waterTex.offset.set(Math.sin(clock * 0.3) * 0.05, clock * 0.02);
       var p = flagGeo.attributes.position;
       for (var i = 0; i < p.count; i++) { var bx = flagBase[i * 3], u = (bx + 0.8) / 1.6; p.setZ(i, Math.sin(clock * 5 - u * 5) * 0.12 * u); }
@@ -1506,8 +1560,8 @@ var DKScene = (function () {
 <script src="../../shared/ads.js"></script>
 <script>
 /* Lido Deck app: two deck games on a cruise ship's pool deck, Shuffleboard and Cornhole, each against the phone
-   (Sunny, Skipper, the Commodore), two players passing the phone, or practice. Slide sideways to line up, swipe up
-   to push the disc or throw the bag (a faster swipe goes farther; the swipe's tilt aims). The rules, physics and
+   (Sunny, Skipper, the Commodore), two players passing the phone, or practice. Shuffleboard uses explicit aim/power and Push; sideways dragging places the disc.
+   Cornhole retains its speed-and-tilt swipe to throw. The rules, physics and
    bots are in logic.js (DK), the 3D deck in scene.js (three.js from /shared), sounds in sound.js. Each game keeps
    its own match going and saves after every shot; stats; house ads only between games. */
 (function () {
@@ -1548,7 +1602,7 @@ var DKScene = (function () {
   // ================= helpers =================
   function $(id) { return document.getElementById(id); }
   function isOpen(id) { var e = $(id); return !!e && e.classList.contains('show'); }
-  function sheetOpen() { return isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovHelp') || isOpen('ovStats') || isOpen('ovStart') || isOpen('ggMenu') || GoobsAds.isOpen(); }
+  function sheetOpen() { return document.documentElement.classList.contains('collection-open') || isOpen('ovEnd') || isOpen('ovSettings') || isOpen('ovHelp') || isOpen('ovStats') || isOpen('ovStart') || isOpen('ggMenu') || GoobsAds.isOpen(); }
   function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
   function esc(s) { return String(s).replace(/[<>&"]/g, function (c) { return { '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]; }); }
   var msgT = 0;
@@ -1573,6 +1627,7 @@ var DKScene = (function () {
   function startGame(opp) {
     var g = DK.newGame(mode, opp, { target: settings.target });
     g.names = null;
+    if(mode==='shuffle') { $('shotAim').value=0; $('shotPower').value=50; updateShotControls(); }
     games[mode] = G = g; saveGame();
     $('ovStart').classList.remove('show'); $('ovEnd').classList.remove('show');
     S.hissStop(); fade = []; framePieces = null; endShown = false; lastRes = null;
@@ -1588,12 +1643,13 @@ var DKScene = (function () {
     renderHud();
     if (isHuman(side)) {
       phase = 'aim';
+      if(mode==='shuffle') updateShotControls();
       var n = names();
       // pass-and-play: the name on the turn banner, and a nudge to pass the phone (the shot's result keeps the middle)
       if (G.opp === 'two') { $('turn').innerHTML = dot(side) + esc(n[side]) + '’s turn <small>· ' + DK.left(G, side) + ' ' + piece() + (DK.left(G, side) === 1 ? '' : 's') + ' left</small>'; if (G.shot > 0 || G.frame > 1) tip('Pass to <b>' + esc(n[side]) + '</b>', 1600); }
       else $('turn').innerHTML = dot(side) + 'Your turn <small>· ' + DK.left(G, side) + ' ' + piece() + (DK.left(G, side) === 1 ? '' : 's') + ' left</small>';
       var learn = (mode === 'shuffle' ? meta.hs : meta.hc) < 3;
-      if (learn) tip(mode === 'shuffle' ? 'Slide sideways to set your disc · <b>swipe up</b> to push<br>A faster swipe pushes harder; tilt it to angle' : 'Slide sideways to pick your spot · <b>swipe up</b> to throw<br>A faster swipe throws farther; tilt it to aim', 6000);
+      if (learn) tip(mode === 'shuffle' ? 'Set <b>Aim</b> and <b>Power</b>, then tap <b>Push</b>' : 'Slide sideways to pick your spot · <b>swipe up</b> to throw<br>A faster swipe throws farther; tilt it to aim', 6000);
       else if (first) tip('');
     } else {
       phase = 'think'; thinkT = 0;
@@ -1829,7 +1885,7 @@ var DKScene = (function () {
         SC.setCue(sh.x0 + Math.sin(sh.ang) * tr, SB.ZSTART + Math.cos(sh.ang) * tr, sh.ang, true);
       } else SC.setCue(0, 0, 0, false);
       // the aim line: from the waiting disc, the way it would go
-      if (phase === 'aim' && G && (settings.aim || liveAim != null)) {
+      if (phase === 'aim' && G && (settings.aim || (mode !== 'shuffle' && liveAim != null))) {
         var a2 = liveAim != null ? liveAim : 0, x0 = curX(), pts = [];
         for (var i = 0; i < 18; i++) { var d0 = 0.2 + i * 0.42, d1 = d0 + 0.24; pts.push([x0 + Math.sin(a2) * d0, 0.006, SB.ZSTART + Math.cos(a2) * d0], [x0 + Math.sin(a2) * d1, 0.006, SB.ZSTART + Math.cos(a2) * d1]); }
         SC.setAim('shuffle', pts, liveAim != null ? '#ff5a1f' : '#1aa0b8', 0.028);
@@ -1853,7 +1909,7 @@ var DKScene = (function () {
         }
       }
       SC.setBags(bl); SC.setDiscs([]); SC.setCue(0, 0, 0, false);
-      if (phase === 'aim' && G && (settings.aim || liveAim != null)) {
+      if (phase === 'aim' && G && (settings.aim || (mode !== 'shuffle' && liveAim != null))) {
         var x1 = curX(), psi = CH.aimBase(x1) + (liveAim != null ? liveAim : 0), pts2 = [];
         for (var j = 0; j < 14; j++) { var e0 = 0.6 + j * 0.56, e1 = e0 + 0.28; pts2.push([x1 + Math.sin(psi) * e0, 0.01, CH.Z0 + Math.cos(psi) * e0], [x1 + Math.sin(psi) * e1, 0.01, CH.Z0 + Math.cos(psi) * e1]); }
         SC.setAim('corn', pts2, liveAim != null ? '#ff5a1f' : '#1aa0b8', 0.045);
@@ -1971,6 +2027,9 @@ var DKScene = (function () {
     if (!SC) return;
     var dt = Math.min(0.05, (t - lastT) / 1000 || 0.016); lastT = t; clock += dt;
     var paused = sheetOpen() || document.hidden;
+    var controlsOn=mode==='shuffle' && phase==='aim' && !!G && !paused;
+    $('shuffleControls').hidden=!controlsOn;
+    document.body.classList.toggle('shuffle-aim',controlsOn);
     if (!paused && G) {
       if (phase === 'think') {
         thinkT += dt;
@@ -2040,6 +2099,10 @@ var DKScene = (function () {
   function onMove(e) {
     if (!touch || e.pointerId !== touch.id || phase !== 'aim') return;
     var dx = e.clientX - touch.x0, dy = e.clientY - touch.y0, side = DK.shooter(G);
+    if(mode==='shuffle') {
+      if(Math.abs(dx)>6 || touch.mode==='move') { touch.mode='move'; G.xs[side]=clamp(touch.gx+dx/(W/1.7),-SB.XMAX,SB.XMAX); }
+      return;
+    }
     if (!touch.mode && Math.hypot(dx, dy) > 10) touch.mode = Math.abs(dx) > Math.abs(dy) * 1.1 ? 'move' : dy < 0 ? 'throw' : 'none';
     if (touch.mode === 'move') {
       var pxm = W / (mode === 'shuffle' ? 1.7 : 2.2), raw = touch.gx + dx / pxm;
@@ -2053,6 +2116,7 @@ var DKScene = (function () {
     if (!touch || (e && e.pointerId !== touch.id)) return;
     var t = touch; touch = null;
     if (phase !== 'aim') return;
+    if(mode==='shuffle') { saveGame(); return; }
     if (t.mode === 'move') { saveGame(); return; }
     if (t.mode !== 'throw') { liveAim = null; if (!t.mode) tip('Swipe <b>up</b> to ' + (mode === 'shuffle' ? 'push' : 'throw') + ' · slide sideways to move'); return; }
     var p = t.pts, a = p[0], z = p[p.length - 1];
@@ -2061,6 +2125,20 @@ var DKScene = (function () {
     var i = p.length - 1; while (i > 0 && z[2] - p[i][2] < 120) i--;
     var dtm = Math.max(16, z[2] - p[i][2]), f = (p[i][1] - z[1]) / dtm * 1000 / H;
     humanShot(f, tiltOf(p));
+  }
+  function updateShotControls() {
+    var aim=+$('shotAim').value, power=+$('shotPower').value;
+    $('aimValue').textContent=aim===0?'Center':Math.abs(aim)+(aim<0?' L':' R');
+    $('shotAim').setAttribute('aria-valuetext',aim===0?'Straight ahead':Math.abs(aim)+' percent '+(aim<0?'left':'right'));
+    $('powerValue').textContent=power;
+    if(mode==='shuffle') liveAim=aim*.0012;
+  }
+  function pushSelectedShot() {
+    if(mode!=='shuffle'||phase!=='aim'||!G||sheetOpen()) return;
+    S.unlock();
+    var power=+$('shotPower').value, shot=SB.fromSwipe(power/25,0);
+    shoot({x0:G.xs[DK.shooter(G)],v:shot.v,ang:+$('shotAim').value*.0012,power:power});
+    $('shuffleControls').hidden=true;
   }
   function humanShot(f, tilt) {
     var side = DK.shooter(G), x0 = G.xs[side];
@@ -2121,7 +2199,7 @@ var DKScene = (function () {
     ];
     var L = mode === 'shuffle' ? [
       '<b>Line up</b>: slide your finger sideways to set your disc anywhere behind the baseline.',
-      '<b>Push</b>: swipe up. A faster swipe pushes harder (the number bottom right: about 50 reaches the 10); tilt the swipe to angle the push. The dashed line shows your aim.',
+      '<b>Push</b>: adjust Aim and Power, then tap Push. The dashed line previews your direction. Power 50 reaches roughly the 10 zone on an empty court; increase it to push farther or knock discs. Power depends on the setting, not how fast you move your finger. Settings stay selected for your next shot; a new game resets them.',
       '<b>Scoring</b>: the triangle at the far end. <b>10</b> at the tip, <b>8</b> and <b>7</b> below it, and <b>10 OFF</b> (the kitchen) at the base. A disc counts only if it is completely inside an area, not touching a line. The map at the top right shows the triangle from above (a gold ring: scoring; red: the kitchen).',
       '<b>Frames</b>: 4 discs each, taking turns. When all 8 are down, both sides score their discs; the other side starts the next frame.',
       '<b>Tactics</b>: knock the other side’s discs off or into the kitchen; park a disc in front of yours as a guard. A disc that stops short of the far dead line, goes past the far baseline or off the court is taken away.',
@@ -2164,9 +2242,12 @@ var DKScene = (function () {
       $('ggMenu').classList.remove('show');
       switchMode(b.dataset.mode);
     });
+    $('shotAim').addEventListener('input',updateShotControls);
+    $('shotPower').addEventListener('input',updateShotControls);
+    $('btnPush').addEventListener('click',pushSelectedShot);
     var cv = $('cv3');
     cv.addEventListener('pointerdown', onDown); cv.addEventListener('pointermove', onMove);
-    cv.addEventListener('pointerup', onUp); cv.addEventListener('pointercancel', function () { touch = null; liveAim = null; });
+    cv.addEventListener('pointerup', onUp); cv.addEventListener('pointercancel', function () { touch = null; if(mode==='shuffle') updateShotControls(); else liveAim = null; });
     cv.addEventListener('contextmenu', function (e) { e.preventDefault(); });
     document.addEventListener('touchmove', function (e) { if (e.target === cv && e.cancelable) e.preventDefault(); }, { passive: false });
     $('btnHome').addEventListener('click', function () { saveGame(); saveMeta(); Goobs.home(); });
@@ -2215,5 +2296,5 @@ var DKScene = (function () {
     screen: function (x, y, z) { return SC.toScreen(mode, x, y, z, W, H); } };
 })();
 </script>
-</body>
+<script defer src="../../shared/remaining-navigation.js"></script></body>
 </html>

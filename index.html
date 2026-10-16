@@ -11,8 +11,8 @@
 <meta name="apple-mobile-web-app-title" content="Goobs-Games">
 <meta name="description" content="A little arcade of offline puzzle games.">
 <link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icons/icon-180.png">
-<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/game-vault-180-v2.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/game-vault-192-v2.png">
 <link rel="stylesheet" href="shared/goobs.css">
 <script>
 /* Safety net: if the menu can't start (an error, or nothing after 8 seconds), show a message with Repair instead of
@@ -54,7 +54,7 @@
 <style>
 .menu { gap: 12px; align-items: stretch; }
 .logo { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.logo svg { width: 40px; height: 40px; flex: none; border-radius: 11px; box-shadow: 0 4px 10px -4px rgba(90,84,240,.6); }
+.logo svg, .logo .game-vault-logo { width: 40px; height: 40px; flex: none; border-radius: 11px; box-shadow: 0 4px 10px -4px rgba(90,84,240,.6); }
 .logo h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -.5px; color: var(--ink); white-space: nowrap; }
 .hello { margin: -6px 2px 0; font-size: 15px; color: var(--muted); font-weight: 500; }
 .section h2 { margin: 4px 2px 10px; font-size: 13px; font-weight: 700; color: var(--muted); letter-spacing: .8px; text-transform: uppercase; }
@@ -116,17 +116,16 @@
 @media (prefers-reduced-motion: reduce) { .spooky .bat, .spooky .bat svg { animation: none; } .spooky .b1 { left: 20%; } .spooky .b2 { left: 70%; } .spooky .b3 { left: 45%; } }
 :root[data-skin="halloween"] .logo circle { fill: #ff7a1a; }
 </style>
+<link rel="stylesheet" href="shared/collection.css">
 </head>
-<body>
+<body class="collection">
 <div class="spooky" aria-hidden="true"><svg class="moon" viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" fill="#ffe9b0"/><circle cx="38" cy="40" r="7" fill="#f2d48c"/><circle cx="60" cy="62" r="9" fill="#f2d48c"/><circle cx="62" cy="34" r="4" fill="#f2d48c"/></svg><svg class="web" viewBox="0 0 100 100" fill="none" stroke="#e9dcff" stroke-width="1.2"><path d="M0 0L100 30M0 0L80 70M0 0L35 100M0 0L0 100M0 0L100 0"/><path d="M0 22Q12 14 22 0M0 44Q26 30 44 0M0 66Q40 46 66 0M0 88Q55 62 88 0"/></svg><div class="bat b1"><svg viewBox="0 0 46 22"><path d="M23 7c1.5-3 3-3 3-3l1 3c4-3 9-4 13-2-2 1-3 3-3 5 3-1 6 0 9 2-5 0-9 2-11 6-2-3-5-4-8-3-1-1-2-3-4-3s-3 2-4 3c-3-1-6 0-8 3-2-4-6-6-11-6 3-2 6-3 9-2 0-2-1-4-3-5 4-2 9-1 13 2l1-3s1.5 0 3 3z" fill="#6a4686"/></svg></div><div class="bat b2"><svg viewBox="0 0 46 22"><path d="M23 7c1.5-3 3-3 3-3l1 3c4-3 9-4 13-2-2 1-3 3-3 5 3-1 6 0 9 2-5 0-9 2-11 6-2-3-5-4-8-3-1-1-2-3-4-3s-3 2-4 3c-3-1-6 0-8 3-2-4-6-6-11-6 3-2 6-3 9-2 0-2-1-4-3-5 4-2 9-1 13 2l1-3s1.5 0 3 3z" fill="#6a4686"/></svg></div><div class="bat b3"><svg viewBox="0 0 46 22"><path d="M23 7c1.5-3 3-3 3-3l1 3c4-3 9-4 13-2-2 1-3 3-3 5 3-1 6 0 9 2-5 0-9 2-11 6-2-3-5-4-8-3-1-1-2-3-4-3s-3 2-4 3c-3-1-6 0-8 3-2-4-6-6-11-6 3-2 6-3 9-2 0-2-1-4-3-5 4-2 9-1 13 2l1-3s1.5 0 3 3z" fill="#6a4686"/></svg></div><div class="pumpkins"><svg viewBox="0 0 400 70" preserveAspectRatio="xMidYMax meet"><g fill="#ff7a1a"><ellipse cx="60" cy="50" rx="30" ry="20"/><ellipse cx="46" cy="50" rx="14" ry="19" fill="#e96a10"/><ellipse cx="74" cy="50" rx="14" ry="19" fill="#e96a10"/><rect x="57" y="24" width="6" height="10" rx="2" fill="#4a7a2a"/>
 <ellipse cx="340" cy="54" rx="24" ry="16"/><ellipse cx="329" cy="54" rx="11" ry="15" fill="#e96a10"/><ellipse cx="351" cy="54" rx="11" ry="15" fill="#e96a10"/><rect x="337" y="33" width="5" height="9" rx="2" fill="#4a7a2a"/></g>
 <g fill="#2a1200"><path d="M48 44l6 6h-9zM66 44l6 6h-9zM46 58q14 8 28 0l-4 4-3-3-4 4-3-4-4 4-3-3z"/><path d="M332 49l5 5h-8zM345 49l5 5h-8zM330 60q10 6 20 0l-3 3-3-2-2 3-3-3-3 3z"/></g></svg></div></div>
 <div class="app menu">
   <div class="top">
     <div class="logo">
-      <svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5b5cff"/><stop offset="1" stop-color="#a45cff"/></linearGradient></defs>
-        <rect width="100" height="100" fill="url(#lg)"/><rect x="22" y="22" width="25" height="25" rx="7" fill="#fff"/><rect x="53" y="22" width="25" height="25" rx="7" fill="#fff" fill-opacity=".62"/>
-        <rect x="22" y="53" width="25" height="25" rx="7" fill="#fff" fill-opacity=".62"/><circle cx="65.5" cy="65.5" r="13" fill="#ffc53d"/></svg>
+      <img src="icons/game-vault-192-v2.png" width="42" height="42" alt="" class="game-vault-logo">
       <h1>Goobs-Games</h1>
     </div>
     <div class="topbtns">
@@ -136,8 +135,8 @@
 
   <p class="hello" id="hello">A little game for every mood.</p>
   <div class="section" id="secContinue"></div>
-  <div class="section" id="secFavs"></div>
-  <div class="section"><h2 id="allTitle">All games</h2><div class="grid" id="gridAll"></div></div>
+  <div class="collection-tabs" id="gameTabs" role="tablist" aria-label="Game categories"></div>
+  <div class="section" id="gamePanel" role="tabpanel" tabindex="0"><h2 id="allTitle">Games</h2><div class="grid" id="gridAll"></div><p class="favorites-empty" id="favoritesEmpty" hidden>Tap the star on any game to keep it here.</p></div>
   <div class="foot" id="foot">Goobs-Games</div>
 </div>
 
@@ -184,6 +183,34 @@
     return p([[x - s, y], [x, y + s / 2], [x, y + 1.5 * s], [x - s, y + s]], .82) + p([[x + s, y], [x, y + s / 2], [x, y + 1.5 * s], [x + s, y + s]], .66) + p([[x, y - s / 2], [x + s, y], [x, y + s / 2], [x - s, y]]);
   }
   var GAMES = [
+{id:"pool",name:"Pocket Club",blurb:"8-ball pool \u00b7 solo or with a friend",path:"games/pool/",art:"<svg viewBox=\"0 0 100 100\" aria-hidden=\"true\"><rect width=\"100\" height=\"100\" fill=\"#173e62\"/><rect x=\"8\" y=\"14\" width=\"84\" height=\"72\" rx=\"12\" fill=\"#9a6039\"/><rect x=\"15\" y=\"21\" width=\"70\" height=\"58\" rx=\"8\" fill=\"#237f9d\"/><path d=\"M20 77L64 29\" stroke=\"#efd9a9\" stroke-width=\"3\"/><circle cx=\"39\" cy=\"53\" r=\"10\" fill=\"#fff9e9\"/><circle cx=\"64\" cy=\"38\" r=\"12\" fill=\"#121e2b\"/><circle cx=\"64\" cy=\"38\" r=\"6\" fill=\"white\"/><text x=\"64\" y=\"42\" text-anchor=\"middle\" font-size=\"11\">8</text><circle cx=\"72\" cy=\"63\" r=\"10\" fill=\"#f1bb45\"/></svg>",status:function(){return "8-ball pool \u00b7 solo or with a friend";}},
+{id:"metro",name:"Metro Lines",blurb:"Build routes. Keep your city moving.",path:"games/metro/",art:"<svg viewBox=\"0 0 100 100\" aria-hidden=\"true\"><rect width=\"100\" height=\"100\" fill=\"#eeeae0\"/><path d=\"M-5 75Q40 22 105 60\" stroke=\"#b4d8e4\" stroke-width=\"18\" fill=\"none\"/><path d=\"M15 20L47 45 82 20M47 45L24 80\" stroke=\"#ee7354\" stroke-width=\"7\" fill=\"none\"/><path d=\"M18 54L47 45 78 78\" stroke=\"#2398c5\" stroke-width=\"7\" fill=\"none\"/><g fill=\"white\" stroke=\"#213e54\" stroke-width=\"3\"><circle cx=\"15\" cy=\"20\" r=\"7\"/><circle cx=\"47\" cy=\"45\" r=\"8\"/><rect x=\"72\" y=\"13\" width=\"14\" height=\"14\"/><rect x=\"17\" y=\"73\" width=\"14\" height=\"14\"/><path d=\"M78 69L87 85H69Z\"/></g></svg>",status:function(){return "Build routes. Keep your city moving.";}},
+    { id: 'rebus', name: 'Rebus', blurb: 'Picture the phrase · Easy, Medium, Hard', path: 'games/rebus/',
+      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="15" fill="#185b8b"/><rect x="14" y="11" width="72" height="78" rx="10" fill="#f6e8c7" stroke="#e1ac55" stroke-width="4"/><text x="50" y="42" text-anchor="middle" font-family="Georgia" font-size="18" font-weight="bold" fill="#164c77">HEAD</text><path d="M28 51h44" stroke="#dca24b" stroke-width="3"/><text x="50" y="73" text-anchor="middle" font-family="Georgia" font-size="16" font-weight="bold" fill="#164c77">HEELS</text></svg>',
+      status: function(){var s=readLS('goobs.rebus.v1')||{},solved=s.solved||{},n=Object.keys(solved).filter(function(k){return solved[k]}).length;return n?n+' of 54 solved':'Easy · Medium · Hard';} },
+    { id: 'snowbound', name: 'Snowbound', blurb: 'Launch & Glide · Endless Ride', path: 'games/snowbound/',
+      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" fill="#319cc8"/><path d="M0 70 50 15 100 70v30H0Z" fill="#e8faff"/><path d="M28 78q27-25 48-7" fill="none" stroke="#e84542" stroke-width="12" stroke-linecap="round"/></svg>',
+      status: function(){var s=readLS('goobs.snowbound.v1')||{};return s.bestEndless||s.bestLaunch?'Best '+Math.max(s.bestEndless||0,s.bestLaunch||0)+' m':'Two ways down the mountain';} },
+    { id: 'contraption', name: 'Contraption Lab', blurb: 'Build a chain reaction in the workshop', path: 'games/contraption/',
+      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="clbg" x2="1" y2="1"><stop stop-color="#bc8047"/><stop offset="1" stop-color="#704122"/></linearGradient></defs><rect width="100" height="100" fill="url(#clbg)"/><g fill="#523219" opacity=".55"><circle cx="16" cy="18" r="2"/><circle cx="42" cy="18" r="2"/><circle cx="70" cy="18" r="2"/><circle cx="20" cy="45" r="2"/><circle cx="50" cy="45" r="2"/><circle cx="83" cy="45" r="2"/></g><path d="M8 31l42 26v8L8 40Z" fill="#d69b58" stroke="#58381e" stroke-width="3"/><circle cx="19" cy="27" r="9" fill="#cedbe0" stroke="#283c46" stroke-width="3"/><path d="M55 73l28-5" stroke="#683e24" stroke-width="7"/><path d="M70 72l-11 18h22Z" fill="#3c4247"/><circle cx="70" cy="72" r="5" fill="#d7a847"/><path d="M86 14v24" stroke="#6a472c" stroke-width="3"/><path d="M72 38q4-23 14-23t14 23Z" fill="#d4a44c" stroke="#5c3b1c" stroke-width="3"/></svg>',
+      status: function(){var s=readLS('contraption.lab.v1');return s&&s.unlocked>1?'Level '+Math.min(s.level||1,s.unlocked)+' · workshop puzzles':'Build a chain reaction';} },
+    {
+      id: 'handheld', name: 'Handheld Sports', blurb: 'Retro LED football & baseball', path: 'games/handheld/',
+      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="hhbg" x2="1" y2="1"><stop stop-color="#376e9e"/><stop offset="1" stop-color="#15314c"/></linearGradient></defs><rect width="100" height="100" fill="url(#hhbg)"/><g transform="rotate(-8 50 50)"><rect x="18" y="9" width="65" height="84" rx="13" fill="#b9a47c"/><rect x="16" y="6" width="65" height="83" rx="13" fill="#efe2bf"/><rect x="23" y="18" width="51" height="36" rx="5" fill="#291018" stroke="#786245" stroke-width="3"/><g fill="#ff5342"><path d="M30 26h7v4h-7zM47 26h7v4h-7zM61 26h7v4h-7zM40 35h7v4h-7zM56 44h7v4h-7z"/><path d="M31 43h8v4h-8z" fill="#ffccab"/></g><path d="M30 64h7v-6h7v6h7v7h-7v7h-7v-7h-7z" fill="#39434a"/><circle cx="64" cy="68" r="9" fill="#cf3828"/><path d="M26 83h42" stroke="#b2a17e" stroke-width="2"/></g></svg>',
+      status: function () { var r = readLS('handheld.records') || {}; var wins = (r.football && r.football.wins || 0) + (r.baseball && r.baseball.wins || 0); return wins ? wins + ' wins · two classic sports' : 'Two sports. Little red lights.'; }
+    },
+
+    {
+      id: 'containment', name: 'Containment', blurb: 'Divide, adapt, escape the deep-sea lab', path: 'games/containment/',
+      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" fill="#102934"/><rect x="13" y="10" width="74" height="80" rx="9" fill="#1d4950"/><path d="M25 70C8 65 10 38 26 35M26 58C8 48 12 25 34 26M26 48C19 16 42 15 48 28" stroke="#8eead4" fill="none" stroke-width="2"/><path d="M28 33C39 15 64 23 75 45S72 78 51 78 16 56 28 33Z" fill="#78cdb5"/><circle cx="52" cy="50" r="14" fill="#205660"/><circle cx="54" cy="48" r="7" fill="#c6ffe6"/></svg>',
+      status: function () { var m = readLS('containment.meta'); return m && m.unlocked ? (m.unlocked + 1) + ' / 12 chambers unlocked' : 'Twelve chambers. One organism.'; }
+    },
+    {
+      id: 'stranded', name: 'Stranded', blurb: 'Cinematic alien-world arcade adventure', path: 'games/stranded/',
+      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" fill="#192e43"/><circle cx="73" cy="25" r="15" fill="#d0c1a9"/><path d="M0 64L22 43 41 66 70 46 100 69V100H0Z" fill="#415e6a"/><path d="M0 82L19 70 43 83 63 64 100 84V100H0Z" fill="#243d4b"/><path d="M72 87L77 44 83 36 89 87Z" fill="#102737"/><path d="M81 48V71" stroke="#9ce6d5"/><path d="M0 88H100V100H0Z" fill="#112432"/><path d="M39 86L40 69 48 69 49 86M38 69L37 56 48 56 51 70" fill="#c7835f"/><path d="M39 56L38 48 45 45 51 50 50 57Z" fill="#486572"/><path d="M43 50H52V54H43Z" fill="#c8fff0"/><path d="M41 75L39 89M47 75L50 89" stroke="#86a3aa" stroke-width="3"/></svg>',
+      status: function () { var m = readLS('stranded.meta'); return m && m.best ? 'Arcade · best ' + m.best.toLocaleString() : 'Six sectors. One way home.'; }
+    },
+
     {
       id: 'zoodoku', name: 'Zoodoku', blurb: 'Animal logic puzzle', path: 'games/zoodoku/',
       art: '<svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" fill="#f4f1fb"/>' + (function () {
@@ -506,6 +533,11 @@
       }
     },
     {
+      id: 'farkle', name: 'Farkle', blurb: 'Six dice. Bank your points or risk another roll.', path: 'games/farkle/',
+      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="16" fill="#245a96"/><rect x="18" y="18" width="64" height="64" rx="14" fill="#fffaf0"/><g fill="#161a21"><circle cx="34" cy="32" r="6"/><circle cx="66" cy="32" r="6"/><circle cx="34" cy="50" r="6"/><circle cx="66" cy="50" r="6"/><circle cx="34" cy="68" r="6"/><circle cx="66" cy="68" r="6"/></g></svg>',
+      status: function () { return 'Roll, bank, or risk it'; }
+    },
+    {
       id: 'dice', name: 'Roll Call', blurb: 'Five dice, thirteen boxes', path: 'games/dice/',
       art: '<svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" fill="#ffe9d6"/>' +
         '<g transform="rotate(-12 34 60)"><rect x="12" y="38" width="44" height="44" rx="10" fill="#fff" stroke="#e05a3a" stroke-width="3"/><g fill="#e05a3a"><circle cx="24" cy="50" r="4.5"/><circle cx="44" cy="50" r="4.5"/><circle cx="34" cy="60" r="4.5"/><circle cx="24" cy="70" r="4.5"/><circle cx="44" cy="70" r="4.5"/></g></g>' +
@@ -669,15 +701,14 @@
       }
     },
     {
-      id: 'pinball', name: 'Harbor Lights', blurb: 'Flip, bump and light the way', path: 'games/pinball/',
+      id: 'pinball', name: 'Goober Ball', blurb: 'Two machines. One more ball.', path: 'games/pinball/',
       art: '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="hlT" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b2a6b"/><stop offset="1" stop-color="#0a5c7a"/></linearGradient></defs><rect width="100" height="100" fill="url(#hlT)"/>' +
         '<path d="M50 34L4 16v26z" fill="#fff6b0" opacity=".3"/><path d="M45 72l2-38h6l2 38z" fill="#fff"/><path d="M46 50h8l.5 7h-9z" fill="#e8354a"/><rect x="45" y="28" width="10" height="7" rx="1.5" fill="#ffe07a"/>' +
         '<circle cx="24" cy="30" r="8" fill="#e8354a"/><circle cx="24" cy="30" r="3.5" fill="#ffd24a"/><circle cx="76" cy="36" r="8" fill="#e8354a"/><circle cx="76" cy="36" r="3.5" fill="#ffd24a"/>' +
         '<path d="M14 88l22-6" stroke="#fff" stroke-width="6" stroke-linecap="round"/><path d="M86 88l-22-6" stroke="#fff" stroke-width="6" stroke-linecap="round"/>' +
         '<circle cx="60" cy="64" r="5" fill="#dfe4ee"/><circle cx="58.5" cy="62.5" r="1.8" fill="#fff"/></svg>',
       status: function () {
-        var m = readLS('pinball.meta'); if (!m || !m.scores || !m.scores.length) return 'Flip, bump and light the way';
-        return 'High score ' + m.scores[0].s.toLocaleString();
+        var a=readLS('pinball.meta'),b=readLS('pinball.goober.meta'),best=Math.max(a&&a.scores&&a.scores.length?a.scores[0].s:0,b&&b.scores&&b.scores.length?b.scores[0].s:0);return best?'High score '+best.toLocaleString():'Goober Ball · Harbor Lights';
       }
     },
     {
@@ -691,26 +722,15 @@
         return (m.level - 1) + ' lots cleared';
       }
     },
+
     {
-      id: 'minigolf', name: 'Seaside Putt', blurb: '18 holes of mini golf by the sea', path: 'games/minigolf/',
-      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" fill="#2fb4e0"/><path d="M0 84c12-6 22-6 34 0s22 6 34 0 22-6 32-1V100H0z" fill="#1d8fd0" opacity=".6"/>' +
-        '<rect x="12" y="10" width="76" height="72" rx="16" fill="#e8b36a"/><rect x="17" y="15" width="66" height="62" rx="12" fill="#4cc25a"/><path d="M17 33h66M17 55h66" stroke="#5fd06b" stroke-width="9" opacity=".7"/>' +
-        '<rect x="40" y="44" width="30" height="8" rx="2" fill="#e8505b"/><g transform="rotate(30 55 48)" fill="#fffaf0" stroke="#8a5a2b" stroke-width="1"><rect x="55" y="45.5" width="16" height="5"/><rect x="39" y="45.5" width="16" height="5"/></g><circle cx="55" cy="48" r="3" fill="#5b3a1e"/>' +
-        '<ellipse cx="62" cy="27" rx="5" ry="4" fill="#16211a"/><path d="M62 27V8" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><path d="M63 8l13 5-13 5z" fill="#ff4d5e"/>' +
-        '<circle cx="34" cy="66" r="5.5" fill="#fff" stroke="#1f2a44" stroke-width="1.6"/><circle cx="32.5" cy="64.5" r="1.6" fill="#e8eef8"/></svg>',
-      status: function () {
-        var m = readLS('minigolf.meta'); if (!m || !(m.reached > 0 || m.best)) return '18 holes of mini golf by the sea';
-        return m.best ? 'Best round ' + m.best : 'On hole ' + ((m.hole || 0) + 1);
-      }
-    },
-    {
-      id: 'board', name: 'Game Chest', blurb: 'Checkers, chess and four in a row', path: 'games/board/',
+      id: 'board', name: 'Game Chest', blurb: 'Checkers, chess, four in a row & Reversi', path: 'games/board/',
       art: '<svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" fill="#3f7d5a"/><rect x="10" y="10" width="80" height="80" rx="8" fill="#f3e9d2"/>' +
         '<g fill="#6f9e84"><rect x="10" y="10" width="20" height="20"/><rect x="50" y="10" width="20" height="20"/><rect x="30" y="30" width="20" height="20"/><rect x="70" y="30" width="20" height="20"/><rect x="10" y="50" width="20" height="20"/><rect x="50" y="50" width="20" height="20"/><rect x="30" y="70" width="20" height="20"/><rect x="70" y="70" width="20" height="20"/></g>' +
         '<circle cx="30" cy="70" r="16" fill="#a8232e"/><circle cx="30" cy="68" r="15" fill="#e8434f"/><circle cx="30" cy="68" r="10" fill="none" stroke="#ff7a82" stroke-width="2.2"/><circle cx="73" cy="74" r="13" fill="#d19b00"/><circle cx="73" cy="73" r="12" fill="#ffd21e"/>' +
         '<path d="M50 62 L53 50 C48 46 49 41 53 37 L46 41 C43 42 40 39 42 36 L54 23 C56 19 59 17 63 16 L65 10 L68 16 C79 19 84 31 81 45 C80 52 77 57 78 62 Z" fill="#fdfbf4" stroke="#2b2f3a" stroke-width="3" stroke-linejoin="round"/><circle cx="57" cy="28" r="2.2" fill="#2b2f3a"/></svg>',
       status: function () {
-        var m = readLS('board.meta'); if (!m || !m.finished) return 'Checkers, chess and four in a row';
+        var m = readLS('board.meta'); if (!m || !m.finished) return 'Checkers, chess, four in a row & Reversi';
         return (m.wins || 0) + ' win' + (m.wins === 1 ? '' : 's') + ' vs the phone';
       }
     },
@@ -728,7 +748,7 @@
       }
     },
     {
-      id: 'golf', name: 'Pin High', blurb: '3D golf for 1-4 players', path: 'games/golf/',
+      id: 'golf', name: 'Golf', blurb: '18 Holes + Seaside Putt', path: 'games/golf/',
       art: '<svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" fill="#8fd0ff"/><path d="M0 62 Q30 50 55 58 T100 54 V100 H0Z" fill="#5fc84b"/><path d="M0 74 Q40 64 100 72 V100 H0Z" fill="#4bab3f"/>' +
         '<ellipse cx="62" cy="62" rx="20" ry="6" fill="#7de96b"/><ellipse cx="62" cy="62" rx="2.6" ry="1.2" fill="#0c140c"/><path d="M62 62V22" stroke="#fff" stroke-width="3" stroke-linecap="round"/><path d="M63 22 L82 28 L63 34Z" fill="#ff3d4f"/>' +
         '<path d="M22 70 Q38 28 60 36" fill="none" stroke="#fff" stroke-width="2.5" stroke-dasharray="3 4" stroke-linecap="round"/><circle cx="22" cy="72" r="5" fill="#fff" stroke="#9aa6c0" stroke-width="1.5"/>' +
@@ -754,27 +774,34 @@
       }
     },
     {
-      id: 'castle', name: 'Castle Crumble', blurb: 'Blast the castle down', path: 'games/castle/',
+      id: 'castle', name: 'Castle Havoc', blurb: 'Cannon siege & trebuchet campaigns', path: 'games/castle/',
       art: '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="ccT" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd23f"/><stop offset="1" stop-color="#ff9a2e"/></linearGradient></defs><rect width="100" height="100" fill="url(#ccT)"/>' +
         '<g fill="#3b3fd6"><rect x="16" y="46" width="16" height="54"/><rect x="68" y="46" width="16" height="54"/><rect x="30" y="58" width="40" height="42"/><rect x="40" y="30" width="20" height="40"/><path d="M14 46l10-16 10 16z"/><path d="M66 46l10-16 10 16z"/><path d="M38 30l12-18 12 18z"/></g>' +
         '<rect x="45" y="80" width="10" height="20" rx="5" fill="#1d1f7a"/><circle cx="70" cy="30" r="9" fill="#fff4b0"/><circle cx="70" cy="30" r="5" fill="#fff"/></svg>',
       status: function () {
-        var m = readLS('castle.meta'); if (!m || !(m.open > 1)) return 'Blast the castle down';
-        var st = 0; for (var k in (m.stars || {})) st += m.stars[k];
-        return (m.open - 1) + ' castles down \u00b7 ' + st + ' stars';
+        var c = readLS('castle.siege2'), s = readLS('castle.sling2');
+        if (!c && !s) return 'Two ways to bring it down';
+        return 'Crumble ' + (c && c.level || 1) + ' · Sling ' + (s && s.level || 1);
       }
     },
     {
-      id: 'outpost', name: 'Outpost Rush', blurb: 'Endless levels, 50 missions: draw lines, take the map', path: 'games/outpost/',
+      id: 'hexslide', name: 'Hex Slide', blurb: 'Slide matching colors together. Ten tiles clear the stack.', path: 'games/hexslide/',
+      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="hexSea" x2="0" y2="1"><stop stop-color="#e3f7f5"/><stop offset="1" stop-color="#b4d8e5"/></linearGradient></defs><rect width="100" height="100" fill="url(#hexSea)"/><g stroke="#ffffff99" stroke-width="2"><path d="M11 57L22 40H43L54 57 43 74H22Z" fill="#198d9e"/><path d="M11 49L22 32H43L54 49 43 66H22Z" fill="#3cdbce"/><path d="M46 72L57 55H78L89 72 78 89H57Z" fill="#6941ac"/><path d="M46 63L57 46H78L89 63 78 80H57Z" fill="#a16aea"/><path d="M46 54L57 37H78L89 54 78 71H57Z" fill="#caa0fb"/></g><text x="67" y="59" text-anchor="middle" fill="white" font-size="18" font-family="system-ui" font-weight="800">10</text></svg>',
+      status: function () { var m=readLS('hexslide.meta'); return m ? 'Board '+(m.open||1)+' of 30 · Endless play' : '30 boards · Endless play'; }
+    },
+    {
+      id: 'bridge', name: 'Bridge Works', blurb: 'Build bridges. Test your engineering. Cross spectacular landscapes.', path: 'games/bridge/',
+      art: '<svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" fill="#b9d6df"/><path d="M0 60L28 20 57 60 79 30 100 57V100H0Z" fill="#78918b"/><path d="M38 68H62L79 100H21Z" fill="#6da4b5"/><g stroke="#294e52" stroke-width="5" fill="none"><path d="M8 65H92M8 88H92M10 65V88L30 65 50 88 70 65 90 88V65M30 65V88M50 65V88M70 65V88"/></g></svg>',
+      status: function () { var m=readLS('bridge.meta'); return m ? 'Site '+Math.min(24,m.open||1)+' of 24 · Free build' : '24 construction sites · Free build'; }
+    },
+    {
+      id: 'outpost', name: 'War Games', blurb: 'Outpost Rush + Frontline Regions: two tactical campaigns', path: 'games/outpost/',
       art: '<svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" fill="#7cc95a"/><path d="M26 72L72 34" stroke="#8fc3ff" stroke-width="9" stroke-linecap="round" opacity=".85"/>' +
         '<g><rect x="14" y="58" width="24" height="26" rx="5" fill="#2f6fe0"/><rect x="14" y="64" width="24" height="4" fill="#1b3f8c"/><rect x="14" y="74" width="24" height="4" fill="#1b3f8c"/><rect x="12" y="50" width="28" height="12" rx="4" fill="#4a8cff"/></g>' +
         '<g><rect x="62" y="22" width="24" height="30" rx="5" fill="#e0443a"/><rect x="62" y="30" width="24" height="4" fill="#8f231c"/><rect x="62" y="40" width="24" height="4" fill="#8f231c"/><rect x="60" y="14" width="28" height="12" rx="4" fill="#ff6a5c"/></g>' +
         '<circle cx="40" cy="58" r="4" fill="#2f6fe0"/><circle cx="50" cy="50" r="4" fill="#2f6fe0"/><circle cx="60" cy="42" r="4" fill="#2f6fe0"/></svg>',
-      status: function () {
-        var m = readLS('outpost.meta'); if (!m || !(m.open > 1)) return 'Endless levels, 50 missions: draw lines, take the map';
-        var st = 0; for (var k in (m.stars || {})) st += m.stars[k];
-        return 'Level ' + m.open + ' \u00b7 ' + st + ' stars';
-      }
+      status: function () { var a=readLS('outpost.meta')||{}, b=readLS('frontline.meta')||{}; return 'Outpost '+(a.open||1)+' · Regions '+(b.open||1); }
+
     },
     {
       id: 'getout2', name: 'Get Out 2!', blurb: 'Deathtraps on set. Get out in one piece.', path: 'games/getout2/',
@@ -793,7 +820,7 @@
       }
     },
     {
-      id: 'getout', name: 'Get Out!', blurb: 'Five locked rooms. Find the way out.', path: 'games/getout/',
+      id: 'getout', name: 'Get Out!', blurb: 'Locked rooms. Find the way out.', path: 'games/getout/',
       art: '<svg viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="goT" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2f5a4f"/><stop offset="1" stop-color="#1b3a33"/></linearGradient><linearGradient id="goB" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f7dc8a"/><stop offset=".5" stop-color="#d9a640"/><stop offset="1" stop-color="#8f5f1a"/></linearGradient></defs><rect width="100" height="100" fill="url(#goT)"/>' +
         '<rect x="28" y="20" width="44" height="72" rx="4" fill="#7b4526"/><rect x="24" y="16" width="52" height="8" rx="2" fill="#5b3519"/><path d="M32 92V28h36v64" fill="#fff4c9" opacity=".95"/><path d="M32 28h20v64H32z" fill="#7b4526"/><path d="M32 28l20-4v72l-20-4z" fill="#8a5530"/><circle cx="47" cy="60" r="3" fill="url(#goB)"/>' +
         '<g transform="translate(70 26) rotate(30)"><circle r="9" fill="none" stroke="url(#goB)" stroke-width="5"/><rect x="-2.5" y="8" width="5" height="22" fill="url(#goB)"/><rect x="2" y="22" width="6" height="4" fill="url(#goB)"/></g></svg>',
@@ -1086,25 +1113,68 @@
   var byId = {};
   GAMES.forEach(function (g) { byId[g.id] = g; });
 
+  // One category per game. Favorites remain in their category as well.
+  var GAME_TABS = [
+    { id: 'puzzles', label: 'Puzzles', title: 'Puzzles & discovery', games: 'metro contraption rebus hexslide bridge zoodoku woodpile patchwork cubecorral screwball merge tapaway match3 mines sort triple parking shelf getout getout2 wickway perch knotty spotdiff hidden cases links' },
+    { id: 'arcade', label: 'Arcade', title: 'Arcade & sports', games: 'snowbound pool handheld containment stranded skeehop homerun snake meanbirds aliens digger blocks maze bubbles bricks topple barrage siege hoops pinball minigolf buzz golf castle outpost pegs deck bowling beacon' },
+    { id: 'tabletop', label: 'TableTop', title: 'Cards, dice, words & boards', games: 'solitaire mahjong dice farkle board casino sudoku huddle nonogram worddice daily wordwheel trivia spin wordboard' },
+    { id: 'favorites', label: 'Favorites', title: 'Your favorites', games: '' }
+  ];
+  var TAB_KEY = 'goobs.menuTab';
+  var activeTab = readLS(TAB_KEY) || 'puzzles';
+  if (activeTab === 'words') { activeTab = 'tabletop'; try { localStorage.setItem(TAB_KEY, JSON.stringify(activeTab)); } catch (e) {} }
+  function validTab(id) { return GAME_TABS.some(function (t) { return t.id === id; }); }
+  if (!validTab(activeTab)) activeTab = 'puzzles';
+  function selectTab(id, focus) {
+    if (!validTab(id)) return;
+    activeTab = id;
+    try { localStorage.setItem(TAB_KEY, JSON.stringify(id)); } catch (e) { /* private/full storage */ }
+    render();
+    window.scrollTo(0, 0);
+    if (focus) $('tab-' + id).focus({ preventScroll: true });
+  }
+  GAME_TABS.forEach(function (t, i) {
+    var b = document.createElement('button'); b.type = 'button'; b.id = 'tab-' + t.id;
+    b.setAttribute('role', 'tab'); b.setAttribute('aria-controls', 'gamePanel'); b.textContent = t.label;
+    b.addEventListener('click', function () { selectTab(t.id, false); });
+    b.addEventListener('keydown', function (e) {
+      var n = e.key === 'ArrowRight' ? (i + 1) % GAME_TABS.length : e.key === 'ArrowLeft' ? (i + GAME_TABS.length - 1) % GAME_TABS.length : e.key === 'Home' ? 0 : e.key === 'End' ? GAME_TABS.length - 1 : -1;
+      if (n >= 0) { e.preventDefault(); selectTab(GAME_TABS[n].id, true); }
+    });
+    $('gameTabs').appendChild(b);
+  });
+
   function open(g) { location.href = g.path; }
 
+  // Local 224px artwork for the collection. Original vector definitions remain
+  // available as a fallback if an individual icon fails to load.
+  GAMES.forEach(function (g) {
+    g.vectorArt = g.art;
+    if (g.id === 'metro') return;
+    if (g.id === 'handheld' || g.id === 'farkle' || g.id === 'bridge') return;
+    g.art = '<img src="icons/games/' + g.id + (g.id==='snowbound'?'-v3.webp':((g.id==='pinball'||g.id==='contraption'||g.id==='pool'||g.id==='skeehop'||g.id==='hexslide')?'-v2.webp':'-v1.webp')) + '" alt="" width="100" height="100" decoding="async" data-game-icon="' + g.id + '">';
+  });
+  document.addEventListener('error', function (e) {
+    var im=e.target, id=im&&im.getAttribute&&im.getAttribute('data-game-icon');
+    if(id&&byId[id]&&im.parentNode)im.parentNode.innerHTML=byId[id].vectorArt;
+  }, true);
   function tile(g) {
     var fav = Goobs.favs().indexOf(g.id) >= 0;
-    var b = document.createElement('button');
-    b.className = 'gtile';
-    b.innerHTML = '<div class="art">' + g.art + '</div><div class="tinfo"><b>' + g.name + '</b><small>' + g.status() + '</small></div>' +
-      '<span class="star' + (fav ? ' on' : '') + '" role="button" aria-label="' + (fav ? 'Remove from' : 'Add to') + ' favorites">' + (fav ? '★' : '☆') + '</span>';
-    b.addEventListener('click', function (e) {
-      if (e.target.closest('.star')) { Goobs.toggleFav(g.id); render(); return; }
-      open(g);
-    });
-    return b;
+    var card = document.createElement('div'); card.className = 'gtile';
+    var b = document.createElement('button'); b.className = 'game-open';
+    b.innerHTML = '<div class="art">' + g.art + '</div><div class="tinfo"><b>' + g.name + '</b><small>' + g.status() + '</small></div>';
+    b.addEventListener('click', function () { open(g); });
+    var star = document.createElement('button'); star.className = 'star' + (fav ? ' on' : '');
+    star.setAttribute('aria-label', (fav ? 'Remove ' : 'Add ') + g.name + (fav ? ' from' : ' to') + ' favorites');
+    star.setAttribute('aria-pressed', String(fav)); star.textContent = fav ? '★' : '☆';
+    star.addEventListener('click', function () { Goobs.toggleFav(g.id); render(); var next = document.querySelector('[data-game="' + g.id + '"] .star'); if (next) next.focus({preventScroll:true}); else $('tab-' + activeTab).focus({preventScroll:true}); });
+    card.setAttribute('data-game', g.id); card.appendChild(b); card.appendChild(star); return card;
   }
 
   // alphabetical, ignoring punctuation, so a series sorts in order: "Get Out!" before "Get Out 2!" (Glenn, 2026-10-03)
   function sortKey(g) { return g.name.replace(/[^A-Za-z0-9 ]+/g, '').replace(/\s+/g, ' ').trim().toLowerCase(); }
   function byName(a, b) { var x = sortKey(a), y = sortKey(b); return x < y ? -1 : x > y ? 1 : 0; }
-  function render() {
+  function render(event) {
     // pick up where you left off (one slim bar)
     var recent = Goobs.recent().filter(function (id) { return byId[id]; });
     var sc = $('secContinue');
@@ -1117,26 +1187,23 @@
       b.addEventListener('click', function () { open(g); });
       sc.appendChild(b);
     }
-    // favorites first, then everything else, each A to Z
-    var favIds = Goobs.favs().filter(function (id) { return byId[id]; });
-    var favs = favIds.map(function (id) { return byId[id]; }).sort(byName);
-    var rest = GAMES.filter(function (g) { return favIds.indexOf(g.id) < 0; }).sort(byName);
-    var sf = $('secFavs');
-    sf.innerHTML = '';
-    if (favs.length) {
-      sf.innerHTML = '<h2>Favorites</h2>';
-      var fg = document.createElement('div'); fg.className = 'grid';
-      favs.forEach(function (gg) { fg.appendChild(tile(gg)); });
-      sf.appendChild(fg);
-    }
-    $('allTitle').textContent = favs.length ? 'More games' : 'All games';
-    var all = $('gridAll');
-    all.innerHTML = '';
-    rest.forEach(function (gg) { all.appendChild(tile(gg)); });
-    var soon = document.createElement('div');
-    soon.className = 'gtile soon';
-    soon.innerHTML = '<span class="tinfo"><b>More on the way</b><small>What should be next?</small></span>';
-    all.appendChild(soon);
+    // Restore the last category across page reloads and game-to-menu returns.
+    var stored = event ? readLS(TAB_KEY) : null;
+    if (stored === 'words') stored = 'tabletop';
+    if (validTab(stored)) activeTab = stored;
+    var category = GAME_TABS.filter(function (t) { return t.id === activeTab; })[0];
+    var ids = activeTab === 'favorites' ? Goobs.favs() : category.games.split(' ');
+    var visible = GAMES.filter(function (g) { return ids.indexOf(g.id) >= 0; }).sort(byName);
+    GAME_TABS.forEach(function (t) {
+      var b = $('tab-' + t.id), selected = t.id === activeTab;
+      b.setAttribute('aria-selected', String(selected)); b.tabIndex = selected ? 0 : -1;
+    });
+    $('gamePanel').setAttribute('aria-labelledby', 'tab-' + activeTab);
+    $('allTitle').textContent = category.title + ' · ' + visible.length;
+    $('favoritesEmpty').hidden = activeTab !== 'favorites' || visible.length > 0;
+    var all = $('gridAll'); all.innerHTML = '';
+    visible.forEach(function (g) { all.appendChild(tile(g)); });
+
   }
 
   // ---------- settings ----------
@@ -1160,7 +1227,7 @@
   // blobs turned into data URLs. Nothing from other sites on the same address. The file is plain JSON:
   // { format: 'goobs-games-backup', version: 1, shell, created, local: { key: text }, idb: [ { name, version, stores } ] }.
   var BK_FORMAT = 'goobs-games-backup', BK_VERSION = 1, BK_LAST = 'goobs.lastBackup';
-  var BK_EXTRA = ['goobs', 'zoodoku', 'neonsiege'];
+  var BK_EXTRA = ['goobs', 'zoodoku', 'neonsiege', 'frontline', 'reversi'];
   function bkNamespaces() { var ns = {}; GAMES.forEach(function (g) { ns[g.id] = 1; }); BK_EXTRA.forEach(function (n) { ns[n] = 1; }); return ns; }
   function bkKeys() {
     var ns = bkNamespaces(), out = [];
