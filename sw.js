@@ -1,6 +1,6 @@
 /* Goobs Games — Snowbound added. Earlier caches retained. */
 const VERSIONS = {
-  "shell": "3.8.16",
+  "shell": "3.8.17",
   "handheld": "1.1.6",
   "zoodoku": "1.12.9",
   "woodpile": "1.7.3",
@@ -8,6 +8,11 @@ const VERSIONS = {
   "cubecorral": "4.1.8",
   "screwball": "4.5.0",
   "carjam": "1.0.0",
+  "prismbreaker": "1.0.0",
+  "crowdcascade": "1.0.0",
+  "neonbricks": "1.0.0",
+  "harborescape": "1.0.0",
+  "juiceslide": "1.0.0",
   "pixelvolley": "1.0.0",
   "skyward": "1.0.0",
   "citydash": "1.0.0",
@@ -139,6 +144,11 @@ const GROUPS = {
     "manifest.json",
     "icons/games/contraption-v2.webp",
     "icons/games/carjam-v1.webp",
+    "icons/games/prismbreaker-v1.webp",
+    "icons/games/crowdcascade-v1.webp",
+    "icons/games/neonbricks-v1.webp",
+    "icons/games/harborescape-v1.webp",
+    "icons/games/juiceslide-v1.webp",
     "icons/games/pixelvolley-v1.webp",
     "icons/games/skyward-v1.webp",
     "icons/games/citydash-v1.webp",
@@ -339,6 +349,46 @@ const GROUPS = {
     "games/carjam/index.html",
     "games/carjam/engine.js",
     "games/carjam/game.js"
+  ],
+  "prismbreaker": [
+    "games/prismbreaker/",
+    "games/prismbreaker/index.html",
+    "games/prismbreaker/game.js",
+    "games/arcade4/common.css",
+    "games/arcade4/core.js",
+    "games/arcade4/brick-engine.js"
+  ],
+  "crowdcascade": [
+    "games/crowdcascade/",
+    "games/crowdcascade/index.html",
+    "games/crowdcascade/game.js",
+    "games/arcade4/common.css",
+    "games/arcade4/core.js",
+    "games/crowdcascade/sky-bridge.webp"
+  ],
+  "neonbricks": [
+    "games/neonbricks/",
+    "games/neonbricks/index.html",
+    "games/neonbricks/game.js",
+    "games/arcade4/common.css",
+    "games/arcade4/core.js",
+    "games/arcade4/brick-engine.js"
+  ],
+  "harborescape": [
+    "games/harborescape/",
+    "games/harborescape/index.html",
+    "games/harborescape/game.js",
+    "games/arcade4/common.css",
+    "games/arcade4/core.js",
+    "games/harborescape/ocean.webp"
+  ],
+  "juiceslide": [
+    "games/juiceslide/",
+    "games/juiceslide/index.html",
+    "games/juiceslide/game.js",
+    "games/arcade4/common.css",
+    "games/arcade4/core.js",
+    "games/juiceslide/beach-board.webp"
   ],
   "pixelvolley": [
     "games/pixelvolley/",
